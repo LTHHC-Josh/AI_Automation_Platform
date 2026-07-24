@@ -1,4 +1,5 @@
 import os
+import sys
 
 from clients.smartsheet_client import SmartsheetClient
 from services.task_service import TaskService
@@ -10,6 +11,20 @@ def clear_screen():
 
 def pause():
     input("\nPress Enter to continue...")
+
+
+def get_user_input(prompt):
+    """
+    Gets user input and allows 'exit' or 'quit'
+    from anywhere in the application.
+    """
+    choice = input(prompt).strip()
+
+    if choice.lower() in ("exit", "quit"):
+        print("\nGoodbye!")
+        sys.exit(0)
+
+    return choice
 
 
 def show_project_summary():
@@ -47,14 +62,15 @@ def task_details(service, task):
         print("\n" + "-" * 60)
         print("1. Update Status")
         print("2. Back")
+        print("Type 'exit' to quit")
 
-        choice = input("\nSelection: ")
+        choice = get_user_input("\nSelection: ")
 
         if choice == "1":
 
             print(f"\nCurrent Status: {task.status}")
 
-            new_status = input("New Status: ")
+            new_status = get_user_input("New Status: ")
 
             service.update_status(task, new_status)
 
@@ -64,6 +80,10 @@ def task_details(service, task):
 
         elif choice == "2":
             return
+
+        else:
+            print("\nInvalid selection.")
+            pause()
 
 
 def browse_tasks():
@@ -87,13 +107,16 @@ def browse_tasks():
             print(f"{i:<5}{task.status:<18}{task.name}")
 
         print("\n0. Back")
+        print("Type 'exit' to quit")
 
-        choice = input("\nSelect Task Number: ")
+        choice = get_user_input("\nSelect Task Number: ")
 
         if choice == "0":
             return
 
         if not choice.isdigit():
+            print("\nPlease enter a valid task number.")
+            pause()
             continue
 
         task = service.get_task(int(choice))
@@ -118,8 +141,9 @@ def run_menu():
         print("\n1. Project Summary")
         print("2. Browse Tasks")
         print("3. Exit")
+        print("\n(You can also type 'exit' at any prompt.)")
 
-        choice = input("\nSelect an option: ")
+        choice = get_user_input("\nSelect an option: ")
 
         if choice == "1":
             show_project_summary()
