@@ -16,46 +16,108 @@ def show_project_summary():
     client = SmartsheetClient()
     sheet = client.get_sheet()
 
-    print("\nProject Summary")
-    print("-" * 40)
-    print(f"Project : {sheet.name}")
+    clear_screen()
+
+    print("=" * 60)
+    print("PROJECT SUMMARY")
+    print("=" * 60)
+
+    print(f"\nProject : {sheet.name}")
     print(f"Rows    : {len(sheet.rows)}")
 
     pause()
 
 
-def find_task():
+def task_details(service, task):
+
+    while True:
+
+        clear_screen()
+
+        print("=" * 60)
+        print("TASK DETAILS")
+        print("=" * 60)
+
+        print(f"\nTask              : {task.name}")
+        print(f"Status            : {task.status}")
+        print(f"Assigned To       : {task.assigned_to}")
+        print(f"% Complete        : {task.percent_complete}")
+        print(f"Latest Comment    : {task.latest_comment}")
+
+        print("\n" + "-" * 60)
+        print("1. Update Status")
+        print("2. Back")
+
+        choice = input("\nSelection: ")
+
+        if choice == "1":
+
+            print(f"\nCurrent Status: {task.status}")
+
+            new_status = input("New Status: ")
+
+            service.update_status(task, new_status)
+
+            print("\n✅ Status updated successfully!")
+
+            pause()
+
+        elif choice == "2":
+            return
+
+
+def browse_tasks():
+
     service = TaskService()
 
-    print("\nFind Task")
-    print("-" * 40)
+    while True:
 
-    task_name = input("Task Name: ")
+        clear_screen()
 
-    row = service.find_task(task_name)
+        tasks = service.get_tasks()
 
-    if row:
-        print("\nTask Found!")
-        print(f"Row ID: {row.id}")
-    else:
-        print("\nTask not found.")
+        print("=" * 80)
+        print("PROJECT TASKS")
+        print("=" * 80)
 
-    pause()
+        print(f"{'#':<5}{'STATUS':<18}TASK")
+        print("-" * 80)
+
+        for i, task in enumerate(tasks, start=1):
+            print(f"{i:<5}{task.status:<18}{task.name}")
+
+        print("\n0. Back")
+
+        choice = input("\nSelect Task Number: ")
+
+        if choice == "0":
+            return
+
+        if not choice.isdigit():
+            continue
+
+        task = service.get_task(int(choice))
+
+        if task is not None:
+            task_details(service, task)
+        else:
+            print("\nInvalid task number.")
+            pause()
 
 
 def run_menu():
+
     while True:
+
         clear_screen()
 
-        print("=" * 50)
-        print("      LTHHC AI AUTOMATION PLATFORM")
-        print("=" * 50)
+        print("=" * 55)
+        print("        LTHHC AI AUTOMATION PLATFORM")
+        print("=" * 55)
 
         print("\n1. Project Summary")
-        print("2. Find Task")
-        print("3. Update Task Status (Coming Soon)")
-        print("4. Add Comment (Coming Soon)")
-        print("5. Exit")
+        print("2. Browse Tasks")
+        print("3. Exit")
 
         choice = input("\nSelect an option: ")
 
@@ -63,12 +125,12 @@ def run_menu():
             show_project_summary()
 
         elif choice == "2":
-            find_task()
+            browse_tasks()
 
-        elif choice == "5":
+        elif choice == "3":
             print("\nGoodbye!")
             break
 
         else:
-            print("\nFeature not built yet.")
+            print("\nInvalid selection.")
             pause()
