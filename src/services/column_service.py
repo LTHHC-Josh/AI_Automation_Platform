@@ -1,4 +1,4 @@
-from clients.smartsheet_client import SmartsheetClient
+from src.clients.smartsheet_client import SmartsheetClient
 
 
 class ColumnService:

@@ -1,6 +1,8 @@
-from clients.smartsheet_client import SmartsheetClient
-from services.column_service import ColumnService
-from models.task import Task
+from src.clients.smartsheet_client import SmartsheetClient
+from src.services.column_service import ColumnService
+from src.services.row_service import RowService
+from src.models.task import Task
+import smartsheet
 
 
 class TaskService:
@@ -8,14 +10,12 @@ class TaskService:
     def __init__(self):
         self.client = SmartsheetClient()
         self.columns = ColumnService()
+        self.rows = RowService()
 
     def _get_sheet(self):
         return self.client.get_sheet()
 
     def get_tasks(self):
-        """
-        Returns a list of Task objects.
-        """
 
         sheet = self._get_sheet()
 
@@ -61,7 +61,7 @@ class TaskService:
                         status=status,
                         assigned_to=assigned,
                         percent_complete=percent,
-                        latest_comment=comment
+                        latest_comment=comment,
                     )
                 )
 
@@ -76,14 +76,67 @@ class TaskService:
 
         return tasks[number - 1]
 
-    def update_status(self, task, new_status):
+    def find_task(self, task_name):
 
-        status_column = self.columns.get("Status")
+        task_name = task_name.strip().lower()
+
+        for task in self.get_tasks():
+
+            if task.name.strip().lower() == task_name:
+                return task
+
+        return None
+
+    def create_task(self, task_name):
+
+        task_column = self.columns.get("Task Name")
+
+        cell = smartsheet.models.Cell()
+        cell.column_id = task_column
+        cell.value = task_name
+
+        return self.rows.create_row([cell])
+
+    def update_field(self, task, column_name, value):
+
+        column_id = self.columns.get(column_name)
 
         self.client.update_cell(
             task.row_id,
-            status_column,
-            new_status
+            column_id,
+            value,
+        )
+
+    def update_status(self, task, new_status):
+
+        self.update_field(
+            task,
+            "Status",
+            new_status,
         )
 
         task.status = new_status
+
+    def update_comment(self, task, comment):
+
+        self.update_field(
+            task,
+            "Latest Comment",
+            comment,
+        )
+
+        task.latest_comment = comment
+
+    def complete_task(self, task_name):
+
+        task = self.find_task(task_name)
+
+        if task is None:
+            print(f"Task not found: {task_name}")
+            return False
+
+        self.update_status(task, "Completed")
+
+        print(f"Completed: {task.name}")
+
+        return True

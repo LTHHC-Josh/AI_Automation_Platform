@@ -1,8 +1,8 @@
 import os
 import sys
 
-from clients.smartsheet_client import SmartsheetClient
-from services.task_service import TaskService
+from src.clients.smartsheet_client import SmartsheetClient
+from src.services.task_service import TaskService
 
 
 def clear_screen():
@@ -18,6 +18,7 @@ def get_user_input(prompt):
     Gets user input and allows 'exit' or 'quit'
     from anywhere in the application.
     """
+
     choice = input(prompt).strip()
 
     if choice.lower() in ("exit", "quit"):
@@ -74,7 +75,7 @@ def task_details(service, task):
 
             service.update_status(task, new_status)
 
-            print("\n✅ Status updated successfully!")
+            print("\nStatus updated successfully!")
 
             pause()
 
