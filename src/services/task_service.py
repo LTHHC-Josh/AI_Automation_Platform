@@ -127,6 +127,103 @@ class TaskService:
 
         task.latest_comment = comment
 
+    def update_percent_complete(self, task, percent_complete):
+        """
+        Updates the percent-complete field.
+
+        Do not use this method when the Smartsheet column is controlled
+        by a column formula.
+        """
+
+        self.update_field(
+            task,
+            "% Complete",
+            percent_complete,
+        )
+
+        task.percent_complete = percent_complete
+
+    def sync_task(
+        self,
+        task,
+        status=None,
+        comment=None,
+    ):
+        """
+        Synchronizes editable task fields with Smartsheet.
+
+        Only changed values are sent, and all changes for the row
+        are included in one Smartsheet API request.
+
+        Returns:
+            True when Smartsheet was updated.
+            False when no changes were needed.
+        """
+
+        updates = {}
+
+        status_changed = (
+            status is not None
+            and task.status != status
+        )
+
+        comment_changed = (
+            comment is not None
+            and task.latest_comment != comment
+        )
+
+        if status_changed:
+            status_column = self.columns.get("Status")
+            updates[status_column] = status
+
+        if comment_changed:
+            comment_column = self.columns.get("Latest Comment")
+            updates[comment_column] = comment
+
+        if not updates:
+            return False
+
+        self.client.update_row(
+            task.row_id,
+            updates,
+        )
+
+        if status_changed:
+            task.status = status
+
+        if comment_changed:
+            task.latest_comment = comment
+
+        return True
+
+    def sync_task_by_name(
+        self,
+        task_name,
+        status=None,
+        comment=None,
+    ):
+        """
+        Finds a task by name and synchronizes its editable fields.
+
+        Returns:
+            True when Smartsheet was updated.
+            False when no changes were needed.
+
+        Raises:
+            ValueError when the task cannot be found.
+        """
+
+        task = self.find_task(task_name)
+
+        if task is None:
+            raise ValueError(f"Task not found: {task_name}")
+
+        return self.sync_task(
+            task=task,
+            status=status,
+            comment=comment,
+        )
+
     def complete_task(self, task_name):
 
         task = self.find_task(task_name)
@@ -135,8 +232,14 @@ class TaskService:
             print(f"Task not found: {task_name}")
             return False
 
-        self.update_status(task, "Completed")
+        changed = self.sync_task(
+            task=task,
+            status="Completed",
+        )
 
-        print(f"Completed: {task.name}")
+        if changed:
+            print(f"Completed: {task.name}")
+        else:
+            print(f"Already completed: {task.name}")
 
         return True

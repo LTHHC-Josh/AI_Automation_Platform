@@ -4,6 +4,7 @@ import smartsheet
 
 
 class SmartsheetClient:
+
     def __init__(self):
         load_dotenv()
 
@@ -23,6 +24,7 @@ class SmartsheetClient:
         return self.client.Sheets.get_sheet(self.sheet_id)
 
     def list_columns(self):
+
         sheet = self.get_sheet()
 
         print("\nColumns:\n")
@@ -31,6 +33,7 @@ class SmartsheetClient:
             print(f"{column.title} --> {column.id}")
 
     def update_cell(self, row_id, column_id, value):
+
         row = smartsheet.models.Row()
         row.id = row_id
 
@@ -39,6 +42,39 @@ class SmartsheetClient:
         cell.value = value
 
         row.cells.append(cell)
+
+        self.client.Sheets.update_rows(
+            self.sheet_id,
+            [row]
+        )
+
+    def update_row(self, row_id, updates):
+        """
+        Updates multiple cells in a single Smartsheet API request.
+
+        Parameters
+        ----------
+        row_id : int
+            Smartsheet row ID
+
+        updates : dict
+            {
+                column_id: value,
+                column_id: value,
+                ...
+            }
+        """
+
+        row = smartsheet.models.Row()
+        row.id = row_id
+
+        for column_id, value in updates.items():
+
+            cell = smartsheet.models.Cell()
+            cell.column_id = column_id
+            cell.value = value
+
+            row.cells.append(cell)
 
         self.client.Sheets.update_rows(
             self.sheet_id,
