@@ -1,7 +1,9 @@
 from src.ai import config
 from src.ai.provider_loader import ProviderLoader
-from src.ai.llm.llm_registry import LLMRegistry
+
 import src.ai.llm.providers as providers
+
+from src.ai.llm.llm_registry import LLMRegistry
 
 
 class LLMFactory:
@@ -11,7 +13,18 @@ class LLMFactory:
 
     @staticmethod
     def create():
+        """
+        Create the configured LLM provider instance.
+        """
 
         ProviderLoader.load(providers)
 
-        return LLMRegistry.get(config.LLM_PROVIDER)
+        provider_class = LLMRegistry.get(config.LLM_PROVIDER)
+
+        if provider_class is None:
+            raise ValueError(
+                f"No LLM provider registered with the name "
+                f"'{config.LLM_PROVIDER}'."
+            )
+
+        return provider_class()
