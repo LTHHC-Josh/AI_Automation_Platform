@@ -11,11 +11,17 @@ class GraphClient:
 
     def _headers(self) -> dict:
         return {
-            "Authorization": f"Bearer {self.auth.get_access_token()}",
+            "Authorization": (
+                f"Bearer {self.auth.get_access_token()}"
+            ),
             "Content-Type": "application/json",
         }
 
-    def get(self, endpoint: str, params: dict | None = None):
+    def get(
+        self,
+        endpoint: str,
+        params: dict | None = None,
+    ):
         response = requests.get(
             f"{self.BASE_URL}{endpoint}",
             headers=self._headers(),
@@ -24,9 +30,17 @@ class GraphClient:
         )
 
         response.raise_for_status()
+
+        if not response.content:
+            return {}
+
         return response.json()
 
-    def post(self, endpoint: str, payload: dict):
+    def post(
+        self,
+        endpoint: str,
+        payload: dict,
+    ):
         response = requests.post(
             f"{self.BASE_URL}{endpoint}",
             headers=self._headers(),
@@ -35,4 +49,27 @@ class GraphClient:
         )
 
         response.raise_for_status()
+
+        if not response.content:
+            return {}
+
+        return response.json()
+
+    def patch(
+        self,
+        endpoint: str,
+        payload: dict,
+    ):
+        response = requests.patch(
+            f"{self.BASE_URL}{endpoint}",
+            headers=self._headers(),
+            json=payload,
+            timeout=30,
+        )
+
+        response.raise_for_status()
+
+        if not response.content:
+            return {}
+
         return response.json()

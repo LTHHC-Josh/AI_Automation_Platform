@@ -16,4 +16,6 @@ __pycache__/
 
 # Logs
 *.log
-logs/
+logs/data/incoming/
+data/ocr_cache/
+data/incoming/
