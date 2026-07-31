@@ -2,8 +2,6 @@
 AI configuration.
 """
 
-LLM_PROVIDER = "mock"
-
-OCR_PROVIDER = "mock"
-
-LLM_MODEL = "mock"
+LLM_PROVIDER = "ollama"
+OCR_PROVIDER = "paddle"
+LLM_MODEL = "llama3.1:8b"

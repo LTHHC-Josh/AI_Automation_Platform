@@ -7,9 +7,24 @@ class LLMProvider(ABC):
     """
 
     @abstractmethod
-    def classify(self, text):
-        pass
+    def classify(
+        self,
+        text: str,
+    ) -> dict:
+        """
+        Classify OCR text.
+        """
+
+        raise NotImplementedError
 
     @abstractmethod
-    def extract(self, text, prompt):
-        pass
+    def extract(
+        self,
+        text: str,
+        prompt: str,
+    ) -> dict:
+        """
+        Extract structured data from OCR text.
+        """
+
+        raise NotImplementedError
