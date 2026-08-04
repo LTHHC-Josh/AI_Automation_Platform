@@ -6,7 +6,7 @@ PROJECT_JOURNAL = """
 LTHHC AI AUTOMATION PLATFORM - DEVELOPMENT JOURNAL
 ============================================================
 
-Last updated: 2026-07-31
+Last updated: 2026-08-04
 
 Repository:
 LTHHC-Josh/AI_Automation_Platform
@@ -22,10 +22,10 @@ DEVELOPMENT WORKFLOW
 2. Trace dependencies before changing code.
 3. Preserve the approved architecture.
 4. Implement the feature.
-5. Run real or clearly identified mock tests.
-6. Update this project tracker.
+5. Run real or clearly identified synthetic tests.
+6. Update this project tracker after meaningful tested work.
 7. Verify that secrets and PHI are excluded.
-8. Commit and push tested work.
+8. Commit and push only tested, safe source files.
 
 Always provide complete file contents when code must be replaced.
 
@@ -39,7 +39,8 @@ Microsoft 365 shared mailbox
   -> Local PaddleOCR
   -> Local Ollama
   -> Structured extraction
-  -> Deterministic validation
+  -> Field-level evidence preservation
+  -> Deterministic evidence validation
   -> Business rules
   -> Human-review decision
   -> Smartsheet
@@ -74,6 +75,9 @@ File
   -> OCR or cached OCR text
   -> Separate Ollama classification request
   -> Separate Ollama structured-extraction request
+  -> Preserve field-level value, confidence, and source_text
+  -> Deterministic evidence validation
+  -> Synchronize corrected flat extraction values
   -> Deterministic business rules
   -> Human-review decision
   -> Document result
@@ -166,6 +170,7 @@ Connection testing confirmed:
 - Classification requests work
 - Structured-extraction requests work
 - Structured JSON responses work
+- Field-level value, confidence, and source_text can be returned
 
 Current performance baseline for a cached three-page authorization:
 
@@ -194,6 +199,60 @@ acceptable processing time, concurrency, model size, context length,
 storage, and accuracy requirements are better established.
 
 ------------------------------------------------------------
+FIELD-LEVEL EVIDENCE STATUS
+------------------------------------------------------------
+
+Field-level extraction evidence is now preserved on the Document model.
+
+Each extracted field can retain:
+
+- value
+- confidence
+- source_text
+
+The platform also retains backward-compatible flat structures:
+
+- extracted_data
+- field_confidences
+
+The DocumentProcessor converts Ollama extraction output into evidence
+records, then synchronizes corrected values and confidence scores back
+into the flat structures used by business rules and human review.
+
+Original source_text remains preserved after deterministic correction.
+
+This feature was tested successfully with a real cached OCR document and
+real local Ollama extraction.
+
+------------------------------------------------------------
+DETERMINISTIC EVIDENCE VALIDATION STATUS
+------------------------------------------------------------
+
+A deterministic evidence-validation service is implemented and active
+between extraction and business rules.
+
+Current non-business-specific checks include:
+
+- Normalize supported dates to YYYY-MM-DD
+- Verify normalized dates appear in source evidence
+- Deduplicate service-code lists
+- Deduplicate authorized-unit lists
+- Validate structured identifiers against source evidence
+- Validate service-code tokens against source evidence
+- Validate modifier structure
+- Compare service_code with service_codes
+- Clear request_type when checkbox or selection evidence is unsupported
+- Clear approved_visits when approval context is unsupported
+- Clear fields that require source evidence but have none
+- Set invalidated field confidence to 0.0
+- Preserve source_text after invalidation
+- Emit deterministic validation actions
+- Synchronize corrected values before business rules execute
+
+The validator does not currently apply payer-specific, service-line,
+quantity, or authorization workflow conclusions.
+
+------------------------------------------------------------
 REAL DOCUMENT TEST STATUS
 ------------------------------------------------------------
 
@@ -202,17 +261,36 @@ A real scanned authorization document was processed using:
 - Real local PaddleOCR cache
 - Real local Ollama classification
 - Real local Ollama extraction
+- Real field-level evidence preservation
+- Real deterministic evidence validation
 - Real deterministic business rules
 - Real human-review decision
 
-Verified reliable behavior:
+Verified real behavior:
 
 - Document classified as a generic authorization
-- Service code extraction works
-- Multiple authorized-unit values can be retained
-- Modifier extraction can work
-- Authorization quantity is not automatically approved
-- Document is routed to human review
+- Classification confidence returned as 90 percent
+- Member ID remained supported by source evidence
+- Authorization number remained supported by source evidence
+- Service code remained supported by source evidence
+- Service-code list remained supported and deduplicated
+- Modifier remained supported and structurally valid
+- Provider NPI remained supported by source evidence
+- Diagnosis code remained supported by source evidence
+- Start date normalized to YYYY-MM-DD
+- End date normalized to YYYY-MM-DD
+- Member date of birth normalized to YYYY-MM-DD
+- Ambiguous request type was cleared
+- Unsupported approved visits value was cleared
+- Invalidated fields were assigned 0.0 confidence
+- Authorized unit values were preserved without automatic interpretation
+- Source evidence remained available after correction
+- Document was routed to human review
+
+Real deterministic validation actions:
+
+- Request type requires checkbox or selection verification
+- Approved visits are not supported by clear approval evidence
 
 Current business-rule action:
 
@@ -222,25 +300,109 @@ Current review status:
 
 Human Review Recommended
 
+Current review reasons include:
+
+- One or more extracted fields have confidence below 85 percent
+- Request type requires checkbox or selection verification
+- Approved visits are not supported by clear approval evidence
+- Authorization quantity requires verification
+
+The real test output contained PHI and must remain local. No patient
+values or OCR evidence should be added to source files, documentation,
+the tracker, or GitHub.
+
 ------------------------------------------------------------
-KNOWN EXTRACTION LIMITATIONS
+SYNTHETIC EVIDENCE-VALIDATION TEST STATUS
+------------------------------------------------------------
+
+Test file:
+
+scripts/test_evidence_validation.py
+
+Test type:
+
+Synthetic deterministic test with no PHI and no external dependencies
+
+Verified behavior:
+
+- Matching identifiers were preserved
+- Unsupported identifiers were cleared
+- Unsupported identifier confidence was set to 0.0
+- Ambiguous request type was cleared
+- Unsupported approved visits were cleared
+- Dates were normalized
+- Duplicate service codes were removed
+- Valid modifier evidence was preserved
+- Validation actions were emitted
+
+Result:
+
+Passed
+Failed: 0
+
+This test does not call PaddleOCR, Ollama, Microsoft Graph, or
+Smartsheet.
+
+------------------------------------------------------------
+SYNTHETIC REVIEW-DECISION TEST STATUS
+------------------------------------------------------------
+
+Test file:
+
+tests/test_review_decision_service.py
+
+Test type:
+
+Synthetic deterministic test with no PHI and no external dependencies
+
+Verified behavior:
+
+- Clean documents can receive Verified by AI
+- Validation actions trigger human review
+- Field confidence below 85 percent triggers review
+- Classification confidence below 90 percent triggers recommended review
+- Classification confidence below 75 percent triggers required review
+- Successful business-rule actions do not trigger review
+- Business-rule failures trigger review
+- Duplicate review reasons are removed
+- Missing structured data triggers review
+
+Result:
+
+Passed: 9
+Failed: 0
+
+This test does not call PaddleOCR, Ollama, Microsoft Graph, or
+Smartsheet.
+
+------------------------------------------------------------
+KNOWN EXTRACTION AND VALIDATION LIMITATIONS
 ------------------------------------------------------------
 
 The current llama3.1:8b extraction output is not approved for automatic
-processing.
+processing without human review.
 
 Observed limitations:
 
-- Ambiguous checkbox labels may be treated as selected.
-- Initial Request may be returned without reliable checkbox evidence.
-- A requested visit quantity may be treated as approved.
-- Dates are not consistently normalized to YYYY-MM-DD.
-- The model may assign 1.0 confidence to ambiguous fields.
-- Minimum field confidence can therefore appear artificially high.
+- Ambiguous checkbox labels may be treated as selected by the model.
+- Initial Request may be returned without reliable selection evidence.
+- Requested visit quantities may be presented as approved values.
+- The model may assign 1.0 confidence to ambiguous or weakly supported
+  fields.
+- Current deterministic validation clears known unsupported fields but
+  does not yet provide full confidence calibration.
+- Person names, payer names, provider names, descriptions, and status
+  text are not yet deterministically compared with source evidence.
+- Authorized-unit values are retained but their business meaning has not
+  been confirmed.
+- Multiple service-line rows are not yet modeled as separate structured
+  service-line records.
+- The current field structures may eventually need a dedicated model
+  instead of nested dictionaries.
 - Prompt instructions alone do not reliably enforce evidence rules.
 
-The business-rule and human-review layers prevented automatic approval,
-but extraction accuracy still requires deterministic validation.
+Human review remains required whenever deterministic evidence or
+business rules are incomplete.
 
 ------------------------------------------------------------
 AUTHORIZATION BUSINESS-RULE STATUS
@@ -267,26 +429,73 @@ Current conservative behavior:
 - Require human verification for authorization quantity interpretation.
 - Require human verification when subtype evidence is ambiguous.
 
+A tested example was confirmed by the user to be a telemonitoring
+authorization associated with the Remote Patient Monitoring service
+line.
+
+That information is currently treated only as confirmed context for the
+example. It has not been implemented as a universal service-code,
+payer, service-line, or authorization-type rule.
+
 Required, optional, and conditionally required fields still need to be
 confirmed with management.
+
+Formal business-rule training has not yet started.
+
+------------------------------------------------------------
+TRAINING STATUS
+------------------------------------------------------------
+
+Training currently means building confirmed operational knowledge,
+including:
+
+- confirmed document labels
+- extraction schemas
+- prompt rules
+- payer terminology
+- corrected examples
+- aliases
+- service-code mappings
+- modifier mappings
+- validation rules
+- business rules
+- Smartsheet mappings
+- human-review feedback
+
+The current work is focused on completing and stabilizing the technical
+pipeline before formal business-rule training.
+
+Do not hard-code conclusions from one document.
+
+Fine-tuning is not currently required or approved as the next step.
 
 ------------------------------------------------------------
 HUMAN-REVIEW STATUS
 ------------------------------------------------------------
 
-The ReviewDecisionService is implemented and active.
+The ReviewDecisionService is implemented, active, and synthetically
+tested.
 
-Human review is required when:
+Human review can be triggered by:
 
-- Classification confidence is below threshold
-- Required evidence is missing
-- A field has low confidence
-- Values conflict
-- Dates are invalid
-- Status is unclear
-- Document type is ambiguous
-- Business rules fail
-- The model appears to guess
+- Missing document type
+- Classification confidence below threshold
+- Field confidence below threshold
+- Missing structured extraction data
+- Deterministic evidence-validation actions
+- Business-rule actions other than registered success actions
+- Unsupported evidence
+- Ambiguous request type
+- Unsupported approved quantity
+- Authorization quantity requiring verification
+
+Current statuses:
+
+Verified by AI
+Human Review Recommended
+Human Review Required
+
+Duplicate review reasons are removed.
 
 Human review is functioning as a safety control.
 
@@ -337,26 +546,30 @@ results. The production pipeline was restored to separate requests.
 FILES CREATED OR MODIFIED
 ------------------------------------------------------------
 
-Production and service files:
+Files created:
+
+src/services/evidence_validation_service.py
+scripts/test_evidence_validation.py
+tests/test_review_decision_service.py
+
+Files modified:
+
+src/models/document.py
+src/document_processing/document_processor.py
+src/services/review_decision_service.py
+scripts/test_molina_document.py
+update_project_tracker.py
+
+Previously implemented production and service files:
 
 src/ai/config.py
 src/ai/ocr/providers/paddle_ocr_provider.py
 src/ai/llm/llm_provider.py
 src/ai/llm/llm_service.py
 src/ai/llm/providers/ollama_provider.py
-src/document_processing/document_processor.py
 src/business_rules/rules/authorization_rule.py
-src/services/review_decision_service.py
-src/models/document.py
 
-Test files:
-
-scripts/test_ollama_connection.py
-scripts/test_molina_document.py
-scripts/test_molina_timing.py
-scripts/test_combined_ollama_timing.py
-
-Graph files already implemented:
+Previously implemented Graph files:
 
 src/graph/config.py
 src/graph/auth.py
@@ -366,59 +579,105 @@ src/graph/attachment_service.py
 src/graph/mailbox_processor.py
 
 ------------------------------------------------------------
+TESTS RUN
+------------------------------------------------------------
+
+Synthetic deterministic evidence-validation test:
+
+python -m scripts.test_evidence_validation
+
+Result:
+
+Passed
+Failed: 0
+
+Real local document regression test:
+
+python -m scripts.test_molina_document
+
+Result:
+
+Passed
+
+Real or mock status:
+
+Real cached PaddleOCR text
+Real local Ollama classification
+Real local Ollama extraction
+Real deterministic evidence validation
+Real business rules
+Real human-review decision
+
+Synthetic review-decision test:
+
+python -m tests.test_review_decision_service
+
+Result:
+
+Passed: 9
+Failed: 0
+
+Real or mock status:
+
+Synthetic deterministic test
+
+Syntax checks were also run with Python compileall before selected
+behavior tests. Syntax checks confirm that Python can parse the files,
+but they do not replace behavioral tests.
+
+------------------------------------------------------------
 EXACT NEXT DEVELOPMENT STEP
 ------------------------------------------------------------
 
-Retain field-level extraction evidence.
+Add focused automated tests for EvidenceValidationService under the
+project tests directory, then improve confidence handling without adding
+unconfirmed business rules.
 
 Start with:
 
-1. src/models/document.py
-2. src/document_processing/document_processor.py
-3. scripts/test_molina_document.py
+1. tests/test_evidence_validation_service.py
+2. src/services/evidence_validation_service.py
+3. src/models/document.py
+4. src/document_processing/document_processor.py
 
-Add a field-evidence structure that preserves:
+Initial test coverage should include:
 
-- extracted value
-- confidence
-- source_text
+- Missing source_text clears protected structured fields
+- Supported alphanumeric identifiers remain intact
+- Unsupported identifiers are cleared
+- Supported date evidence normalizes correctly
+- Unsupported date evidence is cleared
+- Duplicate service codes are removed
+- Conflicting service_code and service_codes trigger review
+- Invalid modifier structures are cleared
+- Validation actions remain deduplicated
+- Original source_text remains preserved after invalidation
+- Flat extracted_data and field_confidences remain synchronized
 
-Then implement deterministic evidence validation before business rules.
+After automated evidence-validator coverage is complete, continue with
+technical extraction structure for multiple authorization service lines.
 
-Target flow:
-
-Ollama extraction
-  -> Preserve value, confidence, and source_text
-  -> Deterministic evidence validation
-  -> Clear or downgrade unsupported values
-  -> Business rules
-  -> Human-review decision
-
-Initial deterministic checks should focus on:
-
-- request_type checkbox ambiguity
-- requested versus approved quantities
-- date normalization
-- service-code deduplication
-- modifier validation
-- confidence downgrading when source evidence is insufficient
-
-Do not add payer-specific conclusions that have not been confirmed.
+Do not define payer-specific, RPM-specific, service-code, quantity, or
+Smartsheet business mappings until the technical pipeline is stable and
+the rules are confirmed.
 
 ------------------------------------------------------------
 NEXT SESSION START COMMANDS
 ------------------------------------------------------------
 
-git status
+git status --short
 git diff --stat
 git diff --check
 
 Then inspect:
 
+src/services/evidence_validation_service.py
+tests/test_review_decision_service.py
+scripts/test_evidence_validation.py
+scripts/test_molina_document.py
 src/models/document.py
 src/document_processing/document_processor.py
-scripts/test_molina_document.py
-src/ai/llm/providers/ollama_provider.py
+src/services/review_decision_service.py
 
 ============================================================
 """
@@ -434,8 +693,9 @@ updates = [
         "Completed",
         (
             "Completed the approved local-first architecture using Microsoft "
-            "Graph, local PaddleOCR, local Ollama, structured extraction, "
-            "deterministic business rules, human review, and Smartsheet."
+            "Graph, local PaddleOCR, local Ollama, field-level evidence "
+            "preservation, deterministic evidence validation, business rules, "
+            "human review, and Smartsheet."
         ),
     ),
     (
@@ -443,8 +703,8 @@ updates = [
         "Completed",
         (
             "Completed integration architecture for Microsoft Graph mailbox "
-            "ingestion followed by local OCR, local LLM processing, "
-            "deterministic validation, human review, and Smartsheet."
+            "ingestion followed by local OCR, local LLM processing, structured "
+            "extraction, evidence validation, human review, and Smartsheet."
         ),
     ),
     (
@@ -452,8 +712,9 @@ updates = [
         "Completed",
         (
             "Implemented provider-based OCR and LLM architecture with "
-            "registries, factories, provider discovery, deterministic business "
-            "rules, and human-review decisions."
+            "registries, factories, field-level extraction evidence, "
+            "deterministic evidence validation, business rules, and "
+            "human-review decisions."
         ),
     ),
     (
@@ -469,9 +730,9 @@ updates = [
         "Validate Development Environment",
         "Completed",
         (
-            "Python 3.13 virtual environment, PaddlePaddle, PaddleOCR, Ollama, "
-            "llama3.1:8b, Microsoft Graph, Git, and test execution were "
-            "validated locally."
+            "Python virtual environment, PaddlePaddle, PaddleOCR, Ollama, "
+            "llama3.1:8b, Microsoft Graph, Git, synthetic tests, and real local "
+            "document processing were validated."
         ),
     ),
     (
@@ -504,11 +765,10 @@ updates = [
         "Create Prompt Templates",
         "In Progress",
         (
-            "Implemented local Ollama classification and extraction prompts. "
-            "Real testing showed that prompt instructions alone do not reliably "
-            "control checkbox interpretation, approval quantities, date "
-            "normalization, or confidence calibration. Deterministic evidence "
-            "validation is the next step."
+            "Implemented local Ollama classification and extraction prompts "
+            "that request field-level value, confidence, and source_text. Real "
+            "testing confirms that prompt instructions still require "
+            "deterministic evidence validation."
         ),
     ),
     (
@@ -516,57 +776,56 @@ updates = [
         "In Progress",
         (
             "Implemented local Ollama classification with structured JSON. A "
-            "real authorization was classified as authorization, but subtype "
-            "classification remains unapproved when evidence is ambiguous."
+            "real authorization was classified as a generic authorization. "
+            "Subtype and workflow classification remain untrained."
         ),
     ),
     (
         "Implement Data Extraction",
         "In Progress",
         (
-            "Implemented local Ollama structured extraction with field-level "
-            "confidence and source_text in the provider response. Real testing "
-            "extracts key authorization fields, but unsupported checkbox and "
-            "quantity interpretations still require deterministic correction."
+            "Implemented local Ollama structured extraction and preserved "
+            "field-level value, confidence, and source_text. Real testing "
+            "confirmed key fields can be retained while unsupported request "
+            "type and approved-visit values are cleared deterministically."
         ),
     ),
     (
         "Validate AI Output",
         "In Progress",
         (
-            "Validated real local PaddleOCR and Ollama output. Human review "
-            "correctly blocks automatic processing, but llama3.1:8b currently "
-            "returns unsupported values and unrealistically high confidence for "
-            "some fields. Field evidence must be preserved and validated."
+            "Implemented deterministic evidence validation before business "
+            "rules. Real testing confirmed identifier evidence checks, date "
+            "normalization, service-code deduplication, unsupported-field "
+            "clearing, confidence downgrading, and human-review routing."
         ),
     ),
     (
         "Implement Business Rules",
         "In Progress",
         (
-            "Authorization rules now use conservative structural validation and "
-            "require verification of authorization quantities and ambiguous "
-            "subtypes. Unconfirmed business interpretations are not "
-            "automatically approved."
+            "Authorization rules remain conservative and separate from evidence "
+            "validation. Authorization quantities still require human "
+            "verification because formal business-rule training has not begun."
         ),
     ),
     (
         "Validate Business Rules",
         "In Progress",
         (
-            "Real authorization testing confirms that quantity interpretation "
-            "is routed to human verification. Final validation rules remain "
-            "pending management confirmation of required fields, optional "
-            "fields, units, visits, sessions, and subtype semantics."
+            "Real authorization testing confirms that evidence validation and "
+            "quantity interpretation route the document to human review. Final "
+            "business rules remain pending confirmed management requirements."
         ),
     ),
     (
         "Integration Testing",
         "In Progress",
         (
-            "Microsoft Graph mailbox processing, attachment download, local OCR, "
-            "local Ollama processing, business rules, and human review have been "
-            "tested. Extraction accuracy and final Smartsheet mappings remain "
+            "Tested Microsoft Graph mailbox processing, attachment download, "
+            "local OCR, local Ollama, field-level evidence preservation, "
+            "deterministic evidence validation, business rules, and human "
+            "review. Final mappings and end-to-end Smartsheet behavior remain "
             "under development."
         ),
     ),

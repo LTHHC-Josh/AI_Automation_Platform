@@ -6,26 +6,22 @@ from src.models.document import Document
 @dataclass
 class ReviewDecision:
     """
-    Represents the platform's decision about whether a processed
-    document needs human verification.
+    Represents the platform's human-review decision.
     """
 
     needs_human_review: bool
     review_status: str
-    reasons: list[str] = field(default_factory=list)
+    reasons: list[str] = field(
+        default_factory=list
+    )
     classification_confidence: float = 0.0
     minimum_field_confidence: float | None = None
 
 
 class ReviewDecisionService:
     """
-    Determines whether a processed document can continue automatically
-    or must be reviewed by a person.
-
-    Confidence values must use decimal form:
-
-        0.95 = 95%
-        0.80 = 80%
+    Determines whether a document can continue automatically or must
+    be reviewed by a person.
     """
 
     AUTO_APPROVE_CLASSIFICATION_THRESHOLD = 0.90
@@ -46,8 +42,10 @@ class ReviewDecisionService:
             document.confidence
         )
 
-        minimum_field_confidence = self._get_minimum_field_confidence(
-            document.field_confidences
+        minimum_field_confidence = (
+            self._get_minimum_field_confidence(
+                document.field_confidences
+            )
         )
 
         if not document.document_type:
@@ -71,25 +69,34 @@ class ReviewDecisionService:
                 "Document classification confidence is below 90%."
             )
 
-        if minimum_field_confidence is not None:
-            if (
-                minimum_field_confidence
-                < self.FIELD_CONFIDENCE_THRESHOLD
-            ):
-                reasons.append(
-                    "One or more extracted fields have confidence below 85%."
-                )
+        if (
+            minimum_field_confidence is not None
+            and minimum_field_confidence
+            < self.FIELD_CONFIDENCE_THRESHOLD
+        ):
+            reasons.append(
+                "One or more extracted fields have confidence below 85%."
+            )
 
         if not document.extracted_data:
             reasons.append(
                 "No structured data was extracted from the document."
             )
 
+        for action in document.validation_actions:
+            reasons.append(
+                action
+            )
+
         for action in document.rule_actions:
             if action not in self.SUCCESS_ACTIONS:
-                reasons.append(action)
+                reasons.append(
+                    action
+                )
 
-        reasons = self._remove_duplicates(reasons)
+        reasons = self._remove_duplicates(
+            reasons
+        )
 
         if not reasons:
             return ReviewDecision(
@@ -124,28 +131,40 @@ class ReviewDecisionService:
             return None
 
         normalized_confidences = [
-            self._normalize_confidence(value)
+            self._normalize_confidence(
+                value
+            )
             for value in field_confidences.values()
         ]
 
         if not normalized_confidences:
             return None
 
-        return min(normalized_confidences)
+        return min(
+            normalized_confidences
+        )
 
     def _normalize_confidence(
         self,
         value,
     ) -> float:
         try:
-            confidence = float(value)
+            confidence = float(
+                value
+            )
         except (TypeError, ValueError):
             return 0.0
 
         if confidence > 1:
             confidence = confidence / 100
 
-        return max(0.0, min(confidence, 1.0))
+        return max(
+            0.0,
+            min(
+                confidence,
+                1.0,
+            ),
+        )
 
     def _remove_duplicates(
         self,
@@ -155,6 +174,8 @@ class ReviewDecisionService:
 
         for value in values:
             if value not in unique_values:
-                unique_values.append(value)
+                unique_values.append(
+                    value
+                )
 
         return unique_values
