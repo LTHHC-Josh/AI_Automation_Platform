@@ -39,8 +39,9 @@ Microsoft 365 shared mailbox
   -> Local PaddleOCR
   -> Local Ollama
   -> Structured extraction
-  -> Field-level evidence preservation
-  -> Deterministic evidence validation
+  -> Controlled extraction retry when structurally incomplete
+  -> Independent deterministic candidate validation
+  -> Stronger supported candidate selection
   -> Business rules
   -> Human-review decision
   -> Smartsheet
@@ -75,15 +76,25 @@ File
   -> OCR or cached OCR text
   -> Separate Ollama classification request
   -> Separate Ollama structured-extraction request
+  -> Structural completeness check
+  -> Optional single controlled extraction retry
   -> Preserve field-level value, confidence, and source_text
   -> Preserve optional authorization service-line records
-  -> Deterministic evidence validation
+  -> Independently validate each extraction candidate
+  -> Select the stronger deterministically supported candidate
   -> Synchronize corrected flat extraction values
   -> Deterministic business rules
   -> Human-review decision
   -> Document result
 
 Classification and extraction intentionally remain separate.
+
+Extraction candidates are never merged.
+
+Values from one attempt are never copied into another attempt.
+
+When two validated candidates have the same deterministic score, the
+first attempt is retained.
 
 A combined Ollama request was tested on 2026-07-31. It improved runtime
 by only approximately 2.3 percent and materially reduced extraction
@@ -117,6 +128,14 @@ Verified Graph behavior:
 - Prevent duplicate processing
 
 Mailbox processing and duplicate prevention were tested successfully.
+
+Dedicated authentication-error testing remains incomplete for:
+
+- Invalid credentials
+- Expired client secrets
+- Missing Microsoft Graph permissions
+- Microsoft Graph authorization failures
+- Sanitized authentication-error logging
 
 ------------------------------------------------------------
 LOCAL OCR STATUS
@@ -183,37 +202,180 @@ Connection testing confirmed:
 - Optional authorization service-line records can be returned
 - Flat extraction fields remain available for backward compatibility
 
-Historical cached-document performance baseline:
+Classification and extraction remain separate requests.
 
-Provider initialization:
-Approximately 3.30 seconds
+The provider currently sends:
 
-OCR cache lookup:
-Effectively zero seconds
+- temperature 0
+- fixed configurable seed
+- structured JSON schema
 
-Classification:
-Approximately 70.35 seconds
+The fixed seed improved neither guaranteed repeatability nor semantic
+completeness by itself.
 
-Extraction:
-Approximately 191.37 seconds
+Repeated requests with the same prompt, schema, model, and fixed seed
+still produced two distinct extraction patterns.
 
-Document processing total:
-Approximately 261.73 seconds
+The fixed seed remains available for controlled local testing but is not
+treated as proof of deterministic output.
 
-Overall total:
-Approximately 265.03 seconds
+------------------------------------------------------------
+PHI-SAFE OLLAMA METRICS STATUS
+------------------------------------------------------------
 
-Recent real Molina service-line runs ranged from approximately 198
-seconds to approximately 386 seconds total.
+The platform now captures PHI-safe Ollama response metadata.
 
-The current DocumentProcessor interface does not separately expose
-classification and extraction timing.
+The following values may be retained:
 
-The principal performance bottleneck remains local CPU Ollama inference.
+- done
+- done_reason
+- total_duration
+- load_duration
+- prompt_eval_count
+- prompt_eval_duration
+- eval_count
+- eval_duration
+- generation_tokens_per_second
 
-Do not select production hardware until document volume, page count,
-acceptable processing time, concurrency, model size, context length,
-storage, and accuracy requirements are better established.
+Durations returned by Ollama are converted from nanoseconds to seconds.
+
+The following data is explicitly excluded from processing metrics:
+
+- OCR text
+- prompt content
+- response content
+- extracted values
+- source_text
+- patient identifiers
+- member identifiers
+- authorization identifiers
+- medical information
+
+The Document model now contains:
+
+processing_metrics
+
+DocumentProcessor now measures separately:
+
+- OCR wall time
+- Classification wall time
+- Extraction wall time
+- Validation wall time
+- Business-rule wall time
+- Human-review wall time
+- Total wall time
+
+DocumentProcessor also records:
+
+- Extraction attempt count
+- Whether retry was triggered
+- Selected extraction attempt
+- Per-attempt wall time
+- Per-attempt Ollama metadata
+
+------------------------------------------------------------
+REPEATABILITY INVESTIGATION
+------------------------------------------------------------
+
+The known Molina authorization regression was run repeatedly.
+
+Observed complete extraction pattern:
+
+- Two service-line records
+- Service code preserved on both rows
+- Quantity 1 preserved
+- Quantity 6 preserved
+- Top-level service_codes preserved
+- Top-level authorized_units preserved
+- Approximately 1201 extraction-generation tokens
+- Approximately 284 to 293 seconds of extraction time
+
+Observed incomplete extraction pattern:
+
+- Two nominal service-line records
+- One row preserved service code and quantity 6
+- One row retained dates and status but lost service code and quantity
+- Top-level service_codes became unsupported or null
+- Top-level authorized_units retained only quantity 6
+- Approximately 1080 extraction-generation tokens
+- Approximately 195 seconds of extraction time
+
+Both patterns reported:
+
+done_reason:
+stop
+
+The incomplete result was therefore not caused by an explicit model
+token-limit completion reason.
+
+The incomplete run generated 121 fewer tokens than the complete runs.
+
+The prompt evaluation counts remained identical:
+
+Classification prompt_eval_count:
+1925
+
+Extraction prompt_eval_count:
+2633
+
+The faster failed runs were confirmed to be shorter semantically
+incomplete model generations.
+
+The deterministic validator correctly refused to invent or restore
+values missing from model-provided evidence.
+
+------------------------------------------------------------
+CONTROLLED EXTRACTION RETRY STATUS
+------------------------------------------------------------
+
+A controlled authorization extraction retry is implemented in
+DocumentProcessor.
+
+Retry applies only to:
+
+- authorization
+- authorization_renewal
+
+A retry can be triggered when:
+
+- Extraction output is not a dictionary
+- fields is missing or invalid
+- service_lines is missing or invalid
+- Top-level service_code exists while service_codes is empty
+- A service-code result exists but no non-empty service-line rows exist
+- A service-line row contains contextual values such as dates or status
+  but has neither service code nor quantity
+- Multiple service-line rows exist and a row lacks service code or
+  quantity
+
+Token count alone does not trigger a retry.
+
+A shorter response can still be valid for a simpler document.
+
+Only one retry is allowed.
+
+The two candidates are converted and deterministically validated
+independently.
+
+Candidates are never merged.
+
+The candidate score considers supported structure only:
+
+- Number of rows with both service code and quantity
+- Number of rows with service code
+- Number of rows with quantity
+- Number of supported row values
+- Number of supported selected top-level values
+
+Model generation length is not used as proof of correctness.
+
+Model confidence is not used as proof of correctness.
+
+When the second candidate has a stronger deterministic score, the second
+candidate is selected.
+
+When both candidates have the same score, the first candidate is
+retained.
 
 ------------------------------------------------------------
 FIELD-LEVEL EVIDENCE STATUS
@@ -263,6 +425,7 @@ Document now supports:
 - service_lines
 - existing flat extraction fields
 - field-level evidence
+- processing metrics
 - validation actions
 - human-review results
 
@@ -344,6 +507,7 @@ A real cached authorization document was processed using:
 - Real deterministic evidence validation
 - Real deterministic business rules
 - Real human-review decision
+- Real PHI-safe Ollama timing and token metrics
 
 Latest verified service-line result:
 
@@ -373,9 +537,55 @@ Real or mock:
 
 Real cached OCR and real local Ollama processing
 
+Latest normal-path retry result:
+
+Extraction attempt count:
+1
+
+Extraction retry triggered:
+False
+
+Selected extraction attempt:
+1
+
+Latest real classification metrics:
+
+Classification wall time:
+Approximately 70.62 seconds
+
+Classification Ollama duration:
+Approximately 68.56 seconds
+
+Classification prompt_eval_count:
+1925
+
+Classification eval_count:
+54
+
+Latest real extraction metrics:
+
+Extraction wall time:
+Approximately 293.25 seconds
+
+Extraction Ollama duration:
+Approximately 291.20 seconds
+
+Extraction prompt_eval_count:
+2633
+
+Extraction eval_count:
+1201
+
 Latest total processing time:
 
-Approximately 347.86 seconds
+Approximately 363.87 seconds
+
+The real complete-first-attempt path passed.
+
+The retry path has been tested synthetically.
+
+A real run in which the first extraction is incomplete and the second
+attempt is selected has not yet been observed after retry implementation.
 
 The real test remains a regression fixture for the known local
 authorization document. Its expected values must not be treated as
@@ -389,7 +599,7 @@ Test file:
 
 tests/test_document_processor.py
 
-Verified behavior:
+Verified conversion behavior:
 
 - Missing service_lines returns an empty list
 - Non-list service_lines returns an empty list
@@ -399,9 +609,19 @@ Verified behavior:
 - Invalid service-line items are ignored
 - Existing flat fields remain separate
 
+Verified retry behavior:
+
+- Complete authorization extraction does not trigger retry
+- Structurally incomplete service line triggers retry
+- Missing service_codes list triggers retry
+- Non-authorization documents do not use authorization retry
+- Stronger independently validated candidate is selected
+- Equal candidates preserve the first attempt
+- Candidates are never merged
+
 Result:
 
-Passed: 7
+Passed: 14
 Failed: 0
 
 Real or mock:
@@ -523,6 +743,8 @@ Observed limitations:
 - The model may omit a service code or quantity from one row.
 - The model may inconsistently populate service_codes and
   authorized_units.
+- A fixed seed does not guarantee semantically identical output in the
+  current local runtime.
 - A supported top-level modifier may not be reliably associated with a
   specific service-line row.
 - Ambiguous checkbox labels may be treated as selected by the model.
@@ -539,6 +761,12 @@ Observed limitations:
   expansion for decimals, ranges, recurring quantities, or other
   confirmed document formats.
 - Prompt instructions alone do not reliably enforce evidence rules.
+- The retry path can improve resilience but does not guarantee a
+  complete second result.
+- A retry may approximately double extraction time when both attempts
+  require full local inference.
+- A real incomplete-first-attempt retry selection has not yet been
+  observed after implementation.
 
 Human review remains required whenever deterministic evidence or
 business rules are incomplete.
@@ -641,11 +869,15 @@ Duplicate review reasons are removed.
 
 Human review is functioning as a safety control.
 
+The controlled retry does not bypass human review.
+
 ------------------------------------------------------------
 PRIVACY AND SECURITY STATUS
 ------------------------------------------------------------
 
 Privacy-safe OCR cache behavior was added and tested.
+
+PHI-safe Ollama metric capture was added and tested.
 
 Current safeguards include:
 
@@ -657,6 +889,10 @@ Current safeguards include:
 - No raw service-line source_text in test output
 - No raw OCR text in test output
 - No patient identifiers in tracker content
+- No prompts or model response content in processing metrics
+- No extracted values in Ollama metrics
+- No candidate values printed as retry diagnostics beyond existing
+  approved regression fields
 
 Before every commit, verify:
 
@@ -672,34 +908,43 @@ Before every commit, verify:
 FILES CREATED OR MODIFIED IN CURRENT FEATURE
 ------------------------------------------------------------
 
-Created:
-
-tests/test_ollama_service_lines.py
-
 Modified:
 
 scripts/test_molina_document.py
 src/ai/llm/providers/ollama_provider.py
-src/ai/ocr/providers/paddle_ocr_provider.py
 src/document_processing/document_processor.py
 src/models/document.py
-src/services/evidence_validation_service.py
 tests/test_document_processor.py
-tests/test_evidence_validation_service.py
 update_project_tracker.py
+
+Existing files used without requiring changes:
+
+src/ai/llm/llm_provider.py
+src/ai/llm/llm_service.py
+src/services/evidence_validation_service.py
+tests/test_ollama_service_lines.py
+tests/test_evidence_validation_service.py
+tests/test_review_decision_service.py
 
 ------------------------------------------------------------
 TESTS RUN FOR CURRENT FEATURE
 ------------------------------------------------------------
 
-Syntax and formatting checks:
+Syntax checks:
 
 python -m compileall
+
+Result:
+
+Passed for the modified Python files.
+
+Formatting and whitespace check:
+
 git diff --check
 
-git diff --check result:
+Result:
 
-Passed with no output
+Passed with no output.
 
 Synthetic DocumentProcessor test:
 
@@ -707,8 +952,12 @@ python -m tests.test_document_processor
 
 Result:
 
-Passed: 7
+Passed: 14
 Failed: 0
+
+Real or mock:
+
+Synthetic deterministic test
 
 Synthetic Ollama service-line test:
 
@@ -719,6 +968,10 @@ Result:
 Passed: 7
 Failed: 0
 
+Real or mock:
+
+Synthetic deterministic test
+
 Synthetic evidence-validation test:
 
 python -m tests.test_evidence_validation_service
@@ -728,6 +981,10 @@ Result:
 Passed: 27
 Failed: 0
 
+Real or mock:
+
+Synthetic deterministic test
+
 Synthetic review-decision test:
 
 python -m tests.test_review_decision_service
@@ -736,6 +993,10 @@ Result:
 
 Passed: 9
 Failed: 0
+
+Real or mock:
+
+Synthetic deterministic test
 
 Real Molina semantic regression:
 
@@ -755,56 +1016,77 @@ Real deterministic evidence validation
 Real business rules
 Real human-review decision
 
+Real path tested:
+
+Complete first extraction
+No retry required
+First attempt selected
+
+Real retry path status:
+
+Not yet observed after retry implementation
+
 ------------------------------------------------------------
 CURRENT FEATURE RESULT
 ------------------------------------------------------------
 
 Implemented and tested:
 
-- Neutral authorization service-line model
-- Service-line extraction schema
-- DocumentProcessor service-line conversion
-- Deterministic row-level evidence validation
-- Date normalization
-- Service-code validation
-- Modifier validation
-- Quantity validation
-- Status validation
-- Confidence downgrading
-- Service-line deduplication
-- Unresolved modifier relationship detection
-- Human-review routing
-- PHI-safe OCR cache logging
-- PHI-safe real regression output
+- PHI-safe Ollama timing metadata
+- PHI-safe Ollama token-count metadata
+- Stage-level processing timing
+- Fixed configurable Ollama seed
+- Confirmation that fixed seed alone does not ensure repeatability
+- Structural authorization extraction retry detection
+- One controlled retry maximum
+- Independent deterministic candidate validation
+- Deterministic stronger-candidate selection
+- First-candidate preservation on score ties
+- No merging between extraction attempts
+- Per-attempt PHI-safe metrics
+- Real complete-first-attempt path
+- Synthetic incomplete-first-attempt retry path
+- Existing deterministic validation
+- Existing business-rule separation
+- Existing human-review routing
 
-The current known Molina regression passed.
+The real complete-first-attempt Molina regression passed.
 
-This does not prove that service-line extraction is stable across all
-documents or all repeated runs.
+The synthetic retry and candidate-selection tests passed.
+
+This does not prove that the second extraction attempt will always be
+complete.
+
+This does not prove that the retry mechanism is stable across all
+authorization formats.
+
+This does not remove the need for human review.
 
 ------------------------------------------------------------
 EXACT NEXT DEVELOPMENT STEP
 ------------------------------------------------------------
 
-Measure and improve repeated extraction stability without weakening
-deterministic validation.
+Observe and validate the controlled retry path during a real local
+Ollama run without weakening deterministic validation.
 
 Start with:
 
-1. Run the known Molina semantic regression multiple times.
-2. Record whether each run preserves both service-line codes and
-   quantities.
-3. Do not print raw source evidence or PHI.
-4. Investigate failures at the Ollama extraction layer when expected
-   values are absent from model-provided row evidence.
-5. Investigate validator matching only when expected values are present
-   in row evidence but are cleared.
-6. Keep classification and extraction as separate Ollama calls.
-7. Do not force modifiers into service-line rows.
-8. Do not add payer-specific or service-code business rules.
+1. Run the known Molina semantic regression repeatedly.
+2. Stop when an incomplete first extraction triggers the controlled
+   retry, or after a reasonable limited number of runs.
+3. Record only PHI-safe attempt metrics.
+4. Confirm extraction_attempt_count is 2.
+5. Confirm extraction_retry_triggered is True.
+6. Confirm which attempt is selected.
+7. Confirm candidates were not merged.
+8. Confirm the semantic regression result.
+9. Confirm human review remains active.
+10. Do not print raw OCR text or raw source_text.
+11. Do not add payer-specific reconstruction logic.
+12. Do not use token count alone to choose a candidate.
 
-After repeatability is acceptable, add a separate regression profile for
-a second authorization document.
+After the real retry path is observed and validated, add a separate
+regression profile for a second authorization document.
 
 Do not apply Molina-specific expected values to every PDF in
 data/incoming.
@@ -825,14 +1107,18 @@ Then inspect:
 
 scripts/test_molina_document.py
 src/ai/llm/providers/ollama_provider.py
-src/ai/ocr/providers/paddle_ocr_provider.py
 src/document_processing/document_processor.py
 src/models/document.py
-src/services/evidence_validation_service.py
 tests/test_document_processor.py
-tests/test_evidence_validation_service.py
-tests/test_ollama_service_lines.py
 update_project_tracker.py
+
+Run:
+
+python -m tests.test_document_processor
+python -m tests.test_ollama_service_lines
+python -m tests.test_evidence_validation_service
+python -m tests.test_review_decision_service
+python -m scripts.test_molina_document
 
 ============================================================
 """
@@ -849,8 +1135,9 @@ updates = [
         (
             "Completed the approved local-first architecture using Microsoft "
             "Graph, local PaddleOCR, local Ollama, field-level evidence, "
-            "authorization service-line extraction, deterministic evidence "
-            "validation, business rules, human review, and Smartsheet."
+            "authorization service-line extraction, deterministic candidate "
+            "validation, controlled retry, business rules, human review, and "
+            "Smartsheet."
         ),
     ),
     (
@@ -858,8 +1145,9 @@ updates = [
         "Completed",
         (
             "Completed integration architecture for Microsoft Graph mailbox "
-            "ingestion followed by local OCR, local LLM processing, structured "
-            "extraction, evidence validation, human review, and Smartsheet."
+            "ingestion followed by local OCR, separate local LLM requests, "
+            "structured extraction, controlled retry, evidence validation, "
+            "human review, and Smartsheet."
         ),
     ),
     (
@@ -868,8 +1156,8 @@ updates = [
         (
             "Implemented provider-based OCR and LLM architecture with "
             "registries, factories, field-level evidence, neutral service-line "
-            "records, deterministic validation, business rules, and human "
-            "review."
+            "records, PHI-safe metrics, controlled retry, deterministic "
+            "validation, business rules, and human review."
         ),
     ),
     (
@@ -886,7 +1174,8 @@ updates = [
         "Completed",
         (
             "Validated Python, PaddleOCR, Ollama, llama3.1:8b, Microsoft Graph, "
-            "Git, synthetic tests, and real cached-document processing."
+            "Git, synthetic tests, real cached-document processing, and "
+            "PHI-safe local performance instrumentation."
         ),
     ),
     (
@@ -919,39 +1208,43 @@ updates = [
         "In Progress",
         (
             "Implemented separate local Ollama classification and extraction "
-            "prompts with field-level evidence and optional service-line "
-            "records. Repeated extraction stability still needs improvement."
+            "prompts with field-level evidence and service-line records. "
+            "Repeated extraction can still vary, so controlled retry and human "
+            "review remain active."
         ),
     ),
     (
         "Implement Classification",
         "In Progress",
         (
-            "Implemented local Ollama classification with structured JSON. "
-            "Generic authorization classification works, while subtype and "
-            "workflow classification remain untrained."
+            "Implemented local Ollama classification with structured JSON and "
+            "PHI-safe request metrics. Generic authorization classification "
+            "works, while subtype and workflow classification remain "
+            "untrained."
         ),
     ),
     (
         "Implement Data Extraction",
         "In Progress",
         (
-            "Implemented field-level extraction and neutral authorization "
-            "service-line extraction. Real testing preserved two service-line "
-            "rows, but repeated Ollama output can still vary."
+            "Implemented field-level extraction, neutral service-line "
+            "extraction, PHI-safe generation metrics, and one controlled retry "
+            "for materially incomplete authorization structure. A real retry "
+            "selection has not yet been observed after implementation."
         ),
     ),
     (
         "Validate AI Output",
         "In Progress",
         (
-            "Implemented deterministic flat-field and row-level evidence "
-            "validation, including service-line code, quantity, date, status, "
-            "modifier, confidence, deduplication, and relationship checks."
+            "Implemented independent deterministic validation and scoring of "
+            "extraction candidates. Candidates are never merged; the stronger "
+            "supported candidate is selected and ambiguity remains routed to "
+            "human review."
         ),
     ),
     (
-        "Implement Business Rules",
+        "Apply Business Rules",
         "In Progress",
         (
             "Authorization rules remain conservative and separate from "
@@ -960,80 +1253,84 @@ updates = [
         ),
     ),
     (
-        "Validate Business Rules",
+        "Unit Test Rules",
         "In Progress",
         (
             "Real authorization testing confirms that unresolved quantity and "
-            "modifier relationships route to human review. Final business "
-            "rules remain pending management confirmation."
+            "modifier relationships route to human review. Synthetic retry, "
+            "candidate-selection, validator, and review tests pass, while final "
+            "business rules remain pending management confirmation."
         ),
     ),
     (
         "Integration Testing",
         "In Progress",
         (
-            "Tested Graph ingestion, local OCR, local Ollama, field evidence, "
-            "service-line extraction, deterministic validation, business "
-            "rules, and human review. Production Smartsheet routing and an "
-            "unattended worker remain incomplete."
+            "Tested Graph ingestion, local OCR, separate local Ollama requests, "
+            "PHI-safe metrics, service-line extraction, controlled retry logic, "
+            "independent candidate validation, business rules, and human "
+            "review. A real retry-selection event and production Smartsheet "
+            "routing remain incomplete."
         ),
     ),
     (
-        "Configure Microsoft Entra",
+        "Register Azure App",
         "Completed",
         (
-            "Created and tested Microsoft Entra application registration, "
-            "client credentials, Graph permissions, tenant consent, and "
-            "authentication."
+            "Created and tested the Microsoft Entra application registration "
+            "used by the Microsoft Graph client-credentials workflow."
         ),
     ),
     (
-        "Create Shared Mailbox",
+        "Connect Mailbox",
         "Completed",
         (
-            "Created ai@lthhc.com as the shared mailbox for the platform."
+            "Connected to the ai@lthhc.com shared mailbox and successfully "
+            "retrieved unread messages through Microsoft Graph."
         ),
     ),
     (
-        "Configure Mailbox Security",
+        "Configure Graph Permissions",
         "Completed",
         (
-            "Configured shared mailbox and application access for the approved "
-            "Microsoft Graph workflow."
+            "Configured and tested the required Microsoft Graph application "
+            "permissions and tenant administrator consent for the shared "
+            "mailbox workflow."
         ),
     ),
     (
-        "Validate Email Delivery",
+        "Unit Test Mail Connector",
         "Completed",
         (
-            "Successfully delivered test messages and attachments to "
-            "ai@lthhc.com and retrieved them through Microsoft Graph."
+            "Tested unread-message retrieval, attachment enumeration and "
+            "download, inline-image filtering, mark-read-after-success "
+            "behavior, retry preservation, and duplicate prevention."
         ),
     ),
     (
-        "Design Office365 Connector",
+        "Download Attachments",
         "Completed",
         (
-            "Completed Microsoft Graph connector architecture including "
-            "configuration, authentication, Graph client, email service, "
-            "attachment service, and mailbox processor."
+            "Implemented and tested supported non-inline attachment download, "
+            "including filtering of inline signature images."
         ),
     ),
     (
-        "Authenticate Microsoft Graph",
+        "Implement Authentication",
         "Completed",
         (
-            "Successfully authenticated with client credentials and confirmed "
-            "access to the ai@lthhc.com shared mailbox."
+            "Implemented and tested OAuth 2.0 client-credentials "
+            "authentication through MSAL for Microsoft Graph."
         ),
     ),
     (
-        "Implement Office365 Connector",
-        "Completed",
+        "Handle Authentication Errors",
+        "In Progress",
         (
-            "Implemented unread-message retrieval, supported attachment "
-            "download, inline-image filtering, processing, mark-read-after-"
-            "success behavior, retry preservation, and duplicate prevention."
+            "Normal Microsoft Graph authentication is implemented and tested. "
+            "Dedicated tests for invalid credentials, expired secrets, missing "
+            "permissions, Graph authorization failures, and sanitized error "
+            "logging remain incomplete."
         ),
     ),
 ]
@@ -1057,10 +1354,14 @@ def synchronize_project_tracker() -> None:
 
     for task_name, status, comment in updates:
         try:
-            task = tasks.find_task(task_name)
+            task = tasks.find_task(
+                task_name
+            )
 
             if task is None:
-                print(f"Task not found: {task_name}")
+                print(
+                    f"Task not found: {task_name}"
+                )
                 not_found += 1
                 continue
 
@@ -1072,15 +1373,23 @@ def synchronize_project_tracker() -> None:
 
             if changed:
                 updated += 1
-                print(f"Updated: {task_name}")
+                print(
+                    f"Updated: {task_name}"
+                )
             else:
                 unchanged += 1
-                print(f"No change: {task_name}")
+                print(
+                    f"No change: {task_name}"
+                )
 
         except Exception as ex:
             failed += 1
-            print(f"Failed: {task_name}")
-            print(f"  {ex}")
+            print(
+                f"Failed: {task_name}"
+            )
+            print(
+                f"  {ex}"
+            )
 
     print()
     print("=" * 60)

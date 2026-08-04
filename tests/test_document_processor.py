@@ -1,18 +1,202 @@
+from pathlib import Path
+
 from src.document_processing.document_processor import (
     DocumentProcessor,
+)
+from src.models.document import Document
+from src.services.evidence_validation_service import (
+    EvidenceValidationService,
 )
 
 
 def build_processor_without_providers() -> DocumentProcessor:
     """
-    Build a processor instance without initializing OCR or Ollama.
+    Build a processor without initializing OCR or Ollama.
 
-    These tests exercise deterministic conversion helpers only.
+    These tests exercise deterministic conversion, retry detection,
+    candidate validation, and candidate selection only.
     """
 
-    return DocumentProcessor.__new__(
+    processor = DocumentProcessor.__new__(
         DocumentProcessor
     )
+
+    processor.evidence_validation = EvidenceValidationService()
+
+    return processor
+
+
+def confidence_field(
+    value,
+    source_text: str,
+    confidence: float = 0.90,
+) -> dict:
+    """
+    Build one synthetic field-evidence record.
+    """
+
+    return {
+        "value": value,
+        "confidence": confidence,
+        "source_text": source_text,
+    }
+
+
+def build_template_document() -> Document:
+    """
+    Build a synthetic authorization document for candidate validation.
+    """
+
+    return Document(
+        file_path=Path(
+            "synthetic.pdf"
+        ),
+        document_type="authorization",
+        confidence=0.90,
+        raw_text="Synthetic local OCR text",
+    )
+
+
+def build_complete_extraction() -> dict:
+    """
+    Build a structurally complete synthetic authorization extraction.
+    """
+
+    return {
+        "fields": {
+            "authorization_status": confidence_field(
+                "Approved",
+                "Approved",
+            ),
+            "service_code": confidence_field(
+                "SYNTH1",
+                "SYNTH1",
+            ),
+            "service_codes": confidence_field(
+                [
+                    "SYNTH1",
+                ],
+                "SYNTH1",
+            ),
+            "modifier": confidence_field(
+                None,
+                "",
+                0.0,
+            ),
+            "authorized_units": confidence_field(
+                [
+                    1,
+                    6,
+                ],
+                "1 6",
+            ),
+            "start_date": confidence_field(
+                "2025-11-25",
+                "11/25/2025",
+            ),
+            "end_date": confidence_field(
+                "2026-05-23",
+                "05/23/2026",
+            ),
+        },
+        "service_lines": [
+            {
+                "service_code": "SYNTH1",
+                "modifier": None,
+                "quantity": 1,
+                "start_date": "2025-11-25",
+                "end_date": "2026-05-23",
+                "status": "Approved",
+                "confidence": 0.90,
+                "source_text": (
+                    "SYNTH1 1 11/25/2025 "
+                    "05/23/2026 Approved"
+                ),
+            },
+            {
+                "service_code": "SYNTH1",
+                "modifier": None,
+                "quantity": 6,
+                "start_date": "2025-11-25",
+                "end_date": "2026-05-23",
+                "status": "Approved",
+                "confidence": 0.90,
+                "source_text": (
+                    "SYNTH1 6 11/25/2025 "
+                    "05/23/2026 Approved"
+                ),
+            },
+        ],
+    }
+
+
+def build_incomplete_extraction() -> dict:
+    """
+    Build an extraction matching the observed incomplete Ollama pattern.
+    """
+
+    return {
+        "fields": {
+            "authorization_status": confidence_field(
+                "Approved",
+                "Approved",
+            ),
+            "service_code": confidence_field(
+                "SYNTH1",
+                "SYNTH1",
+            ),
+            "service_codes": confidence_field(
+                None,
+                "",
+                0.0,
+            ),
+            "modifier": confidence_field(
+                "U1",
+                "U1",
+            ),
+            "authorized_units": confidence_field(
+                [
+                    6,
+                ],
+                "6",
+            ),
+            "start_date": confidence_field(
+                "2025-11-25",
+                "11/25/2025",
+            ),
+            "end_date": confidence_field(
+                "2026-05-23",
+                "05/23/2026",
+            ),
+        },
+        "service_lines": [
+            {
+                "service_code": "SYNTH1",
+                "modifier": "U1",
+                "quantity": 6,
+                "start_date": "2025-11-25",
+                "end_date": "2026-05-23",
+                "status": "Approved",
+                "confidence": 0.90,
+                "source_text": (
+                    "SYNTH1 U1 6 11/25/2025 "
+                    "05/23/2026 Approved"
+                ),
+            },
+            {
+                "service_code": None,
+                "modifier": None,
+                "quantity": None,
+                "start_date": "2025-11-25",
+                "end_date": "2026-05-23",
+                "status": "Approved",
+                "confidence": 0.50,
+                "source_text": (
+                    "11/25/2025 05/23/2026 Approved"
+                ),
+            },
+        ],
+    }
 
 
 def test_missing_service_lines_returns_empty_list() -> None:
@@ -236,6 +420,145 @@ def test_flat_fields_remain_separate_from_service_lines() -> None:
     assert service_lines[1].quantity == 1
 
 
+def test_complete_authorization_does_not_require_retry() -> None:
+    processor = build_processor_without_providers()
+
+    assert not processor._should_retry_extraction(
+        extraction_result=build_complete_extraction(),
+        document_type="authorization",
+    )
+
+
+def test_incomplete_service_line_requires_retry() -> None:
+    processor = build_processor_without_providers()
+
+    assert processor._should_retry_extraction(
+        extraction_result=build_incomplete_extraction(),
+        document_type="authorization",
+    )
+
+
+def test_missing_service_codes_list_requires_retry() -> None:
+    processor = build_processor_without_providers()
+
+    extraction_result = build_complete_extraction()
+
+    extraction_result[
+        "fields"
+    ][
+        "service_codes"
+    ] = confidence_field(
+        None,
+        "",
+        0.0,
+    )
+
+    assert processor._should_retry_extraction(
+        extraction_result=extraction_result,
+        document_type="authorization",
+    )
+
+
+def test_non_authorization_does_not_use_authorization_retry() -> None:
+    processor = build_processor_without_providers()
+
+    assert not processor._should_retry_extraction(
+        extraction_result=build_incomplete_extraction(),
+        document_type="assessment",
+    )
+
+
+def test_stronger_validated_candidate_is_selected() -> None:
+    processor = build_processor_without_providers()
+
+    selected, selected_attempt = (
+        processor._select_extraction_candidate(
+            template_document=build_template_document(),
+            first_result=build_incomplete_extraction(),
+            second_result=build_complete_extraction(),
+        )
+    )
+
+    assert selected_attempt == 2
+
+    assert len(
+        selected.service_lines
+    ) == 2
+
+    observed_quantities = {
+        str(
+            service_line.quantity
+        )
+        for service_line in selected.service_lines
+    }
+
+    assert observed_quantities == {
+        "1",
+        "6",
+    }
+
+
+def test_equal_candidates_preserve_first_attempt() -> None:
+    processor = build_processor_without_providers()
+
+    first_result = build_complete_extraction()
+    second_result = build_complete_extraction()
+
+    selected, selected_attempt = (
+        processor._select_extraction_candidate(
+            template_document=build_template_document(),
+            first_result=first_result,
+            second_result=second_result,
+        )
+    )
+
+    assert selected_attempt == 1
+
+    assert len(
+        selected.service_lines
+    ) == 2
+
+
+def test_candidates_are_never_merged() -> None:
+    processor = build_processor_without_providers()
+
+    first_result = build_incomplete_extraction()
+    second_result = build_complete_extraction()
+
+    first_result[
+        "fields"
+    ][
+        "modifier"
+    ] = confidence_field(
+        "U1",
+        "U1",
+    )
+
+    second_result[
+        "fields"
+    ][
+        "modifier"
+    ] = confidence_field(
+        None,
+        "",
+        0.0,
+    )
+
+    selected, selected_attempt = (
+        processor._select_extraction_candidate(
+            template_document=build_template_document(),
+            first_result=first_result,
+            second_result=second_result,
+        )
+    )
+
+    assert selected_attempt == 2
+
+    assert selected.extracted_data.get(
+        "modifier"
+    ) is None
+
+
 def run_test(
     test_name: str,
     test_function,
@@ -246,6 +569,7 @@ def run_test(
         print(
             f"FAILED: {test_name}"
         )
+
         return False
 
     print(
@@ -256,9 +580,17 @@ def run_test(
 
 
 def main() -> None:
-    print("=" * 60)
-    print("Testing Document Processor Service-Line Conversion")
-    print("=" * 60)
+    print(
+        "=" * 60
+    )
+
+    print(
+        "Testing Document Processor Service-Line Conversion"
+    )
+
+    print(
+        "=" * 60
+    )
 
     tests = [
         (
@@ -289,6 +621,34 @@ def main() -> None:
             "flat fields remain separate",
             test_flat_fields_remain_separate_from_service_lines,
         ),
+        (
+            "complete authorization does not retry",
+            test_complete_authorization_does_not_require_retry,
+        ),
+        (
+            "incomplete service line retries",
+            test_incomplete_service_line_requires_retry,
+        ),
+        (
+            "missing service_codes list retries",
+            test_missing_service_codes_list_requires_retry,
+        ),
+        (
+            "non-authorization does not use authorization retry",
+            test_non_authorization_does_not_use_authorization_retry,
+        ),
+        (
+            "stronger validated candidate is selected",
+            test_stronger_validated_candidate_is_selected,
+        ),
+        (
+            "equal candidates preserve first attempt",
+            test_equal_candidates_preserve_first_attempt,
+        ),
+        (
+            "candidates are never merged",
+            test_candidates_are_never_merged,
+        ),
     ]
 
     passed = 0
@@ -304,16 +664,22 @@ def main() -> None:
             failed += 1
 
     print()
+
     print(
         f"Passed: {passed}"
     )
+
     print(
         f"Failed: {failed}"
     )
+
     print(
         "Real or mock: Synthetic deterministic test"
     )
-    print("=" * 60)
+
+    print(
+        "=" * 60
+    )
 
     if failed:
         raise SystemExit(

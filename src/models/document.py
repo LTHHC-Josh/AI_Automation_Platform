@@ -44,6 +44,11 @@ class Document:
     service_lines:
         Optional row-level authorization service data. Existing flat
         fields remain available for backward compatibility.
+
+    processing_metrics:
+        PHI-safe processing durations and local model-generation
+        statistics. OCR text, source evidence, extracted values, and
+        identifiers must never be stored in this structure.
     """
 
     file_path: Path
@@ -73,6 +78,11 @@ class Document:
     # Optional row-level authorization service data
     service_lines: list[AuthorizationServiceLine] = field(
         default_factory=list
+    )
+
+    # PHI-safe processing and local-model metrics
+    processing_metrics: dict[str, Any] = field(
+        default_factory=dict
     )
 
     # Deterministic evidence-validation output

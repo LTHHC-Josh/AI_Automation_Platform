@@ -23,6 +23,7 @@ class OllamaProvider(LLMProvider):
     """
 
     DEFAULT_BASE_URL = "http://localhost:11434"
+    DEFAULT_SEED = 42
     CHAT_ENDPOINT = "/api/chat"
 
     DOCUMENT_TYPES = [
@@ -67,6 +68,17 @@ class OllamaProvider(LLMProvider):
         "confidence",
         "source_text",
     ]
+
+    SAFE_METRIC_FIELDS = (
+        "done",
+        "done_reason",
+        "total_duration",
+        "load_duration",
+        "prompt_eval_count",
+        "prompt_eval_duration",
+        "eval_count",
+        "eval_duration",
+    )
 
     CONFIDENCE_FIELD_SCHEMA = {
         "type": "object",
@@ -230,6 +242,8 @@ class OllamaProvider(LLMProvider):
         ).strip()
 
         self.timeout = self._load_timeout()
+        self.seed = self._load_seed()
+        self._last_request_metrics: dict[str, Any] = {}
 
         if not self.model:
             raise RuntimeError(
@@ -312,6 +326,21 @@ class OllamaProvider(LLMProvider):
                 )
             ),
         }
+
+    def get_last_request_metrics(
+        self,
+    ) -> dict[str, Any]:
+        """
+        Return PHI-safe metadata from the most recent Ollama request.
+
+        The returned values contain only timing, token-count, and
+        completion information. Prompt text, response content, OCR text,
+        extracted values, and source evidence are excluded.
+        """
+
+        return dict(
+            self._last_request_metrics
+        )
 
     def test_connection(self) -> dict:
         """
@@ -945,6 +974,8 @@ Return only JSON matching the required schema.
             f"{self.CHAT_ENDPOINT}"
         )
 
+        self._last_request_metrics = {}
+
         payload = {
             "model": self.model,
             "stream": False,
@@ -961,6 +992,7 @@ Return only JSON matching the required schema.
             ],
             "options": {
                 "temperature": 0,
+                "seed": self.seed,
             },
         }
 
@@ -1006,6 +1038,18 @@ Return only JSON matching the required schema.
             raise RuntimeError(
                 "Ollama returned a response that was not valid JSON."
             ) from ex
+
+        if not isinstance(
+            response_payload,
+            dict,
+        ):
+            raise RuntimeError(
+                "Ollama response payload must be a JSON object."
+            )
+
+        self._last_request_metrics = self._extract_safe_metrics(
+            response_payload
+        )
 
         message = response_payload.get(
             "message"
@@ -1053,6 +1097,87 @@ Return only JSON matching the required schema.
             )
 
         return parsed_content
+
+    def _extract_safe_metrics(
+        self,
+        response_payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        Extract only PHI-safe timing and generation metadata.
+        """
+
+        metrics: dict[str, Any] = {}
+
+        for field_name in self.SAFE_METRIC_FIELDS:
+            value = response_payload.get(
+                field_name
+            )
+
+            if isinstance(
+                value,
+                (
+                    bool,
+                    int,
+                    float,
+                    str,
+                ),
+            ):
+                metrics[field_name] = value
+
+        for duration_field in (
+            "total_duration",
+            "load_duration",
+            "prompt_eval_duration",
+            "eval_duration",
+        ):
+            duration_value = metrics.get(
+                duration_field
+            )
+
+            if isinstance(
+                duration_value,
+                (
+                    int,
+                    float,
+                ),
+            ):
+                metrics[
+                    f"{duration_field}_seconds"
+                ] = (
+                    float(
+                        duration_value
+                    )
+                    / 1_000_000_000
+                )
+
+        eval_count = metrics.get(
+            "eval_count"
+        )
+
+        eval_duration_seconds = metrics.get(
+            "eval_duration_seconds"
+        )
+
+        if (
+            isinstance(
+                eval_count,
+                int,
+            )
+            and eval_count >= 0
+            and isinstance(
+                eval_duration_seconds,
+                float,
+            )
+            and eval_duration_seconds > 0
+        ):
+            metrics[
+                "generation_tokens_per_second"
+            ] = (
+                eval_count
+                / eval_duration_seconds
+            )
+
+        return metrics
 
     def _validate_text(
         self,
@@ -1131,6 +1256,28 @@ Return only JSON matching the required schema.
             timeout,
             30,
         )
+
+    def _load_seed(self) -> int:
+        """
+        Load a fixed Ollama generation seed.
+
+        A fixed seed improves repeatability while remaining configurable
+        for controlled local testing.
+        """
+
+        raw_seed = os.getenv(
+            "OLLAMA_SEED",
+            str(
+                self.DEFAULT_SEED
+            ),
+        )
+
+        try:
+            return int(
+                raw_seed
+            )
+        except ValueError:
+            return self.DEFAULT_SEED
 
     def _get_error_detail(
         self,

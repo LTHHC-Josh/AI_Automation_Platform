@@ -74,6 +74,19 @@ def format_value(
     )
 
 
+def format_seconds(
+    value: Any,
+) -> str:
+    try:
+        seconds = float(
+            value
+        )
+    except (TypeError, ValueError):
+        return "Not available"
+
+    return f"{seconds:.2f} seconds"
+
+
 def normalize_value_set(
     value: Any,
 ) -> set[str]:
@@ -393,6 +406,281 @@ def print_service_line_diagnostic_summary(
         print_service_line_diagnostics(
             line_number,
             service_line,
+        )
+
+
+def print_ollama_metrics(
+    label: str,
+    metrics: Any,
+) -> None:
+    """
+    Print PHI-safe local Ollama timing and token statistics.
+    """
+
+    print(
+        f"{label} Ollama metrics:"
+    )
+
+    if not isinstance(
+        metrics,
+        dict,
+    ) or not metrics:
+        print(
+            "  Not available"
+        )
+        return
+
+    print(
+        "  done: "
+        f"{format_value(metrics.get('done'))}"
+    )
+
+    print(
+        "  done_reason: "
+        f"{format_value(metrics.get('done_reason'))}"
+    )
+
+    print(
+        "  total_duration: "
+        f"{format_seconds(
+            metrics.get(
+                'total_duration_seconds'
+            )
+        )}"
+    )
+
+    print(
+        "  load_duration: "
+        f"{format_seconds(
+            metrics.get(
+                'load_duration_seconds'
+            )
+        )}"
+    )
+
+    print(
+        "  prompt_eval_count: "
+        f"{format_value(
+            metrics.get(
+                'prompt_eval_count'
+            )
+        )}"
+    )
+
+    print(
+        "  prompt_eval_duration: "
+        f"{format_seconds(
+            metrics.get(
+                'prompt_eval_duration_seconds'
+            )
+        )}"
+    )
+
+    print(
+        "  eval_count: "
+        f"{format_value(
+            metrics.get(
+                'eval_count'
+            )
+        )}"
+    )
+
+    print(
+        "  eval_duration: "
+        f"{format_seconds(
+            metrics.get(
+                'eval_duration_seconds'
+            )
+        )}"
+    )
+
+    tokens_per_second = metrics.get(
+        "generation_tokens_per_second"
+    )
+
+    if isinstance(
+        tokens_per_second,
+        (
+            int,
+            float,
+        ),
+    ):
+        formatted_rate = (
+            f"{float(tokens_per_second):.2f}"
+        )
+    else:
+        formatted_rate = "Not available"
+
+    print(
+        "  generation_tokens_per_second: "
+        f"{formatted_rate}"
+    )
+
+
+def print_processing_metrics(
+    metrics: dict[str, Any],
+    measured_total_seconds: float,
+) -> None:
+    """
+    Print PHI-safe stage timing, retry decisions, and Ollama metadata.
+    """
+
+    print(
+        "PHI-safe processing metrics:"
+    )
+
+    print(
+        "  externally measured total: "
+        f"{measured_total_seconds:.2f} seconds"
+    )
+
+    print(
+        "  processor total: "
+        f"{format_seconds(
+            metrics.get(
+                'total_wall_seconds'
+            )
+        )}"
+    )
+
+    print(
+        "  OCR wall time: "
+        f"{format_seconds(
+            metrics.get(
+                'ocr_wall_seconds'
+            )
+        )}"
+    )
+
+    print(
+        "  classification wall time: "
+        f"{format_seconds(
+            metrics.get(
+                'classification_wall_seconds'
+            )
+        )}"
+    )
+
+    print(
+        "  extraction wall time: "
+        f"{format_seconds(
+            metrics.get(
+                'extraction_wall_seconds'
+            )
+        )}"
+    )
+
+    print(
+        "  extraction attempt count: "
+        f"{format_value(
+            metrics.get(
+                'extraction_attempt_count'
+            )
+        )}"
+    )
+
+    print(
+        "  extraction retry triggered: "
+        f"{format_value(
+            metrics.get(
+                'extraction_retry_triggered'
+            )
+        )}"
+    )
+
+    print(
+        "  selected extraction attempt: "
+        f"{format_value(
+            metrics.get(
+                'extraction_selected_attempt'
+            )
+        )}"
+    )
+
+    print(
+        "  validation wall time: "
+        f"{format_seconds(
+            metrics.get(
+                'validation_wall_seconds'
+            )
+        )}"
+    )
+
+    print(
+        "  business-rules wall time: "
+        f"{format_seconds(
+            metrics.get(
+                'business_rules_wall_seconds'
+            )
+        )}"
+    )
+
+    print(
+        "  human-review wall time: "
+        f"{format_seconds(
+            metrics.get(
+                'human_review_wall_seconds'
+            )
+        )}"
+    )
+
+    print()
+
+    print_ollama_metrics(
+        "Classification",
+        metrics.get(
+            "classification_ollama"
+        ),
+    )
+
+    extraction_attempts = metrics.get(
+        "extraction_attempts"
+    )
+
+    if isinstance(
+        extraction_attempts,
+        list,
+    ):
+        for attempt in extraction_attempts:
+            if not isinstance(
+                attempt,
+                dict,
+            ):
+                continue
+
+            attempt_number = attempt.get(
+                "attempt"
+            )
+
+            print()
+
+            print(
+                "Extraction attempt "
+                f"{format_value(attempt_number)} wall time: "
+                f"{format_seconds(
+                    attempt.get(
+                        'wall_seconds'
+                    )
+                )}"
+            )
+
+            print_ollama_metrics(
+                (
+                    "Extraction attempt "
+                    f"{format_value(attempt_number)}"
+                ),
+                attempt.get(
+                    "ollama"
+                ),
+            )
+    else:
+        print()
+
+        print_ollama_metrics(
+            "Extraction",
+            metrics.get(
+                "extraction_ollama"
+            ),
         )
 
 
@@ -863,19 +1151,9 @@ def main() -> None:
 
             print()
 
-            print(
-                "Total processing time: "
-                f"{total_seconds:.2f} seconds"
-            )
-
-            print(
-                "Classification time: "
-                "Not exposed by the current processor interface"
-            )
-
-            print(
-                "Extraction time: "
-                "Not exposed by the current processor interface"
+            print_processing_metrics(
+                document.processing_metrics,
+                total_seconds,
             )
 
             if semantic_failures:
