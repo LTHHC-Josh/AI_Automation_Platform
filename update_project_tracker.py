@@ -63,9 +63,9 @@ llama3.1:8b
 Execution:
 Local and in-house
 
-Do not send documents, OCR text, patient information, member IDs,
-authorization numbers, medical information, or credentials to external
-AI services.
+Documents, OCR text, patient information, member IDs, authorization
+numbers, medical information, and credentials must not be sent to
+external AI services.
 
 ------------------------------------------------------------
 CURRENT DOCUMENT-PROCESSING FLOW
@@ -76,6 +76,7 @@ File
   -> Separate Ollama classification request
   -> Separate Ollama structured-extraction request
   -> Preserve field-level value, confidence, and source_text
+  -> Preserve optional authorization service-line records
   -> Deterministic evidence validation
   -> Synchronize corrected flat extraction values
   -> Deterministic business rules
@@ -131,10 +132,14 @@ Current behavior:
 - Supports real document OCR
 - Stores OCR cache under data/ocr_cache
 - Uses a SHA-256 document hash for cache identification
+- Uses hash-only OCR cache filenames
 - Reuses cached OCR text when the document has not changed
+- Migrates compatible legacy cache files to hash-only filenames
 - Treats cached OCR text as PHI
+- Does not log patient-bearing document names or cache paths
+- Sanitizes OCR exceptions before logging
 
-The following paths must never be committed:
+The following paths and data must never be committed:
 
 .env
 data/incoming/
@@ -142,10 +147,14 @@ data/ocr_cache/
 patient documents
 OCR text containing PHI
 local model files
+credentials
+tokens
 
 Real scanned authorization OCR was completed successfully.
 
 OCR cache reuse was tested successfully.
+
+Privacy-safe cache logging was verified with a real local run.
 
 PaddleOCR model initialization still occurs when cached text is used,
 but actual OCR prediction is skipped.
@@ -171,8 +180,10 @@ Connection testing confirmed:
 - Structured-extraction requests work
 - Structured JSON responses work
 - Field-level value, confidence, and source_text can be returned
+- Optional authorization service-line records can be returned
+- Flat extraction fields remain available for backward compatibility
 
-Current performance baseline for a cached three-page authorization:
+Historical cached-document performance baseline:
 
 Provider initialization:
 Approximately 3.30 seconds
@@ -192,7 +203,13 @@ Approximately 261.73 seconds
 Overall total:
 Approximately 265.03 seconds
 
-The principal performance bottleneck is local CPU Ollama inference.
+Recent real Molina service-line runs ranged from approximately 198
+seconds to approximately 386 seconds total.
+
+The current DocumentProcessor interface does not separately expose
+classification and extraction timing.
+
+The principal performance bottleneck remains local CPU Ollama inference.
 
 Do not select production hardware until document volume, page count,
 acceptable processing time, concurrency, model size, context length,
@@ -202,7 +219,7 @@ storage, and accuracy requirements are better established.
 FIELD-LEVEL EVIDENCE STATUS
 ------------------------------------------------------------
 
-Field-level extraction evidence is now preserved on the Document model.
+Field-level extraction evidence is preserved on the Document model.
 
 Each extracted field can retain:
 
@@ -221,8 +238,46 @@ into the flat structures used by business rules and human review.
 
 Original source_text remains preserved after deterministic correction.
 
-This feature was tested successfully with a real cached OCR document and
-real local Ollama extraction.
+This feature was tested successfully with real cached OCR text and real
+local Ollama extraction.
+
+------------------------------------------------------------
+AUTHORIZATION SERVICE-LINE STATUS
+------------------------------------------------------------
+
+AuthorizationServiceLine is implemented as a neutral structured model.
+
+Each service-line record can preserve:
+
+- service_code
+- modifier
+- quantity
+- start_date
+- end_date
+- status
+- confidence
+- source_text
+
+Document now supports:
+
+- service_lines
+- existing flat extraction fields
+- field-level evidence
+- validation actions
+- human-review results
+
+The Ollama extraction schema supports both:
+
+- fields
+- service_lines
+
+The DocumentProcessor preserves valid service-line records while
+retaining existing flat-field behavior.
+
+The service-line structure does not apply payer-specific meaning.
+
+It does not automatically interpret units as visits, sessions,
+equipment quantities, or sufficient approval.
 
 ------------------------------------------------------------
 DETERMINISTIC EVIDENCE VALIDATION STATUS
@@ -231,7 +286,7 @@ DETERMINISTIC EVIDENCE VALIDATION STATUS
 A deterministic evidence-validation service is implemented and active
 between extraction and business rules.
 
-Current non-business-specific checks include:
+Current non-business-specific flat-field checks include:
 
 - Normalize supported dates to YYYY-MM-DD
 - Verify normalized dates appear in source evidence
@@ -249,67 +304,136 @@ Current non-business-specific checks include:
 - Emit deterministic validation actions
 - Synchronize corrected values before business rules execute
 
-The validator does not currently apply payer-specific, service-line,
-quantity, or authorization workflow conclusions.
+Current service-line checks include:
+
+- Remove service-line rows without source evidence
+- Normalize service-line confidence
+- Cap model confidence of 1.0 at 0.95
+- Validate service-code support against row evidence
+- Validate modifier structure and row-level support
+- Validate quantity support against row evidence
+- Normalize and validate service-line dates
+- Validate status against row evidence
+- Downgrade unsupported rows to no more than 0.50 confidence
+- Emit low-confidence review actions below 0.85
+- Remove duplicate service-line records
+- Remove rows with no remaining supported structured values
+- Detect supported top-level modifiers that cannot be reliably assigned
+  to a validated service line
+- Require review for unresolved modifier-to-service-line relationships
+- Never copy a top-level modifier into a service line automatically
+
+Current modifier relationship action:
+
+Service-line modifier relationship requires verification
+
+The validator remains separate from payer-specific and LTHHC business
+rules.
 
 ------------------------------------------------------------
-REAL DOCUMENT TEST STATUS
+REAL MOLINA AUTHORIZATION TEST STATUS
 ------------------------------------------------------------
 
-A real scanned authorization document was processed using:
+A real cached authorization document was processed using:
 
-- Real local PaddleOCR cache
+- Real cached local PaddleOCR text
 - Real local Ollama classification
 - Real local Ollama extraction
 - Real field-level evidence preservation
+- Real authorization service-line extraction
 - Real deterministic evidence validation
 - Real deterministic business rules
 - Real human-review decision
 
-Verified real behavior:
+Latest verified service-line result:
 
-- Document classified as a generic authorization
-- Classification confidence returned as 90 percent
-- Member ID remained supported by source evidence
-- Authorization number remained supported by source evidence
-- Service code remained supported by source evidence
-- Service-code list remained supported and deduplicated
-- Modifier remained supported and structurally valid
-- Provider NPI remained supported by source evidence
-- Diagnosis code remained supported by source evidence
-- Start date normalized to YYYY-MM-DD
-- End date normalized to YYYY-MM-DD
-- Member date of birth normalized to YYYY-MM-DD
-- Ambiguous request type was cleared
-- Unsupported approved visits value was cleared
-- Invalidated fields were assigned 0.0 confidence
-- Authorized unit values were preserved without automatic interpretation
-- Source evidence remained available after correction
-- Document was routed to human review
+- Document type remained authorization
+- Classification confidence remained 90 percent
+- Exactly two service-line records were preserved
+- Both service-line records preserved service code S9110
+- One service-line record preserved quantity 1
+- One service-line record preserved quantity 6
+- Both service-line records preserved supported date ranges
+- Dates were normalized to YYYY-MM-DD
+- Both service-line records preserved Approved status
+- Top-level modifier U1 remained supported
+- Row-level source evidence did not reliably associate U1 with a
+  specific service line
+- Unsupported row-level modifier assignment was cleared
+- The unresolved modifier relationship generated a validation action
+- Human review remained required
+- Raw source evidence and PHI were not printed
 
-Real deterministic validation actions:
+Latest real semantic regression result:
 
-- Request type requires checkbox or selection verification
-- Approved visits are not supported by clear approval evidence
+Passed: 1
+Failed: 0
 
-Current business-rule action:
+Real or mock:
 
-Authorization quantity requires verification
+Real cached OCR and real local Ollama processing
 
-Current review status:
+Latest total processing time:
 
-Human Review Recommended
+Approximately 347.86 seconds
 
-Current review reasons include:
+The real test remains a regression fixture for the known local
+authorization document. Its expected values must not be treated as
+universal payer or service-code rules.
 
-- One or more extracted fields have confidence below 85 percent
-- Request type requires checkbox or selection verification
-- Approved visits are not supported by clear approval evidence
-- Authorization quantity requires verification
+------------------------------------------------------------
+SYNTHETIC DOCUMENT-PROCESSOR TEST STATUS
+------------------------------------------------------------
 
-The real test output contained PHI and must remain local. No patient
-values or OCR evidence should be added to source files, documentation,
-the tracker, or GitHub.
+Test file:
+
+tests/test_document_processor.py
+
+Verified behavior:
+
+- Missing service_lines returns an empty list
+- Non-list service_lines returns an empty list
+- Service-line row relationships are preserved
+- Service-line confidence is normalized
+- Empty service-line dictionaries are ignored
+- Invalid service-line items are ignored
+- Existing flat fields remain separate
+
+Result:
+
+Passed: 7
+Failed: 0
+
+Real or mock:
+
+Synthetic deterministic test
+
+------------------------------------------------------------
+SYNTHETIC OLLAMA SERVICE-LINE TEST STATUS
+------------------------------------------------------------
+
+Test file:
+
+tests/test_ollama_service_lines.py
+
+Verified behavior:
+
+- Extraction schema requires service_lines
+- Empty service_lines are preserved
+- Non-list service_lines return an empty list
+- Service-line row relationships are preserved
+- Confidence is normalized
+- Empty rows are removed
+- Invalid items are removed
+
+Result:
+
+Passed: 7
+Failed: 0
+
+Real or mock:
+
+Synthetic deterministic test
 
 ------------------------------------------------------------
 SYNTHETIC EVIDENCE-VALIDATION TEST STATUS
@@ -317,31 +441,45 @@ SYNTHETIC EVIDENCE-VALIDATION TEST STATUS
 
 Test file:
 
-scripts/test_evidence_validation.py
+tests/test_evidence_validation_service.py
 
-Test type:
+Verified behavior includes:
 
-Synthetic deterministic test with no PHI and no external dependencies
-
-Verified behavior:
-
-- Matching identifiers were preserved
-- Unsupported identifiers were cleared
-- Unsupported identifier confidence was set to 0.0
-- Ambiguous request type was cleared
-- Unsupported approved visits were cleared
-- Dates were normalized
-- Duplicate service codes were removed
-- Valid modifier evidence was preserved
-- Validation actions were emitted
+- Missing source evidence clears protected fields
+- Supported identifiers remain intact
+- Unsupported identifiers are cleared
+- Supported dates normalize correctly
+- Unsupported dates are cleared
+- Duplicate service codes are removed
+- Conflicting service-code fields downgrade confidence
+- Invalid modifier structures are cleared
+- Ambiguous request types are cleared
+- Requested visits are not accepted as approved visits
+- Clear approval context can preserve approved visits
+- Flat fields remain synchronized
+- Service-line dates normalize correctly
+- Rows without source evidence are removed
+- Unsupported service-line codes are cleared
+- Invalid service-line modifiers are cleared
+- Unsupported quantities are cleared
+- Unsupported dates are cleared
+- Unsupported statuses are cleared
+- Full model confidence is reduced for deterministic verification
+- Duplicate service lines are removed
+- Low-confidence service lines generate review actions
+- Unresolved top-level modifiers generate relationship review actions
+- Supported row-level modifiers avoid the relationship action
+- No modifier avoids the relationship action
+- Validation actions are deduplicated
 
 Result:
 
-Passed
+Passed: 27
 Failed: 0
 
-This test does not call PaddleOCR, Ollama, Microsoft Graph, or
-Smartsheet.
+Real or mock:
+
+Synthetic deterministic test
 
 ------------------------------------------------------------
 SYNTHETIC REVIEW-DECISION TEST STATUS
@@ -350,10 +488,6 @@ SYNTHETIC REVIEW-DECISION TEST STATUS
 Test file:
 
 tests/test_review_decision_service.py
-
-Test type:
-
-Synthetic deterministic test with no PHI and no external dependencies
 
 Verified behavior:
 
@@ -372,8 +506,9 @@ Result:
 Passed: 9
 Failed: 0
 
-This test does not call PaddleOCR, Ollama, Microsoft Graph, or
-Smartsheet.
+Real or mock:
+
+Synthetic deterministic test
 
 ------------------------------------------------------------
 KNOWN EXTRACTION AND VALIDATION LIMITATIONS
@@ -384,21 +519,25 @@ processing without human review.
 
 Observed limitations:
 
+- Service-line extraction varies between repeated real runs.
+- The model may omit a service code or quantity from one row.
+- The model may inconsistently populate service_codes and
+  authorized_units.
+- A supported top-level modifier may not be reliably associated with a
+  specific service-line row.
 - Ambiguous checkbox labels may be treated as selected by the model.
 - Initial Request may be returned without reliable selection evidence.
 - Requested visit quantities may be presented as approved values.
 - The model may assign 1.0 confidence to ambiguous or weakly supported
   fields.
-- Current deterministic validation clears known unsupported fields but
-  does not yet provide full confidence calibration.
-- Person names, payer names, provider names, descriptions, and status
-  text are not yet deterministically compared with source evidence.
+- Current confidence handling is conservative but not fully calibrated.
+- Person names, payer names, provider names, descriptions, and some
+  free-text values are not yet fully checked against source evidence.
 - Authorized-unit values are retained but their business meaning has not
   been confirmed.
-- Multiple service-line rows are not yet modeled as separate structured
-  service-line records.
-- The current field structures may eventually need a dedicated model
-  instead of nested dictionaries.
+- Quantity validation currently uses exact token support and may require
+  expansion for decimals, ranges, recurring quantities, or other
+  confirmed document formats.
 - Prompt instructions alone do not reliably enforce evidence rules.
 
 Human review remains required whenever deterministic evidence or
@@ -424,18 +563,18 @@ Current conservative behavior:
 - Do not require approved_visits when authorized_units exist.
 - Do not automatically treat authorized_units as sufficient approval.
 - Do not automatically treat requested visits as approved visits.
+- Do not automatically assign a top-level modifier to a service line.
 - Do not infer initial, renewal, extension, continuation, amendment,
   denial, or partial approval without reliable evidence.
 - Require human verification for authorization quantity interpretation.
 - Require human verification when subtype evidence is ambiguous.
+- Require human verification when modifier-to-service-line ownership is
+  unresolved.
 
-A tested example was confirmed by the user to be a telemonitoring
-authorization associated with the Remote Patient Monitoring service
-line.
+The tested Molina document remains a regression fixture only.
 
-That information is currently treated only as confirmed context for the
-example. It has not been implemented as a universal service-code,
-payer, service-line, or authorization-type rule.
+No universal Molina, S9110, U1, RPM, quantity, or service-line mapping
+has been implemented.
 
 Required, optional, and conditionally required fields still need to be
 confirmed with management.
@@ -462,8 +601,8 @@ including:
 - Smartsheet mappings
 - human-review feedback
 
-The current work is focused on completing and stabilizing the technical
-pipeline before formal business-rule training.
+The current work remains focused on completing and stabilizing the
+technical pipeline before formal business-rule training.
 
 Do not hard-code conclusions from one document.
 
@@ -488,6 +627,9 @@ Human review can be triggered by:
 - Ambiguous request type
 - Unsupported approved quantity
 - Authorization quantity requiring verification
+- Unsupported service-line evidence
+- Low-confidence service-line records
+- Unresolved modifier-to-service-line relationships
 
 Current statuses:
 
@@ -500,113 +642,91 @@ Duplicate review reasons are removed.
 Human review is functioning as a safety control.
 
 ------------------------------------------------------------
-TIMING TESTS
+PRIVACY AND SECURITY STATUS
 ------------------------------------------------------------
 
-scripts/test_molina_timing.py
+Privacy-safe OCR cache behavior was added and tested.
 
-Measures:
+Current safeguards include:
 
-- Provider initialization
-- OCR or cache lookup
-- Classification
-- Extraction
-- Business-rule validation
-- Human-review decision when separately detectable
-- Pipeline overhead
-- Total processing time
+- Hash-only OCR cache filenames
+- No document filenames in normal OCR cache logs
+- No cache paths in normal OCR cache logs
+- Sanitized OCR exceptions
+- PHI-safe Molina regression output
+- No raw service-line source_text in test output
+- No raw OCR text in test output
+- No patient identifiers in tracker content
 
-scripts/test_combined_ollama_timing.py
+Before every commit, verify:
 
-Purpose:
-
-- Measure the rejected combined classification-and-extraction
-  experiment
-- Preserve evidence that the combined request was not a useful
-  optimization
-
-Combined-request result:
-
-Combined Ollama analysis:
-Approximately 255.70 seconds
-
-Overall total:
-Approximately 259.14 seconds
-
-Performance gain:
-Approximately 6 seconds or 2.3 percent
-
-Accuracy result:
-Failed
-
-The combined request produced unsupported classification and extraction
-results. The production pipeline was restored to separate requests.
+- .env is ignored
+- data/incoming is ignored
+- data/ocr_cache is ignored
+- no PDF is staged
+- no OCR text is staged
+- no PHI is staged
+- no token or credential is staged
 
 ------------------------------------------------------------
-FILES CREATED OR MODIFIED
+FILES CREATED OR MODIFIED IN CURRENT FEATURE
 ------------------------------------------------------------
 
-Files created:
+Created:
 
-src/services/evidence_validation_service.py
-scripts/test_evidence_validation.py
-tests/test_review_decision_service.py
+tests/test_ollama_service_lines.py
 
-Files modified:
+Modified:
 
-src/models/document.py
-src/document_processing/document_processor.py
-src/services/review_decision_service.py
 scripts/test_molina_document.py
+src/ai/llm/providers/ollama_provider.py
+src/ai/ocr/providers/paddle_ocr_provider.py
+src/document_processing/document_processor.py
+src/models/document.py
+src/services/evidence_validation_service.py
+tests/test_document_processor.py
+tests/test_evidence_validation_service.py
 update_project_tracker.py
 
-Previously implemented production and service files:
-
-src/ai/config.py
-src/ai/ocr/providers/paddle_ocr_provider.py
-src/ai/llm/llm_provider.py
-src/ai/llm/llm_service.py
-src/ai/llm/providers/ollama_provider.py
-src/business_rules/rules/authorization_rule.py
-
-Previously implemented Graph files:
-
-src/graph/config.py
-src/graph/auth.py
-src/graph/client.py
-src/graph/email_service.py
-src/graph/attachment_service.py
-src/graph/mailbox_processor.py
-
 ------------------------------------------------------------
-TESTS RUN
+TESTS RUN FOR CURRENT FEATURE
 ------------------------------------------------------------
 
-Synthetic deterministic evidence-validation test:
+Syntax and formatting checks:
 
-python -m scripts.test_evidence_validation
+python -m compileall
+git diff --check
+
+git diff --check result:
+
+Passed with no output
+
+Synthetic DocumentProcessor test:
+
+python -m tests.test_document_processor
 
 Result:
 
-Passed
+Passed: 7
 Failed: 0
 
-Real local document regression test:
+Synthetic Ollama service-line test:
 
-python -m scripts.test_molina_document
+python -m tests.test_ollama_service_lines
 
 Result:
 
-Passed
+Passed: 7
+Failed: 0
 
-Real or mock status:
+Synthetic evidence-validation test:
 
-Real cached PaddleOCR text
-Real local Ollama classification
-Real local Ollama extraction
-Real deterministic evidence validation
-Real business rules
-Real human-review decision
+python -m tests.test_evidence_validation_service
+
+Result:
+
+Passed: 27
+Failed: 0
 
 Synthetic review-decision test:
 
@@ -617,49 +737,81 @@ Result:
 Passed: 9
 Failed: 0
 
-Real or mock status:
+Real Molina semantic regression:
 
-Synthetic deterministic test
+python -m scripts.test_molina_document
 
-Syntax checks were also run with Python compileall before selected
-behavior tests. Syntax checks confirm that Python can parse the files,
-but they do not replace behavioral tests.
+Result:
+
+Passed: 1
+Failed: 0
+
+Real or mock:
+
+Real cached PaddleOCR text
+Real local Ollama classification
+Real local Ollama extraction
+Real deterministic evidence validation
+Real business rules
+Real human-review decision
+
+------------------------------------------------------------
+CURRENT FEATURE RESULT
+------------------------------------------------------------
+
+Implemented and tested:
+
+- Neutral authorization service-line model
+- Service-line extraction schema
+- DocumentProcessor service-line conversion
+- Deterministic row-level evidence validation
+- Date normalization
+- Service-code validation
+- Modifier validation
+- Quantity validation
+- Status validation
+- Confidence downgrading
+- Service-line deduplication
+- Unresolved modifier relationship detection
+- Human-review routing
+- PHI-safe OCR cache logging
+- PHI-safe real regression output
+
+The current known Molina regression passed.
+
+This does not prove that service-line extraction is stable across all
+documents or all repeated runs.
 
 ------------------------------------------------------------
 EXACT NEXT DEVELOPMENT STEP
 ------------------------------------------------------------
 
-Add focused automated tests for EvidenceValidationService under the
-project tests directory, then improve confidence handling without adding
-unconfirmed business rules.
+Measure and improve repeated extraction stability without weakening
+deterministic validation.
 
 Start with:
 
-1. tests/test_evidence_validation_service.py
-2. src/services/evidence_validation_service.py
-3. src/models/document.py
-4. src/document_processing/document_processor.py
+1. Run the known Molina semantic regression multiple times.
+2. Record whether each run preserves both service-line codes and
+   quantities.
+3. Do not print raw source evidence or PHI.
+4. Investigate failures at the Ollama extraction layer when expected
+   values are absent from model-provided row evidence.
+5. Investigate validator matching only when expected values are present
+   in row evidence but are cleared.
+6. Keep classification and extraction as separate Ollama calls.
+7. Do not force modifiers into service-line rows.
+8. Do not add payer-specific or service-code business rules.
 
-Initial test coverage should include:
+After repeatability is acceptable, add a separate regression profile for
+a second authorization document.
 
-- Missing source_text clears protected structured fields
-- Supported alphanumeric identifiers remain intact
-- Unsupported identifiers are cleared
-- Supported date evidence normalizes correctly
-- Unsupported date evidence is cleared
-- Duplicate service codes are removed
-- Conflicting service_code and service_codes trigger review
-- Invalid modifier structures are cleared
-- Validation actions remain deduplicated
-- Original source_text remains preserved after invalidation
-- Flat extracted_data and field_confidences remain synchronized
+Do not apply Molina-specific expected values to every PDF in
+data/incoming.
 
-After automated evidence-validator coverage is complete, continue with
-technical extraction structure for multiple authorization service lines.
-
-Do not define payer-specific, RPM-specific, service-code, quantity, or
-Smartsheet business mappings until the technical pipeline is stable and
-the rules are confirmed.
+The unattended worker, production Smartsheet mapping, review Smartsheet
+workflow, confirmed business rules, and final production routing remain
+incomplete.
 
 ------------------------------------------------------------
 NEXT SESSION START COMMANDS
@@ -671,13 +823,16 @@ git diff --check
 
 Then inspect:
 
-src/services/evidence_validation_service.py
-tests/test_review_decision_service.py
-scripts/test_evidence_validation.py
 scripts/test_molina_document.py
-src/models/document.py
+src/ai/llm/providers/ollama_provider.py
+src/ai/ocr/providers/paddle_ocr_provider.py
 src/document_processing/document_processor.py
-src/services/review_decision_service.py
+src/models/document.py
+src/services/evidence_validation_service.py
+tests/test_document_processor.py
+tests/test_evidence_validation_service.py
+tests/test_ollama_service_lines.py
+update_project_tracker.py
 
 ============================================================
 """
@@ -693,9 +848,9 @@ updates = [
         "Completed",
         (
             "Completed the approved local-first architecture using Microsoft "
-            "Graph, local PaddleOCR, local Ollama, field-level evidence "
-            "preservation, deterministic evidence validation, business rules, "
-            "human review, and Smartsheet."
+            "Graph, local PaddleOCR, local Ollama, field-level evidence, "
+            "authorization service-line extraction, deterministic evidence "
+            "validation, business rules, human review, and Smartsheet."
         ),
     ),
     (
@@ -712,146 +867,139 @@ updates = [
         "Completed",
         (
             "Implemented provider-based OCR and LLM architecture with "
-            "registries, factories, field-level extraction evidence, "
-            "deterministic evidence validation, business rules, and "
-            "human-review decisions."
+            "registries, factories, field-level evidence, neutral service-line "
+            "records, deterministic validation, business rules, and human "
+            "review."
         ),
     ),
     (
         "Configure Branch Strategy",
         "Completed",
         (
-            "Git repository is connected to GitHub and the development workflow "
-            "has been validated. Secrets, PHI, incoming documents, and OCR cache "
-            "must remain excluded from commits."
+            "Git repository is connected to GitHub and the development "
+            "workflow is validated. Secrets, PHI, incoming documents, and OCR "
+            "cache must remain excluded from commits."
         ),
     ),
     (
         "Validate Development Environment",
         "Completed",
         (
-            "Python virtual environment, PaddlePaddle, PaddleOCR, Ollama, "
-            "llama3.1:8b, Microsoft Graph, Git, synthetic tests, and real local "
-            "document processing were validated."
+            "Validated Python, PaddleOCR, Ollama, llama3.1:8b, Microsoft Graph, "
+            "Git, synthetic tests, and real cached-document processing."
         ),
     ),
     (
         "Create OCR Service",
         "Completed",
         (
-            "Implemented the production local PaddleOCR provider using the "
-            "existing OCR provider framework. Added SHA-256 OCR caching under "
-            "data/ocr_cache and verified cache reuse."
+            "Implemented local PaddleOCR with SHA-256 hash-only caching, cache "
+            "reuse, privacy-safe logging, sanitized exceptions, and legacy "
+            "cache migration."
         ),
     ),
     (
         "Extract PDF Text",
         "Completed",
         (
-            "Successfully extracted text from a real scanned image-only PDF "
-            "using local PaddleOCR. Verified that unchanged documents reuse "
-            "cached OCR text."
+            "Successfully extracted real scanned PDF text locally and verified "
+            "that unchanged documents reuse cached OCR text."
         ),
     ),
     (
         "Unit Test OCR",
         "Completed",
         (
-            "Validated mock OCR, direct production PaddleOCR, real scanned PDF "
-            "OCR, OCR cache creation, and cached OCR reuse."
+            "Validated direct PaddleOCR, real scanned PDF OCR, cache creation, "
+            "cache reuse, and PHI-safe cache logging."
         ),
     ),
     (
         "Create Prompt Templates",
         "In Progress",
         (
-            "Implemented local Ollama classification and extraction prompts "
-            "that request field-level value, confidence, and source_text. Real "
-            "testing confirms that prompt instructions still require "
-            "deterministic evidence validation."
+            "Implemented separate local Ollama classification and extraction "
+            "prompts with field-level evidence and optional service-line "
+            "records. Repeated extraction stability still needs improvement."
         ),
     ),
     (
         "Implement Classification",
         "In Progress",
         (
-            "Implemented local Ollama classification with structured JSON. A "
-            "real authorization was classified as a generic authorization. "
-            "Subtype and workflow classification remain untrained."
+            "Implemented local Ollama classification with structured JSON. "
+            "Generic authorization classification works, while subtype and "
+            "workflow classification remain untrained."
         ),
     ),
     (
         "Implement Data Extraction",
         "In Progress",
         (
-            "Implemented local Ollama structured extraction and preserved "
-            "field-level value, confidence, and source_text. Real testing "
-            "confirmed key fields can be retained while unsupported request "
-            "type and approved-visit values are cleared deterministically."
+            "Implemented field-level extraction and neutral authorization "
+            "service-line extraction. Real testing preserved two service-line "
+            "rows, but repeated Ollama output can still vary."
         ),
     ),
     (
         "Validate AI Output",
         "In Progress",
         (
-            "Implemented deterministic evidence validation before business "
-            "rules. Real testing confirmed identifier evidence checks, date "
-            "normalization, service-code deduplication, unsupported-field "
-            "clearing, confidence downgrading, and human-review routing."
+            "Implemented deterministic flat-field and row-level evidence "
+            "validation, including service-line code, quantity, date, status, "
+            "modifier, confidence, deduplication, and relationship checks."
         ),
     ),
     (
         "Implement Business Rules",
         "In Progress",
         (
-            "Authorization rules remain conservative and separate from evidence "
-            "validation. Authorization quantities still require human "
-            "verification because formal business-rule training has not begun."
+            "Authorization rules remain conservative and separate from "
+            "evidence validation. Quantity and modifier relationships require "
+            "human verification until confirmed requirements are available."
         ),
     ),
     (
         "Validate Business Rules",
         "In Progress",
         (
-            "Real authorization testing confirms that evidence validation and "
-            "quantity interpretation route the document to human review. Final "
-            "business rules remain pending confirmed management requirements."
+            "Real authorization testing confirms that unresolved quantity and "
+            "modifier relationships route to human review. Final business "
+            "rules remain pending management confirmation."
         ),
     ),
     (
         "Integration Testing",
         "In Progress",
         (
-            "Tested Microsoft Graph mailbox processing, attachment download, "
-            "local OCR, local Ollama, field-level evidence preservation, "
-            "deterministic evidence validation, business rules, and human "
-            "review. Final mappings and end-to-end Smartsheet behavior remain "
-            "under development."
+            "Tested Graph ingestion, local OCR, local Ollama, field evidence, "
+            "service-line extraction, deterministic validation, business "
+            "rules, and human review. Production Smartsheet routing and an "
+            "unattended worker remain incomplete."
         ),
     ),
     (
         "Configure Microsoft Entra",
         "Completed",
         (
-            "Created and tested the Microsoft Entra application registration, "
-            "client secret, Graph application permissions, tenant consent, and "
-            "client-credentials authentication."
+            "Created and tested Microsoft Entra application registration, "
+            "client credentials, Graph permissions, tenant consent, and "
+            "authentication."
         ),
     ),
     (
         "Create Shared Mailbox",
         "Completed",
         (
-            "Created ai@lthhc.com as the shared mailbox for the AI Automation "
-            "Platform."
+            "Created ai@lthhc.com as the shared mailbox for the platform."
         ),
     ),
     (
         "Configure Mailbox Security",
         "Completed",
         (
-            "Configured the shared mailbox and application access for the "
-            "approved Microsoft Graph workflow."
+            "Configured shared mailbox and application access for the approved "
+            "Microsoft Graph workflow."
         ),
     ),
     (
@@ -866,7 +1014,7 @@ updates = [
         "Design Office365 Connector",
         "Completed",
         (
-            "Completed the Microsoft Graph connector architecture including "
+            "Completed Microsoft Graph connector architecture including "
             "configuration, authentication, Graph client, email service, "
             "attachment service, and mailbox processor."
         ),
@@ -875,18 +1023,17 @@ updates = [
         "Authenticate Microsoft Graph",
         "Completed",
         (
-            "Successfully authenticated using OAuth client credentials and "
-            "confirmed access to the ai@lthhc.com shared mailbox."
+            "Successfully authenticated with client credentials and confirmed "
+            "access to the ai@lthhc.com shared mailbox."
         ),
     ),
     (
         "Implement Office365 Connector",
         "Completed",
         (
-            "Implemented and tested unread-message retrieval, supported "
-            "attachment downloading, inline-image filtering, document "
-            "processing, mark-read-after-success behavior, retry preservation "
-            "for failures, and duplicate prevention."
+            "Implemented unread-message retrieval, supported attachment "
+            "download, inline-image filtering, processing, mark-read-after-"
+            "success behavior, retry preservation, and duplicate prevention."
         ),
     ),
 ]

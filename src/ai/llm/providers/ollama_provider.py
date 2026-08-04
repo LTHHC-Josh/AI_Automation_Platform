@@ -57,6 +57,17 @@ class OllamaProvider(LLMProvider):
         "diagnosis_description",
     ]
 
+    SERVICE_LINE_FIELD_NAMES = [
+        "service_code",
+        "modifier",
+        "quantity",
+        "start_date",
+        "end_date",
+        "status",
+        "confidence",
+        "source_text",
+    ]
+
     CONFIDENCE_FIELD_SCHEMA = {
         "type": "object",
         "properties": {
@@ -90,6 +101,60 @@ class OllamaProvider(LLMProvider):
             "confidence",
             "source_text",
         ],
+        "additionalProperties": False,
+    }
+
+    SERVICE_LINE_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "service_code": {
+                "type": [
+                    "string",
+                    "null",
+                ],
+            },
+            "modifier": {
+                "type": [
+                    "string",
+                    "null",
+                ],
+            },
+            "quantity": {
+                "type": [
+                    "string",
+                    "number",
+                    "integer",
+                    "null",
+                ],
+            },
+            "start_date": {
+                "type": [
+                    "string",
+                    "null",
+                ],
+            },
+            "end_date": {
+                "type": [
+                    "string",
+                    "null",
+                ],
+            },
+            "status": {
+                "type": [
+                    "string",
+                    "null",
+                ],
+            },
+            "confidence": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+            },
+            "source_text": {
+                "type": "string",
+            },
+        },
+        "required": SERVICE_LINE_FIELD_NAMES,
         "additionalProperties": False,
     }
 
@@ -131,13 +196,21 @@ class OllamaProvider(LLMProvider):
                 "required": FIELD_NAMES,
                 "additionalProperties": False,
             },
+            "service_lines": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/$defs/serviceLine"
+                },
+            },
         },
         "required": [
             "fields",
+            "service_lines",
         ],
         "additionalProperties": False,
         "$defs": {
             "confidenceField": CONFIDENCE_FIELD_SCHEMA,
+            "serviceLine": SERVICE_LINE_SCHEMA,
         },
     }
 
@@ -230,6 +303,12 @@ class OllamaProvider(LLMProvider):
                 result.get(
                     "fields",
                     {},
+                )
+            ),
+            "service_lines": self._normalize_service_lines(
+                result.get(
+                    "service_lines",
+                    [],
                 )
             ),
         }
@@ -349,7 +428,7 @@ Never invent, infer, estimate, or complete a missing value.
 
 Return null when a value cannot be reliably determined.
 
-Each field must include:
+Each top-level field must include:
 
 - value
 - confidence
@@ -358,7 +437,7 @@ Each field must include:
 source_text must be a short exact phrase from the OCR text supporting
 the extracted value.
 
-When a value is null:
+When a top-level value is null:
 
 - confidence must be 0
 - source_text must be an empty string
@@ -465,6 +544,45 @@ a total.
 Do not decide whether units or visits satisfy LTHHC business rules.
 Extract only what the document supports.
 
+SERVICE LINES
+
+Return service_lines as an array.
+
+Each service-line item must contain:
+
+- service_code
+- modifier
+- quantity
+- start_date
+- end_date
+- status
+- confidence
+- source_text
+
+Create one service-line item for each distinct row that can be reliably
+supported by the OCR text.
+
+Preserve relationships within each row. Do not combine a quantity from
+one row with a modifier, date, status, or service code from another row.
+
+Use null for a service-line field when that value is not clearly shown
+for that row.
+
+When a service-line row itself cannot be reliably reconstructed, do not
+guess. Omit that row.
+
+Return an empty service_lines array when no reliable row-level service
+data can be reconstructed.
+
+A service-line source_text value must contain the shortest available OCR
+text that supports the relationship among the row values.
+
+Service-line confidence must reflect confidence in the whole row, not
+only the service code.
+
+Do not interpret the operational or billing meaning of a service code,
+modifier, quantity, or row.
+
 DATES
 
 Normalize reliably supported dates to YYYY-MM-DD.
@@ -569,6 +687,7 @@ Return only JSON matching the required schema.
                     "source_text",
                     "",
                 )
+                or ""
             ).strip()
 
             value = self._normalize_field_value(
@@ -590,6 +709,98 @@ Return only JSON matching the required schema.
             }
 
         return normalized_fields
+
+    def _normalize_service_lines(
+        self,
+        service_lines: Any,
+    ) -> list[dict[str, Any]]:
+        """
+        Normalize optional row-level authorization service data.
+
+        This method performs structural normalization only. It does not
+        interpret service codes, modifiers, quantities, or approval.
+        """
+
+        if not isinstance(
+            service_lines,
+            list,
+        ):
+            return []
+
+        normalized_service_lines: list[dict[str, Any]] = []
+
+        for service_line in service_lines:
+            if not isinstance(
+                service_line,
+                dict,
+            ):
+                continue
+
+            normalized_line = {
+                "service_code": self._normalize_optional_string(
+                    service_line.get(
+                        "service_code"
+                    )
+                ),
+                "modifier": self._normalize_optional_string(
+                    service_line.get(
+                        "modifier"
+                    )
+                ),
+                "quantity": self._normalize_optional_value(
+                    service_line.get(
+                        "quantity"
+                    )
+                ),
+                "start_date": self._normalize_optional_string(
+                    service_line.get(
+                        "start_date"
+                    )
+                ),
+                "end_date": self._normalize_optional_string(
+                    service_line.get(
+                        "end_date"
+                    )
+                ),
+                "status": self._normalize_optional_string(
+                    service_line.get(
+                        "status"
+                    )
+                ),
+                "confidence": self._normalize_confidence(
+                    service_line.get(
+                        "confidence"
+                    )
+                ),
+                "source_text": str(
+                    service_line.get(
+                        "source_text",
+                        "",
+                    )
+                    or ""
+                ).strip(),
+            }
+
+            has_row_value = any(
+                normalized_line[field_name] is not None
+                for field_name in (
+                    "service_code",
+                    "modifier",
+                    "quantity",
+                    "start_date",
+                    "end_date",
+                    "status",
+                )
+            )
+
+            if not has_row_value:
+                continue
+
+            normalized_service_lines.append(
+                normalized_line
+            )
+
+        return normalized_service_lines
 
     def _normalize_field_value(
         self,
@@ -689,6 +900,39 @@ Return only JSON matching the required schema.
             return None
 
         return normalized_values
+
+    def _normalize_optional_string(
+        self,
+        value: Any,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        normalized_value = str(
+            value
+        ).strip()
+
+        if not normalized_value:
+            return None
+
+        return normalized_value
+
+    def _normalize_optional_value(
+        self,
+        value: Any,
+    ) -> Any:
+        if isinstance(
+            value,
+            str,
+        ):
+            normalized_value = value.strip()
+
+            if not normalized_value:
+                return None
+
+            return normalized_value
+
+        return value
 
     def _chat(
         self,

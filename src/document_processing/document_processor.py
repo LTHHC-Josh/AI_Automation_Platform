@@ -4,7 +4,10 @@ from typing import Any
 from src.ai.llm.llm_service import LLMService
 from src.ai.ocr.ocr_service import OCRService
 from src.business_rules.rule_service import RuleService
-from src.models.document import Document
+from src.models.document import (
+    AuthorizationServiceLine,
+    Document,
+)
 from src.services.evidence_validation_service import (
     EvidenceValidationService,
 )
@@ -24,11 +27,21 @@ class DocumentProcessor:
           -> Classification
           -> Structured Extraction
           -> Preserve Field Evidence
+          -> Preserve Optional Service Lines
           -> Deterministic Evidence Validation
           -> Business Rules
           -> Human Review Decision
           -> Document
     """
+
+    SERVICE_LINE_FIELDS = (
+        "service_code",
+        "modifier",
+        "quantity",
+        "start_date",
+        "end_date",
+        "status",
+    )
 
     def __init__(self) -> None:
         self.ocr = OCRService()
@@ -99,6 +112,10 @@ class DocumentProcessor:
         )
 
         document.field_evidence = self._get_field_evidence(
+            extraction_result
+        )
+
+        document.service_lines = self._get_service_lines(
             extraction_result
         )
 
@@ -216,6 +233,104 @@ class DocumentProcessor:
 
         return field_evidence
 
+    def _get_service_lines(
+        self,
+        extraction_result: Any,
+    ) -> list[AuthorizationServiceLine]:
+        """
+        Preserve optional row-level authorization service data.
+
+        Current Ollama output does not yet include service_lines. This
+        method allows the structure to be tested independently before
+        the provider schema and prompt are changed.
+        """
+
+        if not isinstance(
+            extraction_result,
+            dict,
+        ):
+            return []
+
+        raw_service_lines = extraction_result.get(
+            "service_lines"
+        )
+
+        if not isinstance(
+            raw_service_lines,
+            list,
+        ):
+            return []
+
+        service_lines: list[AuthorizationServiceLine] = []
+
+        for raw_service_line in raw_service_lines:
+            if not isinstance(
+                raw_service_line,
+                dict,
+            ):
+                continue
+
+            normalized_values = {
+                field_name: self._normalize_optional_value(
+                    raw_service_line.get(
+                        field_name
+                    )
+                )
+                for field_name in self.SERVICE_LINE_FIELDS
+            }
+
+            has_service_data = any(
+                not self._is_empty_value(
+                    normalized_values[field_name]
+                )
+                for field_name in self.SERVICE_LINE_FIELDS
+            )
+
+            if not has_service_data:
+                continue
+
+            confidence = self._normalize_confidence(
+                raw_service_line.get(
+                    "confidence",
+                    0.0,
+                )
+            )
+
+            source_text = str(
+                raw_service_line.get(
+                    "source_text",
+                    "",
+                )
+                or ""
+            ).strip()
+
+            service_lines.append(
+                AuthorizationServiceLine(
+                    service_code=normalized_values[
+                        "service_code"
+                    ],
+                    modifier=normalized_values[
+                        "modifier"
+                    ],
+                    quantity=normalized_values[
+                        "quantity"
+                    ],
+                    start_date=normalized_values[
+                        "start_date"
+                    ],
+                    end_date=normalized_values[
+                        "end_date"
+                    ],
+                    status=normalized_values[
+                        "status"
+                    ],
+                    confidence=confidence,
+                    source_text=source_text,
+                )
+            )
+
+        return service_lines
+
     def _convert_legacy_extraction(
         self,
         extraction_result: dict,
@@ -223,6 +338,9 @@ class DocumentProcessor:
         field_evidence: dict[str, dict[str, Any]] = {}
 
         for field_name, value in extraction_result.items():
+            if field_name == "service_lines":
+                continue
+
             normalized_field_name = str(
                 field_name
             ).strip()
@@ -247,6 +365,10 @@ class DocumentProcessor:
         self,
         document: Document,
     ) -> None:
+        """
+        Preserve existing flat-field behavior for business rules.
+        """
+
         document.extracted_data = {
             field_name: evidence.get(
                 "value"
@@ -265,6 +387,27 @@ class DocumentProcessor:
             for field_name, evidence
             in document.field_evidence.items()
         }
+
+    def _normalize_optional_value(
+        self,
+        value: Any,
+    ) -> Any:
+        """
+        Normalize surrounding whitespace without interpreting meaning.
+        """
+
+        if isinstance(
+            value,
+            str,
+        ):
+            normalized_value = value.strip()
+
+            if not normalized_value:
+                return None
+
+            return normalized_value
+
+        return value
 
     def _normalize_confidence(
         self,

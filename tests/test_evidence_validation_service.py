@@ -1,14 +1,18 @@
 from pathlib import Path
 from typing import Callable
 
-from src.models.document import Document
+from src.models.document import (
+    AuthorizationServiceLine,
+    Document,
+)
 from src.services.evidence_validation_service import (
     EvidenceValidationService,
 )
 
 
 def build_document(
-    field_evidence: dict,
+    field_evidence: dict | None = None,
+    service_lines: list[AuthorizationServiceLine] | None = None,
 ) -> Document:
     """
     Build a synthetic document containing no PHI.
@@ -20,7 +24,17 @@ def build_document(
         )
     )
 
-    document.field_evidence = field_evidence
+    document.field_evidence = (
+        field_evidence
+        if field_evidence is not None
+        else {}
+    )
+
+    document.service_lines = (
+        service_lines
+        if service_lines is not None
+        else []
+    )
 
     return document
 
@@ -37,10 +51,7 @@ def test_missing_source_text_clears_protected_field() -> None:
     )
 
     service = EvidenceValidationService()
-
-    actions = service.validate(
-        document
-    )
+    actions = service.validate(document)
 
     assert (
         document.field_evidence[
@@ -88,21 +99,10 @@ def test_supported_identifier_is_preserved() -> None:
     )
 
     service = EvidenceValidationService()
+    actions = service.validate(document)
 
-    actions = service.validate(
-        document
-    )
-
-    assert (
-        document.extracted_data["member_id"]
-        == "ABC-12345"
-    )
-
-    assert (
-        document.field_confidences["member_id"]
-        == 0.96
-    )
-
+    assert document.extracted_data["member_id"] == "ABC-12345"
+    assert document.field_confidences["member_id"] == 0.96
     assert actions == []
 
 
@@ -120,10 +120,7 @@ def test_unsupported_identifier_is_cleared() -> None:
     )
 
     service = EvidenceValidationService()
-
-    actions = service.validate(
-        document
-    )
+    actions = service.validate(document)
 
     assert (
         document.extracted_data[
@@ -165,10 +162,7 @@ def test_supported_date_is_normalized() -> None:
     )
 
     service = EvidenceValidationService()
-
-    actions = service.validate(
-        document
-    )
+    actions = service.validate(document)
 
     assert (
         document.extracted_data["start_date"]
@@ -197,20 +191,10 @@ def test_unsupported_date_evidence_is_cleared() -> None:
     )
 
     service = EvidenceValidationService()
+    actions = service.validate(document)
 
-    actions = service.validate(
-        document
-    )
-
-    assert (
-        document.extracted_data["start_date"]
-        is None
-    )
-
-    assert (
-        document.field_confidences["start_date"]
-        == 0.0
-    )
+    assert document.extracted_data["start_date"] is None
+    assert document.field_confidences["start_date"] == 0.0
 
     assert (
         document.field_evidence[
@@ -244,10 +228,7 @@ def test_duplicate_service_codes_are_removed() -> None:
     )
 
     service = EvidenceValidationService()
-
-    actions = service.validate(
-        document
-    )
+    actions = service.validate(document)
 
     assert (
         document.extracted_data["service_codes"]
@@ -281,20 +262,10 @@ def test_service_code_conflict_downgrades_confidence() -> None:
     )
 
     service = EvidenceValidationService()
+    actions = service.validate(document)
 
-    actions = service.validate(
-        document
-    )
-
-    assert (
-        document.extracted_data["service_code"]
-        == "S9110"
-    )
-
-    assert (
-        document.extracted_data["service_codes"]
-        == ["S9123"]
-    )
+    assert document.extracted_data["service_code"] == "S9110"
+    assert document.extracted_data["service_codes"] == ["S9123"]
 
     assert (
         document.field_confidences["service_code"]
@@ -321,20 +292,10 @@ def test_invalid_modifier_structure_is_cleared() -> None:
     )
 
     service = EvidenceValidationService()
+    actions = service.validate(document)
 
-    actions = service.validate(
-        document
-    )
-
-    assert (
-        document.extracted_data["modifier"]
-        is None
-    )
-
-    assert (
-        document.field_confidences["modifier"]
-        == 0.0
-    )
+    assert document.extracted_data["modifier"] is None
+    assert document.field_confidences["modifier"] == 0.0
 
     assert (
         document.field_evidence[
@@ -363,10 +324,7 @@ def test_selected_request_type_is_preserved() -> None:
     )
 
     service = EvidenceValidationService()
-
-    actions = service.validate(
-        document
-    )
+    actions = service.validate(document)
 
     assert (
         document.extracted_data["request_type"]
@@ -395,20 +353,10 @@ def test_ambiguous_request_type_is_cleared() -> None:
     )
 
     service = EvidenceValidationService()
+    actions = service.validate(document)
 
-    actions = service.validate(
-        document
-    )
-
-    assert (
-        document.extracted_data["request_type"]
-        is None
-    )
-
-    assert (
-        document.field_confidences["request_type"]
-        == 0.0
-    )
+    assert document.extracted_data["request_type"] is None
+    assert document.field_confidences["request_type"] == 0.0
 
     assert (
         document.field_evidence[
@@ -438,20 +386,10 @@ def test_requested_visits_are_not_approved_visits() -> None:
     )
 
     service = EvidenceValidationService()
+    actions = service.validate(document)
 
-    actions = service.validate(
-        document
-    )
-
-    assert (
-        document.extracted_data["approved_visits"]
-        is None
-    )
-
-    assert (
-        document.field_confidences["approved_visits"]
-        == 0.0
-    )
+    assert document.extracted_data["approved_visits"] is None
+    assert document.field_confidences["approved_visits"] == 0.0
 
     assert (
         document.field_evidence[
@@ -481,21 +419,10 @@ def test_clear_approval_context_preserves_visits() -> None:
     )
 
     service = EvidenceValidationService()
+    actions = service.validate(document)
 
-    actions = service.validate(
-        document
-    )
-
-    assert (
-        document.extracted_data["approved_visits"]
-        == 7
-    )
-
-    assert (
-        document.field_confidences["approved_visits"]
-        == 0.90
-    )
-
+    assert document.extracted_data["approved_visits"] == 7
+    assert document.field_confidences["approved_visits"] == 0.90
     assert actions == []
 
 
@@ -520,10 +447,7 @@ def test_flat_fields_are_synchronized() -> None:
     )
 
     service = EvidenceValidationService()
-
-    service.validate(
-        document
-    )
+    service.validate(document)
 
     assert document.extracted_data == {
         "provider_npi": "1234567890",
@@ -534,6 +458,393 @@ def test_flat_fields_are_synchronized() -> None:
         "provider_npi": 0.95,
         "diagnosis_code": 0.88,
     }
+
+
+def test_service_line_dates_are_normalized() -> None:
+    document = build_document(
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                modifier="U1",
+                quantity=6,
+                start_date="11/25/2025",
+                end_date="05/23/2026",
+                status="Approved",
+                confidence=0.94,
+                source_text=(
+                    "SYNTH1 U1 6 11/25/2025 "
+                    "05/23/2026 Approved"
+                ),
+            ),
+        ]
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    assert len(document.service_lines) == 1
+
+    service_line = document.service_lines[0]
+
+    assert service_line.start_date == "2025-11-25"
+    assert service_line.end_date == "2026-05-23"
+    assert service_line.confidence == 0.94
+    assert actions == []
+
+
+def test_service_line_without_source_is_removed() -> None:
+    document = build_document(
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                quantity=6,
+                confidence=0.90,
+                source_text="",
+            ),
+        ]
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    assert document.service_lines == []
+
+    assert (
+        "Service line 1 has no source evidence"
+        in actions
+    )
+
+
+def test_service_line_unsupported_code_is_cleared() -> None:
+    document = build_document(
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="WRONG1",
+                quantity=6,
+                confidence=0.94,
+                source_text="SYNTH1 quantity 6",
+            ),
+        ]
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    assert len(document.service_lines) == 1
+
+    service_line = document.service_lines[0]
+
+    assert service_line.service_code is None
+    assert service_line.quantity == "6"
+    assert service_line.confidence == 0.50
+
+    assert (
+        "Service line 1 service code is not supported "
+        "by its source evidence"
+        in actions
+    )
+
+    assert (
+        "Service line 1 has low confidence"
+        in actions
+    )
+
+
+def test_service_line_invalid_modifier_is_cleared() -> None:
+    document = build_document(
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                modifier="U11",
+                quantity=6,
+                confidence=0.94,
+                source_text="SYNTH1 U11 quantity 6",
+            ),
+        ]
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    service_line = document.service_lines[0]
+
+    assert service_line.modifier is None
+    assert service_line.confidence == 0.50
+
+    assert (
+        "Service line 1 modifier is structurally invalid"
+        in actions
+    )
+
+
+def test_service_line_unsupported_quantity_is_cleared() -> None:
+    document = build_document(
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                quantity=7,
+                confidence=0.94,
+                source_text="SYNTH1 quantity 6",
+            ),
+        ]
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    service_line = document.service_lines[0]
+
+    assert service_line.quantity is None
+    assert service_line.service_code == "SYNTH1"
+    assert service_line.confidence == 0.50
+
+    assert (
+        "Service line 1 quantity is not supported "
+        "by its source evidence"
+        in actions
+    )
+
+
+def test_service_line_unsupported_date_is_cleared() -> None:
+    document = build_document(
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                quantity=6,
+                start_date="11/25/2025",
+                confidence=0.94,
+                source_text=(
+                    "SYNTH1 quantity 6 "
+                    "Start Date 11/26/2025"
+                ),
+            ),
+        ]
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    service_line = document.service_lines[0]
+
+    assert service_line.start_date is None
+    assert service_line.confidence == 0.50
+
+    assert (
+        "Service line 1 start date is not supported "
+        "by its source evidence"
+        in actions
+    )
+
+
+def test_service_line_unsupported_status_is_cleared() -> None:
+    document = build_document(
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                quantity=6,
+                status="Approved",
+                confidence=0.94,
+                source_text="SYNTH1 quantity 6 Pending",
+            ),
+        ]
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    service_line = document.service_lines[0]
+
+    assert service_line.status is None
+    assert service_line.confidence == 0.50
+
+    assert (
+        "Service line 1 status is not supported "
+        "by its source evidence"
+        in actions
+    )
+
+
+def test_service_line_full_confidence_is_downgraded() -> None:
+    document = build_document(
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                quantity=6,
+                confidence=1.0,
+                source_text="SYNTH1 quantity 6",
+            ),
+        ]
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    service_line = document.service_lines[0]
+
+    assert service_line.confidence == 0.95
+
+    assert (
+        "Service line 1 confidence requires "
+        "deterministic verification"
+        in actions
+    )
+
+
+def test_duplicate_service_lines_are_removed() -> None:
+    source_text = (
+        "SYNTH1 U1 6 11/25/2025 "
+        "05/23/2026 Approved"
+    )
+
+    document = build_document(
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                modifier="U1",
+                quantity=6,
+                start_date="11/25/2025",
+                end_date="05/23/2026",
+                status="Approved",
+                confidence=0.94,
+                source_text=source_text,
+            ),
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                modifier="U1",
+                quantity=6,
+                start_date="11/25/2025",
+                end_date="05/23/2026",
+                status="Approved",
+                confidence=0.92,
+                source_text=source_text,
+            ),
+        ]
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    assert len(document.service_lines) == 1
+
+    assert (
+        "Duplicate service-line evidence was removed"
+        in actions
+    )
+
+
+def test_low_confidence_service_line_requires_review_action() -> None:
+    document = build_document(
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                quantity=6,
+                confidence=0.80,
+                source_text="SYNTH1 quantity 6",
+            ),
+        ]
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    assert len(document.service_lines) == 1
+    assert document.service_lines[0].confidence == 0.80
+
+    assert (
+        "Service line 1 has low confidence"
+        in actions
+    )
+
+
+def test_unresolved_top_level_modifier_adds_review_action() -> None:
+    document = build_document(
+        field_evidence={
+            "modifier": {
+                "value": "U1",
+                "confidence": 0.95,
+                "source_text": "Modifier: U1",
+            },
+        },
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                modifier=None,
+                quantity=6,
+                confidence=0.94,
+                source_text="SYNTH1 quantity 6",
+            ),
+        ],
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    assert document.extracted_data["modifier"] == "U1"
+    assert document.service_lines[0].modifier is None
+
+    assert (
+        EvidenceValidationService
+        .SERVICE_LINE_MODIFIER_RELATIONSHIP_ACTION
+        in actions
+    )
+
+
+def test_supported_row_modifier_avoids_relationship_action() -> None:
+    document = build_document(
+        field_evidence={
+            "modifier": {
+                "value": "U1",
+                "confidence": 0.95,
+                "source_text": "Modifier: U1",
+            },
+        },
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                modifier="U1",
+                quantity=6,
+                confidence=0.94,
+                source_text="SYNTH1 U1 quantity 6",
+            ),
+        ],
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    assert document.extracted_data["modifier"] == "U1"
+    assert document.service_lines[0].modifier == "U1"
+
+    assert (
+        EvidenceValidationService
+        .SERVICE_LINE_MODIFIER_RELATIONSHIP_ACTION
+        not in actions
+    )
+
+
+def test_no_modifier_does_not_add_relationship_action() -> None:
+    document = build_document(
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                modifier=None,
+                quantity=6,
+                confidence=0.94,
+                source_text="SYNTH1 quantity 6",
+            ),
+        ]
+    )
+
+    service = EvidenceValidationService()
+    actions = service.validate(document)
+
+    assert document.service_lines[0].modifier is None
+
+    assert (
+        EvidenceValidationService
+        .SERVICE_LINE_MODIFIER_RELATIONSHIP_ACTION
+        not in actions
+    )
 
 
 def test_validation_actions_are_deduplicated() -> None:
@@ -638,6 +949,58 @@ def main() -> None:
         (
             "flat fields are synchronized",
             test_flat_fields_are_synchronized,
+        ),
+        (
+            "service-line dates are normalized",
+            test_service_line_dates_are_normalized,
+        ),
+        (
+            "service line without source is removed",
+            test_service_line_without_source_is_removed,
+        ),
+        (
+            "unsupported service-line code is cleared",
+            test_service_line_unsupported_code_is_cleared,
+        ),
+        (
+            "invalid service-line modifier is cleared",
+            test_service_line_invalid_modifier_is_cleared,
+        ),
+        (
+            "unsupported service-line quantity is cleared",
+            test_service_line_unsupported_quantity_is_cleared,
+        ),
+        (
+            "unsupported service-line date is cleared",
+            test_service_line_unsupported_date_is_cleared,
+        ),
+        (
+            "unsupported service-line status is cleared",
+            test_service_line_unsupported_status_is_cleared,
+        ),
+        (
+            "full service-line confidence is downgraded",
+            test_service_line_full_confidence_is_downgraded,
+        ),
+        (
+            "duplicate service lines are removed",
+            test_duplicate_service_lines_are_removed,
+        ),
+        (
+            "low-confidence service line adds review action",
+            test_low_confidence_service_line_requires_review_action,
+        ),
+        (
+            "unresolved top-level modifier adds review action",
+            test_unresolved_top_level_modifier_adds_review_action,
+        ),
+        (
+            "supported row modifier avoids relationship action",
+            test_supported_row_modifier_avoids_relationship_action,
+        ),
+        (
+            "no modifier avoids relationship action",
+            test_no_modifier_does_not_add_relationship_action,
         ),
         (
             "validation actions are deduplicated",

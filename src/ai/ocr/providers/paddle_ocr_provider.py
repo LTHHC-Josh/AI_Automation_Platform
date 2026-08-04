@@ -19,6 +19,9 @@ class PaddleOCRProvider(OCRProvider):
     Cache location:
         data/ocr_cache
 
+    Cache filenames use only the document SHA-256 hash. Original
+    document names are not included because filenames may contain PHI.
+
     The cache may contain protected health information and must remain
     inside the secured local environment.
     """
@@ -53,16 +56,29 @@ class PaddleOCRProvider(OCRProvider):
 
     def extract_text(
         self,
-        file_path,
+        file_path: str | Path,
     ) -> str:
-        document_path = Path(file_path)
+        """
+        Extract OCR text from a supported local document.
+
+        Document names, document paths, cache paths, and OCR text are
+        intentionally excluded from console messages and exceptions.
+        """
+
+        document_path = Path(
+            file_path
+        )
 
         self._validate_document_path(
             document_path
         )
 
-        cache_path = self._get_cache_path(
+        document_hash = self._calculate_file_hash(
             document_path
+        )
+
+        cache_path = self._get_cache_path(
+            document_hash
         )
 
         cached_text = self._read_cache(
@@ -71,25 +87,52 @@ class PaddleOCRProvider(OCRProvider):
 
         if cached_text:
             print(
-                "Using cached OCR text: "
-                f"{cache_path}"
+                "Using cached OCR text for local document."
             )
 
             return cached_text
 
+        legacy_cache_path = self._get_legacy_cache_path(
+            document_path=document_path,
+            document_hash=document_hash,
+        )
+
+        legacy_cached_text = self._read_cache(
+            legacy_cache_path
+        )
+
+        if legacy_cached_text:
+            migration_succeeded = self._write_cache(
+                cache_path=cache_path,
+                text=legacy_cached_text,
+            )
+
+            if migration_succeeded:
+                self._remove_legacy_cache(
+                    legacy_cache_path
+                )
+
+            print(
+                "Using cached OCR text for local document."
+            )
+
+            return legacy_cached_text
+
         print(
-            "No OCR cache found. "
-            f"Processing with PaddleOCR: {document_path.name}"
+            "No OCR cache found. Processing local document "
+            "with PaddleOCR."
         )
 
         try:
             results = self.ocr.predict(
-                str(document_path)
+                str(
+                    document_path
+                )
             )
         except Exception as ex:
             raise RuntimeError(
-                "PaddleOCR failed to process "
-                f"{document_path.name}: {ex}"
+                "PaddleOCR failed to process the local document. "
+                f"Error type: {type(ex).__name__}."
             ) from ex
 
         extracted_lines: list[str] = []
@@ -122,18 +165,18 @@ class PaddleOCRProvider(OCRProvider):
         if not full_text:
             raise RuntimeError(
                 "PaddleOCR completed but did not recognize any text "
-                f"in {document_path.name}."
+                "in the local document."
             )
 
-        self._write_cache(
+        cache_written = self._write_cache(
             cache_path=cache_path,
             text=full_text,
         )
 
-        print(
-            "Saved OCR text to local cache: "
-            f"{cache_path}"
-        )
+        if cache_written:
+            print(
+                "Saved OCR text to the secured local cache."
+            )
 
         return full_text
 
@@ -141,16 +184,18 @@ class PaddleOCRProvider(OCRProvider):
         self,
         document_path: Path,
     ) -> None:
+        """
+        Validate the input path without exposing it in exceptions.
+        """
+
         if not document_path.exists():
             raise FileNotFoundError(
-                "Document file was not found: "
-                f"{document_path}"
+                "The local document file was not found."
             )
 
         if not document_path.is_file():
             raise ValueError(
-                "Document path is not a file: "
-                f"{document_path}"
+                "The local document path is not a file."
             )
 
         extension = (
@@ -159,29 +204,50 @@ class PaddleOCRProvider(OCRProvider):
 
         if extension not in self.SUPPORTED_EXTENSIONS:
             raise ValueError(
-                "PaddleOCRProvider does not support "
-                f"{extension or 'files without an extension'}."
+                "PaddleOCRProvider does not support the local "
+                "document type."
             )
 
     def _get_cache_path(
         self,
-        document_path: Path,
+        document_hash: str,
     ) -> Path:
-        document_hash = self._calculate_file_hash(
-            document_path
-        )
-
-        safe_stem = self._safe_filename(
-            document_path.stem
-        )
+        """
+        Build a cache path using only the SHA-256 document hash.
+        """
 
         cache_filename = (
-            f"{safe_stem}_{document_hash[:16]}.txt"
+            f"{document_hash}.txt"
         )
 
         return (
             self.CACHE_DIRECTORY
             / cache_filename
+        )
+
+    def _get_legacy_cache_path(
+        self,
+        document_path: Path,
+        document_hash: str,
+    ) -> Path:
+        """
+        Build the former filename-based cache path for local migration.
+
+        This path must never be logged because the source stem may
+        contain PHI.
+        """
+
+        safe_stem = self._safe_filename(
+            document_path.stem
+        )
+
+        legacy_cache_filename = (
+            f"{safe_stem}_{document_hash[:16]}.txt"
+        )
+
+        return (
+            self.CACHE_DIRECTORY
+            / legacy_cache_filename
         )
 
     def _calculate_file_hash(
@@ -190,18 +256,26 @@ class PaddleOCRProvider(OCRProvider):
     ) -> str:
         hasher = hashlib.sha256()
 
-        with document_path.open(
-            "rb"
-        ) as document_file:
-            while True:
-                chunk = document_file.read(
-                    1024 * 1024
-                )
+        try:
+            with document_path.open(
+                "rb"
+            ) as document_file:
+                while True:
+                    chunk = document_file.read(
+                        1024 * 1024
+                    )
 
-                if not chunk:
-                    break
+                    if not chunk:
+                        break
 
-                hasher.update(chunk)
+                    hasher.update(
+                        chunk
+                    )
+        except OSError as ex:
+            raise RuntimeError(
+                "The local document could not be read for OCR "
+                f"processing. Error type: {type(ex).__name__}."
+            ) from ex
 
         return hasher.hexdigest()
 
@@ -209,6 +283,10 @@ class PaddleOCRProvider(OCRProvider):
         self,
         value: str,
     ) -> str:
+        """
+        Reproduce the former cache naming format for migration only.
+        """
+
         safe_characters: list[str] = []
 
         for character in value:
@@ -249,8 +327,9 @@ class PaddleOCRProvider(OCRProvider):
             ).strip()
         except OSError as ex:
             print(
-                "Unable to read OCR cache. "
-                f"PaddleOCR will run again: {ex}"
+                "Unable to read the secured local OCR cache. "
+                "PaddleOCR will run again. "
+                f"Error type: {type(ex).__name__}."
             )
 
             return None
@@ -264,7 +343,7 @@ class PaddleOCRProvider(OCRProvider):
         self,
         cache_path: Path,
         text: str,
-    ) -> None:
+    ) -> bool:
         try:
             cache_path.write_text(
                 text,
@@ -272,8 +351,34 @@ class PaddleOCRProvider(OCRProvider):
             )
         except OSError as ex:
             print(
-                "Warning: OCR succeeded, but the local cache "
-                f"could not be written: {ex}"
+                "Warning: OCR succeeded, but the secured local "
+                "cache could not be written. "
+                f"Error type: {type(ex).__name__}."
+            )
+
+            return False
+
+        return True
+
+    def _remove_legacy_cache(
+        self,
+        legacy_cache_path: Path,
+    ) -> None:
+        """
+        Remove a filename-based legacy cache after successful migration.
+
+        Failure to remove it does not invalidate the migrated cache.
+        """
+
+        try:
+            legacy_cache_path.unlink(
+                missing_ok=True
+            )
+        except OSError as ex:
+            print(
+                "Warning: The legacy OCR cache entry could not be "
+                "removed after migration. "
+                f"Error type: {type(ex).__name__}."
             )
 
     def _result_to_dict(
@@ -293,7 +398,9 @@ class PaddleOCRProvider(OCRProvider):
             None,
         )
 
-        if callable(json_value):
+        if callable(
+            json_value
+        ):
             json_value = json_value()
 
         if isinstance(
@@ -347,7 +454,9 @@ class PaddleOCRProvider(OCRProvider):
                 list,
             ):
                 recognized_texts.extend(
-                    str(text)
+                    str(
+                        text
+                    )
                     for text in rec_texts
                     if text is not None
                 )

@@ -4,6 +4,27 @@ from typing import Any
 
 
 @dataclass
+class AuthorizationServiceLine:
+    """
+    Represents one service row extracted from an authorization.
+
+    This model preserves the relationship between a service code,
+    modifier, quantity, dates, status, confidence, and source evidence.
+
+    It does not interpret the business meaning of those values.
+    """
+
+    service_code: str | None = None
+    modifier: str | None = None
+    quantity: Any = None
+    start_date: str | None = None
+    end_date: str | None = None
+    status: str | None = None
+    confidence: float = 0.0
+    source_text: str = ""
+
+
+@dataclass
 class Document:
     """
     Represents a document as it moves through the AI pipeline.
@@ -19,6 +40,10 @@ class Document:
     field_evidence:
         Complete field evidence containing value, confidence, and
         source_text for deterministic validation and auditing.
+
+    service_lines:
+        Optional row-level authorization service data. Existing flat
+        fields remain available for backward compatibility.
     """
 
     file_path: Path
@@ -43,6 +68,11 @@ class Document:
     # Full extraction evidence for each field
     field_evidence: dict[str, dict[str, Any]] = field(
         default_factory=dict
+    )
+
+    # Optional row-level authorization service data
+    service_lines: list[AuthorizationServiceLine] = field(
+        default_factory=list
     )
 
     # Deterministic evidence-validation output
