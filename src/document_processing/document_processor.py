@@ -26,12 +26,12 @@ class DocumentProcessor:
         File
           -> OCR
           -> Classification
-          -> Structured Extraction
-          -> Optional Controlled Extraction Retry
-          -> Preserve Field Evidence
-          -> Preserve Optional Service Lines
-          -> Deterministic Evidence Validation
-          -> Candidate Selection
+          -> Structured Extraction Attempt 1
+          -> Independent Deterministic Validation
+          -> Raw and Validated Completeness Checks
+          -> Optional Controlled Extraction Attempt 2
+          -> Independent Deterministic Validation
+          -> Deterministic Candidate Selection
           -> Business Rules
           -> Human Review Decision
           -> Document
@@ -167,22 +167,46 @@ class DocumentProcessor:
         ) = self._run_extraction_attempt(
             text=document.raw_text,
             document_type=document.document_type,
+            attempt=1,
+        )
+
+        first_candidate = self._build_validated_candidate(
+            template_document=document,
+            extraction_result=first_result,
         )
 
         extraction_attempts: list[dict[str, Any]] = [
             {
                 "attempt": 1,
                 "wall_seconds": first_wall_seconds,
+                "validation_wall_seconds": (
+                    first_candidate.processing_metrics.get(
+                        "validation_wall_seconds",
+                        0.0,
+                    )
+                ),
                 "ollama": first_metrics,
             },
         ]
 
-        retry_required = self._should_retry_extraction(
+        raw_retry_required = self._should_retry_extraction(
             extraction_result=first_result,
             document_type=document.document_type,
         )
 
-        second_result: dict[str, Any] | None = None
+        validated_retry_required = (
+            self._should_retry_validated_candidate(
+                candidate=first_candidate,
+                document_type=document.document_type,
+            )
+        )
+
+        retry_required = (
+            raw_retry_required
+            or validated_retry_required
+        )
+
+        second_candidate: Document | None = None
 
         if retry_required:
             (
@@ -192,12 +216,24 @@ class DocumentProcessor:
             ) = self._run_extraction_attempt(
                 text=document.raw_text,
                 document_type=document.document_type,
+                attempt=2,
+            )
+
+            second_candidate = self._build_validated_candidate(
+                template_document=document,
+                extraction_result=second_result,
             )
 
             extraction_attempts.append(
                 {
                     "attempt": 2,
                     "wall_seconds": second_wall_seconds,
+                    "validation_wall_seconds": (
+                        second_candidate.processing_metrics.get(
+                            "validation_wall_seconds",
+                            0.0,
+                        )
+                    ),
                     "ollama": second_metrics,
                 }
             )
@@ -205,38 +241,55 @@ class DocumentProcessor:
         (
             selected_candidate,
             selected_attempt,
-        ) = self._select_extraction_candidate(
-            template_document=document,
-            first_result=first_result,
-            second_result=second_result,
+        ) = self._select_validated_candidate(
+            first_candidate=first_candidate,
+            second_candidate=second_candidate,
         )
 
-        document.field_evidence = (
+        document.field_evidence = dict(
             selected_candidate.field_evidence
         )
 
-        document.service_lines = (
+        document.service_lines = list(
             selected_candidate.service_lines
         )
 
-        document.extracted_data = (
+        document.extracted_data = dict(
             selected_candidate.extracted_data
         )
 
-        document.field_confidences = (
+        document.field_confidences = dict(
             selected_candidate.field_confidences
         )
 
-        document.validation_actions = (
+        document.validation_actions = list(
             selected_candidate.validation_actions
+        )
+
+        selected_validation_wall_seconds = float(
+            selected_candidate.processing_metrics.get(
+                "validation_wall_seconds",
+                0.0,
+            )
+        )
+
+        total_validation_wall_seconds = sum(
+            float(
+                attempt.get(
+                    "validation_wall_seconds",
+                    0.0,
+                )
+            )
+            for attempt in extraction_attempts
         )
 
         document.processing_metrics[
             "validation_wall_seconds"
-        ] = selected_candidate.processing_metrics.get(
-            "validation_wall_seconds",
-            0.0,
-        )
+        ] = total_validation_wall_seconds
+
+        document.processing_metrics[
+            "selected_validation_wall_seconds"
+        ] = selected_validation_wall_seconds
 
         document.processing_metrics[
             "extraction_attempt_count"
@@ -247,6 +300,14 @@ class DocumentProcessor:
         document.processing_metrics[
             "extraction_retry_triggered"
         ] = retry_required
+
+        document.processing_metrics[
+            "extraction_raw_retry_required"
+        ] = raw_retry_required
+
+        document.processing_metrics[
+            "extraction_validated_retry_required"
+        ] = validated_retry_required
 
         document.processing_metrics[
             "extraction_selected_attempt"
@@ -323,7 +384,7 @@ class DocumentProcessor:
             review_decision.review_status
         )
 
-        document.review_reasons = (
+        document.review_reasons = list(
             review_decision.reasons
         )
 
@@ -344,6 +405,7 @@ class DocumentProcessor:
         self,
         text: str,
         document_type: str,
+        attempt: int,
     ) -> tuple[
         dict[str, Any],
         float,
@@ -358,6 +420,7 @@ class DocumentProcessor:
         extraction_result = self.llm.extract(
             text,
             document_type,
+            attempt=attempt,
         )
 
         wall_seconds = (
@@ -385,22 +448,16 @@ class DocumentProcessor:
         document_type: str,
     ) -> bool:
         """
-        Determine whether one controlled extraction retry is warranted.
+        Check raw extraction structure before deterministic validation.
 
-        Retry checks are structural and apply only to authorization
-        documents. They do not infer payer-specific or service-code
-        meaning.
+        Retry checks apply only to authorization documents. They do not
+        infer payer-specific or service-code meaning.
 
         Model token count alone never triggers a retry.
         """
 
-        normalized_document_type = str(
-            document_type or ""
-        ).strip().lower()
-
-        if (
-            normalized_document_type
-            not in self.AUTHORIZATION_DOCUMENT_TYPES
+        if not self._is_authorization_document_type(
+            document_type
         ):
             return False
 
@@ -523,6 +580,105 @@ class DocumentProcessor:
 
         return False
 
+    def _should_retry_validated_candidate(
+        self,
+        candidate: Document,
+        document_type: str,
+    ) -> bool:
+        """
+        Check supported structure after deterministic validation.
+
+        This catches raw values that appeared complete but were cleared
+        because their source evidence did not support them.
+        """
+
+        if not self._is_authorization_document_type(
+            document_type
+        ):
+            return False
+
+        top_level_service_code = candidate.extracted_data.get(
+            "service_code"
+        )
+
+        top_level_service_codes = candidate.extracted_data.get(
+            "service_codes"
+        )
+
+        if (
+            not self._is_empty_value(
+                top_level_service_code
+            )
+            and self._is_empty_value(
+                top_level_service_codes
+            )
+        ):
+            return True
+
+        non_empty_rows = [
+            service_line
+            for service_line in candidate.service_lines
+            if self._validated_service_line_has_value(
+                service_line
+            )
+        ]
+
+        if (
+            not non_empty_rows
+            and not self._is_empty_value(
+                top_level_service_code
+            )
+        ):
+            return True
+
+        for service_line in non_empty_rows:
+            has_service_code = (
+                not self._is_empty_value(
+                    service_line.service_code
+                )
+            )
+
+            has_quantity = (
+                not self._is_empty_value(
+                    service_line.quantity
+                )
+            )
+
+            has_context = any(
+                not self._is_empty_value(
+                    value
+                )
+                for value in (
+                    service_line.modifier,
+                    service_line.start_date,
+                    service_line.end_date,
+                    service_line.status,
+                )
+            )
+
+            if (
+                has_context
+                and not has_service_code
+                and not has_quantity
+            ):
+                return True
+
+        if len(
+            non_empty_rows
+        ) > 1:
+            for service_line in non_empty_rows:
+                if (
+                    self._is_empty_value(
+                        service_line.service_code
+                    )
+                    or self._is_empty_value(
+                        service_line.quantity
+                    )
+                ):
+                    return True
+
+        return False
+
     def _select_extraction_candidate(
         self,
         template_document: Document,
@@ -530,13 +686,10 @@ class DocumentProcessor:
         second_result: dict[str, Any] | None,
     ) -> tuple[Document, int]:
         """
-        Validate extraction candidates independently.
+        Build, independently validate, and select extraction candidates.
 
-        The stronger supported candidate is selected as one complete
-        result. Values from separate attempts are never merged.
-
-        If both candidates receive the same deterministic score, the
-        first attempt is retained.
+        This method remains available for deterministic unit tests and
+        other existing callers.
         """
 
         first_candidate = self._build_validated_candidate(
@@ -544,13 +697,34 @@ class DocumentProcessor:
             extraction_result=first_result,
         )
 
-        if second_result is None:
-            return first_candidate, 1
+        second_candidate: Document | None = None
 
-        second_candidate = self._build_validated_candidate(
-            template_document=template_document,
-            extraction_result=second_result,
+        if second_result is not None:
+            second_candidate = self._build_validated_candidate(
+                template_document=template_document,
+                extraction_result=second_result,
+            )
+
+        return self._select_validated_candidate(
+            first_candidate=first_candidate,
+            second_candidate=second_candidate,
         )
+
+    def _select_validated_candidate(
+        self,
+        first_candidate: Document,
+        second_candidate: Document | None,
+    ) -> tuple[Document, int]:
+        """
+        Select between independently validated candidates.
+
+        Values from separate attempts are never merged. If both
+        candidates receive the same deterministic score, the first
+        attempt is retained.
+        """
+
+        if second_candidate is None:
+            return first_candidate, 1
 
         first_score = self._score_validated_candidate(
             first_candidate
@@ -682,6 +856,23 @@ class DocumentProcessor:
             supported_top_level_values,
         )
 
+    def _is_authorization_document_type(
+        self,
+        document_type: str,
+    ) -> bool:
+        """
+        Determine whether authorization retry rules apply.
+        """
+
+        normalized_document_type = str(
+            document_type or ""
+        ).strip().lower()
+
+        return (
+            normalized_document_type
+            in self.AUTHORIZATION_DOCUMENT_TYPES
+        )
+
     def _get_extracted_field_value(
         self,
         fields: dict[str, Any],
@@ -720,6 +911,28 @@ class DocumentProcessor:
                 )
             )
             for field_name in self.SERVICE_LINE_FIELDS
+        )
+
+    def _validated_service_line_has_value(
+        self,
+        service_line: AuthorizationServiceLine,
+    ) -> bool:
+        """
+        Determine whether a validated service line still contains data.
+        """
+
+        return any(
+            not self._is_empty_value(
+                value
+            )
+            for value in (
+                service_line.service_code,
+                service_line.modifier,
+                service_line.quantity,
+                service_line.start_date,
+                service_line.end_date,
+                service_line.status,
+            )
         )
 
     def _get_last_llm_metrics(

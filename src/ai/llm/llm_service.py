@@ -25,12 +25,17 @@ class LLMService:
         self,
         text: str,
         prompt: str,
+        attempt: int = 1,
     ) -> dict:
         """
         Extract structured data from OCR text.
+
+        The attempt number is forwarded without interpretation so the
+        configured provider can apply a deterministic retry strategy.
         """
 
         return self.provider.extract(
             text,
             prompt,
+            attempt=attempt,
         )

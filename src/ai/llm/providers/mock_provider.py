@@ -6,15 +6,26 @@ from src.ai.llm.provider_registration import register_llm_provider
 class MockProvider(LLMProvider):
     """
     Mock LLM provider used for development.
+
+    The attempt parameter is accepted for compatibility with the shared
+    provider interface. It does not change the deterministic mock result.
     """
 
-    def classify(self, text):
+    def classify(
+        self,
+        text: str,
+    ) -> dict:
         return {
             "document_type": "Authorization",
             "confidence": 1.0,
         }
 
-    def extract(self, text, prompt):
+    def extract(
+        self,
+        text: str,
+        prompt: str,
+        attempt: int = 1,
+    ) -> dict:
         return {
             "patient_name": "John Smith",
             "payer": "Humana",

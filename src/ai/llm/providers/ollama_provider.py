@@ -24,6 +24,7 @@ class OllamaProvider(LLMProvider):
 
     DEFAULT_BASE_URL = "http://localhost:11434"
     DEFAULT_SEED = 42
+    RETRY_SEED_OFFSET = 1
     CHAT_ENDPOINT = "/api/chat"
 
     DOCUMENT_TYPES = [
@@ -271,7 +272,16 @@ class OllamaProvider(LLMProvider):
                 f"{cleaned_text}"
             ),
             schema=self.CLASSIFICATION_SCHEMA,
+            seed=self.seed,
         )
+
+        self._last_request_metrics[
+            "request_type"
+        ] = "classification"
+
+        self._last_request_metrics[
+            "seed"
+        ] = self.seed
 
         return self._normalize_classification(
             result
@@ -281,6 +291,7 @@ class OllamaProvider(LLMProvider):
         self,
         text: str,
         prompt: str,
+        attempt: int = 1,
     ) -> dict:
         """
         Extract structured fields using a separate local request.
@@ -298,8 +309,18 @@ class OllamaProvider(LLMProvider):
             prompt or "unknown"
         ).strip().lower()
 
+        normalized_attempt = self._normalize_attempt(
+            attempt
+        )
+
+        request_seed = self._seed_for_attempt(
+            normalized_attempt
+        )
+
         result = self._chat(
-            system_prompt=self._extraction_prompt(),
+            system_prompt=self._extraction_prompt_for_attempt(
+                normalized_attempt
+            ),
             user_prompt=(
                 "The document was classified as: "
                 f"{document_type}\n\n"
@@ -310,6 +331,25 @@ class OllamaProvider(LLMProvider):
                 f"{cleaned_text}"
             ),
             schema=self.EXTRACTION_SCHEMA,
+            seed=request_seed,
+        )
+
+        self._last_request_metrics[
+            "request_type"
+        ] = "extraction"
+
+        self._last_request_metrics[
+            "attempt"
+        ] = normalized_attempt
+
+        self._last_request_metrics[
+            "seed"
+        ] = request_seed
+
+        self._last_request_metrics[
+            "retry_prompt_applied"
+        ] = (
+            normalized_attempt > 1
         )
 
         return {
@@ -642,6 +682,90 @@ Do not add codes that are not present in the OCR text.
 Return only JSON matching the required schema.
 """.strip()
 
+    def _extraction_prompt_for_attempt(
+        self,
+        attempt: Any,
+    ) -> str:
+        """
+        Return the extraction prompt for one controlled attempt.
+
+        Attempt 1 uses the established extraction prompt unchanged.
+        Later attempts append a generic verification section intended
+        to encourage a fresh row-by-row reconstruction.
+
+        The retry instructions do not introduce payer-specific,
+        service-code-specific, or document-specific conclusions.
+        """
+
+        normalized_attempt = self._normalize_attempt(
+            attempt
+        )
+
+        base_prompt = self._extraction_prompt()
+
+        if normalized_attempt == 1:
+            return base_prompt
+
+        return (
+            f"{base_prompt}\n\n"
+            f"{self._retry_prompt_addendum()}"
+        )
+
+    def _retry_prompt_addendum(
+        self,
+    ) -> str:
+        """
+        Return generic verification instructions for a retry request.
+
+        These instructions strengthen evidence checking without
+        supplying missing values, interpreting business meaning, or
+        referring to a specific payer or document.
+        """
+
+        return """
+CONTROLLED RETRY VERIFICATION
+
+This is a fresh verification pass.
+
+Reread the entire OCR text from the beginning. Do not copy assumptions
+from an earlier extraction.
+
+Reconstruct every service line independently and in document order.
+
+For each proposed service line:
+
+- identify the shortest row-level source_text that supports the row,
+- confirm that service_code appears in that same row evidence,
+- confirm that quantity appears in that same row evidence,
+- keep modifier, dates, and status only when their relationship to that
+  row is directly supported,
+- use null for an unsupported row field,
+- omit the row when a reliable row relationship cannot be reconstructed.
+
+Do not combine a service code from one row with a quantity, modifier,
+date, or status from another row.
+
+After reconstructing service_lines, verify the top-level fields:
+
+- service_code must agree with the supported service lines,
+- service_codes must contain only deduplicated supported row codes,
+- authorized_units must preserve only supported row quantities,
+- approved_visits must remain separate from authorized_units,
+- requested quantities must not become approved quantities without
+  clear approval evidence.
+
+Do not infer payer-specific meaning.
+
+Do not infer the operational meaning of units, visits, sessions,
+equipment quantities, modifiers, or service codes.
+
+Do not fill a missing value merely to make the output complete.
+
+Return null or omit an unsupported row rather than guessing.
+
+Return only JSON matching the required schema.
+""".strip()
+
     def _normalize_classification(
         self,
         value: Any,
@@ -968,6 +1092,7 @@ Return only JSON matching the required schema.
         system_prompt: str,
         user_prompt: str,
         schema: dict,
+        seed: int,
     ) -> dict:
         endpoint = (
             f"{self.base_url}"
@@ -992,7 +1117,7 @@ Return only JSON matching the required schema.
             ],
             "options": {
                 "temperature": 0,
-                "seed": self.seed,
+                "seed": seed,
             },
         }
 
@@ -1238,6 +1363,57 @@ Return only JSON matching the required schema.
             return len(value) == 0
 
         return False
+
+    def _normalize_attempt(
+        self,
+        attempt: Any,
+    ) -> int:
+        """
+        Normalize an extraction attempt into a positive integer.
+
+        Invalid, boolean, zero, and negative values default to attempt 1.
+        """
+
+        if isinstance(
+            attempt,
+            bool,
+        ):
+            return 1
+
+        try:
+            normalized_attempt = int(
+                attempt
+            )
+        except (TypeError, ValueError):
+            return 1
+
+        if normalized_attempt < 1:
+            return 1
+
+        return normalized_attempt
+
+    def _seed_for_attempt(
+        self,
+        attempt: Any,
+    ) -> int:
+        """
+        Return the deterministic seed for an extraction attempt.
+
+        Attempt 1 uses the configured base seed. Later attempts use a
+        stable offset while temperature remains zero.
+        """
+
+        normalized_attempt = self._normalize_attempt(
+            attempt
+        )
+
+        return (
+            self.seed
+            + (
+                normalized_attempt - 1
+            )
+            * self.RETRY_SEED_OFFSET
+        )
 
     def _load_timeout(self) -> int:
         raw_timeout = os.getenv(

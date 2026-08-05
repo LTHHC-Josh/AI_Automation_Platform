@@ -431,6 +431,21 @@ def print_ollama_metrics(
         return
 
     print(
+        "  request_type: "
+        f"{format_value(metrics.get('request_type'))}"
+    )
+
+    print(
+        "  attempt: "
+        f"{format_value(metrics.get('attempt'))}"
+    )
+
+    print(
+        "  seed: "
+        f"{format_value(metrics.get('seed'))}"
+    )
+
+    print(
         "  done: "
         f"{format_value(metrics.get('done'))}"
     )
@@ -584,6 +599,24 @@ def print_processing_metrics(
         f"{format_value(
             metrics.get(
                 'extraction_retry_triggered'
+            )
+        )}"
+    )
+
+    print(
+        "  extraction raw retry required: "
+        f"{format_value(
+            metrics.get(
+                'extraction_raw_retry_required'
+            )
+        )}"
+    )
+
+    print(
+        "  extraction validated retry required: "
+        f"{format_value(
+            metrics.get(
+                'extraction_validated_retry_required'
             )
         )}"
     )

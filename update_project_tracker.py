@@ -6,7 +6,7 @@ PROJECT_JOURNAL = """
 LTHHC AI AUTOMATION PLATFORM - DEVELOPMENT JOURNAL
 ============================================================
 
-Last updated: 2026-08-04
+Last updated: 2026-08-05
 
 Repository:
 LTHHC-Josh/AI_Automation_Platform
@@ -207,17 +207,31 @@ Classification and extraction remain separate requests.
 The provider currently sends:
 
 - temperature 0
-- fixed configurable seed
+- configurable deterministic seed routing
+- seed 42 for the first extraction attempt by default
+- seed 43 for the second extraction attempt by default
 - structured JSON schema
+- a generic verification addendum on controlled retry attempts
 
-The fixed seed improved neither guaranteed repeatability nor semantic
-completeness by itself.
+Changing the seed alone did not improve semantic completeness during the
+observed real retry event.
 
-Repeated requests with the same prompt, schema, model, and fixed seed
-still produced two distinct extraction patterns.
+Repeated requests can still produce complete or incomplete extraction
+patterns even when model, schema, temperature, and base prompt remain
+unchanged.
 
-The fixed seed remains available for controlled local testing but is not
-treated as proof of deterministic output.
+The seed remains available for controlled local testing and PHI-safe
+diagnostics but is not treated as proof of deterministic output.
+
+Attempt 1 uses the established extraction prompt.
+
+Attempt 2 appends generic verification instructions that require the
+model to reread the OCR text, reconstruct service lines independently,
+verify row-level code and quantity evidence, avoid cross-row mixing, and
+return null or omit unsupported values rather than guessing.
+
+The retry prompt contains no payer-specific, service-code-specific, or
+document-specific conclusion.
 
 ------------------------------------------------------------
 PHI-SAFE OLLAMA METRICS STATUS
@@ -227,6 +241,10 @@ The platform now captures PHI-safe Ollama response metadata.
 
 The following values may be retained:
 
+- request_type
+- attempt
+- seed
+- retry_prompt_applied
 - done
 - done_reason
 - total_duration
@@ -269,6 +287,8 @@ DocumentProcessor also records:
 
 - Extraction attempt count
 - Whether retry was triggered
+- Whether raw structure required retry
+- Whether validated structure required retry
 - Selected extraction attempt
 - Per-attempt wall time
 - Per-attempt Ollama metadata
@@ -328,8 +348,8 @@ values missing from model-provided evidence.
 CONTROLLED EXTRACTION RETRY STATUS
 ------------------------------------------------------------
 
-A controlled authorization extraction retry is implemented in
-DocumentProcessor.
+A controlled authorization extraction retry is implemented across
+DocumentProcessor and OllamaProvider.
 
 Retry applies only to:
 
@@ -354,6 +374,21 @@ A shorter response can still be valid for a simpler document.
 
 Only one retry is allowed.
 
+Attempt routing is explicit:
+
+- Attempt 1 uses the configured base seed, currently 42.
+- Attempt 2 uses the deterministic alternate seed, currently 43.
+- Attempt 1 uses the established extraction prompt.
+- Attempt 2 appends a generic row-by-row verification addendum.
+- Temperature remains 0 for both attempts.
+- Retry prompt usage and seed values are recorded in PHI-safe metrics.
+
+The retry addendum requires a fresh reading of the OCR text and
+independent reconstruction of every service line. It requires row-level
+evidence for service codes and quantities, prohibits combining values
+from different rows, and instructs the model to return null or omit an
+unsupported row rather than guess.
+
 The two candidates are converted and deterministically validated
 independently.
 
@@ -376,6 +411,16 @@ candidate is selected.
 
 When both candidates have the same score, the first candidate is
 retained.
+
+A real retry event was observed before the generic retry prompt was
+added. Attempt 1 used seed 42 and attempt 2 used seed 43. Both attempts
+produced the same incomplete 1080-token pattern, so attempt 1 was
+retained on a deterministic score tie. Semantic regression failed, and
+human review remained active.
+
+The generic retry verification prompt was then implemented and passed
+synthetic tests. A real incomplete-first-attempt event using the new
+retry prompt has not yet been observed.
 
 ------------------------------------------------------------
 FIELD-LEVEL EVIDENCE STATUS
@@ -545,16 +590,22 @@ Extraction attempt count:
 Extraction retry triggered:
 False
 
+Raw retry required:
+False
+
+Validated retry required:
+False
+
 Selected extraction attempt:
 1
 
 Latest real classification metrics:
 
 Classification wall time:
-Approximately 70.62 seconds
+Approximately 66.47 seconds
 
 Classification Ollama duration:
-Approximately 68.56 seconds
+Approximately 64.41 seconds
 
 Classification prompt_eval_count:
 1925
@@ -562,13 +613,16 @@ Classification prompt_eval_count:
 Classification eval_count:
 54
 
+Classification seed:
+42
+
 Latest real extraction metrics:
 
 Extraction wall time:
-Approximately 293.25 seconds
+Approximately 305.00 seconds
 
 Extraction Ollama duration:
-Approximately 291.20 seconds
+Approximately 302.96 seconds
 
 Extraction prompt_eval_count:
 2633
@@ -576,16 +630,43 @@ Extraction prompt_eval_count:
 Extraction eval_count:
 1201
 
+Extraction attempt:
+1
+
+Extraction seed:
+42
+
 Latest total processing time:
 
-Approximately 363.87 seconds
+Approximately 371.47 seconds
 
 The real complete-first-attempt path passed.
 
-The retry path has been tested synthetically.
+The controlled retry path has been observed with real local Ollama
+processing.
 
-A real run in which the first extraction is incomplete and the second
-attempt is selected has not yet been observed after retry implementation.
+Observed real retry event before the generic retry prompt:
+
+- Extraction attempt count was 2.
+- Retry was triggered after deterministic validation cleared unsupported
+  structure.
+- Raw retry required was False.
+- Validated retry required was True.
+- Attempt 1 used seed 42.
+- Attempt 2 used seed 43.
+- Both attempts generated 1080 tokens.
+- Both validated candidates had the same deterministic score.
+- Attempt 1 was retained.
+- Semantic regression failed.
+- Human review remained active.
+- No candidates were merged.
+- Missing values were not invented.
+
+The generic retry verification prompt has passed synthetic testing.
+
+A real incomplete-first-attempt event in which the new generic retry
+prompt produces a stronger validated second candidate has not yet been
+observed.
 
 The real test remains a regression fixture for the known local
 authorization document. Its expected values must not be treated as
@@ -611,17 +692,19 @@ Verified conversion behavior:
 
 Verified retry behavior:
 
-- Complete authorization extraction does not trigger retry
-- Structurally incomplete service line triggers retry
-- Missing service_codes list triggers retry
+- Complete authorization extraction does not trigger raw retry
+- Complete validated authorization does not trigger retry
+- Structurally incomplete service line triggers raw retry
+- Missing service_codes list triggers raw retry
 - Non-authorization documents do not use authorization retry
+- Validation-cleared service-line structure triggers retry
 - Stronger independently validated candidate is selected
 - Equal candidates preserve the first attempt
 - Candidates are never merged
 
 Result:
 
-Passed: 14
+Passed: 16
 Failed: 0
 
 Real or mock:
@@ -645,15 +728,45 @@ Verified behavior:
 - Confidence is normalized
 - Empty rows are removed
 - Invalid items are removed
+- Attempt 1 uses the configured base seed
+- Attempt 2 uses the deterministic alternate seed
+- Retry seed selection is deterministic
+- Invalid attempt values default safely to attempt 1
+- Attempt 1 uses the established extraction prompt unchanged
+- Attempt 2 appends the controlled verification prompt
+- The retry prompt remains generic and contains no payer-specific values
 
 Result:
 
-Passed: 7
+Passed: 14
 Failed: 0
 
 Real or mock:
 
 Synthetic deterministic test
+
+------------------------------------------------------------
+SYNTHETIC LLM ATTEMPT-ROUTING TEST STATUS
+------------------------------------------------------------
+
+Test file:
+
+tests/test_llm_attempt_routing.py
+
+Verified behavior:
+
+- The default extraction attempt is 1
+- A second extraction attempt is forwarded through LLMService to the
+  configured provider
+
+Result:
+
+Passed: 2
+Failed: 0
+
+Real or mock:
+
+Synthetic provider-routing test
 
 ------------------------------------------------------------
 SYNTHETIC EVIDENCE-VALIDATION TEST STATUS
@@ -763,10 +876,14 @@ Observed limitations:
 - Prompt instructions alone do not reliably enforce evidence rules.
 - The retry path can improve resilience but does not guarantee a
   complete second result.
+- Changing only the seed did not improve the observed real incomplete
+  retry result.
 - A retry may approximately double extraction time when both attempts
   require full local inference.
-- A real incomplete-first-attempt retry selection has not yet been
-  observed after implementation.
+- The generic retry verification prompt has not yet been observed during
+  a real incomplete-first-attempt event.
+- A stronger second candidate has not yet been selected during a real
+  retry event.
 
 Human review remains required whenever deterministic evidence or
 business rules are incomplete.
@@ -911,18 +1028,23 @@ FILES CREATED OR MODIFIED IN CURRENT FEATURE
 Modified:
 
 scripts/test_molina_document.py
+src/ai/llm/llm_provider.py
+src/ai/llm/llm_service.py
+src/ai/llm/providers/mock_provider.py
 src/ai/llm/providers/ollama_provider.py
 src/document_processing/document_processor.py
-src/models/document.py
 tests/test_document_processor.py
+tests/test_ollama_service_lines.py
 update_project_tracker.py
+
+Created:
+
+tests/test_llm_attempt_routing.py
 
 Existing files used without requiring changes:
 
-src/ai/llm/llm_provider.py
-src/ai/llm/llm_service.py
+src/models/document.py
 src/services/evidence_validation_service.py
-tests/test_ollama_service_lines.py
 tests/test_evidence_validation_service.py
 tests/test_review_decision_service.py
 
@@ -952,6 +1074,19 @@ python -m tests.test_document_processor
 
 Result:
 
+Passed: 16
+Failed: 0
+
+Real or mock:
+
+Synthetic deterministic test
+
+Synthetic Ollama service-line and retry-prompt test:
+
+python -m tests.test_ollama_service_lines
+
+Result:
+
 Passed: 14
 Failed: 0
 
@@ -959,18 +1094,18 @@ Real or mock:
 
 Synthetic deterministic test
 
-Synthetic Ollama service-line test:
+Synthetic LLM attempt-routing test:
 
-python -m tests.test_ollama_service_lines
+python -m tests.test_llm_attempt_routing
 
 Result:
 
-Passed: 7
+Passed: 2
 Failed: 0
 
 Real or mock:
 
-Synthetic deterministic test
+Synthetic provider-routing test
 
 Synthetic evidence-validation test:
 
@@ -1016,15 +1151,32 @@ Real deterministic evidence validation
 Real business rules
 Real human-review decision
 
-Real path tested:
+Latest real path tested:
 
 Complete first extraction
 No retry required
 First attempt selected
+Semantic regression passed
+Human review remained active
 
-Real retry path status:
+Previously observed real retry path:
 
-Not yet observed after retry implementation
+Incomplete first extraction
+Retry triggered after validation
+Attempt 1 used seed 42
+Attempt 2 used seed 43
+Both attempts produced the same incomplete result
+Candidates tied
+First attempt selected
+Semantic regression failed
+Human review remained active
+Candidates were not merged
+
+New generic retry-prompt status:
+
+Implemented
+Synthetic tests passed
+Real incomplete-first-attempt recovery not yet observed
 
 ------------------------------------------------------------
 CURRENT FEATURE RESULT
@@ -1034,9 +1186,12 @@ Implemented and tested:
 
 - PHI-safe Ollama timing metadata
 - PHI-safe Ollama token-count metadata
+- PHI-safe request type, attempt, seed, and retry-prompt metadata
 - Stage-level processing timing
-- Fixed configurable Ollama seed
-- Confirmation that fixed seed alone does not ensure repeatability
+- Configurable deterministic attempt seed routing
+- Attempt 1 base seed and attempt 2 alternate seed
+- Confirmation that changing the seed alone does not ensure recovery
+- Generic controlled-retry verification prompt
 - Structural authorization extraction retry detection
 - One controlled retry maximum
 - Independent deterministic candidate validation
@@ -1045,14 +1200,22 @@ Implemented and tested:
 - No merging between extraction attempts
 - Per-attempt PHI-safe metrics
 - Real complete-first-attempt path
+- Real incomplete-first-attempt retry detection path
 - Synthetic incomplete-first-attempt retry path
+- Synthetic attempt-routing path
+- Synthetic generic retry-prompt path
 - Existing deterministic validation
 - Existing business-rule separation
 - Existing human-review routing
 
 The real complete-first-attempt Molina regression passed.
 
-The synthetic retry and candidate-selection tests passed.
+A real retry event was observed. Both attempts remained incomplete, the
+candidates tied, the first attempt was retained, semantic regression
+failed, and human review remained active.
+
+The synthetic retry, attempt-routing, retry-prompt, and
+candidate-selection tests passed.
 
 This does not prove that the second extraction attempt will always be
 complete.
@@ -1066,26 +1229,32 @@ This does not remove the need for human review.
 EXACT NEXT DEVELOPMENT STEP
 ------------------------------------------------------------
 
-Observe and validate the controlled retry path during a real local
-Ollama run without weakening deterministic validation.
+Observe and validate the new generic retry verification prompt during
+a real incomplete-first-attempt local Ollama run without weakening
+deterministic validation.
 
 Start with:
 
-1. Run the known Molina semantic regression repeatedly.
+1. Run the known Molina semantic regression a reasonable limited number
+   of times.
 2. Stop when an incomplete first extraction triggers the controlled
-   retry, or after a reasonable limited number of runs.
+   retry.
 3. Record only PHI-safe attempt metrics.
 4. Confirm extraction_attempt_count is 2.
 5. Confirm extraction_retry_triggered is True.
-6. Confirm which attempt is selected.
-7. Confirm candidates were not merged.
-8. Confirm the semantic regression result.
-9. Confirm human review remains active.
-10. Do not print raw OCR text or raw source_text.
-11. Do not add payer-specific reconstruction logic.
-12. Do not use token count alone to choose a candidate.
+6. Confirm attempt 1 reports retry_prompt_applied as False.
+7. Confirm attempt 2 reports retry_prompt_applied as True.
+8. Confirm attempt 1 uses seed 42 and attempt 2 uses seed 43.
+9. Compare independently validated candidate scores.
+10. Confirm which attempt is selected.
+11. Confirm candidates were not merged.
+12. Confirm the semantic regression result.
+13. Confirm human review remains active when evidence is unresolved.
+14. Do not print raw OCR text or raw source_text.
+15. Do not add payer-specific reconstruction logic.
+16. Do not use token count alone to choose a candidate.
 
-After the real retry path is observed and validated, add a separate
+After the real retry prompt is observed and evaluated, add a separate
 regression profile for a second authorization document.
 
 Do not apply Molina-specific expected values to every PDF in
@@ -1116,6 +1285,7 @@ Run:
 
 python -m tests.test_document_processor
 python -m tests.test_ollama_service_lines
+python -m tests.test_llm_attempt_routing
 python -m tests.test_evidence_validation_service
 python -m tests.test_review_decision_service
 python -m scripts.test_molina_document
@@ -1156,8 +1326,9 @@ updates = [
         (
             "Implemented provider-based OCR and LLM architecture with "
             "registries, factories, field-level evidence, neutral service-line "
-            "records, PHI-safe metrics, controlled retry, deterministic "
-            "validation, business rules, and human review."
+            "records, PHI-safe metrics, deterministic attempt routing, a "
+            "generic retry verification prompt, deterministic validation, "
+            "business rules, and human review."
         ),
     ),
     (
@@ -1228,9 +1399,10 @@ updates = [
         "In Progress",
         (
             "Implemented field-level extraction, neutral service-line "
-            "extraction, PHI-safe generation metrics, and one controlled retry "
-            "for materially incomplete authorization structure. A real retry "
-            "selection has not yet been observed after implementation."
+            "extraction, PHI-safe generation metrics, deterministic attempt "
+            "routing, and one controlled retry with a generic verification "
+            "prompt. A real retry event was observed, but recovery with the "
+            "new retry prompt has not yet been observed in a real run."
         ),
     ),
     (
@@ -1267,10 +1439,11 @@ updates = [
         "In Progress",
         (
             "Tested Graph ingestion, local OCR, separate local Ollama requests, "
-            "PHI-safe metrics, service-line extraction, controlled retry logic, "
-            "independent candidate validation, business rules, and human "
-            "review. A real retry-selection event and production Smartsheet "
-            "routing remain incomplete."
+            "PHI-safe metrics, service-line extraction, deterministic attempt "
+            "routing, controlled retry logic, independent candidate "
+            "validation, business rules, and human review. Real retry detection "
+            "is verified; real recovery with the new retry prompt and "
+            "production Smartsheet routing remain incomplete."
         ),
     ),
     (

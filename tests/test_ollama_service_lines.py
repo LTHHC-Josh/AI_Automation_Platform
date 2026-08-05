@@ -9,9 +9,14 @@ def build_provider_without_connection() -> OllamaProvider:
     contacting the local Ollama server.
     """
 
-    return OllamaProvider.__new__(
+    provider = OllamaProvider.__new__(
         OllamaProvider
     )
+
+    provider.seed = 42
+    provider._last_request_metrics = {}
+
+    return provider
 
 
 def test_schema_requires_service_lines() -> None:
@@ -184,6 +189,152 @@ def test_invalid_items_are_removed() -> None:
     assert normalized[0]["quantity"] == 2
 
 
+def test_first_attempt_uses_base_seed() -> None:
+    provider = build_provider_without_connection()
+
+    assert provider._seed_for_attempt(
+        1
+    ) == 42
+
+
+def test_second_attempt_uses_alternate_seed() -> None:
+    provider = build_provider_without_connection()
+
+    assert provider._seed_for_attempt(
+        2
+    ) == 43
+
+
+def test_retry_seed_is_deterministic() -> None:
+    provider = build_provider_without_connection()
+
+    first_value = provider._seed_for_attempt(
+        2
+    )
+
+    second_value = provider._seed_for_attempt(
+        2
+    )
+
+    assert first_value == second_value
+    assert first_value == 43
+
+
+def test_invalid_attempt_defaults_to_first_seed() -> None:
+    provider = build_provider_without_connection()
+
+    assert provider._seed_for_attempt(
+        0
+    ) == 42
+
+    assert provider._seed_for_attempt(
+        -1
+    ) == 42
+
+    assert provider._seed_for_attempt(
+        "invalid"
+    ) == 42
+
+    assert provider._seed_for_attempt(
+        True
+    ) == 42
+
+
+def test_first_attempt_uses_original_prompt() -> None:
+    provider = build_provider_without_connection()
+
+    base_prompt = provider._extraction_prompt()
+
+    first_attempt_prompt = (
+        provider._extraction_prompt_for_attempt(
+            1
+        )
+    )
+
+    assert first_attempt_prompt == base_prompt
+
+    assert (
+        "CONTROLLED RETRY VERIFICATION"
+        not in first_attempt_prompt
+    )
+
+
+def test_second_attempt_adds_retry_verification_prompt() -> None:
+    provider = build_provider_without_connection()
+
+    base_prompt = provider._extraction_prompt()
+
+    retry_prompt = (
+        provider._extraction_prompt_for_attempt(
+            2
+        )
+    )
+
+    assert retry_prompt.startswith(
+        base_prompt
+    )
+
+    assert (
+        "CONTROLLED RETRY VERIFICATION"
+        in retry_prompt
+    )
+
+    assert (
+        "Reconstruct every service line independently"
+        in retry_prompt
+    )
+
+    assert (
+        "confirm that service_code appears"
+        in retry_prompt
+    )
+
+    assert (
+        "confirm that quantity appears"
+        in retry_prompt
+    )
+
+    assert (
+        "Do not combine a service code from one row"
+        in retry_prompt
+    )
+
+    assert (
+        "Return null or omit an unsupported row"
+        in retry_prompt
+    )
+
+
+def test_retry_prompt_addendum_is_generic() -> None:
+    provider = build_provider_without_connection()
+
+    addendum = provider._retry_prompt_addendum()
+
+    normalized_addendum = addendum.lower()
+
+    assert "molina" not in normalized_addendum
+    assert "humana" not in normalized_addendum
+    assert "medicaid" not in normalized_addendum
+    assert "s9110" not in normalized_addendum
+    assert "u1" not in normalized_addendum
+
+    assert (
+        "do not infer payer-specific meaning"
+        in normalized_addendum
+    )
+
+    assert (
+        "do not fill a missing value"
+        in normalized_addendum
+    )
+
+    assert (
+        "approved_visits must remain separate "
+        "from authorized_units"
+        in normalized_addendum
+    )
+
+
 def run_test(
     test_name: str,
     test_function,
@@ -194,6 +345,7 @@ def run_test(
         print(
             f"FAILED: {test_name}"
         )
+
         return False
 
     print(
@@ -204,9 +356,17 @@ def run_test(
 
 
 def main() -> None:
-    print("=" * 60)
-    print("Testing Ollama Service-Line Schema")
-    print("=" * 60)
+    print(
+        "=" * 60
+    )
+
+    print(
+        "Testing Ollama Service-Line Schema and Retry Prompt"
+    )
+
+    print(
+        "=" * 60
+    )
 
     tests = [
         (
@@ -237,6 +397,34 @@ def main() -> None:
             "invalid items are removed",
             test_invalid_items_are_removed,
         ),
+        (
+            "first attempt uses base seed",
+            test_first_attempt_uses_base_seed,
+        ),
+        (
+            "second attempt uses alternate seed",
+            test_second_attempt_uses_alternate_seed,
+        ),
+        (
+            "retry seed is deterministic",
+            test_retry_seed_is_deterministic,
+        ),
+        (
+            "invalid attempt defaults to first seed",
+            test_invalid_attempt_defaults_to_first_seed,
+        ),
+        (
+            "first attempt uses original prompt",
+            test_first_attempt_uses_original_prompt,
+        ),
+        (
+            "second attempt adds retry verification prompt",
+            test_second_attempt_adds_retry_verification_prompt,
+        ),
+        (
+            "retry prompt addendum is generic",
+            test_retry_prompt_addendum_is_generic,
+        ),
     ]
 
     passed = 0
@@ -252,16 +440,22 @@ def main() -> None:
             failed += 1
 
     print()
+
     print(
         f"Passed: {passed}"
     )
+
     print(
         f"Failed: {failed}"
     )
+
     print(
         "Real or mock: Synthetic deterministic test"
     )
-    print("=" * 60)
+
+    print(
+        "=" * 60
+    )
 
     if failed:
         raise SystemExit(

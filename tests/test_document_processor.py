@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any, Callable
 
 from src.document_processing.document_processor import (
     DocumentProcessor,
@@ -27,10 +28,10 @@ def build_processor_without_providers() -> DocumentProcessor:
 
 
 def confidence_field(
-    value,
+    value: Any,
     source_text: str,
     confidence: float = 0.90,
-) -> dict:
+) -> dict[str, Any]:
     """
     Build one synthetic field-evidence record.
     """
@@ -57,7 +58,7 @@ def build_template_document() -> Document:
     )
 
 
-def build_complete_extraction() -> dict:
+def build_complete_extraction() -> dict[str, Any]:
     """
     Build a structurally complete synthetic authorization extraction.
     """
@@ -130,9 +131,84 @@ def build_complete_extraction() -> dict:
     }
 
 
-def build_incomplete_extraction() -> dict:
+def build_raw_complete_but_unsupported_extraction() -> dict[str, Any]:
     """
-    Build an extraction matching the observed incomplete Ollama pattern.
+    Reproduce the real failure pattern.
+
+    The raw second row contains a service code and quantity, so the raw
+    structural check considers it complete. Its source evidence does
+    not support either value, so deterministic validation must clear
+    them and the validated candidate must trigger retry.
+    """
+
+    return {
+        "fields": {
+            "authorization_status": confidence_field(
+                "Approved",
+                "Approved",
+            ),
+            "service_code": confidence_field(
+                "SYNTH1",
+                "SYNTH1",
+            ),
+            "service_codes": confidence_field(
+                [
+                    "SYNTH1",
+                ],
+                "SYNTH1",
+            ),
+            "modifier": confidence_field(
+                "U1",
+                "U1",
+            ),
+            "authorized_units": confidence_field(
+                [
+                    6,
+                ],
+                "6",
+            ),
+            "start_date": confidence_field(
+                "2025-11-25",
+                "11/25/2025",
+            ),
+            "end_date": confidence_field(
+                "2026-05-23",
+                "05/23/2026",
+            ),
+        },
+        "service_lines": [
+            {
+                "service_code": "SYNTH1",
+                "modifier": "U1",
+                "quantity": 6,
+                "start_date": "2025-11-25",
+                "end_date": "2026-05-23",
+                "status": "Approved",
+                "confidence": 0.90,
+                "source_text": (
+                    "SYNTH1 U1 6 11/25/2025 "
+                    "05/23/2026 Approved"
+                ),
+            },
+            {
+                "service_code": "SYNTH1",
+                "modifier": None,
+                "quantity": 1,
+                "start_date": "2025-11-25",
+                "end_date": "2026-05-23",
+                "status": "Approved",
+                "confidence": 0.90,
+                "source_text": (
+                    "11/25/2025 05/23/2026 Approved"
+                ),
+            },
+        ],
+    }
+
+
+def build_incomplete_extraction() -> dict[str, Any]:
+    """
+    Build a structurally incomplete authorization extraction.
     """
 
     return {
@@ -268,20 +344,17 @@ def test_service_lines_preserve_row_relationships() -> None:
         service_lines
     ) == 2
 
-    first_line = service_lines[0]
-    second_line = service_lines[1]
+    assert service_lines[0].service_code == "SYNTH1"
+    assert service_lines[0].modifier is None
+    assert service_lines[0].quantity == 6
+    assert service_lines[0].status == "Approved"
+    assert service_lines[0].confidence == 0.94
 
-    assert first_line.service_code == "SYNTH1"
-    assert first_line.modifier is None
-    assert first_line.quantity == 6
-    assert first_line.status == "Approved"
-    assert first_line.confidence == 0.94
-
-    assert second_line.service_code == "SYNTH1"
-    assert second_line.modifier == "U1"
-    assert second_line.quantity == 1
-    assert second_line.status == "Approved"
-    assert second_line.confidence == 0.91
+    assert service_lines[1].service_code == "SYNTH1"
+    assert service_lines[1].modifier == "U1"
+    assert service_lines[1].quantity == 1
+    assert service_lines[1].status == "Approved"
+    assert service_lines[1].confidence == 0.91
 
 
 def test_service_line_confidence_is_normalized() -> None:
@@ -373,9 +446,7 @@ def test_flat_fields_remain_separate_from_service_lines() -> None:
                     1,
                 ],
                 "confidence": 0.90,
-                "source_text": (
-                    "Service quantities 6 and 1"
-                ),
+                "source_text": "Service quantities 6 and 1",
             },
         },
         "service_lines": [
@@ -420,7 +491,7 @@ def test_flat_fields_remain_separate_from_service_lines() -> None:
     assert service_lines[1].quantity == 1
 
 
-def test_complete_authorization_does_not_require_retry() -> None:
+def test_complete_authorization_does_not_require_raw_retry() -> None:
     processor = build_processor_without_providers()
 
     assert not processor._should_retry_extraction(
@@ -429,7 +500,21 @@ def test_complete_authorization_does_not_require_retry() -> None:
     )
 
 
-def test_incomplete_service_line_requires_retry() -> None:
+def test_complete_validated_authorization_does_not_require_retry() -> None:
+    processor = build_processor_without_providers()
+
+    candidate = processor._build_validated_candidate(
+        template_document=build_template_document(),
+        extraction_result=build_complete_extraction(),
+    )
+
+    assert not processor._should_retry_validated_candidate(
+        candidate=candidate,
+        document_type="authorization",
+    )
+
+
+def test_incomplete_service_line_requires_raw_retry() -> None:
     processor = build_processor_without_providers()
 
     assert processor._should_retry_extraction(
@@ -438,7 +523,7 @@ def test_incomplete_service_line_requires_retry() -> None:
     )
 
 
-def test_missing_service_codes_list_requires_retry() -> None:
+def test_missing_service_codes_list_requires_raw_retry() -> None:
     processor = build_processor_without_providers()
 
     extraction_result = build_complete_extraction()
@@ -465,6 +550,49 @@ def test_non_authorization_does_not_use_authorization_retry() -> None:
     assert not processor._should_retry_extraction(
         extraction_result=build_incomplete_extraction(),
         document_type="assessment",
+    )
+
+    candidate = processor._build_validated_candidate(
+        template_document=build_template_document(),
+        extraction_result=build_incomplete_extraction(),
+    )
+
+    assert not processor._should_retry_validated_candidate(
+        candidate=candidate,
+        document_type="assessment",
+    )
+
+
+def test_validation_cleared_row_requires_retry() -> None:
+    processor = build_processor_without_providers()
+
+    extraction_result = (
+        build_raw_complete_but_unsupported_extraction()
+    )
+
+    assert not processor._should_retry_extraction(
+        extraction_result=extraction_result,
+        document_type="authorization",
+    )
+
+    candidate = processor._build_validated_candidate(
+        template_document=build_template_document(),
+        extraction_result=extraction_result,
+    )
+
+    assert len(
+        candidate.service_lines
+    ) == 2
+
+    assert candidate.service_lines[1].service_code is None
+    assert candidate.service_lines[1].quantity is None
+    assert candidate.service_lines[1].start_date is not None
+    assert candidate.service_lines[1].end_date is not None
+    assert candidate.service_lines[1].status == "Approved"
+
+    assert processor._should_retry_validated_candidate(
+        candidate=candidate,
+        document_type="authorization",
     )
 
 
@@ -501,14 +629,11 @@ def test_stronger_validated_candidate_is_selected() -> None:
 def test_equal_candidates_preserve_first_attempt() -> None:
     processor = build_processor_without_providers()
 
-    first_result = build_complete_extraction()
-    second_result = build_complete_extraction()
-
     selected, selected_attempt = (
         processor._select_extraction_candidate(
             template_document=build_template_document(),
-            first_result=first_result,
-            second_result=second_result,
+            first_result=build_complete_extraction(),
+            second_result=build_complete_extraction(),
         )
     )
 
@@ -561,7 +686,7 @@ def test_candidates_are_never_merged() -> None:
 
 def run_test(
     test_name: str,
-    test_function,
+    test_function: Callable[[], None],
 ) -> bool:
     try:
         test_function()
@@ -622,20 +747,28 @@ def main() -> None:
             test_flat_fields_remain_separate_from_service_lines,
         ),
         (
-            "complete authorization does not retry",
-            test_complete_authorization_does_not_require_retry,
+            "complete authorization does not require raw retry",
+            test_complete_authorization_does_not_require_raw_retry,
         ),
         (
-            "incomplete service line retries",
-            test_incomplete_service_line_requires_retry,
+            "complete validated authorization does not retry",
+            test_complete_validated_authorization_does_not_require_retry,
         ),
         (
-            "missing service_codes list retries",
-            test_missing_service_codes_list_requires_retry,
+            "incomplete service line requires raw retry",
+            test_incomplete_service_line_requires_raw_retry,
+        ),
+        (
+            "missing service_codes requires raw retry",
+            test_missing_service_codes_list_requires_raw_retry,
         ),
         (
             "non-authorization does not use authorization retry",
             test_non_authorization_does_not_use_authorization_retry,
+        ),
+        (
+            "validation-cleared row requires retry",
+            test_validation_cleared_row_requires_retry,
         ),
         (
             "stronger validated candidate is selected",
