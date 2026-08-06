@@ -6,6 +6,15 @@ from src.services.review_decision_service import (
 )
 
 
+LOW_CONFIDENCE_REASON = (
+    "One or more extracted fields have confidence below 85%."
+)
+
+NO_STRUCTURED_DATA_REASON = (
+    "No structured data was extracted from the document."
+)
+
+
 def build_document() -> Document:
     """
     Build a synthetic document containing no PHI.
@@ -74,7 +83,7 @@ def test_validation_action_triggers_review() -> None:
     )
 
 
-def test_low_field_confidence_triggers_review() -> None:
+def test_low_populated_field_confidence_triggers_review() -> None:
     service = ReviewDecisionService()
     document = build_document()
 
@@ -89,11 +98,186 @@ def test_low_field_confidence_triggers_review() -> None:
     assert decision.needs_human_review is True
     assert decision.review_status == "Human Review Recommended"
     assert decision.minimum_field_confidence == 0.84
+    assert LOW_CONFIDENCE_REASON in decision.reasons
 
-    assert (
-        "One or more extracted fields have confidence below 85%."
-        in decision.reasons
+
+def test_field_at_confidence_threshold_does_not_trigger_review() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+
+    document.field_confidences[
+        "authorization_number"
+    ] = 0.85
+
+    decision = service.evaluate(
+        document
     )
+
+    assert decision.needs_human_review is False
+    assert decision.review_status == "Verified by AI"
+    assert decision.minimum_field_confidence == 0.85
+    assert LOW_CONFIDENCE_REASON not in decision.reasons
+
+
+def test_none_optional_field_confidence_is_ignored() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+
+    document.extracted_data[
+        "approved_visits"
+    ] = None
+
+    document.field_confidences[
+        "approved_visits"
+    ] = 0.0
+
+    decision = service.evaluate(
+        document
+    )
+
+    assert decision.needs_human_review is False
+    assert decision.review_status == "Verified by AI"
+    assert decision.minimum_field_confidence == 0.95
+    assert LOW_CONFIDENCE_REASON not in decision.reasons
+
+
+def test_empty_string_field_confidence_is_ignored() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+
+    document.extracted_data[
+        "modifier"
+    ] = "   "
+
+    document.field_confidences[
+        "modifier"
+    ] = 0.0
+
+    decision = service.evaluate(
+        document
+    )
+
+    assert decision.needs_human_review is False
+    assert decision.review_status == "Verified by AI"
+    assert decision.minimum_field_confidence == 0.95
+    assert LOW_CONFIDENCE_REASON not in decision.reasons
+
+
+def test_empty_list_field_confidence_is_ignored() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+
+    document.extracted_data[
+        "service_codes"
+    ] = []
+
+    document.field_confidences[
+        "service_codes"
+    ] = 0.0
+
+    decision = service.evaluate(
+        document
+    )
+
+    assert decision.needs_human_review is False
+    assert decision.review_status == "Verified by AI"
+    assert decision.minimum_field_confidence == 0.95
+    assert LOW_CONFIDENCE_REASON not in decision.reasons
+
+
+def test_populated_field_without_confidence_triggers_review() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+
+    document.extracted_data[
+        "service_code"
+    ] = "SYNTH1"
+
+    document.field_confidences.pop(
+        "service_code",
+        None,
+    )
+
+    decision = service.evaluate(
+        document
+    )
+
+    assert decision.needs_human_review is True
+    assert decision.minimum_field_confidence == 0.0
+    assert LOW_CONFIDENCE_REASON in decision.reasons
+
+
+def test_invalidated_field_uses_validation_action_for_review() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+
+    validation_reason = (
+        "approved_visits is not supported by its source evidence"
+    )
+
+    document.extracted_data[
+        "approved_visits"
+    ] = None
+
+    document.field_confidences[
+        "approved_visits"
+    ] = 0.0
+
+    document.validation_actions = [
+        validation_reason
+    ]
+
+    decision = service.evaluate(
+        document
+    )
+
+    assert decision.needs_human_review is True
+    assert decision.review_status == "Human Review Recommended"
+    assert decision.minimum_field_confidence == 0.95
+    assert validation_reason in decision.reasons
+    assert LOW_CONFIDENCE_REASON not in decision.reasons
+
+
+def test_numeric_zero_is_treated_as_populated() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+
+    document.extracted_data[
+        "authorized_units"
+    ] = 0
+
+    document.field_confidences[
+        "authorized_units"
+    ] = 0.80
+
+    decision = service.evaluate(
+        document
+    )
+
+    assert decision.needs_human_review is True
+    assert decision.minimum_field_confidence == 0.80
+    assert LOW_CONFIDENCE_REASON in decision.reasons
+
+
+def test_false_boolean_is_treated_as_populated() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+
+    document.extracted_data[
+        "is_renewal"
+    ] = False
+
+    document.field_confidences[
+        "is_renewal"
+    ] = 0.80
+
+    decision = service.evaluate(
+        document
+    )
+
+    assert decision.needs_human_review is True
+    assert decision.minimum_field_confidence == 0.80
+    assert LOW_CONFIDENCE_REASON in decision.reasons
 
 
 def test_classification_below_auto_approve_threshold() -> None:
@@ -197,11 +381,12 @@ def test_duplicate_reasons_are_removed() -> None:
     ) == 1
 
 
-def test_missing_structured_data_triggers_review() -> None:
+def test_empty_structured_mapping_triggers_review() -> None:
     service = ReviewDecisionService()
     document = build_document()
 
     document.extracted_data = {}
+    document.field_confidences = {}
 
     decision = service.evaluate(
         document
@@ -209,11 +394,35 @@ def test_missing_structured_data_triggers_review() -> None:
 
     assert decision.needs_human_review is True
     assert decision.review_status == "Human Review Recommended"
+    assert decision.minimum_field_confidence is None
+    assert NO_STRUCTURED_DATA_REASON in decision.reasons
 
-    assert (
-        "No structured data was extracted from the document."
-        in decision.reasons
+
+def test_only_empty_structured_values_trigger_review() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+
+    document.extracted_data = {
+        "approved_visits": None,
+        "modifier": "",
+        "service_codes": [],
+    }
+
+    document.field_confidences = {
+        "approved_visits": 0.0,
+        "modifier": 0.0,
+        "service_codes": 0.0,
+    }
+
+    decision = service.evaluate(
+        document
     )
+
+    assert decision.needs_human_review is True
+    assert decision.review_status == "Human Review Recommended"
+    assert decision.minimum_field_confidence is None
+    assert NO_STRUCTURED_DATA_REASON in decision.reasons
+    assert LOW_CONFIDENCE_REASON not in decision.reasons
 
 
 def run_test(
@@ -252,8 +461,40 @@ def main() -> None:
             test_validation_action_triggers_review,
         ),
         (
-            "low field confidence triggers review",
-            test_low_field_confidence_triggers_review,
+            "low populated field confidence triggers review",
+            test_low_populated_field_confidence_triggers_review,
+        ),
+        (
+            "field at confidence threshold does not trigger review",
+            test_field_at_confidence_threshold_does_not_trigger_review,
+        ),
+        (
+            "none optional field confidence is ignored",
+            test_none_optional_field_confidence_is_ignored,
+        ),
+        (
+            "empty string field confidence is ignored",
+            test_empty_string_field_confidence_is_ignored,
+        ),
+        (
+            "empty list field confidence is ignored",
+            test_empty_list_field_confidence_is_ignored,
+        ),
+        (
+            "populated field without confidence triggers review",
+            test_populated_field_without_confidence_triggers_review,
+        ),
+        (
+            "invalidated field uses validation action for review",
+            test_invalidated_field_uses_validation_action_for_review,
+        ),
+        (
+            "numeric zero is treated as populated",
+            test_numeric_zero_is_treated_as_populated,
+        ),
+        (
+            "false boolean is treated as populated",
+            test_false_boolean_is_treated_as_populated,
         ),
         (
             "classification below 90 percent",
@@ -276,8 +517,12 @@ def main() -> None:
             test_duplicate_reasons_are_removed,
         ),
         (
-            "missing structured data triggers review",
-            test_missing_structured_data_triggers_review,
+            "empty structured mapping triggers review",
+            test_empty_structured_mapping_triggers_review,
+        ),
+        (
+            "only empty structured values trigger review",
+            test_only_empty_structured_values_trigger_review,
         ),
     ]
 

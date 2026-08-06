@@ -67,6 +67,7 @@ class BaseAuthorizationRule(Rule):
         )
 
         self._validate_quantity(
+            document=document,
             data=data,
             actions=actions,
         )
@@ -220,9 +221,18 @@ class BaseAuthorizationRule(Rule):
 
     def _validate_quantity(
         self,
+        document: Document,
         data: dict,
         actions: list[str],
     ) -> None:
+        """
+        Confirm that some positive authorization quantity is present.
+
+        This method deliberately does not decide whether a quantity
+        represents visits, units, sessions, equipment, recurring
+        services, or sufficient approval.
+        """
+
         approved_visits = self._positive_quantity(
             data.get("approved_visits")
         )
@@ -231,9 +241,18 @@ class BaseAuthorizationRule(Rule):
             data.get("authorized_units")
         )
 
+        has_service_line_quantity = any(
+            self._positive_quantity(
+                service_line.quantity
+            )
+            is not None
+            for service_line in document.service_lines
+        )
+
         if (
             approved_visits is None
             and authorized_units is None
+            and not has_service_line_quantity
         ):
             actions.append(
                 "Missing authorization quantity"

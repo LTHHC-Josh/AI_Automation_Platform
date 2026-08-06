@@ -108,6 +108,7 @@ class EvidenceValidationService:
         "%m-%d-%Y",
     )
 
+    TOP_LEVEL_MAX_MODEL_CONFIDENCE = 0.95
     SERVICE_LINE_LOW_CONFIDENCE_THRESHOLD = 0.85
     SERVICE_LINE_MAX_MODEL_CONFIDENCE = 0.95
     SERVICE_LINE_UNSUPPORTED_CONFIDENCE = 0.50
@@ -128,6 +129,10 @@ class EvidenceValidationService:
         """
 
         actions: list[str] = []
+
+        self._cap_top_level_model_confidences(
+            document
+        )
 
         self._validate_required_source_evidence(
             document=document,
@@ -177,6 +182,11 @@ class EvidenceValidationService:
             actions=actions,
         )
 
+        self._reconcile_authorized_units_from_service_lines(
+            document=document,
+            actions=actions,
+        )
+
         self._validate_service_line_modifier_relationship(
             document=document,
             actions=actions,
@@ -189,6 +199,49 @@ class EvidenceValidationService:
         return self._remove_duplicates(
             actions
         )
+
+    def _cap_top_level_model_confidences(
+        self,
+        document: Document,
+    ) -> None:
+        """
+        Normalize confidence for top-level extracted claims.
+
+        A model-reported confidence of 1.0 is capped because model
+        certainty is not equivalent to deterministic verification.
+
+        Empty values do not represent extracted claims and retain zero
+        confidence. Existing lower confidence is preserved.
+        """
+
+        for evidence in document.field_evidence.values():
+            if not isinstance(
+                evidence,
+                dict,
+            ):
+                continue
+
+            value = evidence.get(
+                "value"
+            )
+
+            if self._is_empty_value(
+                value
+            ):
+                evidence["confidence"] = 0.0
+                continue
+
+            confidence = self._normalize_confidence(
+                evidence.get(
+                    "confidence",
+                    0.0,
+                )
+            )
+
+            evidence["confidence"] = min(
+                confidence,
+                self.TOP_LEVEL_MAX_MODEL_CONFIDENCE,
+            )
 
     def _validate_required_source_evidence(
         self,
@@ -852,6 +905,158 @@ class EvidenceValidationService:
         document.service_lines = self._deduplicate_service_lines(
             service_lines=validated_lines,
             actions=actions,
+        )
+
+    def _reconcile_authorized_units_from_service_lines(
+        self,
+        document: Document,
+        actions: list[str],
+    ) -> None:
+        """
+        Reconcile flat authorized units from validated row evidence.
+
+        This uses only quantities preserved on service lines within the
+        same independently validated candidate. It never combines
+        extraction attempts and never interprets quantity meaning.
+        """
+
+        supported_lines = [
+            service_line
+            for service_line in document.service_lines
+            if not self._is_empty_value(
+                service_line.quantity
+            )
+        ]
+
+        if not supported_lines:
+            return
+
+        row_quantities: list[Any] = []
+
+        for service_line in supported_lines:
+            quantity = service_line.quantity
+
+            if quantity not in row_quantities:
+                row_quantities.append(
+                    quantity
+                )
+
+        evidence = document.field_evidence.get(
+            "authorized_units"
+        )
+
+        if not isinstance(
+            evidence,
+            dict,
+        ):
+            return
+
+        existing_value = evidence.get(
+            "value"
+        )
+
+        if self._is_empty_value(
+            existing_value
+        ):
+            return
+
+        existing_values = (
+            existing_value
+            if isinstance(
+                existing_value,
+                list,
+            )
+            else (
+                []
+                if self._is_empty_value(
+                    existing_value
+                )
+                else [existing_value]
+            )
+        )
+
+        normalized_existing = {
+            str(value).strip()
+            for value in existing_values
+            if not self._is_empty_value(
+                value
+            )
+        }
+
+        normalized_rows = {
+            str(value).strip()
+            for value in row_quantities
+            if not self._is_empty_value(
+                value
+            )
+        }
+
+        if normalized_existing == normalized_rows:
+            return
+
+        combined_source_parts: list[str] = []
+
+        original_source = str(
+            evidence.get(
+                "source_text",
+                "",
+            )
+            or ""
+        ).strip()
+
+        if original_source:
+            combined_source_parts.append(
+                original_source
+            )
+
+        for service_line in supported_lines:
+            row_source = str(
+                service_line.source_text
+                or ""
+            ).strip()
+
+            if (
+                row_source
+                and row_source not in combined_source_parts
+            ):
+                combined_source_parts.append(
+                    row_source
+                )
+
+        supporting_confidences = [
+            self._normalize_confidence(
+                service_line.confidence
+            )
+            for service_line in supported_lines
+        ]
+
+        existing_confidence = self._normalize_confidence(
+            evidence.get(
+                "confidence",
+                0.0,
+            )
+        )
+
+        if existing_confidence > 0:
+            supporting_confidences.append(
+                existing_confidence
+            )
+
+        evidence["value"] = row_quantities
+        evidence["confidence"] = (
+            min(
+                supporting_confidences
+            )
+            if supporting_confidences
+            else 0.0
+        )
+        evidence["source_text"] = "\n".join(
+            combined_source_parts
+        )
+
+        actions.append(
+            "Authorized units were reconciled from "
+            "supported service-line evidence"
         )
 
     def _validate_service_line_modifier_relationship(

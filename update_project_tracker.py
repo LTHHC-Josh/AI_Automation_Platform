@@ -6,7 +6,7 @@ PROJECT_JOURNAL = """
 LTHHC AI AUTOMATION PLATFORM - DEVELOPMENT JOURNAL
 ============================================================
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06
 
 Repository:
 LTHHC-Josh/AI_Automation_Platform
@@ -28,6 +28,16 @@ DEVELOPMENT WORKFLOW
 8. Commit and push only tested, safe source files.
 
 Always provide complete file contents when code must be replaced.
+
+Temporary helper scripts and project-tracker update scripts must be
+delivered as one complete PowerShell block. The block must use a
+single-quoted here-string piped to Set-Content at the exact file path,
+include the complete script contents, run the script and related
+commands, and remove the temporary script when appropriate.
+
+Do not ask the user to create temporary files manually, choose their
+paths, paste partial script contents into an editor, or assemble a
+script from separate snippets.
 
 ------------------------------------------------------------
 APPROVED ARCHITECTURE
@@ -539,6 +549,248 @@ The validator remains separate from payer-specific and LTHHC business
 rules.
 
 ------------------------------------------------------------
+TOP-LEVEL CONFIDENCE NORMALIZATION STATUS
+------------------------------------------------------------
+
+Deterministic top-level confidence normalization is implemented.
+
+Populated top-level extraction fields with model-reported confidence of
+1.0 or 100 percent are capped at 0.95 before field-specific validation.
+
+This prevents raw model certainty from being treated as deterministic
+verification.
+
+Current behavior:
+
+- Populated values are capped at no more than 0.95.
+- Existing confidence below 0.95 is preserved.
+- Empty values receive confidence 0.0.
+- Invalidated values receive confidence 0.0.
+- Unsupported or conflicting evidence can be downgraded below 0.95.
+- The confidence cap alone does not create a review action.
+- Specific validation and business-rule failures still require review.
+- Empty optional fields are excluded from minimum-field-confidence
+  calculations.
+- Numeric zero and boolean false remain meaningful populated values.
+
+Files changed:
+
+- src/services/evidence_validation_service.py
+- src/services/review_decision_service.py
+- tests/test_evidence_validation_service.py
+- tests/test_review_decision_service.py
+- tests/test_top_level_confidence_validation.py
+
+Synthetic deterministic tests:
+
+- Top-level confidence validation: 6 passed, 0 failed
+- Evidence validation: 27 passed, 0 failed
+- Review decision: 18 passed, 0 failed
+- Document processor: 16 passed, 0 failed
+
+Synthetic total:
+
+Passed: 67
+Failed: 0
+
+Real Molina regression:
+
+- Real cached PaddleOCR text
+- Real local Ollama classification and extraction
+- Supported populated top-level fields capped at 95 percent
+- Empty or invalidated fields remained at 0 percent
+- Minimum populated field confidence was 95 percent
+- Human review remained active for legitimate validation and
+  business-rule reasons
+- PHI output remained suppressed
+
+Real result:
+
+Passed: 1
+Failed: 0
+
+Latest real performance:
+
+- Total processing time: approximately 461.73 seconds
+- OCR wall time: approximately 0.00 seconds using cached OCR
+- Classification wall time: approximately 75.25 seconds
+- Extraction wall time: approximately 386.48 seconds
+- Extraction attempt count: 1
+- Retry triggered: False
+- Selected extraction attempt: 1
+
+Limitations:
+
+- A confidence of 0.95 means strongly supported model output, not final
+  human verification.
+- The unresolved top-level modifier-to-service-line relationship still
+  requires review.
+- Authorization quantity meaning still requires confirmation.
+- A successful real retry where attempt 2 produces a stronger candidate
+  has not yet been observed.
+
+Exact next starting point:
+
+Review business-rule handling for authorization quantities and determine
+whether supported service-line quantities can be classified safely
+without treating units, visits, sessions, or equipment quantities as
+equivalent.
+
+
+------------------------------------------------------------
+AUTHORIZATION RULE REGISTRY CLEANUP STATUS
+------------------------------------------------------------
+
+The active authorization business-rule implementation was confirmed as:
+
+src/business_rules/rules/authorization_rule.py
+
+The obsolete parallel implementation was removed:
+
+src/business_rules/authorization_rule.py
+
+RuleFactory continues to load plugins from:
+
+src.business_rules.rules
+
+Registry verification confirmed:
+
+- authorization resolves to AuthorizationRule
+- authorization_renewal resolves to AuthorizationRenewalRule
+- both classes come from src.business_rules.rules.authorization_rule
+- no root-level authorization rule is registered
+- no duplicate registry implementation remains active
+
+Files changed:
+
+- Deleted src/business_rules/authorization_rule.py
+- Added tests/test_authorization_rule_registry.py
+
+Synthetic deterministic registry test:
+
+Passed: 5
+Failed: 0
+
+------------------------------------------------------------
+AUTHORIZATION QUANTITY RULE STATUS
+------------------------------------------------------------
+
+The active authorization rule now recognizes positive quantities from:
+
+- approved_visits
+- authorized_units
+- validated authorization service-line quantities
+
+A supported quantity is treated only as evidence that a quantity exists.
+
+The rule does not automatically interpret a quantity as:
+
+- visits
+- sessions
+- units
+- equipment quantities
+- recurring services
+- sufficient approval
+
+When no positive quantity exists, the rule returns:
+
+Missing authorization quantity
+
+When a positive quantity exists but its meaning has not been confirmed,
+the rule returns:
+
+Authorization quantity requires verification
+
+The action is emitted only once even when both flat fields and service
+lines contain quantities.
+
+Files changed:
+
+- src/business_rules/rules/authorization_rule.py
+- tests/test_authorization_quantity_rule.py
+
+Synthetic deterministic quantity tests:
+
+Passed: 8
+Failed: 0
+
+Related regression tests:
+
+- Authorization registry: 5 passed, 0 failed
+- Review decision: 18 passed, 0 failed
+- Document processor: 16 passed, 0 failed
+
+Related synthetic total:
+
+Passed: 47
+Failed: 0
+
+------------------------------------------------------------
+LATEST REAL QUANTITY REGRESSION
+------------------------------------------------------------
+
+The known Molina authorization regression was processed using:
+
+- Real cached local PaddleOCR text
+- Real local Ollama classification
+- Real local Ollama extraction
+- Deterministic evidence validation
+- Updated authorization quantity business rules
+- Human-review decision
+- PHI-safe diagnostics
+
+Verified real behavior:
+
+- Two validated service-line records were preserved
+- Positive quantities 1 and 6 were preserved
+- Top-level authorized_units contained 6 and 1
+- Missing authorization quantity was not returned
+- Authorization quantity requires verification was returned
+- Quantity meaning was not guessed
+- Human verification remained required
+- PHI output remained suppressed
+
+Real result:
+
+Passed: 1
+Failed: 0
+
+Real or mock:
+
+Real cached OCR and local Ollama processing
+
+Latest real performance:
+
+- Total processing time: approximately 369.27 seconds
+- OCR wall time: approximately 0.00 seconds using cached OCR
+- Classification wall time: approximately 67.83 seconds
+- Extraction wall time: approximately 301.43 seconds
+- Extraction attempt count: 1
+- Retry triggered: False
+- Selected extraction attempt: 1
+- Classification generation rate: approximately 6.46 tokens/second
+- Extraction generation rate: approximately 5.56 tokens/second
+
+Limitations:
+
+- Quantity type remains unresolved without explicit supporting evidence.
+- Units are not treated as visits.
+- A positive quantity is not automatically treated as sufficient
+  approval.
+- The unresolved modifier-to-service-line relationship still requires
+  review.
+- A real retry where attempt 2 produces a stronger validated candidate
+  has not yet been observed.
+
+Exact next starting point:
+
+Inspect the human-review output model and downstream document result
+interfaces to determine how unresolved quantity type, modifier
+relationships, and validation reasons should be presented to a reviewer
+before mailbox-to-Smartsheet automation may proceed.
+
+
+------------------------------------------------------------
 REAL MOLINA AUTHORIZATION TEST STATUS
 ------------------------------------------------------------
 
@@ -836,12 +1088,202 @@ Verified behavior:
 
 Result:
 
-Passed: 9
+Passed: 18
 Failed: 0
 
 Real or mock:
 
 Synthetic deterministic test
+
+------------------------------------------------------------
+AUTHORIZED-UNIT RECONCILIATION STATUS
+------------------------------------------------------------
+
+A deterministic same-candidate reconciliation check is implemented for
+authorized_units and supported authorization service-line quantities.
+
+The reconciliation is deliberately limited:
+
+- It runs only when authorized_units already contains a populated
+  extracted value.
+- It compares that existing flat value with independently validated
+  service-line quantities from the same extraction candidate.
+- It may restore a supported quantity omitted from the flat list when
+  the same candidate preserved that quantity on a validated service
+  line.
+- It never combines values from separate Ollama attempts.
+- It never creates authorized_units when the flat field is missing or
+  empty.
+- It never interprets quantities as visits, sessions, equipment,
+  recurring services, or sufficient approval.
+- It preserves source_text.
+- It uses the lowest supporting confidence.
+- It emits a human-review validation action when reconciliation occurs.
+
+Validation action:
+
+Authorized units were reconciled from supported service-line evidence
+
+Synthetic reconciliation result:
+
+Passed: 7
+Failed: 0
+
+Synthetic regression results:
+
+- Evidence validation: 27 passed, 0 failed
+- Document processor: 16 passed, 0 failed
+- Authorization quantity rules: 8 passed, 0 failed
+- Review decision: 18 passed, 0 failed
+
+Combined synthetic result:
+
+Passed: 76
+Failed: 0
+
+------------------------------------------------------------
+LATEST REAL RECONCILIATION REGRESSION
+------------------------------------------------------------
+
+The known Molina authorization regression was rerun after implementing
+same-candidate authorized-unit reconciliation.
+
+Real result:
+
+Passed: 1
+Failed: 0
+
+Real or mock:
+
+Real cached PaddleOCR text and real local Ollama processing
+
+Verified output:
+
+- Document type remained authorization.
+- Classification confidence remained 90 percent.
+- Exactly two service-line records were preserved.
+- Service-line quantities 1 and 6 were preserved.
+- Top-level authorized_units preserved both 6 and 1.
+- Semantic regression passed.
+- Human verification remained required.
+- Authorization quantity still required verification.
+- PHI output remained suppressed.
+- Extraction attempt count was 1.
+- Retry was not triggered.
+- Attempt 1 was selected.
+
+Latest timing:
+
+- Total processing time: approximately 369.83 seconds
+- Classification wall time: approximately 66.24 seconds
+- Extraction wall time: approximately 303.59 seconds
+- Extraction eval count: 1201
+- Extraction generation rate: approximately 5.51 tokens per second
+
+Repeatability status:
+
+Completed successfully.
+
+Three consecutive real cached-OCR and local-Ollama executions passed.
+Each run triggered validated retry, selected the stronger second
+candidate, preserved quantities 1 and 6, reconciled authorized_units
+from same-candidate service-line evidence, retained human review, and
+suppressed PHI output.
+
+
+------------------------------------------------------------
+THREE-RUN REAL REPEATABILITY RESULT
+------------------------------------------------------------
+
+The known Molina authorization regression completed three consecutive
+successful real runs after same-candidate authorized-unit reconciliation
+was implemented.
+
+Final result:
+
+Successful consecutive runs: 3 of 3
+
+REPEATABILITY RESULT:
+
+PASSED
+
+Real or mock:
+
+Real cached PaddleOCR text and real local Ollama processing
+
+All three runs confirmed:
+
+- Document type remained authorization.
+- Classification confidence remained 90 percent.
+- Attempt 1 produced the known incomplete 1080-token extraction pattern.
+- Deterministic validation identified incomplete supported structure.
+- Raw retry required remained False.
+- Validated retry required remained True.
+- Controlled extraction retry was triggered.
+- Attempt 1 used seed 42.
+- Attempt 2 used seed 43.
+- Attempt 2 produced the stronger 1198-token extraction pattern.
+- Attempt 2 was selected by deterministic candidate scoring.
+- Candidates were independently validated.
+- Candidates were never merged.
+- Both service-line records preserved service code S9110.
+- Service-line quantities 1 and 6 were preserved.
+- Top-level authorized_units preserved both quantities after
+  same-candidate deterministic reconciliation.
+- Reconciled authorized_units confidence was reduced to 50 percent using
+  the lowest supporting confidence.
+- Human verification remained required.
+- Authorization quantity interpretation remained unresolved.
+- Modifier-to-service-line ownership remained unresolved.
+- PHI output remained suppressed.
+- Semantic regression passed.
+
+Run results:
+
+Run 1:
+
+- Passed: 1
+- Failed: 0
+- Total time: approximately 579.08 seconds
+- Extraction attempts: 2
+- Selected attempt: 2
+- Attempt 1 eval count: 1080
+- Attempt 2 eval count: 1198
+
+Run 2:
+
+- Passed: 1
+- Failed: 0
+- Total time: approximately 624.75 seconds
+- Extraction attempts: 2
+- Selected attempt: 2
+- Attempt 1 eval count: 1080
+- Attempt 2 eval count: 1198
+
+Run 3:
+
+- Passed: 1
+- Failed: 0
+- Total time: approximately 474.30 seconds
+- Extraction attempts: 2
+- Selected attempt: 2
+- Attempt 1 eval count: 1080
+- Attempt 2 eval count: 1198
+
+Conclusion:
+
+The controlled retry, independent validation, deterministic candidate
+selection, same-candidate quantity reconciliation, and human-review
+safeguards successfully handled the known variable extraction pattern
+in three consecutive real executions.
+
+The repeatability investigation for this regression fixture is complete.
+
+This result does not prove universal model determinism. Repeated local
+Ollama output still varied between incomplete attempt 1 and stronger
+attempt 2 patterns. Reliability was achieved through controlled retry
+and deterministic safeguards rather than reliance on model consistency.
+
 
 ------------------------------------------------------------
 KNOWN EXTRACTION AND VALIDATION LIMITATIONS
@@ -880,10 +1322,11 @@ Observed limitations:
   retry result.
 - A retry may approximately double extraction time when both attempts
   require full local inference.
-- The generic retry verification prompt has not yet been observed during
-  a real incomplete-first-attempt event.
-- A stronger second candidate has not yet been selected during a real
-  retry event.
+- The generic retry verification prompt was observed in three consecutive
+  real incomplete-first-attempt events and produced a stronger second
+  candidate each time.
+- A stronger independently validated second candidate was selected in
+  three consecutive real retry events.
 
 Human review remains required whenever deterministic evidence or
 business rules are incomplete.
@@ -1184,85 +1627,89 @@ CURRENT FEATURE RESULT
 
 Implemented and tested:
 
-- PHI-safe Ollama timing metadata
-- PHI-safe Ollama token-count metadata
-- PHI-safe request type, attempt, seed, and retry-prompt metadata
-- Stage-level processing timing
-- Configurable deterministic attempt seed routing
-- Attempt 1 base seed and attempt 2 alternate seed
-- Confirmation that changing the seed alone does not ensure recovery
-- Generic controlled-retry verification prompt
-- Structural authorization extraction retry detection
-- One controlled retry maximum
+- Conservative authorization quantity business rules
+- Removal of the obsolete duplicate authorization-rule implementation
+- Top-level confidence normalization
+- Empty optional fields excluded from minimum-confidence calculation
+- Populated fields without confidence remain conservatively scored
+- Same-candidate authorized-unit reconciliation
+- Preservation of value, confidence, and source_text
+- Controlled authorization extraction retry
 - Independent deterministic candidate validation
-- Deterministic stronger-candidate selection
-- First-candidate preservation on score ties
-- No merging between extraction attempts
-- Per-attempt PHI-safe metrics
-- Real complete-first-attempt path
-- Real incomplete-first-attempt retry detection path
-- Synthetic incomplete-first-attempt retry path
-- Synthetic attempt-routing path
-- Synthetic generic retry-prompt path
-- Existing deterministic validation
-- Existing business-rule separation
-- Existing human-review routing
+- Stronger-candidate selection without candidate merging
+- Human-review routing for unsupported or ambiguous evidence
+- PHI-safe real regression diagnostics
 
-The real complete-first-attempt Molina regression passed.
+Focused synthetic results:
 
-A real retry event was observed. Both attempts remained incomplete, the
-candidates tied, the first attempt was retained, semantic regression
-failed, and human review remained active.
+- Service-line quantity reconciliation: 7 passed, 0 failed
+- Evidence validation: 27 passed, 0 failed
+- Top-level confidence validation: 6 passed, 0 failed
+- Document processor: 16 passed, 0 failed
+- Authorization quantity rule: 8 passed, 0 failed
+- Authorization rule registry: 5 passed, 0 failed
+- Review decision: 18 passed, 0 failed
 
-The synthetic retry, attempt-routing, retry-prompt, and
-candidate-selection tests passed.
+Combined focused result:
 
-This does not prove that the second extraction attempt will always be
-complete.
+Passed: 87
+Failed: 0
 
-This does not prove that the retry mechanism is stable across all
-authorization formats.
+Real repeatability result:
 
-This does not remove the need for human review.
+- Three consecutive runs passed.
+- Each run used real cached PaddleOCR text and real local Ollama.
+- Each run produced an incomplete first candidate.
+- Validated incompleteness triggered controlled retry.
+- Each stronger second candidate was selected.
+- Candidates were never merged.
+- Quantities 1 and 6 were preserved.
+- authorized_units was reconciled using evidence from the selected
+  candidate only.
+- Human review remained required.
+- PHI output remained suppressed.
+
+This proves the safeguards handle the known Molina regression fixture
+repeatedly. It does not prove universal model determinism or remove the
+need for human review.
 
 ------------------------------------------------------------
 EXACT NEXT DEVELOPMENT STEP
 ------------------------------------------------------------
 
-Observe and validate the new generic retry verification prompt during
-a real incomplete-first-attempt local Ollama run without weakening
-deterministic validation.
+Define and test the structured human-review output and downstream
+handoff contract before mailbox-to-Smartsheet automation proceeds.
 
-Start with:
+The review payload must preserve and clearly expose:
 
-1. Run the known Molina semantic regression a reasonable limited number
-   of times.
-2. Stop when an incomplete first extraction triggers the controlled
-   retry.
-3. Record only PHI-safe attempt metrics.
-4. Confirm extraction_attempt_count is 2.
-5. Confirm extraction_retry_triggered is True.
-6. Confirm attempt 1 reports retry_prompt_applied as False.
-7. Confirm attempt 2 reports retry_prompt_applied as True.
-8. Confirm attempt 1 uses seed 42 and attempt 2 uses seed 43.
-9. Compare independently validated candidate scores.
-10. Confirm which attempt is selected.
-11. Confirm candidates were not merged.
-12. Confirm the semantic regression result.
-13. Confirm human review remains active when evidence is unresolved.
-14. Do not print raw OCR text or raw source_text.
-15. Do not add payer-specific reconstruction logic.
-16. Do not use token count alone to choose a candidate.
+- Extracted value
+- Confidence
+- source_text reference without printing PHI in logs
+- Validation actions
+- Business-rule actions
+- Review status
+- Review reasons
+- Selected extraction attempt
+- Whether retry occurred
+- Whether authorized_units was reconciled
+- Low-confidence service-line evidence
+- Unresolved authorization quantity meaning
+- Unresolved modifier-to-service-line ownership
 
-After the real retry prompt is observed and evaluated, add a separate
-regression profile for a second authorization document.
+Start by inspecting:
 
-Do not apply Molina-specific expected values to every PDF in
-data/incoming.
+src/models/document.py
+src/services/review_decision_service.py
+src/document_processing/document_processor.py
+tests/test_review_decision_service.py
 
-The unattended worker, production Smartsheet mapping, review Smartsheet
-workflow, confirmed business rules, and final production routing remain
-incomplete.
+Then define the smallest neutral review-output model or serialization
+contract that uses existing validated data without duplicating
+validation or business-rule logic.
+
+Do not send PHI to external services.
+Do not enable automatic Smartsheet routing until the human-review
+contract and confirmed field mappings are tested.
 
 ------------------------------------------------------------
 NEXT SESSION START COMMANDS
@@ -1271,24 +1718,19 @@ NEXT SESSION START COMMANDS
 git status --short
 git diff --stat
 git diff --check
+git --no-pager diff --cached --name-status
+git --no-pager diff --cached --check
 
 Then inspect:
 
-scripts/test_molina_document.py
-src/ai/llm/providers/ollama_provider.py
-src/document_processing/document_processor.py
 src/models/document.py
-tests/test_document_processor.py
+src/services/review_decision_service.py
+src/document_processing/document_processor.py
+tests/test_review_decision_service.py
 update_project_tracker.py
 
-Run:
-
-python -m tests.test_document_processor
-python -m tests.test_ollama_service_lines
-python -m tests.test_llm_attempt_routing
-python -m tests.test_evidence_validation_service
-python -m tests.test_review_decision_service
-python -m scripts.test_molina_document
+Run the focused deterministic tests before changing the review-output
+contract.
 
 ============================================================
 """

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Any
 
 from src.models.document import Document
 
@@ -22,6 +23,14 @@ class ReviewDecisionService:
     """
     Determines whether a document can continue automatically or must
     be reviewed by a person.
+
+    Field-confidence review applies only to fields containing a
+    meaningful extracted value. Optional fields that are empty, null,
+    or were deterministically invalidated do not lower the minimum
+    field confidence merely because their stored confidence is 0.0.
+
+    Invalidated fields still require review through the validation
+    actions produced by the deterministic evidence validator.
     """
 
     AUTO_APPROVE_CLASSIFICATION_THRESHOLD = 0.90
@@ -36,6 +45,11 @@ class ReviewDecisionService:
         self,
         document: Document,
     ) -> ReviewDecision:
+        """
+        Evaluate classification, extraction, validation, and business
+        rule results and return the human-review decision.
+        """
+
         reasons: list[str] = []
 
         classification_confidence = self._normalize_confidence(
@@ -44,7 +58,8 @@ class ReviewDecisionService:
 
         minimum_field_confidence = (
             self._get_minimum_field_confidence(
-                document.field_confidences
+                extracted_data=document.extracted_data,
+                field_confidences=document.field_confidences,
             )
         )
 
@@ -78,7 +93,9 @@ class ReviewDecisionService:
                 "One or more extracted fields have confidence below 85%."
             )
 
-        if not document.extracted_data:
+        if not self._has_structured_data(
+            document.extracted_data
+        ):
             reasons.append(
                 "No structured data was extracted from the document."
             )
@@ -125,17 +142,48 @@ class ReviewDecisionService:
 
     def _get_minimum_field_confidence(
         self,
+        extracted_data: dict[str, Any],
         field_confidences: dict[str, float],
     ) -> float | None:
-        if not field_confidences:
+        """
+        Return the lowest confidence among populated extracted fields.
+
+        Empty optional fields do not represent extracted claims and must
+        not lower the document's minimum field confidence.
+
+        Fields containing False or numeric zero are considered populated
+        because those can be meaningful extracted values.
+        """
+
+        if not isinstance(
+            extracted_data,
+            dict,
+        ):
             return None
 
-        normalized_confidences = [
-            self._normalize_confidence(
+        if not isinstance(
+            field_confidences,
+            dict,
+        ):
+            return None
+
+        normalized_confidences: list[float] = []
+
+        for field_name, value in extracted_data.items():
+            if self._is_empty_value(
                 value
+            ):
+                continue
+
+            confidence = field_confidences.get(
+                field_name
             )
-            for value in field_confidences.values()
-        ]
+
+            normalized_confidences.append(
+                self._normalize_confidence(
+                    confidence
+                )
+            )
 
         if not normalized_confidences:
             return None
@@ -144,10 +192,64 @@ class ReviewDecisionService:
             normalized_confidences
         )
 
+    def _has_structured_data(
+        self,
+        extracted_data: dict[str, Any],
+    ) -> bool:
+        """
+        Determine whether at least one meaningful structured value exists.
+        """
+
+        if not isinstance(
+            extracted_data,
+            dict,
+        ):
+            return False
+
+        return any(
+            not self._is_empty_value(
+                value
+            )
+            for value in extracted_data.values()
+        )
+
+    def _is_empty_value(
+        self,
+        value: Any,
+    ) -> bool:
+        """
+        Determine whether a structured value contains no usable data.
+
+        Boolean False and numeric zero are retained as meaningful values.
+        """
+
+        if value is None:
+            return True
+
+        if isinstance(
+            value,
+            str,
+        ):
+            return not value.strip()
+
+        if isinstance(
+            value,
+            (list, tuple, set, dict),
+        ):
+            return len(
+                value
+            ) == 0
+
+        return False
+
     def _normalize_confidence(
         self,
-        value,
+        value: Any,
     ) -> float:
+        """
+        Normalize a confidence value into the range 0.0 through 1.0.
+        """
+
         try:
             confidence = float(
                 value
@@ -170,6 +272,10 @@ class ReviewDecisionService:
         self,
         values: list[str],
     ) -> list[str]:
+        """
+        Remove duplicate review reasons while preserving their order.
+        """
+
         unique_values: list[str] = []
 
         for value in values:

@@ -102,7 +102,7 @@ def test_supported_identifier_is_preserved() -> None:
     actions = service.validate(document)
 
     assert document.extracted_data["member_id"] == "ABC-12345"
-    assert document.field_confidences["member_id"] == 0.96
+    assert document.field_confidences["member_id"] == 0.95
     assert actions == []
 
 
@@ -171,7 +171,7 @@ def test_supported_date_is_normalized() -> None:
 
     assert (
         document.field_confidences["start_date"]
-        == 0.97
+        == 0.95
     )
 
     assert actions == []
