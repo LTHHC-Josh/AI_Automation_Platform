@@ -1,4 +1,3 @@
-import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -6,6 +5,9 @@ from paddleocr import PaddleOCR
 
 from src.ai.ocr.ocr_provider import OCRProvider
 from src.ai.ocr.provider_registration import register_ocr_provider
+from src.services.document_fingerprint_service import (
+    DocumentFingerprintService,
+)
 
 
 @register_ocr_provider("paddle")
@@ -46,6 +48,10 @@ class PaddleOCRProvider(OCRProvider):
             exist_ok=True,
         )
 
+        self.fingerprint_service = (
+            DocumentFingerprintService()
+        )
+
         self.ocr = PaddleOCR(
             lang="en",
             use_doc_orientation_classify=False,
@@ -73,9 +79,22 @@ class PaddleOCRProvider(OCRProvider):
             document_path
         )
 
-        document_hash = self._calculate_file_hash(
-            document_path
+        fingerprint_result = (
+            self.fingerprint_service.calculate(
+                document_path
+            )
         )
+
+        if (
+            not fingerprint_result.success
+            or fingerprint_result.fingerprint is None
+        ):
+            raise RuntimeError(
+                "The local document could not be read for OCR "
+                "processing."
+            )
+
+        document_hash = fingerprint_result.fingerprint
 
         cache_path = self._get_cache_path(
             document_hash
@@ -250,34 +269,6 @@ class PaddleOCRProvider(OCRProvider):
             / legacy_cache_filename
         )
 
-    def _calculate_file_hash(
-        self,
-        document_path: Path,
-    ) -> str:
-        hasher = hashlib.sha256()
-
-        try:
-            with document_path.open(
-                "rb"
-            ) as document_file:
-                while True:
-                    chunk = document_file.read(
-                        1024 * 1024
-                    )
-
-                    if not chunk:
-                        break
-
-                    hasher.update(
-                        chunk
-                    )
-        except OSError as ex:
-            raise RuntimeError(
-                "The local document could not be read for OCR "
-                f"processing. Error type: {type(ex).__name__}."
-            ) from ex
-
-        return hasher.hexdigest()
 
     def _safe_filename(
         self,

@@ -2186,10 +2186,10 @@ PHI.
 
 
 ------------------------------------------------------------
-PHI-SAFE CLASSIFICATION FEEDBACK STATUS
+PHI-SAFE CLASSIFICATION FEEDBACK AND FINGERPRINT STATUS
 ------------------------------------------------------------
 
-A PHI-safe feedback contract now records human-confirmed document
+A PHI-safe feedback contract records human-confirmed document
 classification labels without retaining document content or patient
 information.
 
@@ -2205,68 +2205,89 @@ Feedback fields:
 - reviewer_confirmation_status
 - created_at
 
-The document fingerprint is a separately supplied lowercase SHA-256
-value generated locally. The feedback service does not open the source
-document and does not accept its path or bytes.
+A reusable local DocumentFingerprintService now calculates lowercase
+SHA-256 fingerprints by reading source files in one-megabyte chunks.
 
-The feedback contract excludes:
+Fingerprint results contain exactly:
 
-- raw OCR text
+- fingerprint
+- byte_count
+- success
+- status
+
+Fingerprint results never contain:
+
+- source paths
+- filenames
+- document content
+- OCR text
 - source_text
-- document filenames or local paths
-- document bytes
-- extracted fields
-- service lines
-- patient names
-- member IDs
-- authorization numbers
-- email sender, subject, or body
-- classification_reason
-- review reasons
-- validation actions
-- business-rule actions
+- extracted values
+- patient identifiers
+- exception messages
+
+Failure results use PHI-safe statuses and return no fingerprint. Failed
+or incomplete reads return a deterministic byte count of zero.
+
+PaddleOCR now uses DocumentFingerprintService for OCR-cache identity.
+The former private PaddleOCR file-hashing implementation and direct
+hashlib dependency were removed. Existing cache filenames continue to
+use only the lowercase SHA-256 fingerprint.
+
+A local ClassificationFeedbackWorkflowService now coordinates:
+
+1. local document fingerprinting;
+2. validated feedback construction from ReviewOutput classification
+   metadata;
+3. local allowlisted JSONL storage.
+
+The workflow source path is supplied only to the local fingerprint
+service. It is not copied into feedback, storage, logs, or results.
+
+Workflow results contain exactly:
+
+- fingerprint
+- byte_count
+- success
+- status
 
 The feedback review adapter reads only category, subtype, and
 classification confidence from ReviewOutput. It does not mutate the
-review output and does not copy its fields, service lines, evidence, or
-other PHI-bearing values.
+review output or copy fields, service lines, source evidence, review
+reasons, validation actions, business-rule actions, or other
+PHI-bearing values.
 
-Confirmed category and subtype values are validated against the same
-classification compatibility contract used by document processing.
-
-Reviewer confirmation status must match the deterministic comparison:
+Reviewer confirmation status remains deterministic:
 
 - unchanged labels require confirmed
 - changed labels require corrected
 
-Validated feedback records can be stored locally as JSON Lines under:
+Validated feedback records are stored locally as JSON Lines under:
 
 data/classification_feedback/classification_feedback.jsonl
 
-The entire data/classification_feedback directory is ignored by Git.
+The entire data/classification_feedback directory remains ignored by
+Git.
 
-The local storage service accepts only ClassificationFeedback objects
-and serializes an exact allowlist of feedback keys.
+The storage service accepts only ClassificationFeedback objects and
+serializes an exact allowlist of feedback keys.
 
-Duplicate document fingerprints are rejected.
-
-Duplicate detection and append execution occur inside an atomic local
-lock-directory boundary. Concurrent submissions for the same
-fingerprint result in one stored record and duplicate statuses for the
-remaining submissions.
-
-Lock directories are removed after successful and duplicate operations.
-
-Storage results contain PHI-safe status metadata only:
-
-- stored
-- duplicate
-- record_count
-- status
+Duplicate detection and append execution remain inside an atomic local
+lock-directory boundary. Repeated workflow submission for the same
+fingerprint is idempotent: the initial submission is stored and later
+submissions return duplicate_fingerprint without writing another record.
 
 Files changed:
 
-- .gitignore
+- src/ai/ocr/providers/paddle_ocr_provider.py
+- src/services/document_fingerprint_service.py
+- src/services/classification_feedback_workflow_service.py
+- tests/test_document_fingerprint_service.py
+- tests/test_paddle_ocr_fingerprint_integration.py
+- tests/test_classification_feedback_workflow_service.py
+
+Affected regressions also verified:
+
 - src/services/classification_feedback_service.py
 - src/services/classification_feedback_review_service.py
 - src/services/classification_feedback_storage_service.py
@@ -2277,59 +2298,71 @@ Files changed:
 
 Tests:
 
+- Document fingerprint service: 10 passed, 0 failed
+- PaddleOCR fingerprint integration: 3 passed, 0 failed
+- Classification feedback workflow: 7 passed, 0 failed
 - Classification feedback contract: 11 passed, 0 failed
 - Feedback-to-review integration: 11 passed, 0 failed
 - Local feedback storage: 11 passed, 0 failed
 - Concurrent storage locking: 4 passed, 0 failed
 
-Feature total:
+Affected regression total:
 
-Passed: 37
+Passed: 57
 Failed: 0
 
 Real or mock status:
 
-- Synthetic deterministic tests
+- Synthetic deterministic local-file tests
 - Synthetic deterministic integration tests
+- Synthetic deterministic local workflow tests
 - Synthetic concurrent local-storage tests
-- No PaddleOCR prediction
-- No local Ollama request
-- No Microsoft Graph call
-- No Smartsheet call
-- No external integration
+- PaddleOCR prediction was not called
+- Local Ollama was not called
+- Microsoft Graph was not called
+- Smartsheet was not called
+- No external integration was called
 
 PHI handling:
 
+- Only synthetic document bytes were used
 - No patient documents were used
-- No OCR text was printed or stored
-- No source_text was copied or stored
+- No OCR text was printed or stored by these tests
+- No source_text was copied into feedback storage
 - No extracted document values were stored
-- No identifying document paths were stored
-- No email content was stored
-- Storage contains only allowlisted classification metadata
-- Local feedback data directory is ignored by Git
-- Test storage used temporary directories only
+- No identifying source paths or filenames were returned
+- No email content was used
+- Feedback storage contained only allowlisted classification metadata
+- Test files and feedback stores used temporary local directories
+- The ignored production feedback directory was not read or printed
 
 Limitations:
 
-- SHA-256 generation from a source document is not yet implemented
+- The production human-review submission path does not yet invoke
+  ClassificationFeedbackWorkflowService
 - No user interface currently submits reviewer confirmation
-- No production review workflow invokes the feedback adapter or store
-- The JSONL store is local and does not yet provide administrative
-  retention, export, migration, or recovery tooling
-- Lock timeout behavior is implemented but has not been tested with
-  separate operating-system processes
-- Feedback records are not yet converted into synthetic regression
-  fixtures
-- Human-confirmed labels must not be treated as permission to retain or
-  commit source documents, OCR text, or extracted PHI
+- The workflow has not been tested with a real PHI-bearing document
+- PaddleOCR integration was tested with a synthetic cache hit; no fresh
+  PaddleOCR prediction was performed
+- The JSONL store does not provide administrative retention, export,
+  migration, or recovery tooling
+- Lock timeout behavior has not been tested with separate
+  operating-system processes
+- Feedback records are not yet converted into committed synthetic
+  regression fixtures
+- Document mutation during fingerprint calculation is not explicitly
+  detected
+- Human-confirmed labels do not authorize retaining or committing source
+  documents, OCR text, source evidence, or extracted PHI
 
 Exact next starting point:
 
-Implement a local SHA-256 fingerprint service that reads a source
-document locally, returns only the fingerprint and PHI-safe byte-count
-metadata, does not log the path or document contents, and integrates
-with the classification feedback workflow.
+Inspect the existing production human-review submission interfaces and
+callers. Integrate ClassificationFeedbackWorkflowService only after a
+reviewer explicitly confirms or corrects category and subtype. Preserve
+the existing review decision boundary, do not rerun extraction, do not
+copy PHI-bearing review fields into feedback, and do not expose source
+paths in results or diagnostics.
 
 """
 
