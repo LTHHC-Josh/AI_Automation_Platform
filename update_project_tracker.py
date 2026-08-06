@@ -2726,16 +2726,226 @@ Limitations:
 - The existing scripts/test_mailbox_processor.py remains PHI-unsafe for
   real documents because it prints paths, OCR text, and extracted values
 
+------------------------------------------------------------
+MAILBOX REVIEW ORCHESTRATION STATUS
+------------------------------------------------------------
+
+A separate MailboxReviewOrchestrationService now connects mailbox
+processing to the explicit local review session without merging their
+responsibilities.
+
+The orchestration service:
+
+- calls MailboxProcessor.process_unread_messages exactly once
+- validates and normalizes the requested unread-message limit
+- passes the returned in-memory MessageProcessingResult collection
+  directly to MailboxReviewSessionService
+- forwards the optional created_at value
+- preserves review-session counts and status
+- sanitizes mailbox and review exceptions into fixed status values
+
+The orchestration service does not inspect, print, log, copy, or return:
+
+- message identifiers
+- email subjects
+- attachment paths
+- filenames
+- OCR text
+- raw document text
+- extracted values
+- field evidence
+- source_text
+- review content
+- reviewer correction labels
+- fingerprints
+- storage payloads
+- patient identifiers
+
+Orchestration results contain exactly:
+
+- message_count
+- document_count
+- submitted_count
+- cancelled_count
+- failed_count
+- success
+- status
+
+Supported orchestration statuses include:
+
+- completed
+- completed_with_cancellations
+- completed_with_failures
+- no_documents
+- invalid_top
+- mailbox_processing_failed
+- review_session_failed
+
+Mailbox ingestion remains owned by MailboxProcessor.
+
+Explicit human review remains owned by MailboxReviewSessionService and
+ClassificationReviewInteraction.
+
+Files added:
+
+- src/services/mailbox_review_orchestration_service.py
+- tests/test_mailbox_review_orchestration_service.py
+
+Focused orchestration tests:
+
+Passed: 11
+Failed: 0
+
+Real or mock status:
+
+- Mock orchestration test
+- MailboxProcessor was mocked
+- MailboxReviewSessionService was mocked
+- Microsoft Graph was not called
+- Attachment download was not called
+- Document processing was not called
+- OCR was not called
+- Ollama was not called
+- Smartsheet was not called
+- No external integration was called
+
+PHI handling:
+
+- No patient documents were used
+- No message identifiers were returned
+- No email subjects were returned
+- No source paths were returned
+- No filenames were returned
+- No OCR text was returned
+- No extracted values were returned
+- No source_text was returned
+- No review content was returned
+- No fingerprints were returned
+- No storage payloads were returned
+- Only counts, booleans, and status were returned
+- All test data was synthetic
+
+------------------------------------------------------------
+PHI-SAFE MAILBOX REVIEW COMMAND STATUS
+------------------------------------------------------------
+
+A separate opt-in MailboxReviewCommand now provides a PHI-safe local
+command boundary for the mailbox-review orchestration workflow.
+
+The command runs only when explicitly invoked.
+
+It is not attached to an automatic startup path or general application
+menu.
+
+The command:
+
+- calls MailboxReviewOrchestrationService exactly once
+- accepts an optional unread-message limit
+- accepts an optional created_at value
+- returns the orchestration result unchanged
+- prints only PHI-safe summary fields
+
+Displayed fields:
+
+- message_count
+- document_count
+- submitted_count
+- cancelled_count
+- failed_count
+- success
+- status
+
+The command does not print:
+
+- message identifiers
+- email subjects
+- attachment paths
+- filenames
+- created_at
+- OCR text
+- raw document text
+- extracted values
+- source evidence
+- source_text
+- review content
+- correction labels
+- fingerprints
+- storage payloads
+- patient identifiers
+- exception details
+
+Files added:
+
+- src/ui/mailbox_review_command.py
+- tests/test_mailbox_review_command.py
+
+Focused command tests:
+
+Passed: 8
+Failed: 0
+
+Affected regression results:
+
+- Mailbox review orchestration: 11 passed, 0 failed
+- Mailbox review session: 13 passed, 0 failed
+
+Combined tested result:
+
+Passed: 32
+Failed: 0
+
+Real or mock status:
+
+- Mailbox review command test used a mocked orchestration service
+- Mailbox review orchestration test used mocked mailbox and review
+  services
+- Mailbox review session test was synthetic deterministic
+- Microsoft Graph was not called
+- Attachment download was not called
+- Document processing was not called
+- OCR was not called
+- Ollama was not called
+- Smartsheet was not called
+- No external integration was called
+
+PHI handling:
+
+- No patient documents were used
+- No mailbox data was displayed
+- No source paths were displayed
+- No filenames were displayed
+- No OCR text was displayed
+- No extracted values were displayed
+- No source_text was displayed
+- No review evidence was displayed
+- No correction labels were displayed
+- No fingerprint was displayed
+- Only counts, success, and status were displayed
+- All test data was synthetic
+
+Limitations:
+
+- The real opt-in command has not yet been executed against Microsoft
+  Graph
+- No real mailbox messages or patient documents were used
+- No persistent review queue exists
+- Processed Document objects remain in memory only
+- Reviewer identity and authorization are not represented
+- No resume or recovery exists for interrupted review sessions
+- The command is not attached to a general application menu
+- The existing scripts/test_mailbox_processor.py remains PHI-unsafe for
+  real documents because it prints paths, OCR text, and extracted values
+- Smartsheet submission is not enabled by this command
+
 Exact next starting point:
 
-Inspect MailboxProcessor and its tests to define a separate orchestration
-service that calls process_unread_messages and then passes only the
-returned in-memory MessageProcessingResult objects into
-MailboxReviewSessionService. Keep mailbox ingestion and review
-coordination separate, require explicit reviewer action, do not print
-message identifiers, subjects, paths, OCR text, extracted values, or
-review evidence, and test the orchestration with mocks before any real
-Graph call.
+Perform the complete Git safety review for the mailbox review
+orchestration service and PHI-safe opt-in command. Verify protected
+paths remain ignored, review the complete noninteractive diff, confirm
+that only the four new implementation and test files plus this tracker
+change are present, and confirm no PHI, OCR text, documents, credentials,
+secrets, tokens, cache files, model files, or temporary scripts are
+included. Then stage only the reviewed safe files.
 
 """
 
