@@ -2591,14 +2591,151 @@ Limitations:
 - The interaction improves the feedback workflow but does not retrain
   or modify Ollama model weights
 
+------------------------------------------------------------
+MAILBOX REVIEW SESSION COORDINATOR STATUS
+------------------------------------------------------------
+
+A local MailboxReviewSessionService now coordinates explicit review of
+already-processed mailbox documents without modifying mailbox ingestion.
+
+The service receives existing MessageProcessingResult objects and
+invokes ClassificationReviewInteraction once for each processed
+Document, in the original message and document order.
+
+The coordinator does not:
+
+- fetch mailbox messages
+- download attachments
+- process documents
+- run OCR
+- call Ollama
+- perform classification
+- perform extraction
+- run deterministic validation
+- apply business rules
+- mark messages as read
+- write to Smartsheet
+- automatically submit feedback
+
+Each document still requires an explicit reviewer action through the
+existing ClassificationReviewInteraction.
+
+The coordinator tracks only PHI-safe session metadata:
+
+- message_count
+- document_count
+- submitted_count
+- cancelled_count
+- failed_count
+- success
+- status
+
+Session results exclude:
+
+- message identifiers
+- email subjects
+- source paths
+- filenames
+- OCR text
+- raw document text
+- extracted values
+- source evidence
+- source_text
+- review content
+- correction labels
+- fingerprints
+- storage payloads
+- patient identifiers
+
+Session statuses:
+
+- completed
+- completed_with_cancellations
+- completed_with_failures
+- no_documents
+- invalid_message_results
+- invalid_message_result
+
+A cancelled review is counted separately and does not make the session
+fail.
+
+A failed submission is counted and causes the session result to report
+completed_with_failures.
+
+An empty message collection or a collection containing no processed
+documents is treated as a successful no-op with status no_documents.
+
+Existing MessageProcessingResult objects and their processed_documents
+lists are not mutated.
+
+Files changed:
+
+- src/services/mailbox_review_session_service.py
+- tests/test_mailbox_review_session_service.py
+
+Focused and affected tests:
+
+- Mailbox review session coordinator: 13 passed, 0 failed
+- Classification review interaction: 12 passed, 0 failed
+- Review confirmation submission: 12 passed, 0 failed
+
+Test total:
+
+Passed: 37
+Failed: 0
+
+Real or mock status:
+
+- Synthetic deterministic coordinator tests
+- Synthetic deterministic UI-boundary tests
+- Synthetic deterministic submission-boundary tests
+- Mailbox ingestion was not called
+- Attachment download was not called
+- Document processing was not called
+- OCR was not called
+- Ollama was not called
+- Smartsheet was not called
+- No external integration was called
+
+PHI handling:
+
+- No patient documents were used
+- No mailbox message identifiers were returned
+- No email subjects were returned
+- No source paths were returned
+- No filenames were returned
+- No OCR text was returned
+- No extracted values were returned
+- No source_text was returned
+- No review content was returned
+- No correction labels were returned
+- No fingerprints were returned
+- No storage payloads were returned
+- Only counts, booleans, and status were returned
+- All test data was synthetic
+
+Limitations:
+
+- The coordinator is not yet connected to MailboxProcessor
+- The coordinator is not yet invoked by a production command or menu
+- Processed Document objects must remain available in memory
+- No persistent review queue exists
+- Reviewer identity and authorization are not represented
+- No resume or recovery mechanism exists for interrupted review sessions
+- No real mailbox messages or patient documents were used
+- The existing scripts/test_mailbox_processor.py remains PHI-unsafe for
+  real documents because it prints paths, OCR text, and extracted values
+
 Exact next starting point:
 
-Inspect the existing mailbox-processing result handoff and determine
-the smallest safe local review-session coordinator that can receive
-processed Document objects and invoke ClassificationReviewInteraction
-one document at a time. Do not add automatic submission, do not expose
-paths or PHI-bearing review data, and do not modify mailbox ingestion
-until the coordinator contract is tested independently.
+Inspect MailboxProcessor and its tests to define a separate orchestration
+service that calls process_unread_messages and then passes only the
+returned in-memory MessageProcessingResult objects into
+MailboxReviewSessionService. Keep mailbox ingestion and review
+coordination separate, require explicit reviewer action, do not print
+message identifiers, subjects, paths, OCR text, extracted values, or
+review evidence, and test the orchestration with mocks before any real
+Graph call.
 
 """
 
