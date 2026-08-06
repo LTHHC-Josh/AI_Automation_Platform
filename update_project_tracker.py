@@ -1890,6 +1890,120 @@ Run the focused deterministic tests before changing the review-output
 contract.
 
 ============================================================
+
+------------------------------------------------------------
+SMARTSHEET DOCUMENT ROW MAPPING STATUS
+------------------------------------------------------------
+
+The future operational Smartsheet destination will use one row per
+processed document.
+
+The original source document will be attached to that row after the
+operational sheet, attachment workflow, access controls, and PHI-safe
+error handling are approved.
+
+The currently connected Smartsheet is the project tracker only.
+
+The project tracker sheet, sheet ID, columns, and rows must not be used
+for authorization or patient-document records.
+
+The future operational sheet has not yet been created.
+
+Implemented local boundaries:
+
+- Policy-driven structured review-output field mapping
+- One logical row mapping per document
+- Required destination-column detection
+- Review-only column identification
+- Prohibited raw OCR, file-path, processing-metric, and source_text
+  mappings
+- Deterministic collection serialization
+- Preservation of numeric zero and boolean false
+- Human-review gating before automatic write readiness
+- Destination-column name and positive-ID validation
+- Missing destination-column detection
+- Invalid and duplicate destination-ID detection
+- PHI-safe destination-validation output containing names and IDs only
+
+No Smartsheet SDK cells were created.
+
+No Smartsheet row was created or updated.
+
+No operational Smartsheet connection was attempted.
+
+Files changed:
+
+- src/models/smartsheet_mapping.py
+- src/models/smartsheet_destination_validation.py
+- src/services/smartsheet_review_row_mapping_service.py
+- src/services/smartsheet_destination_validation_service.py
+- tests/test_smartsheet_review_row_mapping.py
+- tests/test_smartsheet_review_mapping_integration.py
+- tests/test_smartsheet_destination_validation.py
+
+Synthetic deterministic tests:
+
+- Smartsheet destination validation: 12 passed, 0 failed
+- Document-to-Smartsheet mapping integration: 9 passed, 0 failed
+- Smartsheet review-row mapping: 12 passed, 0 failed
+- Review-output service regression: 8 passed, 0 failed
+- Review-output integration regression: 7 passed, 0 failed
+
+Synthetic total:
+
+Passed: 48
+Failed: 0
+
+Real or mock status:
+
+- Synthetic deterministic only
+- No mock external write
+- No real external integration
+- No operational destination sheet exists yet
+
+PHI handling:
+
+- Test values and source evidence were not printed
+- Raw OCR text was excluded from the mapping contract
+- Local file paths were excluded from the mapping contract
+- source_text was preserved in local review output but prohibited from
+  Smartsheet mapping
+- Destination validation retained column names and IDs only
+- No Smartsheet payload was logged
+
+Limitations:
+
+- The operational one-row-per-document sheet has not been created
+- The final operational column list has not been approved
+- The original-document attachment workflow is not implemented
+- The current Smartsheet credentials and sheet ID belong only to the
+  project tracker
+- No authorization-document row may be written using the tracker sheet
+- Service-line values remain represented within the document-level
+  review contract and require an approved one-row serialization policy
+
+Document-classification requirement:
+
+Document identification is a first-class platform result because source
+documents arrive in nonstandard formats from multiple service
+coordinators.
+
+The classification contract must be expanded before operational inbox
+training begins.
+
+Termination classification is restricted to termination or
+discontinuation of an authorization or authorized service.
+
+Employee, provider, vendor, and other administrative terminations must
+not be classified as authorization or service termination.
+
+Exact next starting point:
+
+Implement and test a two-level document classification contract with
+document category and subtype while preserving conservative unknown
+handling and the existing separate local classification and extraction
+requests.
+
 """
 
 
