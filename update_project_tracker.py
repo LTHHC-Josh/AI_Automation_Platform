@@ -2355,14 +2355,131 @@ Limitations:
 - Human-confirmed labels do not authorize retaining or committing source
   documents, OCR text, source evidence, or extracted PHI
 
+------------------------------------------------------------
+EXPLICIT REVIEW CONFIRMATION SUBMISSION STATUS
+------------------------------------------------------------
+
+A production-facing ReviewConfirmationSubmissionService now provides
+the explicit boundary between a completed local human review and the
+classification feedback workflow.
+
+The service accepts:
+
+- one already-processed Document
+- the Document's existing attached ReviewOutput
+- reviewer-confirmed document category
+- reviewer-confirmed document subtype
+- explicit reviewer confirmation status
+- optional PHI-safe timestamp
+
+Accepted confirmation statuses:
+
+- confirmed
+- corrected
+
+Any blank, pending, unsupported, or implicit confirmation status is
+rejected before the feedback workflow is called.
+
+The service does not rerun:
+
+- OCR
+- classification
+- extraction
+- deterministic validation
+- candidate selection
+- business rules
+- review decisions
+- review-output construction
+
+The existing ReviewOutput object is passed unchanged to the feedback
+workflow. The processed Document and its review snapshot are not
+mutated.
+
+The source document path is used only as the local input to the existing
+fingerprint workflow. It is not returned, logged, copied into feedback,
+or included in storage.
+
+Submission results contain exactly:
+
+- fingerprint
+- byte_count
+- success
+- status
+
+Submission results exclude:
+
+- source paths
+- filenames
+- OCR text
+- raw document text
+- extracted values
+- field evidence
+- source_text
+- review fields
+- service lines
+- patient identifiers
+- storage payloads
+
+Files changed:
+
+- src/services/review_confirmation_submission_service.py
+- tests/test_review_confirmation_submission_service.py
+
+Focused and affected tests:
+
+- Review confirmation submission boundary: 12 passed, 0 failed
+- Classification feedback workflow: 7 passed, 0 failed
+- Classification feedback review integration: 11 passed, 0 failed
+
+Test total:
+
+Passed: 30
+Failed: 0
+
+Real or mock status:
+
+- Synthetic deterministic boundary tests
+- Synthetic deterministic workflow tests
+- Synthetic deterministic review integration tests
+- OCR was not called
+- Ollama was not called
+- Extraction was not called
+- Deterministic validation was not called
+- Business rules were not called
+- Microsoft Graph was not called
+- Smartsheet was not called
+- No external integration was called
+
+PHI handling:
+
+- No patient documents were used
+- No OCR text was printed or stored
+- No extracted values were returned
+- No source_text was copied into feedback
+- No source paths were returned or printed
+- Existing review output was passed unchanged
+- Only synthetic local objects were used
+- Feedback storage was not inspected or printed
+
+Limitations:
+
+- No end-user interface currently invokes this service
+- No mailbox or Smartsheet workflow invokes this service
+- Reviewer identity and authorization are not yet represented
+- The service does not persist a separate review-submission audit event
+- A real human correction has not yet been submitted
+- The service assumes Document.file_path remains locally available when
+  the reviewer submits feedback
+- Explicit confirmation improves the classification feedback dataset
+  but does not automatically retrain or modify Ollama model weights
+
 Exact next starting point:
 
-Inspect the existing production human-review submission interfaces and
-callers. Integrate ClassificationFeedbackWorkflowService only after a
-reviewer explicitly confirms or corrects category and subtype. Preserve
-the existing review decision boundary, do not rerun extraction, do not
-copy PHI-bearing review fields into feedback, and do not expose source
-paths in results or diagnostics.
+Inspect the existing application entry points and local review scripts
+to determine where a reviewer-facing confirmation command or interface
+should call ReviewConfirmationSubmissionService. Define the smallest
+local-first interaction contract without exposing OCR text, source
+paths, extracted PHI, credentials, or feedback-storage payloads.
 
 """
 
