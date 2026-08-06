@@ -19,3 +19,6 @@ __pycache__/
 logs/data/incoming/
 data/ocr_cache/
 data/incoming/
+
+# Local Classification Feedback
+data/classification_feedback/

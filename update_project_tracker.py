@@ -2184,6 +2184,153 @@ contract that records human-confirmed category and subtype labels without
 committing patient documents, OCR text, identifying paths, or extracted
 PHI.
 
+
+------------------------------------------------------------
+PHI-SAFE CLASSIFICATION FEEDBACK STATUS
+------------------------------------------------------------
+
+A PHI-safe feedback contract now records human-confirmed document
+classification labels without retaining document content or patient
+information.
+
+Feedback fields:
+
+- document_fingerprint
+- predicted_category
+- predicted_subtype
+- confirmed_category
+- confirmed_subtype
+- classification_confidence
+- correction_required
+- reviewer_confirmation_status
+- created_at
+
+The document fingerprint is a separately supplied lowercase SHA-256
+value generated locally. The feedback service does not open the source
+document and does not accept its path or bytes.
+
+The feedback contract excludes:
+
+- raw OCR text
+- source_text
+- document filenames or local paths
+- document bytes
+- extracted fields
+- service lines
+- patient names
+- member IDs
+- authorization numbers
+- email sender, subject, or body
+- classification_reason
+- review reasons
+- validation actions
+- business-rule actions
+
+The feedback review adapter reads only category, subtype, and
+classification confidence from ReviewOutput. It does not mutate the
+review output and does not copy its fields, service lines, evidence, or
+other PHI-bearing values.
+
+Confirmed category and subtype values are validated against the same
+classification compatibility contract used by document processing.
+
+Reviewer confirmation status must match the deterministic comparison:
+
+- unchanged labels require confirmed
+- changed labels require corrected
+
+Validated feedback records can be stored locally as JSON Lines under:
+
+data/classification_feedback/classification_feedback.jsonl
+
+The entire data/classification_feedback directory is ignored by Git.
+
+The local storage service accepts only ClassificationFeedback objects
+and serializes an exact allowlist of feedback keys.
+
+Duplicate document fingerprints are rejected.
+
+Duplicate detection and append execution occur inside an atomic local
+lock-directory boundary. Concurrent submissions for the same
+fingerprint result in one stored record and duplicate statuses for the
+remaining submissions.
+
+Lock directories are removed after successful and duplicate operations.
+
+Storage results contain PHI-safe status metadata only:
+
+- stored
+- duplicate
+- record_count
+- status
+
+Files changed:
+
+- .gitignore
+- src/services/classification_feedback_service.py
+- src/services/classification_feedback_review_service.py
+- src/services/classification_feedback_storage_service.py
+- tests/test_classification_feedback_service.py
+- tests/test_classification_feedback_review_integration.py
+- tests/test_classification_feedback_storage_service.py
+- tests/test_classification_feedback_storage_locking.py
+
+Tests:
+
+- Classification feedback contract: 11 passed, 0 failed
+- Feedback-to-review integration: 11 passed, 0 failed
+- Local feedback storage: 11 passed, 0 failed
+- Concurrent storage locking: 4 passed, 0 failed
+
+Feature total:
+
+Passed: 37
+Failed: 0
+
+Real or mock status:
+
+- Synthetic deterministic tests
+- Synthetic deterministic integration tests
+- Synthetic concurrent local-storage tests
+- No PaddleOCR prediction
+- No local Ollama request
+- No Microsoft Graph call
+- No Smartsheet call
+- No external integration
+
+PHI handling:
+
+- No patient documents were used
+- No OCR text was printed or stored
+- No source_text was copied or stored
+- No extracted document values were stored
+- No identifying document paths were stored
+- No email content was stored
+- Storage contains only allowlisted classification metadata
+- Local feedback data directory is ignored by Git
+- Test storage used temporary directories only
+
+Limitations:
+
+- SHA-256 generation from a source document is not yet implemented
+- No user interface currently submits reviewer confirmation
+- No production review workflow invokes the feedback adapter or store
+- The JSONL store is local and does not yet provide administrative
+  retention, export, migration, or recovery tooling
+- Lock timeout behavior is implemented but has not been tested with
+  separate operating-system processes
+- Feedback records are not yet converted into synthetic regression
+  fixtures
+- Human-confirmed labels must not be treated as permission to retain or
+  commit source documents, OCR text, or extracted PHI
+
+Exact next starting point:
+
+Implement a local SHA-256 fingerprint service that reads a source
+document locally, returns only the fingerprint and PHI-safe byte-count
+metadata, does not log the path or document contents, and integrates
+with the classification feedback workflow.
+
 """
 
 
