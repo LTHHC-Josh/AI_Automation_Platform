@@ -54,7 +54,17 @@ class Document:
     file_path: Path
 
     # Classification
+    #
+    # document_type remains the backward-compatible routing value used
+    # by extraction and retry behavior.
+    #
+    # document_category and document_subtype preserve the richer
+    # classification contract used by review and future Smartsheet
+    # workflows.
     document_type: str = ""
+    document_category: str = "unknown"
+    document_subtype: str = "unknown"
+    classification_reason: str = ""
     confidence: float = 0.0
 
     # OCR output

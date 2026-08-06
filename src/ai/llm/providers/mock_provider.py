@@ -16,8 +16,13 @@ class MockProvider(LLMProvider):
         text: str,
     ) -> dict:
         return {
-            "document_type": "Authorization",
-            "confidence": 1.0,
+            "document_category": "authorization",
+            "document_subtype": "initial",
+            "document_type": "authorization",
+            "confidence": 0.95,
+            "reason": (
+                "Synthetic mock classification for interface testing."
+            ),
         }
 
     def extract(

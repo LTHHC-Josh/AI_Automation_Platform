@@ -1,4 +1,4 @@
-﻿from copy import deepcopy
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -53,6 +53,9 @@ class ReviewOutput:
     """
 
     document_type: str = ""
+    document_category: str = "unknown"
+    document_subtype: str = "unknown"
+    classification_reason: str = ""
     classification_confidence: float = 0.0
     fields: list[ReviewField] = field(
         default_factory=list
@@ -109,6 +112,15 @@ class ReviewOutputService:
         return ReviewOutput(
             document_type=self._normalize_text(
                 document.document_type
+            ),
+            document_category=self._normalize_classification_label(
+                document.document_category
+            ),
+            document_subtype=self._normalize_classification_label(
+                document.document_subtype
+            ),
+            classification_reason=self._normalize_text(
+                document.classification_reason
             ),
             classification_confidence=(
                 self._normalize_confidence(
@@ -419,6 +431,25 @@ class ReviewOutputService:
             for value in values
             if value is not None
         ]
+
+    def _normalize_classification_label(
+        self,
+        value: Any,
+    ) -> str:
+        """
+        Normalize a classification label conservatively.
+
+        Missing or blank classification labels become unknown.
+        """
+
+        normalized = self._normalize_text(
+            value
+        ).lower()
+
+        if not normalized:
+            return "unknown"
+
+        return normalized
 
     def _normalize_optional_confidence(
         self,

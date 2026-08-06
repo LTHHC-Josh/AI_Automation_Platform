@@ -27,15 +27,45 @@ class OllamaProvider(LLMProvider):
     RETRY_SEED_OFFSET = 1
     CHAT_ENDPOINT = "/api/chat"
 
-    DOCUMENT_TYPES = [
+    DOCUMENT_CATEGORIES = [
         "authorization",
-        "authorization_renewal",
+        "referral",
+        "termination",
         "denial",
         "assessment",
         "plan_of_care",
         "claim",
+        "other",
         "unknown",
     ]
+
+    DOCUMENT_SUBTYPES = [
+        "initial",
+        "renewal",
+        "extension",
+        "continuation",
+        "amendment",
+        "partial_approval",
+        "authorization_termination",
+        "service_termination",
+        "unknown",
+    ]
+
+    AUTHORIZATION_SUBTYPES = {
+        "initial",
+        "renewal",
+        "extension",
+        "continuation",
+        "amendment",
+        "partial_approval",
+        "unknown",
+    }
+
+    TERMINATION_SUBTYPES = {
+        "authorization_termination",
+        "service_termination",
+        "unknown",
+    }
 
     FIELD_NAMES = [
         "patient_name",
@@ -174,9 +204,13 @@ class OllamaProvider(LLMProvider):
     CLASSIFICATION_SCHEMA = {
         "type": "object",
         "properties": {
-            "document_type": {
+            "document_category": {
                 "type": "string",
-                "enum": DOCUMENT_TYPES,
+                "enum": DOCUMENT_CATEGORIES,
+            },
+            "document_subtype": {
+                "type": "string",
+                "enum": DOCUMENT_SUBTYPES,
             },
             "confidence": {
                 "type": "number",
@@ -188,7 +222,8 @@ class OllamaProvider(LLMProvider):
             },
         },
         "required": [
-            "document_type",
+            "document_category",
+            "document_subtype",
             "confidence",
             "reason",
         ],
@@ -447,41 +482,113 @@ class OllamaProvider(LLMProvider):
 You are a local healthcare document classification service for a home
 healthcare automation platform.
 
-Classify the OCR text into exactly one document type:
+Classify the OCR text using exactly one document_category and one
+document_subtype.
+
+DOCUMENT CATEGORIES
 
 - authorization
-- authorization_renewal
+- referral
+- termination
 - denial
 - assessment
 - plan_of_care
 - claim
+- other
 - unknown
 
-CLASSIFICATION RULES
+DOCUMENT SUBTYPES
 
-Use authorization when the document clearly communicates an approval,
-authorization number, approved service lines, authorized dates, units,
-visits, sessions, equipment, or service codes.
+For authorization:
 
-Do not assume whether an authorization is initial, renewal, extension,
-continuation, or amendment when the evidence is ambiguous.
+- initial
+- renewal
+- extension
+- continuation
+- amendment
+- partial_approval
+- unknown
 
-Forms may contain text for every checkbox option even when OCR cannot
-determine which checkbox is selected. The presence of labels such as
-"Initial Request" or "Extension/Renewal/Amendment" does not prove that
-either option was selected.
+For termination:
 
-Use authorization_renewal only when reliable text explicitly confirms
-a renewal, continuation, extension, or amendment.
+- authorization_termination
+- service_termination
+- unknown
 
-When the document is clearly an authorization but the subtype is not
-reliably confirmed, classify it as authorization.
+For every other category, use subtype unknown.
 
-Use unknown when the document type cannot be supported by the OCR text.
+GENERAL RULES
 
-Confidence must reflect the strength of the actual evidence.
+Use only evidence directly supported by the OCR text.
+
+Documents may arrive in nonstandard formats from many service
+coordinators. Classify by supported document purpose and content, not by
+layout, sender, logo, filename, or one known template.
+
+Use unknown when the category cannot be supported.
+
+Use subtype unknown when the category is supported but the subtype is
+missing, conflicting, ambiguous, or dependent on an unreadable
+checkbox.
 
 Do not automatically assign 1.0 confidence.
+
+AUTHORIZATION
+
+Use authorization when the document clearly communicates an approval,
+authorization decision, authorization number, approved service lines,
+authorized dates, units, visits, sessions, equipment, or service codes.
+
+Do not assume whether an authorization is initial, renewal, extension,
+continuation, amendment, or partial approval.
+
+Forms may contain labels for every checkbox option even when OCR cannot
+determine which option is selected. A visible option label does not
+prove selection.
+
+Use initial only when reliable evidence explicitly supports an initial
+authorization or initial approval.
+
+Use renewal, extension, continuation, or amendment only when reliable
+evidence explicitly supports that subtype.
+
+Use partial_approval only when the document clearly approves less than
+the full requested service, quantity, duration, or scope.
+
+REFERRAL
+
+Use referral when the primary purpose is to refer a patient for
+services, evaluation, intake, consultation, or provider follow-up and
+the document does not itself communicate an authorization decision.
+
+A request for authorization is not automatically a referral.
+
+TERMINATION
+
+Use termination only when an authorization or an authorized service is
+being terminated, discontinued, revoked, ended, closed, or stopped.
+
+Use authorization_termination when the document ends or revokes the
+authorization as a whole.
+
+Use service_termination when the document ends or discontinues a
+specific authorized service while the broader authorization may remain.
+
+Do not use termination for employee, provider, vendor, contract,
+administrative, or other non-patient authorization/service termination.
+
+DENIAL
+
+Use denial when the document communicates that requested authorization
+or service was denied, not approved, or refused.
+
+OTHER
+
+Use other only when the document purpose is supported but does not fit
+another listed category.
+
+Return a short reason describing the classification evidence without
+inventing unsupported facts.
 
 Return only JSON matching the required schema.
 """.strip()
@@ -770,24 +877,50 @@ Return only JSON matching the required schema.
         self,
         value: Any,
     ) -> dict:
+        """
+        Normalize the two-level classification contract.
+
+        document_type remains a backward-compatible routing value.
+        """
+
         if not isinstance(
             value,
             dict,
         ):
             value = {}
 
-        document_type = str(
+        category = str(
             value.get(
-                "document_type",
+                "document_category",
                 "unknown",
             )
         ).strip().lower()
 
-        if document_type not in self.DOCUMENT_TYPES:
-            document_type = "unknown"
+        subtype = str(
+            value.get(
+                "document_subtype",
+                "unknown",
+            )
+        ).strip().lower()
+
+        if category not in self.DOCUMENT_CATEGORIES:
+            category = "unknown"
+
+        if subtype not in self.DOCUMENT_SUBTYPES:
+            subtype = "unknown"
+
+        subtype = self._normalize_subtype_for_category(
+            category=category,
+            subtype=subtype,
+        )
 
         return {
-            "document_type": document_type,
+            "document_category": category,
+            "document_subtype": subtype,
+            "document_type": self._legacy_document_type(
+                category=category,
+                subtype=subtype,
+            ),
             "confidence": self._normalize_confidence(
                 value.get(
                     "confidence"
@@ -800,6 +933,54 @@ Return only JSON matching the required schema.
                 )
             ).strip(),
         }
+
+    def _normalize_subtype_for_category(
+        self,
+        category: str,
+        subtype: str,
+    ) -> str:
+        """
+        Reject subtypes that are incompatible with the category.
+        """
+
+        if category == "authorization":
+            if subtype in self.AUTHORIZATION_SUBTYPES:
+                return subtype
+
+            return "unknown"
+
+        if category == "termination":
+            if subtype in self.TERMINATION_SUBTYPES:
+                return subtype
+
+            return "unknown"
+
+        return "unknown"
+
+    def _legacy_document_type(
+        self,
+        category: str,
+        subtype: str,
+    ) -> str:
+        """
+        Preserve existing authorization retry and extraction routing.
+
+        Renewal-like authorization subtypes continue to use the legacy
+        authorization_renewal routing value.
+        """
+
+        if category == "authorization":
+            if subtype in {
+                "renewal",
+                "extension",
+                "continuation",
+                "amendment",
+            }:
+                return "authorization_renewal"
+
+            return "authorization"
+
+        return category
 
     def _normalize_fields(
         self,

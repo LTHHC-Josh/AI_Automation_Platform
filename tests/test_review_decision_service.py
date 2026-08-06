@@ -27,6 +27,11 @@ def build_document() -> Document:
     )
 
     document.document_type = "authorization"
+    document.document_category = "authorization"
+    document.document_subtype = "initial"
+    document.classification_reason = (
+        "Synthetic supported classification reason."
+    )
     document.confidence = 0.95
 
     document.extracted_data = {

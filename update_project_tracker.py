@@ -2004,6 +2004,186 @@ document category and subtype while preserving conservative unknown
 handling and the existing separate local classification and extraction
 requests.
 
+
+------------------------------------------------------------
+TWO-LEVEL DOCUMENT CLASSIFICATION STATUS
+------------------------------------------------------------
+
+Document identification is now represented as a two-level local
+classification contract.
+
+Classification fields:
+
+- document_category
+- document_subtype
+- document_type
+- confidence
+- classification_reason
+
+document_type remains a backward-compatible routing value for existing
+extraction and authorization-retry behavior.
+
+Current document categories:
+
+- authorization
+- referral
+- termination
+- denial
+- assessment
+- plan_of_care
+- claim
+- other
+- unknown
+
+Current authorization subtypes:
+
+- initial
+- renewal
+- extension
+- continuation
+- amendment
+- partial_approval
+- unknown
+
+Current termination subtypes:
+
+- authorization_termination
+- service_termination
+- unknown
+
+Termination scope is restricted to an authorization or authorized
+service being terminated, discontinued, revoked, ended, closed, or
+stopped.
+
+Employee, provider, vendor, contract, and administrative terminations
+must not be classified as authorization or service termination.
+
+Classification and extraction remain separate local Ollama requests.
+
+The classifier uses supported document purpose and content rather than
+assuming a standard template, sender, logo, filename, payer, or service
+coordinator format.
+
+Unknown, missing, conflicting, invalid, or incompatible classification
+values remain unknown or require human review.
+
+The classifier does not infer a subtype from the presence of unselected
+checkbox labels.
+
+Legacy routing behavior:
+
+- authorization initial and unknown subtype route as authorization
+- authorization renewal, extension, continuation, and amendment route
+  as authorization_renewal
+- other categories route using their category value
+
+A neutral business rule is implemented for recognized categories that
+do not yet have category-specific business rules.
+
+The neutral rule produces no business-rule actions.
+
+No rule actions does not mean the document is verified. Classification
+review, deterministic validation, field confidence, and human-review
+decisions remain separate.
+
+Unsupported internal document-routing values still raise an error.
+
+Classification review gating now requires or recommends human review
+when:
+
+- document category is unknown
+- document category is unsupported
+- classification confidence is below configured thresholds
+- authorization subtype is unknown
+- termination subtype is unknown
+- category and subtype are incompatible
+- category is other
+- classification reason is missing
+
+Unknown termination subtype requires human review because the platform
+must distinguish termination of the authorization as a whole from
+termination of a specific authorized service.
+
+Unknown authorization subtype currently recommends review rather than
+inventing initial, renewal, extension, continuation, amendment, or
+partial approval.
+
+Files changed:
+
+- src/ai/llm/providers/mock_provider.py
+- src/ai/llm/providers/ollama_provider.py
+- src/business_rules/rule_factory.py
+- src/business_rules/rules/neutral_rule.py
+- src/document_processing/document_processor.py
+- src/models/document.py
+- src/services/review_decision_service.py
+- src/services/review_output_service.py
+- tests/test_classification_review_gating.py
+- tests/test_document_classification_contract.py
+- tests/test_neutral_business_rule.py
+- tests/test_processor_classification_integration.py
+- tests/test_review_decision_service.py
+
+Synthetic deterministic and provider-routing tests:
+
+- Classification review gating: 11 passed, 0 failed
+- Review decision service: 18 passed, 0 failed
+- Processor classification integration: 10 passed, 0 failed
+- Neutral business-rule routing: 6 passed, 0 failed
+- Document classification contract: 15 passed, 0 failed
+- Document processor regressions: 16 passed, 0 failed
+- Review-output service regressions: 8 passed, 0 failed
+- Review-output integration regressions: 7 passed, 0 failed
+- LLM extraction-attempt routing: 2 passed, 0 failed
+
+Synthetic total:
+
+Passed: 93
+Failed: 0
+
+Real or mock status:
+
+- Synthetic deterministic tests
+- Synthetic provider-routing tests
+- No PaddleOCR prediction
+- No local Ollama request
+- No Microsoft Graph call
+- No Smartsheet call
+- No external integration
+
+PHI handling:
+
+- No OCR text was printed
+- No extracted document values were printed
+- No patient documents were used
+- No patient-identifying paths were used
+- Classification metrics retained PHI-safe metadata only
+- Review output continues to exclude raw OCR text and local file paths
+- No source_text or Smartsheet payload was logged
+
+Limitations:
+
+- The taxonomy is an approved initial classification contract and will
+  require expansion from human-confirmed inbox examples
+- No real local Ollama classification has yet been run against examples
+  of referral, initial authorization, renewal, authorization
+  termination, or service termination
+- No approved training-example storage contract exists yet
+- PHI-bearing documents and OCR text must remain local
+- Human corrections must be captured without committing patient data,
+  OCR text, source evidence, or identifying document paths
+- The operational Smartsheet destination sheet does not yet exist
+- The original-document attachment workflow is not implemented
+- Category-specific business rules for non-authorization documents have
+  not yet been defined
+
+Exact next starting point:
+
+Design a PHI-safe classification feedback and regression-fixture
+contract that records human-confirmed category and subtype labels without
+committing patient documents, OCR text, identifying paths, or extracted
+PHI.
+
 """
 
 

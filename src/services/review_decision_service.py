@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+﻿from dataclasses import dataclass, field
 from typing import Any
 
 from src.models.document import Document
@@ -24,22 +24,92 @@ class ReviewDecisionService:
     Determines whether a document can continue automatically or must
     be reviewed by a person.
 
+    Classification review, deterministic evidence validation, business
+    rules, and field-confidence review remain separate concerns.
+
     Field-confidence review applies only to fields containing a
     meaningful extracted value. Optional fields that are empty, null,
     or were deterministically invalidated do not lower the minimum
     field confidence merely because their stored confidence is 0.0.
 
-    Invalidated fields still require review through the validation
-    actions produced by the deterministic evidence validator.
+    Invalidated fields still require review through validation actions.
     """
 
     AUTO_APPROVE_CLASSIFICATION_THRESHOLD = 0.90
     HUMAN_REVIEW_CLASSIFICATION_THRESHOLD = 0.75
     FIELD_CONFIDENCE_THRESHOLD = 0.85
 
+    DOCUMENT_CATEGORIES = {
+        "authorization",
+        "referral",
+        "termination",
+        "denial",
+        "assessment",
+        "plan_of_care",
+        "claim",
+        "other",
+        "unknown",
+    }
+
+    AUTHORIZATION_SUBTYPES = {
+        "initial",
+        "renewal",
+        "extension",
+        "continuation",
+        "amendment",
+        "partial_approval",
+        "unknown",
+    }
+
+    TERMINATION_SUBTYPES = {
+        "authorization_termination",
+        "service_termination",
+        "unknown",
+    }
+
+    CATEGORIES_WITHOUT_SUBTYPES = {
+        "referral",
+        "denial",
+        "assessment",
+        "plan_of_care",
+        "claim",
+        "other",
+        "unknown",
+    }
+
     SUCCESS_ACTIONS = {
         "Authorization validated successfully",
     }
+
+    UNKNOWN_CATEGORY_REASON = (
+        "Document category could not be determined."
+    )
+
+    UNSUPPORTED_CATEGORY_REASON = (
+        "Document category is not supported by the classification "
+        "contract."
+    )
+
+    UNKNOWN_AUTHORIZATION_SUBTYPE_REASON = (
+        "Authorization subtype could not be determined."
+    )
+
+    UNKNOWN_TERMINATION_SUBTYPE_REASON = (
+        "Authorization or service termination subtype could not be "
+        "determined."
+    )
+
+    INCOMPATIBLE_SUBTYPE_REASON = (
+        "Document category and subtype are incompatible."
+    )
+
+    OTHER_CATEGORY_REASON = (
+        "Document category requires human confirmation."
+    )
+
+    MISSING_CLASSIFICATION_REASON = (
+        "Document classification has no supporting reason."
+    )
 
     def evaluate(
         self,
@@ -51,6 +121,7 @@ class ReviewDecisionService:
         """
 
         reasons: list[str] = []
+        required_review_reasons: list[str] = []
 
         classification_confidence = self._normalize_confidence(
             document.confidence
@@ -63,17 +134,60 @@ class ReviewDecisionService:
             )
         )
 
+        category = self._normalize_label(
+            getattr(
+                document,
+                "document_category",
+                "",
+            )
+        )
+
+        subtype = self._normalize_label(
+            getattr(
+                document,
+                "document_subtype",
+                "",
+            )
+        )
+
+        classification_reason = str(
+            getattr(
+                document,
+                "classification_reason",
+                "",
+            )
+            or ""
+        ).strip()
+
+        self._append_classification_reasons(
+            category=category,
+            subtype=subtype,
+            classification_reason=classification_reason,
+            reasons=reasons,
+            required_review_reasons=required_review_reasons,
+        )
+
         if not document.document_type:
+            reason = "Document type could not be determined."
             reasons.append(
-                "Document type could not be determined."
+                reason
+            )
+            required_review_reasons.append(
+                reason
             )
 
         if (
             classification_confidence
             < self.HUMAN_REVIEW_CLASSIFICATION_THRESHOLD
         ):
-            reasons.append(
+            reason = (
                 "Document classification confidence is below 75%."
+            )
+            reasons.append(
+                reason
+            )
+            required_review_reasons.append(
+                reason
             )
 
         elif (
@@ -115,6 +229,10 @@ class ReviewDecisionService:
             reasons
         )
 
+        required_review_reasons = self._remove_duplicates(
+            required_review_reasons
+        )
+
         if not reasons:
             return ReviewDecision(
                 needs_human_review=False,
@@ -124,10 +242,7 @@ class ReviewDecisionService:
                 minimum_field_confidence=minimum_field_confidence,
             )
 
-        if (
-            classification_confidence
-            < self.HUMAN_REVIEW_CLASSIFICATION_THRESHOLD
-        ):
+        if required_review_reasons:
             review_status = "Human Review Required"
         else:
             review_status = "Human Review Recommended"
@@ -140,6 +255,88 @@ class ReviewDecisionService:
             minimum_field_confidence=minimum_field_confidence,
         )
 
+    def _append_classification_reasons(
+        self,
+        category: str,
+        subtype: str,
+        classification_reason: str,
+        reasons: list[str],
+        required_review_reasons: list[str],
+    ) -> None:
+        """
+        Add deterministic classification review reasons.
+
+        This method does not rerun classification or reinterpret OCR
+        text. It evaluates only the preserved classification result.
+        """
+
+        if (
+            not category
+            or category == "unknown"
+        ):
+            reasons.append(
+                self.UNKNOWN_CATEGORY_REASON
+            )
+            required_review_reasons.append(
+                self.UNKNOWN_CATEGORY_REASON
+            )
+
+        elif category not in self.DOCUMENT_CATEGORIES:
+            reasons.append(
+                self.UNSUPPORTED_CATEGORY_REASON
+            )
+            required_review_reasons.append(
+                self.UNSUPPORTED_CATEGORY_REASON
+            )
+
+        elif category == "authorization":
+            if subtype not in self.AUTHORIZATION_SUBTYPES:
+                reasons.append(
+                    self.INCOMPATIBLE_SUBTYPE_REASON
+                )
+                required_review_reasons.append(
+                    self.INCOMPATIBLE_SUBTYPE_REASON
+                )
+            elif subtype == "unknown":
+                reasons.append(
+                    self.UNKNOWN_AUTHORIZATION_SUBTYPE_REASON
+                )
+
+        elif category == "termination":
+            if subtype not in self.TERMINATION_SUBTYPES:
+                reasons.append(
+                    self.INCOMPATIBLE_SUBTYPE_REASON
+                )
+                required_review_reasons.append(
+                    self.INCOMPATIBLE_SUBTYPE_REASON
+                )
+            elif subtype == "unknown":
+                reasons.append(
+                    self.UNKNOWN_TERMINATION_SUBTYPE_REASON
+                )
+                required_review_reasons.append(
+                    self.UNKNOWN_TERMINATION_SUBTYPE_REASON
+                )
+
+        elif category in self.CATEGORIES_WITHOUT_SUBTYPES:
+            if subtype != "unknown":
+                reasons.append(
+                    self.INCOMPATIBLE_SUBTYPE_REASON
+                )
+                required_review_reasons.append(
+                    self.INCOMPATIBLE_SUBTYPE_REASON
+                )
+
+        if category == "other":
+            reasons.append(
+                self.OTHER_CATEGORY_REASON
+            )
+
+        if not classification_reason:
+            reasons.append(
+                self.MISSING_CLASSIFICATION_REASON
+            )
+
     def _get_minimum_field_confidence(
         self,
         extracted_data: dict[str, Any],
@@ -147,12 +344,6 @@ class ReviewDecisionService:
     ) -> float | None:
         """
         Return the lowest confidence among populated extracted fields.
-
-        Empty optional fields do not represent extracted claims and must
-        not lower the document's minimum field confidence.
-
-        Fields containing False or numeric zero are considered populated
-        because those can be meaningful extracted values.
         """
 
         if not isinstance(
@@ -219,8 +410,6 @@ class ReviewDecisionService:
     ) -> bool:
         """
         Determine whether a structured value contains no usable data.
-
-        Boolean False and numeric zero are retained as meaningful values.
         """
 
         if value is None:
@@ -241,6 +430,19 @@ class ReviewDecisionService:
             ) == 0
 
         return False
+
+    def _normalize_label(
+        self,
+        value: Any,
+    ) -> str:
+        """
+        Normalize one classification label.
+        """
+
+        return str(
+            value
+            or ""
+        ).strip().lower()
 
     def _normalize_confidence(
         self,

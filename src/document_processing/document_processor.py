@@ -150,12 +150,34 @@ class DocumentProcessor:
         ):
             classification = {}
 
-        document.document_type = str(
+        document.document_category = self._normalize_classification_label(
             classification.get(
-                "document_type",
+                "document_category",
                 "unknown",
             )
+        )
+
+        document.document_subtype = self._normalize_classification_label(
+            classification.get(
+                "document_subtype",
+                "unknown",
+            )
+        )
+
+        document.classification_reason = str(
+            classification.get(
+                "reason",
+                "",
+            )
+            or ""
         ).strip()
+
+        document.document_type = self._normalize_classification_label(
+            classification.get(
+                "document_type",
+                document.document_category,
+            )
+        )
 
         document.confidence = self._normalize_confidence(
             classification.get(
@@ -1256,6 +1278,24 @@ class DocumentProcessor:
             return normalized_value
 
         return value
+
+    def _normalize_classification_label(
+        self,
+        value: Any,
+    ) -> str:
+        """
+        Normalize classification labels without inventing a category.
+        """
+
+        normalized = str(
+            value
+            or ""
+        ).strip().lower()
+
+        if not normalized:
+            return "unknown"
+
+        return normalized
 
     def _normalize_confidence(
         self,
