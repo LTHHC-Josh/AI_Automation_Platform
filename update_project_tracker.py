@@ -2937,15 +2937,159 @@ Limitations:
   real documents because it prints paths, OCR text, and extracted values
 - Smartsheet submission is not enabled by this command
 
+------------------------------------------------------------
+REAL MAILBOX REVIEW EXECUTION STATUS
+------------------------------------------------------------
+
+The PHI-safe opt-in mailbox review command completed its first real
+Graph-backed execution successfully.
+
+Execution command:
+
+python -m src.ui.mailbox_review_command --top 1
+
+Real result:
+
+- message_count: 1
+- document_count: 1
+- submitted_count: 1
+- cancelled_count: 0
+- failed_count: 0
+- success: True
+- status: completed
+
+Real or mock status:
+
+- Microsoft Graph mailbox access was real
+- Attachment handling was real
+- OCR used real cached OCR text
+- Fresh PaddleOCR prediction was not performed
+- Local Ollama classification and extraction were real
+- Human review interaction was real
+- Reviewer confirmation was explicit
+- Classification feedback was stored locally
+- Smartsheet was not called
+- No external AI service was called
+
+PHI handling:
+
+- No message identifier was printed by the PHI-safe command
+- No email subject was printed by the PHI-safe command
+- No attachment path was printed by the PHI-safe command
+- No filename was printed by the PHI-safe command
+- No OCR text was printed by the PHI-safe command
+- No extracted values were printed by the PHI-safe command
+- No source_text was printed by the PHI-safe command
+- No review evidence was printed by the PHI-safe command
+- No feedback-storage payload was printed
+- The final summary contained only counts, success, and status
+
+Important limitation:
+
+This was a real cached-OCR integration run, not a fresh OCR prediction.
+The known document bytes matched an existing local OCR cache entry.
+
+The existing PaddleOCR initialization behavior still created or loaded
+local model objects before cached OCR text was reused.
+
+The successful run confirms the current integration path:
+
+Microsoft Graph
+  -> attachment handling
+  -> cached local OCR text
+  -> real local Ollama
+  -> structured processing
+  -> explicit classification review
+  -> local classification feedback storage
+  -> PHI-safe command summary
+
+Smartsheet submission remains disabled.
+
+------------------------------------------------------------
+CLASSIFICATION REVIEW WORDING STATUS
+------------------------------------------------------------
+
+The reviewer-facing menu wording was revised from:
+
+Correct classification
+
+to:
+
+Revise classification
+
+The change avoids implying that an alternate reviewer entry is
+necessarily objectively correct. The underlying workflow remains
+unchanged:
+
+- Confirm classification keeps the predicted category and subtype
+- Revise classification accepts reviewer-entered category and subtype
+- Cancel submits no feedback
+
+No extraction, validation, business-rule, review-output, fingerprint, or
+feedback-storage behavior changed.
+
+Affected test results:
+
+- Classification review interaction: 12 passed, 0 failed
+- Mailbox review session: 13 passed, 0 failed
+- Mailbox review command: 8 passed, 0 failed
+
+Combined result:
+
+Passed: 33
+Failed: 0
+
+Test classification:
+
+- Synthetic deterministic UI-boundary tests
+- Synthetic deterministic coordinator tests
+- Mock command-boundary tests
+
+During these regression tests:
+
+- Microsoft Graph was not called
+- Attachment download was not called
+- Document processing was not called
+- OCR was not called
+- Ollama was not called
+- Smartsheet was not called
+- No external integration was called
+
+PHI handling:
+
+- No patient documents were used
+- No OCR text was displayed
+- No source paths were displayed
+- No extracted values were displayed
+- No source_text was displayed
+- No review evidence was displayed
+- Only approved PHI-safe review metadata and status were displayed
+
+Current limitations:
+
+- The real integration used cached OCR rather than fresh OCR
+- Only one real mailbox message and one document were processed
+- The known document was used rather than a new document format
+- No persistent review queue exists
+- Processed Document objects remain in memory only
+- Reviewer identity and authorization are not represented
+- No interrupted-session resume or recovery exists
+- Smartsheet submission is not enabled
+- The model-reported confidence value is not deterministic proof of
+  classification correctness
+- The existing scripts/test_mailbox_processor.py remains PHI-unsafe for
+  real documents because it prints paths, OCR text, and extracted values
+
 Exact next starting point:
 
-Perform the complete Git safety review for the mailbox review
-orchestration service and PHI-safe opt-in command. Verify protected
-paths remain ignored, review the complete noninteractive diff, confirm
-that only the four new implementation and test files plus this tracker
-change are present, and confirm no PHI, OCR text, documents, credentials,
-secrets, tokens, cache files, model files, or temporary scripts are
-included. Then stage only the reviewed safe files.
+Run the complete end-of-day Git safety review. Confirm the classification
+review wording change and this tracker update are the only intended
+changes. Verify protected paths remain ignored, review the complete
+noninteractive diff, confirm no PHI, OCR text, patient documents,
+identifying paths, credentials, secrets, tokens, cache files, model
+files, or temporary scripts are present, then stage only reviewed safe
+files, commit, push, verify branch synchronization, and confirm a clean
+working tree.
 
 """
 

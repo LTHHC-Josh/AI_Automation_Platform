@@ -109,7 +109,7 @@ class ClassificationReviewInteraction:
             "1. Confirm classification"
         )
         self.output_writer(
-            "2. Correct classification"
+            "2. Revise classification"
         )
         self.output_writer(
             "0. Cancel"
