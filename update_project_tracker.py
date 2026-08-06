@@ -2473,13 +2473,132 @@ Limitations:
 - Explicit confirmation improves the classification feedback dataset
   but does not automatically retrain or modify Ollama model weights
 
+------------------------------------------------------------
+LOCAL CLASSIFICATION REVIEW INTERACTION STATUS
+------------------------------------------------------------
+
+A reusable local ClassificationReviewInteraction now provides the
+smallest reviewer-facing interaction for confirming or correcting one
+completed document classification.
+
+The interaction receives one already-processed Document with an
+attached ReviewOutput.
+
+It displays only:
+
+- predicted document category
+- predicted document subtype
+- classification confidence
+- PHI-safe submission status
+
+It does not display:
+
+- source path
+- filename
+- OCR text
+- raw document text
+- classification reason
+- extracted field values
+- field evidence
+- source_text
+- service lines
+- patient identifiers
+- feedback-storage payloads
+
+Reviewer actions:
+
+- Confirm the predicted category and subtype
+- Correct the category and subtype
+- Cancel without submitting feedback
+
+A confirmation uses the existing predicted labels and submits status
+confirmed.
+
+A correction requires both category and subtype and submits status
+corrected.
+
+Blank corrections, invalid selections, missing review output, and
+invalid document objects are rejected before the submission service is
+called.
+
+The interaction calls ReviewConfirmationSubmissionService only after
+an explicit reviewer choice.
+
+The interaction does not rerun:
+
+- document processing
+- OCR
+- classification
+- extraction
+- deterministic validation
+- candidate selection
+- business rules
+- review decisions
+- review-output construction
+
+The processed Document and existing ReviewOutput are not mutated.
+
+Files changed:
+
+- src/ui/classification_review_interaction.py
+- tests/test_classification_review_interaction.py
+
+Focused and affected tests:
+
+- Classification review interaction: 12 passed, 0 failed
+- Review confirmation submission: 12 passed, 0 failed
+- Classification feedback workflow: 7 passed, 0 failed
+
+Test total:
+
+Passed: 31
+Failed: 0
+
+Real or mock status:
+
+- Synthetic deterministic UI-boundary tests
+- Synthetic deterministic submission-boundary tests
+- Synthetic deterministic workflow tests
+- Document processing was not called
+- OCR was not called
+- Ollama was not called
+- Microsoft Graph was not called
+- Smartsheet was not called
+- No external integration was called
+
+PHI handling:
+
+- No patient documents were used
+- No OCR text was displayed
+- No source paths were displayed
+- No extracted values were displayed
+- No source_text was displayed
+- No classification reason was displayed
+- Entered correction labels were not echoed
+- No feedback-storage payload was displayed
+- Only category, subtype, confidence, and status were displayed
+- All test data was synthetic
+
+Limitations:
+
+- The interaction is reusable but is not yet attached to the general
+  application menu
+- The interaction is not yet attached to MailboxProcessor
+- No persistent review queue currently exists
+- Processed Document objects must remain available in memory
+- Reviewer identity and authorization are not represented
+- A real human reviewer has not yet submitted feedback
+- The interaction improves the feedback workflow but does not retrain
+  or modify Ollama model weights
+
 Exact next starting point:
 
-Inspect the existing application entry points and local review scripts
-to determine where a reviewer-facing confirmation command or interface
-should call ReviewConfirmationSubmissionService. Define the smallest
-local-first interaction contract without exposing OCR text, source
-paths, extracted PHI, credentials, or feedback-storage payloads.
+Inspect the existing mailbox-processing result handoff and determine
+the smallest safe local review-session coordinator that can receive
+processed Document objects and invoke ClassificationReviewInteraction
+one document at a time. Do not add automatic submission, do not expose
+paths or PHI-bearing review data, and do not modify mailbox ingestion
+until the coordinator contract is tested independently.
 
 """
 
