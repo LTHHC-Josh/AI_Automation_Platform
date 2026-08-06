@@ -1286,6 +1286,163 @@ and deterministic safeguards rather than reliance on model consistency.
 
 
 ------------------------------------------------------------
+STRUCTURED HUMAN-REVIEW OUTPUT STATUS
+------------------------------------------------------------
+
+A neutral structured human-review output contract is implemented.
+
+Files:
+
+- src/services/review_output_service.py
+- tests/test_review_output_service.py
+- tests/test_review_output_integration.py
+
+Document model integration:
+
+- src/models/document.py now contains review_output.
+- src/document_processing/document_processor.py attaches review_output
+  only after extraction, validation, business rules, review decisions,
+  and PHI-safe processing metrics are complete.
+- The review-output service does not rerun or reinterpret extraction,
+  validation, business rules, quantities, approval, modifiers, or
+  review decisions.
+
+The review output preserves:
+
+- document type
+- classification confidence
+- extracted field value
+- extracted field confidence
+- extracted field source_text
+- authorization service-line relationships
+- service-line confidence
+- service-line source_text
+- validation actions
+- business-rule actions
+- human-review status
+- human-review reasons
+- minimum populated field confidence
+- extraction attempt count
+- extraction retry status
+- selected extraction attempt
+- authorized-unit reconciliation status
+
+The review output deliberately excludes:
+
+- raw OCR text
+- local document file path
+
+The exclusion applies to the neutral review handoff contract and
+diagnostic output. It does not remove validated PHI-bearing field values
+or source evidence required for authorized local review and future
+approved Smartsheet mapping.
+
+PHI handling:
+
+- OCR and Ollama processing remain local and in-house.
+- Structured PHI remains available in memory for approved operational
+  workflows.
+- Console output, processing metrics, test results, tracker content,
+  temporary scripts, and Git history remain PHI-safe.
+- Future Smartsheet writes may include approved PHI fields only through
+  the approved LTHHC Smartsheet workspace and confirmed column mapping.
+- Failed Smartsheet writes must never log or print the row payload.
+- source_text must not be written to Smartsheet unless an approved
+  destination and operational requirement are confirmed.
+
+Synthetic deterministic results:
+
+Review-output service:
+
+Passed: 8
+Failed: 0
+
+Review-output integration:
+
+Passed: 7
+Failed: 0
+
+Related regression results:
+
+Review-decision service:
+
+Passed: 18
+Failed: 0
+
+DocumentProcessor:
+
+Passed: 16
+Failed: 0
+
+Combined synthetic result:
+
+Passed: 49
+Failed: 0
+
+Latest real Molina review-output regression:
+
+Passed: 1
+Failed: 0
+
+Real or mock:
+
+Real cached PaddleOCR text and real local Ollama processing
+
+Verified real behavior:
+
+- Review output was attached to the completed Document.
+- Nineteen field review records were retained.
+- Two authorization service-line records were retained.
+- Field value, confidence, and source_text structures were available.
+- Human-review status matched the processed Document.
+- Human-review reasons matched the processed Document.
+- Validation actions were preserved.
+- Business-rule actions were preserved.
+- Extraction attempt count was preserved.
+- Retry status was preserved.
+- Selected extraction attempt was preserved.
+- Raw OCR text was not exposed by the review-output contract.
+- The local document path was not exposed by the review-output contract.
+- Semantic regression passed.
+- PHI output remained suppressed.
+
+Latest real execution:
+
+- Total processing time: approximately 383.60 seconds
+- OCR wall time: approximately 0.00 seconds using cached OCR
+- Classification wall time: approximately 73.59 seconds
+- Extraction wall time: approximately 310.00 seconds
+- Extraction attempt count: 1
+- Retry triggered: False
+- Selected extraction attempt: 1
+- Review-output field count: 19
+- Review-output service-line count: 2
+
+Current limitations:
+
+- Review output is an in-memory contract and is not yet serialized for
+  an external system.
+- Smartsheet column mappings are not yet defined or tested.
+- No automatic Smartsheet row creation is enabled.
+- Quantity meaning remains unresolved.
+- Units are not automatically interpreted as visits, sessions,
+  equipment, recurring services, or sufficient approval.
+- Modifier-to-service-line ownership remains unresolved.
+- source_text may contain PHI and must remain restricted to approved
+  systems and workflows.
+- The known Molina authorization remains a regression fixture and not a
+  universal payer or service-code rule.
+
+Exact next starting point:
+
+Define a deterministic Smartsheet row-mapping contract from the
+structured review output using synthetic data. Confirm required,
+optional, review-only, and prohibited columns before enabling any
+Smartsheet write. Preserve PHI-bearing operational values while keeping
+logs, errors, metrics, tests, and Git history PHI-safe.
+
+
+------------------------------------------------------------
 KNOWN EXTRACTION AND VALIDATION LIMITATIONS
 ------------------------------------------------------------
 

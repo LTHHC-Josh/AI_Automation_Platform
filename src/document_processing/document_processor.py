@@ -15,6 +15,9 @@ from src.services.evidence_validation_service import (
 from src.services.review_decision_service import (
     ReviewDecisionService,
 )
+from src.services.review_output_service import (
+    ReviewOutputService,
+)
 
 
 class DocumentProcessor:
@@ -79,6 +82,7 @@ class DocumentProcessor:
         self.evidence_validation = EvidenceValidationService()
         self.rules = RuleService()
         self.review_decisions = ReviewDecisionService()
+        self.review_outputs = ReviewOutputService()
 
     def process(
         self,
@@ -399,7 +403,26 @@ class DocumentProcessor:
             - total_started_at
         )
 
+        self._attach_review_output(
+            document
+        )
+
         return document
+
+    def _attach_review_output(
+        self,
+        document: Document,
+    ) -> None:
+        """
+        Attach the local structured human-review handoff.
+
+        This packages the completed document state. It does not rerun
+        extraction, validation, business rules, or review decisions.
+        """
+
+        document.review_output = self.review_outputs.build(
+            document
+        )
 
     def _run_extraction_attempt(
         self,

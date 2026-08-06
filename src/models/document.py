@@ -102,3 +102,6 @@ class Document:
         default_factory=list
     )
     minimum_field_confidence: float | None = None
+
+    # Structured local human-review handoff
+    review_output: Any = None

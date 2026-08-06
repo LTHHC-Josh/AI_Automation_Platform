@@ -995,6 +995,249 @@ def validate_review_decision(
     return failures
 
 
+def validate_review_output(
+    document,
+) -> list[str]:
+    """
+    Validate the attached local review-output contract without printing
+    field values, source evidence, OCR text, file paths, or identifiers.
+    """
+
+    failures: list[str] = []
+
+    review_output = getattr(
+        document,
+        "review_output",
+        None,
+    )
+
+    if review_output is None:
+        return [
+            "structured review output must be attached"
+        ]
+
+    if review_output.needs_human_review != (
+        document.needs_human_review
+    ):
+        failures.append(
+            "review output must preserve the human-review decision"
+        )
+
+    if review_output.review_status != document.review_status:
+        failures.append(
+            "review output must preserve review status"
+        )
+
+    if review_output.review_reasons != document.review_reasons:
+        failures.append(
+            "review output must preserve review reasons"
+        )
+
+    if review_output.validation_actions != (
+        document.validation_actions
+    ):
+        failures.append(
+            "review output must preserve validation actions"
+        )
+
+    if review_output.rule_actions != document.rule_actions:
+        failures.append(
+            "review output must preserve business-rule actions"
+        )
+
+    if review_output.minimum_field_confidence != (
+        document.minimum_field_confidence
+    ):
+        failures.append(
+            "review output must preserve minimum field confidence"
+        )
+
+    processing_metrics = (
+        document.processing_metrics
+        if isinstance(
+            document.processing_metrics,
+            dict,
+        )
+        else {}
+    )
+
+    if review_output.extraction_attempt_count != (
+        processing_metrics.get(
+            "extraction_attempt_count",
+            0,
+        )
+    ):
+        failures.append(
+            "review output must preserve extraction attempt count"
+        )
+
+    if review_output.extraction_retry_triggered != bool(
+        processing_metrics.get(
+            "extraction_retry_triggered",
+            False,
+        )
+    ):
+        failures.append(
+            "review output must preserve extraction retry status"
+        )
+
+    if review_output.extraction_selected_attempt != (
+        processing_metrics.get(
+            "extraction_selected_attempt"
+        )
+    ):
+        failures.append(
+            "review output must preserve selected extraction attempt"
+        )
+
+    if len(
+        review_output.service_lines
+    ) != len(
+        document.service_lines
+    ):
+        failures.append(
+            "review output must preserve service-line count"
+        )
+
+    field_names = {
+        field.name
+        for field in review_output.fields
+    }
+
+    required_field_names = {
+        "authorization_status",
+        "service_code",
+        "service_codes",
+        "authorized_units",
+        "start_date",
+        "end_date",
+    }
+
+    missing_field_names = (
+        required_field_names
+        - field_names
+    )
+
+    if missing_field_names:
+        failures.append(
+            "review output is missing required validated fields"
+        )
+
+    for field in review_output.fields:
+        if not hasattr(
+            field,
+            "value",
+        ):
+            failures.append(
+                "review field must preserve value"
+            )
+            break
+
+        if not hasattr(
+            field,
+            "confidence",
+        ):
+            failures.append(
+                "review field must preserve confidence"
+            )
+            break
+
+        if not hasattr(
+            field,
+            "source_text",
+        ):
+            failures.append(
+                "review field must preserve source_text"
+            )
+            break
+
+    if hasattr(
+        review_output,
+        "raw_text",
+    ):
+        failures.append(
+            "review output must not expose raw OCR text"
+        )
+
+    if hasattr(
+        review_output,
+        "file_path",
+    ):
+        failures.append(
+            "review output must not expose the local file path"
+        )
+
+    return failures
+
+
+def print_review_output_summary(
+    document,
+) -> None:
+    """
+    Print only PHI-safe structural facts about the review output.
+    """
+
+    review_output = getattr(
+        document,
+        "review_output",
+        None,
+    )
+
+    print(
+        "PHI-safe review-output summary:"
+    )
+
+    print(
+        "  attached: "
+        f"{review_output is not None}"
+    )
+
+    if review_output is None:
+        return
+
+    print(
+        "  field count: "
+        f"{len(review_output.fields)}"
+    )
+
+    print(
+        "  service-line count: "
+        f"{len(review_output.service_lines)}"
+    )
+
+    print(
+        "  review status preserved: "
+        f"{review_output.review_status == document.review_status}"
+    )
+
+    print(
+        "  review reasons preserved: "
+        f"{review_output.review_reasons == document.review_reasons}"
+    )
+
+    print(
+        "  selected attempt: "
+        f"{format_value(
+            review_output.extraction_selected_attempt
+        )}"
+    )
+
+    print(
+        "  retry triggered: "
+        f"{review_output.extraction_retry_triggered}"
+    )
+
+    print(
+        "  raw OCR text excluded: "
+        f"{not hasattr(review_output, 'raw_text')}"
+    )
+
+    print(
+        "  local file path excluded: "
+        f"{not hasattr(review_output, 'file_path')}"
+    )
+
+
 def print_semantic_results(
     failures: list[str],
 ) -> None:
@@ -1176,6 +1419,18 @@ def main() -> None:
                         document.review_reasons
                     ),
                 )
+            )
+
+            semantic_failures.extend(
+                validate_review_output(
+                    document
+                )
+            )
+
+            print()
+
+            print_review_output_summary(
+                document
             )
 
             print_semantic_results(
