@@ -3873,6 +3873,137 @@ Do not allow classification confirmation to authorize Smartsheet
 writing. Preserve human complete-review approval as the authority that
 decides whether automation may proceed.
 
+
+
+------------------------------------------------------------
+FULL MAILBOX REVIEW / SMARTSHEET ORCHESTRATION - 2026-08-07
+------------------------------------------------------------
+
+Feature completed:
+
+Added an explicit opt-in mailbox workflow that preserves
+classification review as a separate step and requires separate
+complete-review approval before any Smartsheet write may proceed.
+
+Implemented production boundaries:
+
+- Mailbox complete-review Smartsheet coordinator
+- PHI-safe Smartsheet destination schema reader
+- Explicit document-type Smartsheet mapping-policy registry
+- Smartsheet reviewed-write configuration resolver
+- Full mailbox review orchestration service
+- Separate explicit full mailbox review command
+
+Files changed:
+
+src/services/mailbox_complete_review_smartsheet_service.py
+src/services/smartsheet_destination_schema_service.py
+src/services/smartsheet_mapping_policy_service.py
+src/services/smartsheet_review_configuration_service.py
+src/services/mailbox_full_review_orchestration_service.py
+src/ui/mailbox_full_review_command.py
+tests/test_mailbox_complete_review_smartsheet_service.py
+tests/test_smartsheet_destination_schema_service.py
+tests/test_smartsheet_mapping_policy_service.py
+tests/test_smartsheet_review_configuration_service.py
+tests/test_mailbox_full_review_orchestration_service.py
+tests/test_mailbox_full_review_command.py
+
+Focused tests:
+
+Mailbox complete-review Smartsheet boundary:
+13 passed, 0 failed.
+Synthetic deterministic/mock.
+
+Smartsheet destination schema reader:
+10 passed, 0 failed.
+Synthetic deterministic/mock.
+
+Smartsheet mapping policy registry:
+10 passed, 0 failed.
+Synthetic deterministic.
+
+Smartsheet review configuration resolver:
+6 passed, 0 failed.
+Synthetic deterministic/mock.
+
+Full mailbox review orchestration:
+10 passed, 0 failed.
+Mock.
+
+Full mailbox review command:
+8 passed, 0 failed.
+Mock.
+
+Affected regression:
+
+196 passed, 0 failed.
+
+Test classification:
+
+Synthetic deterministic and mock.
+
+No real Smartsheet write occurred during the affected regression.
+Microsoft Graph was not called during the affected regression.
+OCR was not called during the affected regression.
+Ollama was not called during the affected regression.
+
+PHI handling:
+
+Only synthetic values, counts, booleans, statuses, mapping metadata,
+and destination column metadata were used or displayed.
+
+No OCR text, source_text, patient data, filenames, identifying paths,
+Smartsheet payload values, row IDs, credentials, or tokens were
+printed or committed by these tests.
+
+Safety behavior:
+
+Classification confirmation remains separate from complete-review
+approval.
+
+Classification confirmation cannot authorize Smartsheet writing.
+
+Complete-review rejection or cancellation prevents writing.
+
+Missing or unconfigured mapping policy fails closed.
+
+Missing destination columns fail closed.
+
+The existing classification-only mailbox command remains separate.
+
+Limitations:
+
+Production Smartsheet mapping policies are intentionally not
+hard-coded yet.
+
+No payer-, service-code-, modifier-, subtype-, or fixture-specific
+mapping policy was inferred.
+
+The full mailbox command therefore cannot perform a production write
+until explicitly approved production mapping policies are supplied.
+
+Real Smartsheet retry/idempotency remains future work.
+
+Independent service-line row writing remains future work.
+
+No real patient-bearing end-to-end Smartsheet write was performed.
+
+Exact next starting point:
+
+Define and approve the production SmartsheetColumnPolicy mappings for
+each supported document type, then connect those approved policies to
+the SmartsheetMappingPolicyService used by the explicit full mailbox
+review command.
+
+Do not invent payer-, service-code-, modifier-, or document-specific
+mapping decisions.
+
+Do not allow classification confirmation to authorize Smartsheet
+writing.
+
+Preserve complete-review approval as the authority that decides
+whether automation may proceed.
 """
 
 
