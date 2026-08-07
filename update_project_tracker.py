@@ -4250,6 +4250,87 @@ Smartsheet only after explicit complete-review approval. Keep PHI-bearing
 values, OCR text, filenames, paths, source_text, and Smartsheet payload
 values out of terminal/chat output.
 
+
+------------------------------------------------------------
+COMPLETE REVIEW RECOMMENDATION APPROVAL GATE - 2026-08-07
+------------------------------------------------------------
+
+Feature:
+Corrected the complete-review approval and Smartsheet submission gates so
+that an explicitly approved Human Review Recommended result may proceed,
+while Human Review Required remains blocked.
+
+Files changed:
+
+- src/services/complete_review_approval_service.py
+- src/services/smartsheet_review_row_mapping_service.py
+- src/services/smartsheet_review_submission_service.py
+- tests/test_complete_review_approval_service.py
+- tests/test_smartsheet_review_row_mapping.py
+- tests/test_smartsheet_review_submission_service.py
+
+Behavior:
+
+- Human Review Recommended may proceed only after explicit complete-review
+  approval.
+- Human Review Required remains blocked.
+- Automatic mapping without explicit complete-review approval remains
+  blocked when needs_human_review is true.
+- Existing review metadata is preserved.
+- Classification confirmation remains insufficient write authority.
+- No deterministic validation or business-rule conclusions were weakened.
+
+Focused tests:
+
+- Complete review approval service: 10 passed, 0 failed
+- Smartsheet review row mapping: 14 passed, 0 failed
+- Approval-gated Smartsheet submission: 11 passed, 0 failed
+- Synthetic deterministic/mock only
+
+Affected regressions:
+
+- Complete review approval interaction: 8 passed, 0 failed
+- Complete review Smartsheet workflow: 8 passed, 0 failed
+- Smartsheet review mapping integration: 9 passed, 0 failed
+- Smartsheet reviewed write integration: 4 passed, 0 failed
+- Mailbox complete review Smartsheet service: 13 passed, 0 failed
+- Mailbox full review orchestration: 11 passed, 0 failed
+- Mailbox full review command: 9 passed, 0 failed
+
+Real demo finding:
+
+- Real local document classified as authorization_renewal.
+- Classification confidence: 0.90.
+- Minimum field confidence: 0.95.
+- Review status: Human Review Recommended.
+- Review reason count: 7.
+- Explicit approval was previously blocked by review_still_required.
+- No Smartsheet row was written during the failed demo attempt.
+
+PHI handling:
+
+- No OCR text, patient data, extracted values, filenames, paths,
+  source_text, or Smartsheet payload values were printed or committed.
+- Diagnostics were limited to counts, confidence values, statuses,
+  document classification labels, and booleans.
+
+Limitations:
+
+- The corrected recommended-review approval path has not yet completed a
+  real Smartsheet write.
+- Required-review cases remain intentionally blocked.
+- Real local diagnostic reused cached OCR text.
+
+Exact next starting point:
+
+Retry the same real boss demo after resetting only the durable handled
+marker for the unread demo message. Allow the authorization_renewal
+document to proceed through final complete-review approval. If the result
+remains Human Review Recommended and the reviewer explicitly approves it,
+verify that one row is written to the approved AI-destination Smartsheet.
+Keep all PHI-bearing values and payload contents out of terminal/chat
+output.
+
 """
 
 

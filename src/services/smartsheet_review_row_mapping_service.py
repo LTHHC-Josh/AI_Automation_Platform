@@ -1,4 +1,4 @@
-﻿from typing import Any
+from typing import Any
 
 from src.models.smartsheet_mapping import (
     SmartsheetColumnPolicy,
@@ -53,6 +53,7 @@ class SmartsheetReviewRowMappingService:
         self,
         review_output: ReviewOutput,
         policies: list[SmartsheetColumnPolicy],
+        complete_review_approved: bool = False,
     ) -> SmartsheetRowMappingResult:
         """
         Build a deterministic mapping from explicit column policies.
@@ -144,10 +145,22 @@ class SmartsheetReviewRowMappingService:
             result.warnings
         )
 
+        recommended_review_approved = (
+            complete_review_approved is True
+            and str(
+                review_output.review_status
+                or ""
+            ).strip().lower()
+            == "human review recommended"
+        )
+
         result.ready_for_write = (
             not result.missing_required_columns
             and not result.prohibited_fields
-            and not review_output.needs_human_review
+            and (
+                not review_output.needs_human_review
+                or recommended_review_approved
+            )
         )
 
         return result

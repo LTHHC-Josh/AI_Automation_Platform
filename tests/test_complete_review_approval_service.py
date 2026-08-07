@@ -39,6 +39,7 @@ def run_test(
 def build_review_output(
     *,
     needs_human_review=False,
+    review_status=None,
 ):
     return ReviewOutput(
         document_type="authorization",
@@ -74,9 +75,13 @@ def build_review_output(
             needs_human_review
         ),
         review_status=(
-            "Human Review Recommended"
-            if needs_human_review
-            else "Verified by AI"
+            review_status
+            if review_status is not None
+            else (
+                "Human Review Recommended"
+                if needs_human_review
+                else "Verified by AI"
+            )
         ),
         review_reasons=(
             [
@@ -142,14 +147,33 @@ def test_explicit_rejection_succeeds_without_approval():
     )
 
 
-def test_unresolved_review_blocks_approval():
+def test_recommended_review_can_be_explicitly_approved():
     service = (
         CompleteReviewApprovalService()
     )
 
     result = service.decide(
         review_output=build_review_output(
-            needs_human_review=True
+            needs_human_review=True,
+            review_status="Human Review Recommended",
+        ),
+        reviewer_decision="approved",
+    )
+
+    assert result.approved is True
+    assert result.success is True
+    assert result.status == "approved"
+
+
+def test_required_review_blocks_approval():
+    service = (
+        CompleteReviewApprovalService()
+    )
+
+    result = service.decide(
+        review_output=build_review_output(
+            needs_human_review=True,
+            review_status="Human Review Required",
         ),
         reviewer_decision="approved",
     )
@@ -329,8 +353,13 @@ run_test(
 )
 
 run_test(
-    "unresolved review blocks approval",
-    test_unresolved_review_blocks_approval,
+    "recommended review can be explicitly approved",
+    test_recommended_review_can_be_explicitly_approved,
+)
+
+run_test(
+    "required review blocks approval",
+    test_required_review_blocks_approval,
 )
 
 run_test(

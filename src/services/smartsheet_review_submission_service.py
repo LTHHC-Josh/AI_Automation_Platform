@@ -114,6 +114,7 @@ class SmartsheetReviewSubmissionService:
         mapping = self.mapping_service.map(
             review_output=review_output,
             policies=policies,
+            complete_review_approved=True,
         )
 
         if not mapping.ready_for_write:

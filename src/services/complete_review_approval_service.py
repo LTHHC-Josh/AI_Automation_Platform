@@ -38,6 +38,10 @@ class CompleteReviewApprovalService:
     APPROVE_DECISION = "approved"
     REJECT_DECISION = "rejected"
 
+    HUMAN_REVIEW_RECOMMENDED_STATUS = (
+        "human review recommended"
+    )
+
     EXPLICIT_DECISIONS = {
         APPROVE_DECISION,
         REJECT_DECISION,
@@ -81,11 +85,19 @@ class CompleteReviewApprovalService:
         if bool(
             review_output.needs_human_review
         ):
-            return CompleteReviewApprovalResult(
-                approved=False,
-                success=False,
-                status="review_still_required",
+            review_status = self._normalize_decision(
+                review_output.review_status
             )
+
+            if (
+                review_status
+                != self.HUMAN_REVIEW_RECOMMENDED_STATUS
+            ):
+                return CompleteReviewApprovalResult(
+                    approved=False,
+                    success=False,
+                    status="review_still_required",
+                )
 
         return CompleteReviewApprovalResult(
             approved=True,

@@ -1,4 +1,4 @@
-﻿from src.models.smartsheet_mapping import (
+from src.models.smartsheet_mapping import (
     SmartsheetColumnPolicy,
 )
 from src.services.review_output_service import (
@@ -38,6 +38,7 @@ def run_test(
 def build_review_output(
     *,
     needs_human_review=False,
+    review_status=None,
 ):
     return ReviewOutput(
         document_type="authorization",
@@ -88,9 +89,13 @@ def build_review_output(
         ],
         needs_human_review=needs_human_review,
         review_status=(
-            "Human Review Recommended"
-            if needs_human_review
-            else "Verified by AI"
+            review_status
+            if review_status is not None
+            else (
+                "Human Review Recommended"
+                if needs_human_review
+                else "Verified by AI"
+            )
         ),
         minimum_field_confidence=0.50,
         extraction_attempt_count=2,
@@ -180,6 +185,48 @@ def test_human_review_blocks_automatic_write():
     assert len(
         result.warnings
     ) == 1
+
+
+def test_recommended_review_is_ready_after_complete_approval():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(
+            needs_human_review=True,
+            review_status="Human Review Recommended",
+        ),
+        policies=[],
+        complete_review_approved=True,
+    )
+
+    assert result.ready_for_write is True
+    assert (
+        result.values[
+            "AI Review Status"
+        ]
+        == "Human Review Recommended"
+    )
+    assert (
+        result.values[
+            "AI Review Required"
+        ]
+        is True
+    )
+
+
+def test_required_review_stays_blocked_after_approval_flag():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(
+            needs_human_review=True,
+            review_status="Human Review Required",
+        ),
+        policies=[],
+        complete_review_approved=True,
+    )
+
+    assert result.ready_for_write is False
 
 
 def test_source_text_is_not_mapped():
@@ -385,6 +432,14 @@ run_test(
 run_test(
     "human review blocks automatic write",
     test_human_review_blocks_automatic_write,
+)
+run_test(
+    "recommended review proceeds after complete approval",
+    test_recommended_review_is_ready_after_complete_approval,
+)
+run_test(
+    "required review remains blocked after approval flag",
+    test_required_review_stays_blocked_after_approval_flag,
 )
 run_test(
     "source_text is not mapped",

@@ -85,6 +85,7 @@ def run_test(
 def build_review_output(
     *,
     needs_human_review=False,
+    review_status=None,
 ):
     return ReviewOutput(
         document_type="authorization",
@@ -107,9 +108,13 @@ def build_review_output(
             needs_human_review
         ),
         review_status=(
-            "Human Review Recommended"
-            if needs_human_review
-            else "Verified by AI"
+            review_status
+            if review_status is not None
+            else (
+                "Human Review Recommended"
+                if needs_human_review
+                else "Verified by AI"
+            )
         ),
         review_reasons=(
             [
@@ -290,7 +295,7 @@ def test_forged_success_without_approved_status_is_blocked():
     assert writer.calls == []
 
 
-def test_review_requirement_still_blocks_mapping():
+def test_recommended_review_reaches_writer_after_approval():
     writer = RecordingWriteService()
 
     service = (
@@ -301,7 +306,34 @@ def test_review_requirement_still_blocks_mapping():
 
     result = service.submit(
         review_output=build_review_output(
-            needs_human_review=True
+            needs_human_review=True,
+            review_status="Human Review Recommended",
+        ),
+        approval_result=approved_result(),
+        policies=build_policies(),
+        available_columns=build_columns(),
+    )
+
+    assert result.written is True
+    assert result.success is True
+    assert result.status == "written"
+
+    assert len(writer.calls) == 1
+
+
+def test_required_review_still_blocks_mapping():
+    writer = RecordingWriteService()
+
+    service = (
+        SmartsheetReviewSubmissionService(
+            write_service=writer
+        )
+    )
+
+    result = service.submit(
+        review_output=build_review_output(
+            needs_human_review=True,
+            review_status="Human Review Required",
         ),
         approval_result=approved_result(),
         policies=build_policies(),
@@ -501,8 +533,13 @@ run_test(
 )
 
 run_test(
-    "remaining review requirement blocks mapping",
-    test_review_requirement_still_blocks_mapping,
+    "recommended review reaches writer after approval",
+    test_recommended_review_reaches_writer_after_approval,
+)
+
+run_test(
+    "required review still blocks mapping",
+    test_required_review_still_blocks_mapping,
 )
 
 run_test(
