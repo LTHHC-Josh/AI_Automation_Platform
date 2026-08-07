@@ -6,7 +6,7 @@ PROJECT_JOURNAL = """
 LTHHC AI AUTOMATION PLATFORM - DEVELOPMENT JOURNAL
 ============================================================
 
-Last updated: 2026-08-06
+Last updated: 2026-08-07
 
 Repository:
 LTHHC-Josh/AI_Automation_Platform
@@ -3090,6 +3090,170 @@ identifying paths, credentials, secrets, tokens, cache files, model
 files, or temporary scripts are present, then stage only reviewed safe
 files, commit, push, verify branch synchronization, and confirm a clean
 working tree.
+
+
+------------------------------------------------------------
+FRESH OCR MAILBOX AND MAILBOX HANDLING STATUS
+------------------------------------------------------------
+
+A real Microsoft Graph-backed mailbox review run completed successfully
+using a new document that did not have an existing OCR cache entry.
+
+Execution command:
+
+python -m src.ui.mailbox_review_command --top 1
+
+Verified real processing path:
+
+- Microsoft Graph mailbox access was real
+- One unread inbox message was selected
+- Attachment handling was real
+- No OCR cache entry was found for the document
+- A fresh local PaddleOCR prediction was performed
+- OCR text was stored in the secured local OCR cache
+- Local Ollama classification and extraction were real
+- Explicit human classification review was performed
+- The reviewer confirmed the predicted classification
+- Classification feedback was stored locally
+- Smartsheet was not called
+- No external AI service was called
+
+PHI-safe command result:
+
+- message_count: 1
+- document_count: 1
+- submitted_count: 1
+- cancelled_count: 0
+- failed_count: 0
+- success: True
+- status: completed
+
+This closes the previously outstanding fresh-OCR mailbox integration
+gap. The earlier real mailbox test used cached OCR; this later run
+verified the fresh local PaddleOCR path.
+
+Mailbox unread-state diagnostic:
+
+Microsoft Graph initially reported the visible test message as read even
+though the Outlook client displayed it as unread. After explicitly
+marking the message read and then unread in Outlook, Graph reported one
+unread inbox message and the mailbox command processed it successfully.
+
+This confirms that the unread-message Graph query itself behaved as
+implemented. It also demonstrates that Read/Unread state is not a
+sufficient long-term processing-state or idempotency mechanism.
+
+Mailbox handling was then improved so successfully inspected messages
+without a processable document do not remain indefinitely in the unread
+queue.
+
+New mailbox behavior:
+
+- A message with no attachments is marked read after successful
+  inspection.
+- A message containing only unsupported attachments is marked read
+  after successful inspection.
+- A message whose attachment service returns no downloadable files is
+  marked read after successful inspection.
+- A message with a successfully processed supported document is marked
+  read.
+- Attachment-download failures remain unread for retry.
+- Supported-document processing failures remain unread for retry.
+- Mixed document success and processing failure remains unread for
+  retry.
+- Missing message IDs are not marked read.
+- Mark-read failures remain explicit failures.
+- Raw attachment-download exception details are not propagated.
+- Raw document-processing exception details are not propagated.
+- Identifying filenames are not embedded in mailbox-processing error
+  strings.
+
+MessageProcessingResult.succeeded continues to represent successful
+document processing and is not redefined to mean that a message was
+merely inspected or intentionally skipped.
+
+Files changed:
+
+- src/graph/mailbox_processor.py
+- tests/test_mailbox_handling.py
+- update_project_tracker.py
+
+Focused mailbox-handling test:
+
+Passed: 9
+Failed: 0
+
+Real or mock:
+
+Mock mailbox-boundary test
+
+Affected regression tests:
+
+- Mailbox review orchestration: 11 passed, 0 failed
+- Mailbox review session: 13 passed, 0 failed
+- Mailbox review command: 8 passed, 0 failed
+
+Combined tested result:
+
+Passed: 41
+Failed: 0
+
+Test classification:
+
+- Mailbox handling: mock boundary test
+- Mailbox review orchestration: mock
+- Mailbox review session: synthetic deterministic
+- Mailbox review command: mock command-boundary
+- Fresh mailbox integration: real Microsoft Graph
+- Fresh OCR: real local PaddleOCR
+- Classification and extraction: real local Ollama
+- Human review: real explicit confirmation
+- Classification feedback storage: real local storage
+- Smartsheet: not called
+- External AI: not called
+
+PHI handling:
+
+- No patient document was committed
+- No OCR text was added to the tracker
+- No patient identifiers were added to the tracker
+- No source_text was added to the tracker
+- No identifying document path or filename was added to the tracker
+- No feedback payload was printed
+- Mailbox command output contained only approved review metadata and
+  PHI-safe counts, success, and status
+- New mailbox error strings suppress raw exception details and
+  identifying filenames
+- data/incoming remains local-only
+- data/ocr_cache remains local-only
+- data/classification_feedback remains local-only
+
+Current limitations:
+
+- Read/Unread state is still the current mailbox selection mechanism
+- A durable explicit processing-state or idempotency mechanism is not
+  yet implemented
+- Reviewer identity and authorization are not represented
+- No interrupted-review resume or persistent review queue exists
+- Smartsheet review submission is not enabled
+- Final operational document taxonomy is still pending the confirmed
+  list of possible document types
+- A model-reported confidence value is not deterministic proof of
+  correctness
+
+Exact next starting point:
+
+Complete Git safety review for the mailbox-handling implementation and
+tracker update. Verify protected local data paths remain ignored, review
+the complete noninteractive diff, confirm no PHI, OCR text, patient
+documents, identifying paths, credentials, secrets, tokens, cache files,
+model files, or temporary scripts are present, then stage only the
+reviewed safe files, commit, push, verify synchronization, and confirm a
+clean working tree.
+
+After this change is safely committed, design the smallest durable
+mailbox processing-state and idempotency boundary so production
+processing does not rely solely on Outlook Read/Unread state.
 
 """
 

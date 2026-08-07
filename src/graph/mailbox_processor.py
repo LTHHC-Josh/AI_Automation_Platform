@@ -61,6 +61,10 @@ class MailboxProcessor:
             -> Classification
             -> Structured extraction
             -> Mark email as read after success
+
+    Messages that contain no processable document are also marked as
+    read when they were inspected successfully. Processing and download
+    failures remain unread for retry.
     """
 
     def __init__(
@@ -141,6 +145,10 @@ class MailboxProcessor:
             "hasAttachments",
             False,
         ):
+            self._mark_as_read(
+                result
+            )
+
             return result
 
         try:
@@ -155,10 +163,9 @@ class MailboxProcessor:
                 downloaded_files
             )
 
-        except Exception as ex:
+        except Exception:
             result.errors.append(
-                "Attachment download failed: "
-                f"{ex}"
+                "Attachment download failed."
             )
 
             return result
@@ -189,25 +196,45 @@ class MailboxProcessor:
                     document
                 )
 
-            except Exception as ex:
+            except Exception:
                 result.errors.append(
-                    f"Failed to process "
-                    f"{file_path.name}: {ex}"
+                    "Document processing failed."
                 )
 
-        if result.succeeded:
-            try:
-                self.email_service.mark_as_read(
-                    message_id
-                )
-
-                result.marked_as_read = True
-
-            except Exception as ex:
-                result.errors.append(
-                    "Document processing succeeded, "
-                    "but the email could not be "
-                    f"marked as read: {ex}"
-                )
+        if (
+            result.succeeded
+            or (
+                not result.processed_documents
+                and not result.errors
+            )
+        ):
+            self._mark_as_read(
+                result
+            )
 
         return result
+
+    def _mark_as_read(
+        self,
+        result: MessageProcessingResult,
+    ) -> None:
+        try:
+            marked_as_read = (
+                self.email_service.mark_as_read(
+                    result.message_id
+                )
+            )
+
+            result.marked_as_read = (
+                marked_as_read is True
+            )
+
+            if not result.marked_as_read:
+                result.errors.append(
+                    "Email could not be marked as read."
+                )
+
+        except Exception:
+            result.errors.append(
+                "Email could not be marked as read."
+            )
