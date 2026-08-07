@@ -4159,6 +4159,97 @@ and business rules, and stop at the final complete-review decision before
 any Smartsheet write. Keep PHI-bearing values, OCR text, filenames, paths,
 source_text, and Smartsheet payload values out of terminal/chat output.
 
+
+------------------------------------------------------------
+AUTHORIZATION RENEWAL SMARTSHEET POLICY - 2026-08-07
+------------------------------------------------------------
+
+Feature:
+Extended the explicitly approved authorization Smartsheet mapping policy
+to authorization_renewal after a real demo document was independently
+classified by Ollama as authorization_renewal.
+
+Files changed:
+
+- src/services/smartsheet_review_configuration_service.py
+- tests/test_smartsheet_review_configuration_service.py
+
+Approved mapping for authorization_renewal:
+
+- authorization_status -> Authorization Status
+- service_codes -> Service Codes
+- authorized_units -> Authorized Units
+- start_date -> Start Date
+- end_date -> End Date
+
+Behavior:
+
+- authorization and authorization_renewal now use the same explicitly
+  approved five-column mapping.
+- No payer-, code-, modifier-, quantity-, or document-specific business
+  meaning was inferred.
+- Deterministic validation and business rules remain unchanged.
+- Complete human-review approval remains mandatory before Smartsheet
+  writing.
+- Classification alone still cannot authorize a write.
+
+Focused test:
+
+- Smartsheet review configuration resolver: 8 passed, 0 failed
+- Synthetic deterministic/mock
+
+Affected regressions:
+
+- 5 affected regression scripts completed successfully
+- Script failures: 0
+- Final full mailbox command group: 9 passed, 0 failed
+- Synthetic deterministic/mock only
+
+Real external validation:
+
+- authorization_renewal configuration resolved successfully against the
+  real AI destination Smartsheet schema.
+- Approved policy count: 5
+- Destination column count: 13
+- Read-only metadata validation
+- Smartsheet rows written: 0
+
+Real demo diagnostic:
+
+- One real document was processed.
+- Ollama document type: authorization_renewal
+- Review output present: True
+- Human review required: True
+- Initial Smartsheet configuration failed safely with
+  policy_not_configured before this approval was added.
+- Cached OCR was used during the diagnostic run.
+
+PHI handling:
+
+- No OCR text, patient data, extracted values, source_text, filenames,
+  document paths, Smartsheet payloads, or row values were displayed or
+  committed.
+- Diagnostics were limited to document type, counts, booleans, statuses,
+  and configuration metadata.
+
+Limitations:
+
+- The newly approved authorization_renewal mapping has not yet completed
+  a real Smartsheet write.
+- The real document still requires final complete-review approval before
+  writing.
+- Cached OCR diagnostic execution is not described as fresh OCR.
+
+Exact next starting point:
+
+Rerun the live boss demo using the existing demo-only classification
+review bypass. Allow the real document to proceed through the approved
+authorization_renewal mapping, deterministic validation, business rules,
+and final complete-review approval. Write to the AI destination
+Smartsheet only after explicit complete-review approval. Keep PHI-bearing
+values, OCR text, filenames, paths, source_text, and Smartsheet payload
+values out of terminal/chat output.
+
 """
 
 

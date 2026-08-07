@@ -228,6 +228,71 @@ def test_default_authorization_policy_is_approved():
     assert schema_service.call_count == 1
 
 
+def test_default_authorization_renewal_policy_is_approved():
+    columns = {
+        "Authorization Status": 1001,
+        "Service Codes": 1002,
+        "Authorized Units": 1003,
+        "Start Date": 1004,
+        "End Date": 1005,
+    }
+
+    schema_service = RecordingSchemaService(
+        SmartsheetDestinationSchemaResult(
+            column_count=len(
+                columns
+            ),
+            columns=columns,
+            success=True,
+            status="ready",
+        )
+    )
+
+    result = (
+        SmartsheetReviewConfigurationService(
+            schema_service=schema_service
+        )
+        .resolve(
+            document_type="authorization_renewal"
+        )
+    )
+
+    assert result.success is True
+    assert result.status == "ready"
+    assert result.policy_count == 5
+
+    assert [
+        (
+            policy.source_field,
+            policy.column_name,
+        )
+        for policy in result.policies
+    ] == [
+        (
+            "authorization_status",
+            "Authorization Status",
+        ),
+        (
+            "service_codes",
+            "Service Codes",
+        ),
+        (
+            "authorized_units",
+            "Authorized Units",
+        ),
+        (
+            "start_date",
+            "Start Date",
+        ),
+        (
+            "end_date",
+            "End Date",
+        ),
+    ]
+
+    assert schema_service.call_count == 1
+
+
 def test_policy_failure_blocks_schema_read():
     policy_service = RecordingPolicyService(
         SmartsheetMappingPolicyResult(
@@ -414,6 +479,11 @@ run_test(
 run_test(
     "default authorization policy is approved",
     test_default_authorization_policy_is_approved,
+)
+
+run_test(
+    "default authorization renewal policy is approved",
+    test_default_authorization_renewal_policy_is_approved,
 )
 
 run_test(

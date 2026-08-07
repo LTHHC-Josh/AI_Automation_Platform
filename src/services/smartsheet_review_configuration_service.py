@@ -11,29 +11,33 @@ from src.services.smartsheet_mapping_policy_service import (
 )
 
 
-APPROVED_POLICIES_BY_DOCUMENT_TYPE = {
-    "authorization": (
-        SmartsheetColumnPolicy(
-            source_field="authorization_status",
-            column_name="Authorization Status",
-        ),
-        SmartsheetColumnPolicy(
-            source_field="service_codes",
-            column_name="Service Codes",
-        ),
-        SmartsheetColumnPolicy(
-            source_field="authorized_units",
-            column_name="Authorized Units",
-        ),
-        SmartsheetColumnPolicy(
-            source_field="start_date",
-            column_name="Start Date",
-        ),
-        SmartsheetColumnPolicy(
-            source_field="end_date",
-            column_name="End Date",
-        ),
+APPROVED_AUTHORIZATION_POLICIES = (
+    SmartsheetColumnPolicy(
+        source_field="authorization_status",
+        column_name="Authorization Status",
     ),
+    SmartsheetColumnPolicy(
+        source_field="service_codes",
+        column_name="Service Codes",
+    ),
+    SmartsheetColumnPolicy(
+        source_field="authorized_units",
+        column_name="Authorized Units",
+    ),
+    SmartsheetColumnPolicy(
+        source_field="start_date",
+        column_name="Start Date",
+    ),
+    SmartsheetColumnPolicy(
+        source_field="end_date",
+        column_name="End Date",
+    ),
+)
+
+
+APPROVED_POLICIES_BY_DOCUMENT_TYPE = {
+    "authorization": APPROVED_AUTHORIZATION_POLICIES,
+    "authorization_renewal": APPROVED_AUTHORIZATION_POLICIES,
 }
 
 
