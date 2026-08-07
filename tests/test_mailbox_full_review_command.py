@@ -1,4 +1,4 @@
-﻿from src.services.mailbox_full_review_orchestration_service import (
+from src.services.mailbox_full_review_orchestration_service import (
     MailboxFullReviewOrchestrationResult,
 )
 from src.ui.mailbox_full_review_command import (
@@ -44,11 +44,15 @@ class RecordingOrchestrationService:
         *,
         top=10,
         created_at=None,
+        skip_classification_review=False,
     ):
         self.calls.append(
             {
                 "top": top,
                 "created_at": created_at,
+                "skip_classification_review": (
+                    skip_classification_review
+                ),
             }
         )
 
@@ -131,6 +135,7 @@ def test_command_calls_full_orchestration_once():
         {
             "top": 4,
             "created_at": TIMESTAMP,
+            "skip_classification_review": False,
         }
     ]
 
@@ -255,6 +260,10 @@ def test_parser_defaults_are_safe():
 
     assert arguments.top == 10
     assert arguments.created_at is None
+    assert (
+        arguments.demo_skip_classification_review
+        is False
+    )
 
 
 def test_parser_accepts_explicit_values():
@@ -271,6 +280,55 @@ def test_parser_accepts_explicit_values():
 
     assert arguments.top == 5
     assert arguments.created_at == TIMESTAMP
+
+
+def test_demo_skip_flag_reaches_orchestration():
+    orchestration = RecordingOrchestrationService(
+        result=successful_result()
+    )
+
+    output = OutputRecorder()
+
+    command = MailboxFullReviewCommand(
+        orchestration_service=orchestration,
+        output_writer=output,
+    )
+
+    result = command.run(
+        top=5,
+        skip_classification_review=True,
+    )
+
+    assert result.success is True
+
+    assert orchestration.calls == [
+        {
+            "top": 5,
+            "created_at": None,
+            "skip_classification_review": True,
+        }
+    ]
+
+    assert (
+        "Demo classification review skipped: True"
+        in output.lines
+    )
+
+    parser = build_argument_parser()
+
+    arguments = parser.parse_args(
+        [
+            "--top",
+            "5",
+            "--demo-skip-classification-review",
+        ]
+    )
+
+    assert arguments.top == 5
+    assert (
+        arguments.demo_skip_classification_review
+        is True
+    )
 
 
 def test_command_does_not_construct_workflow_data():
@@ -290,6 +348,13 @@ def test_command_does_not_construct_workflow_data():
     assert len(
         orchestration.calls
     ) == 1
+
+    assert (
+        orchestration.calls[0][
+            "skip_classification_review"
+        ]
+        is False
+    )
 
 
 def test_existing_classification_command_is_not_imported():
@@ -344,6 +409,11 @@ run_test(
 run_test(
     "parser accepts explicit values",
     test_parser_accepts_explicit_values,
+)
+
+run_test(
+    "demo skip flag reaches orchestration",
+    test_demo_skip_flag_reaches_orchestration,
 )
 
 run_test(

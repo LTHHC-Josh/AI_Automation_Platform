@@ -4084,6 +4084,81 @@ and the approved AI-destination Smartsheet write. Keep PHI-bearing values,
 OCR text, filenames, paths, source_text, and payload values out of
 terminal/chat output.
 
+
+------------------------------------------------------------
+DEMO-ONLY CLASSIFICATION REVIEW BYPASS - 2026-08-07
+------------------------------------------------------------
+
+Feature:
+Added an explicit demo-only option allowing the AI classification and
+extraction result to proceed without classification confirmation.
+
+Files changed:
+
+- src/services/mailbox_full_review_orchestration_service.py
+- src/ui/mailbox_full_review_command.py
+- tests/test_mailbox_full_review_orchestration_service.py
+- tests/test_mailbox_full_review_command.py
+
+Behavior:
+
+- Normal production behavior remains unchanged by default.
+- --demo-skip-classification-review bypasses only the classification
+  review/feedback interaction.
+- The existing AI classification and extraction result is preserved.
+- Deterministic validation and business rules remain active.
+- Complete human-review approval remains mandatory before Smartsheet
+  writing.
+- Classification bypass does not itself grant write authority.
+- Demo output remains PHI-safe.
+
+Focused tests:
+
+- Full mailbox orchestration: 11 passed, 0 failed
+- Full mailbox review command: 9 passed, 0 failed
+- Synthetic deterministic/mock only
+
+Affected regressions:
+
+- 5 affected regression scripts completed successfully
+- Script failures: 0
+- Final command group: 9 passed, 0 failed
+- Synthetic deterministic/mock only
+
+External systems:
+
+- Microsoft Graph: Not called
+- Attachment download: Not called
+- OCR: Not called
+- Ollama: Not called
+- Smartsheet external API: Not called
+- Smartsheet rows written: 0
+
+PHI handling:
+
+- Only counts, booleans, statuses, and demo-mode metadata were displayed.
+- No OCR text, patient data, extracted values, source_text, filenames,
+  local document paths, Smartsheet payloads, or row values were printed
+  or committed.
+
+Limitations:
+
+- Demo bypass has not yet been exercised against a fresh real mailbox
+  authorization attachment.
+- Final complete-review approval is intentionally still required before
+  any real Smartsheet write.
+- The bypass is for demonstration only and is not presented as trained
+  production classification behavior.
+
+Exact next starting point:
+
+Run the live boss demo using a new unread authorization-type attachment
+with --demo-skip-classification-review. Allow local PaddleOCR and Ollama
+to classify and extract independently, preserve deterministic validation
+and business rules, and stop at the final complete-review decision before
+any Smartsheet write. Keep PHI-bearing values, OCR text, filenames, paths,
+source_text, and Smartsheet payload values out of terminal/chat output.
+
 """
 
 

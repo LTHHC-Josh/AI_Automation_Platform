@@ -1,4 +1,4 @@
-﻿from dataclasses import fields
+from dataclasses import fields
 
 from src.graph.mailbox_processor import (
     MessageProcessingResult,
@@ -216,6 +216,58 @@ def test_same_mailbox_results_reach_both_review_stages():
 
     assert result.success is True
     assert result.written_count == 2
+
+
+def test_demo_skip_bypasses_classification_review_only():
+    message_results = build_message_results()
+
+    message_results[0].processed_documents = [
+        object()
+    ]
+
+    mailbox = RecordingMailboxProcessor(
+        results=message_results
+    )
+
+    classification = RecordingClassificationSession(
+        classification_completed()
+    )
+
+    complete = RecordingCompleteReviewService(
+        MailboxCompleteReviewSmartsheetResult(
+            message_count=1,
+            document_count=1,
+            approved_count=1,
+            written_count=1,
+            rejected_count=0,
+            cancelled_count=0,
+            failed_count=0,
+            success=True,
+            status="completed",
+        )
+    )
+
+    service = MailboxFullReviewOrchestrationService(
+        mailbox_processor=mailbox,
+        classification_review_session=classification,
+        complete_review_smartsheet_service=complete,
+    )
+
+    result = service.run(
+        skip_classification_review=True
+    )
+
+    assert classification.calls == []
+
+    assert complete.calls == [
+        message_results
+    ]
+
+    assert result.document_count == 1
+    assert result.classification_submitted_count == 0
+    assert result.approved_count == 1
+    assert result.written_count == 1
+    assert result.success is True
 
 
 def test_classification_failure_blocks_complete_review():
@@ -616,6 +668,11 @@ print(
 run_test(
     "same mailbox results reach both review stages",
     test_same_mailbox_results_reach_both_review_stages,
+)
+
+run_test(
+    "demo skip bypasses classification review only",
+    test_demo_skip_bypasses_classification_review_only,
 )
 
 run_test(

@@ -1,4 +1,4 @@
-﻿import argparse
+import argparse
 from collections.abc import Callable, Sequence
 from typing import Any
 
@@ -40,10 +40,14 @@ class MailboxFullReviewCommand:
         *,
         top: Any = 10,
         created_at: Any = None,
+        skip_classification_review: bool = False,
     ) -> MailboxFullReviewOrchestrationResult:
         result = self.orchestration_service.run(
             top=top,
             created_at=created_at,
+            skip_classification_review=(
+                skip_classification_review
+            ),
         )
 
         self.output_writer(
@@ -65,6 +69,11 @@ class MailboxFullReviewCommand:
         self.output_writer(
             f"Documents                 : {result.document_count}"
         )
+
+        if skip_classification_review:
+            self.output_writer(
+                "Demo classification review skipped: True"
+            )
 
         self.output_writer(
             "Classification submitted  : "
@@ -137,6 +146,17 @@ def build_argument_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    parser.add_argument(
+        "--demo-skip-classification-review",
+        action="store_true",
+        help=(
+            "DEMO ONLY: allow the existing AI classification/extraction "
+            "result to proceed without classification confirmation. "
+            "Final complete-review approval is still required before "
+            "Smartsheet writing."
+        ),
+    )
+
     return parser
 
 
@@ -150,6 +170,9 @@ def main(
     result = MailboxFullReviewCommand().run(
         top=arguments.top,
         created_at=arguments.created_at,
+        skip_classification_review=(
+            arguments.demo_skip_classification_review
+        ),
     )
 
     if result.success:

@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 from typing import Any
 
 from src.graph.mailbox_processor import (
@@ -8,6 +8,7 @@ from src.services.mailbox_complete_review_smartsheet_service import (
     MailboxCompleteReviewSmartsheetService,
 )
 from src.services.mailbox_review_session_service import (
+    MailboxReviewSessionResult,
     MailboxReviewSessionService,
 )
 
@@ -82,6 +83,7 @@ class MailboxFullReviewOrchestrationService:
         *,
         top: Any = 10,
         created_at: Any = None,
+        skip_classification_review: bool = False,
     ) -> MailboxFullReviewOrchestrationResult:
         normalized_top = self._normalize_top(
             top
@@ -104,17 +106,24 @@ class MailboxFullReviewOrchestrationService:
                 "mailbox_processing_failed"
             )
 
-        try:
+        if skip_classification_review:
             classification_result = (
-                self.classification_review_session.run(
-                    message_results=message_results,
-                    created_at=created_at,
+                self._build_skipped_classification_result(
+                    message_results
                 )
             )
-        except Exception:
-            return self._failure(
-                "classification_review_failed"
-            )
+        else:
+            try:
+                classification_result = (
+                    self.classification_review_session.run(
+                        message_results=message_results,
+                        created_at=created_at,
+                    )
+                )
+            except Exception:
+                return self._failure(
+                    "classification_review_failed"
+                )
 
         if not classification_result.success:
             return MailboxFullReviewOrchestrationResult(
@@ -239,6 +248,76 @@ class MailboxFullReviewOrchestrationService:
             failed_count=failed_count,
             success=success,
             status=status,
+        )
+
+    @staticmethod
+    def _build_skipped_classification_result(
+        message_results,
+    ) -> MailboxReviewSessionResult:
+        """
+        Build a PHI-safe demo-only classification-review summary.
+
+        This does not alter AI classification, extraction, validation,
+        business rules, review output, or complete-review write authority.
+        """
+        try:
+            results = list(
+                message_results
+            )
+        except TypeError:
+            return MailboxReviewSessionResult(
+                message_count=0,
+                document_count=0,
+                submitted_count=0,
+                cancelled_count=0,
+                failed_count=1,
+                success=False,
+                status="invalid_message_results",
+            )
+
+        document_count = 0
+
+        for result in results:
+            documents = getattr(
+                result,
+                "processed_documents",
+                None,
+            )
+
+            if not isinstance(
+                documents,
+                list,
+            ):
+                return MailboxReviewSessionResult(
+                    message_count=len(
+                        results
+                    ),
+                    document_count=document_count,
+                    submitted_count=0,
+                    cancelled_count=0,
+                    failed_count=1,
+                    success=False,
+                    status="invalid_processed_documents",
+                )
+
+            document_count += len(
+                documents
+            )
+
+        return MailboxReviewSessionResult(
+            message_count=len(
+                results
+            ),
+            document_count=document_count,
+            submitted_count=0,
+            cancelled_count=0,
+            failed_count=0,
+            success=True,
+            status=(
+                "no_documents"
+                if document_count == 0
+                else "classification_review_skipped_demo"
+            ),
         )
 
     @staticmethod
