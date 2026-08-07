@@ -1,10 +1,13 @@
-from dataclasses import dataclass, field
+﻿from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.document_processing.document_processor import (
     DocumentProcessor,
 )
 from src.models.document import Document
+from src.services.mailbox_processing_state_service import (
+    MailboxProcessingStateService,
+)
 
 from .attachment_service import AttachmentService
 from .email_service import EmailService
@@ -54,17 +57,24 @@ class MailboxProcessor:
     Pipeline:
 
         Unread email
+            -> Check durable local message state
             -> Download non-inline attachments
             -> Filter supported document types
             -> DocumentProcessor
             -> OCR
             -> Classification
             -> Structured extraction
-            -> Mark email as read after success
+            -> Record durable handled state
+            -> Mark email as read
 
-    Messages that contain no processable document are also marked as
-    read when they were inspected successfully. Processing and download
-    failures remain unread for retry.
+    Messages already recorded as handled skip attachment download and
+    document processing and only retry the mark-read operation.
+
+    Messages that contain no processable document are recorded as
+    handled and marked read after successful inspection.
+
+    Processing, download, and local state failures remain unread for
+    retry.
     """
 
     def __init__(
@@ -72,6 +82,10 @@ class MailboxProcessor:
         email_service: EmailService | None = None,
         attachment_service: AttachmentService | None = None,
         document_processor: DocumentProcessor | None = None,
+        processing_state_service: (
+            MailboxProcessingStateService
+            | None
+        ) = None,
     ):
         self.email_service = (
             email_service or EmailService()
@@ -85,6 +99,11 @@ class MailboxProcessor:
         self.document_processor = (
             document_processor
             or DocumentProcessor()
+        )
+
+        self.processing_state_service = (
+            processing_state_service
+            or MailboxProcessingStateService()
         )
 
     def is_supported_file(
@@ -122,7 +141,10 @@ class MailboxProcessor:
         self,
         message: dict,
     ) -> MessageProcessingResult:
-        message_id = message.get("id", "")
+        message_id = message.get(
+            "id",
+            "",
+        )
 
         subject = message.get(
             "subject",
@@ -141,11 +163,33 @@ class MailboxProcessor:
 
             return result
 
+        state_result = (
+            self.processing_state_service
+            .check(
+                message_id
+            )
+        )
+
+        if not state_result.success:
+            result.errors.append(
+                "Mailbox processing state "
+                "could not be checked."
+            )
+
+            return result
+
+        if state_result.handled:
+            self._mark_as_read(
+                result
+            )
+
+            return result
+
         if not message.get(
             "hasAttachments",
             False,
         ):
-            self._mark_as_read(
+            self._complete_handled_message(
                 result
             )
 
@@ -189,7 +233,9 @@ class MailboxProcessor:
             try:
                 document = (
                     self.document_processor
-                    .process(file_path)
+                    .process(
+                        file_path
+                    )
                 )
 
                 result.processed_documents.append(
@@ -208,11 +254,34 @@ class MailboxProcessor:
                 and not result.errors
             )
         ):
-            self._mark_as_read(
+            self._complete_handled_message(
                 result
             )
 
         return result
+
+    def _complete_handled_message(
+        self,
+        result: MessageProcessingResult,
+    ) -> None:
+        state_result = (
+            self.processing_state_service
+            .mark_handled(
+                result.message_id
+            )
+        )
+
+        if not state_result.success:
+            result.errors.append(
+                "Mailbox processing state "
+                "could not be stored."
+            )
+
+            return
+
+        self._mark_as_read(
+            result
+        )
 
     def _mark_as_read(
         self,
@@ -220,7 +289,8 @@ class MailboxProcessor:
     ) -> None:
         try:
             marked_as_read = (
-                self.email_service.mark_as_read(
+                self.email_service
+                .mark_as_read(
                     result.message_id
                 )
             )

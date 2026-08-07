@@ -3,6 +3,9 @@
 from src.graph.mailbox_processor import (
     MailboxProcessor,
 )
+from src.services.mailbox_processing_state_service import (
+    MailboxProcessingStateResult,
+)
 
 
 passed = 0
@@ -88,6 +91,77 @@ class RecordingDocumentProcessor:
         return object()
 
 
+class RecordingProcessingStateService:
+    def __init__(
+        self,
+        *,
+        handled=False,
+        check_success=True,
+        store_success=True,
+    ):
+        self.handled = handled
+        self.check_success = check_success
+        self.store_success = store_success
+        self.check_calls = []
+        self.store_calls = []
+
+    def check(
+        self,
+        message_id,
+    ):
+        self.check_calls.append(
+            message_id
+        )
+
+        if not self.check_success:
+            return MailboxProcessingStateResult(
+                handled=False,
+                stored=False,
+                duplicate=False,
+                success=False,
+                status="state_check_failed",
+            )
+
+        return MailboxProcessingStateResult(
+            handled=self.handled,
+            stored=False,
+            duplicate=self.handled,
+            success=True,
+            status=(
+                "already_handled"
+                if self.handled
+                else "not_handled"
+            ),
+        )
+
+    def mark_handled(
+        self,
+        message_id,
+    ):
+        self.store_calls.append(
+            message_id
+        )
+
+        if not self.store_success:
+            return MailboxProcessingStateResult(
+                handled=False,
+                stored=False,
+                duplicate=False,
+                success=False,
+                status="state_storage_failed",
+            )
+
+        self.handled = True
+
+        return MailboxProcessingStateResult(
+            handled=True,
+            stored=True,
+            duplicate=False,
+            success=True,
+            status="handled_recorded",
+        )
+
+
 def run_test(
     name,
     test_function,
@@ -114,6 +188,7 @@ def build_processor(
     email=None,
     attachments=None,
     documents=None,
+    state=None,
 ):
     return MailboxProcessor(
         email_service=(
@@ -127,6 +202,10 @@ def build_processor(
         document_processor=(
             documents
             or RecordingDocumentProcessor()
+        ),
+        processing_state_service=(
+            state
+            or RecordingProcessingStateService()
         ),
     )
 
@@ -142,11 +221,13 @@ def message(
     }
 
 
-def test_no_attachment_is_marked_read():
+def test_no_attachment_is_recorded_and_marked_read():
     email = RecordingEmailService()
+    state = RecordingProcessingStateService()
 
     processor = build_processor(
-        email=email
+        email=email,
+        state=state,
     )
 
     result = processor.process_message(
@@ -159,13 +240,18 @@ def test_no_attachment_is_marked_read():
     assert result.errors == []
     assert result.marked_as_read is True
 
+    assert state.store_calls == [
+        "synthetic-message-id"
+    ]
+
     assert email.mark_calls == [
         "synthetic-message-id"
     ]
 
 
-def test_unsupported_attachment_is_marked_read():
+def test_unsupported_attachment_is_recorded_and_marked_read():
     email = RecordingEmailService()
+    state = RecordingProcessingStateService()
 
     attachments = RecordingAttachmentService(
         files=[
@@ -179,6 +265,7 @@ def test_unsupported_attachment_is_marked_read():
         email=email,
         attachments=attachments,
         documents=documents,
+        state=state,
     )
 
     result = processor.process_message(
@@ -197,9 +284,14 @@ def test_unsupported_attachment_is_marked_read():
     assert result.marked_as_read is True
     assert documents.calls == []
 
+    assert state.store_calls == [
+        "synthetic-message-id"
+    ]
 
-def test_empty_download_result_is_marked_read():
+
+def test_empty_download_result_is_recorded_and_marked_read():
     email = RecordingEmailService()
+    state = RecordingProcessingStateService()
 
     processor = build_processor(
         email=email,
@@ -208,6 +300,7 @@ def test_empty_download_result_is_marked_read():
                 files=[]
             )
         ),
+        state=state,
     )
 
     result = processor.process_message(
@@ -221,9 +314,14 @@ def test_empty_download_result_is_marked_read():
     assert result.errors == []
     assert result.marked_as_read is True
 
+    assert state.store_calls == [
+        "synthetic-message-id"
+    ]
 
-def test_supported_document_success_is_marked_read():
+
+def test_supported_document_success_is_recorded_and_marked_read():
     email = RecordingEmailService()
+    state = RecordingProcessingStateService()
 
     attachments = RecordingAttachmentService(
         files=[
@@ -237,6 +335,7 @@ def test_supported_document_success_is_marked_read():
         email=email,
         attachments=attachments,
         documents=documents,
+        state=state,
     )
 
     result = processor.process_message(
@@ -256,9 +355,124 @@ def test_supported_document_success_is_marked_read():
         Path("synthetic.pdf")
     ]
 
+    assert state.store_calls == [
+        "synthetic-message-id"
+    ]
+
+
+def test_already_handled_skips_processing():
+    email = RecordingEmailService()
+
+    state = RecordingProcessingStateService(
+        handled=True
+    )
+
+    attachments = RecordingAttachmentService(
+        files=[
+            Path("synthetic.pdf")
+        ]
+    )
+
+    documents = RecordingDocumentProcessor()
+
+    processor = build_processor(
+        email=email,
+        attachments=attachments,
+        documents=documents,
+        state=state,
+    )
+
+    result = processor.process_message(
+        message(
+            has_attachments=True
+        )
+    )
+
+    assert result.errors == []
+    assert result.processed_documents == []
+    assert result.marked_as_read is True
+    assert attachments.calls == []
+    assert documents.calls == []
+    assert state.store_calls == []
+
+    assert email.mark_calls == [
+        "synthetic-message-id"
+    ]
+
+
+def test_state_check_failure_blocks_processing():
+    email = RecordingEmailService()
+
+    state = RecordingProcessingStateService(
+        check_success=False
+    )
+
+    attachments = RecordingAttachmentService(
+        files=[
+            Path("synthetic.pdf")
+        ]
+    )
+
+    documents = RecordingDocumentProcessor()
+
+    processor = build_processor(
+        email=email,
+        attachments=attachments,
+        documents=documents,
+        state=state,
+    )
+
+    result = processor.process_message(
+        message(
+            has_attachments=True
+        )
+    )
+
+    assert result.marked_as_read is False
+    assert attachments.calls == []
+    assert documents.calls == []
+    assert email.mark_calls == []
+
+    assert result.errors == [
+        "Mailbox processing state "
+        "could not be checked."
+    ]
+
+
+def test_state_storage_failure_remains_unread():
+    email = RecordingEmailService()
+
+    state = RecordingProcessingStateService(
+        store_success=False
+    )
+
+    processor = build_processor(
+        email=email,
+        state=state,
+    )
+
+    result = processor.process_message(
+        message(
+            has_attachments=False
+        )
+    )
+
+    assert result.marked_as_read is False
+    assert email.mark_calls == []
+
+    assert state.store_calls == [
+        "synthetic-message-id"
+    ]
+
+    assert result.errors == [
+        "Mailbox processing state "
+        "could not be stored."
+    ]
+
 
 def test_download_failure_remains_unread():
     email = RecordingEmailService()
+    state = RecordingProcessingStateService()
 
     attachments = RecordingAttachmentService(
         error=RuntimeError(
@@ -269,6 +483,7 @@ def test_download_failure_remains_unread():
     processor = build_processor(
         email=email,
         attachments=attachments,
+        state=state,
     )
 
     result = processor.process_message(
@@ -279,6 +494,7 @@ def test_download_failure_remains_unread():
 
     assert result.marked_as_read is False
     assert email.mark_calls == []
+    assert state.store_calls == []
 
     assert result.errors == [
         "Attachment download failed."
@@ -292,6 +508,7 @@ def test_download_failure_remains_unread():
 
 def test_document_failure_remains_unread():
     email = RecordingEmailService()
+    state = RecordingProcessingStateService()
 
     attachments = RecordingAttachmentService(
         files=[
@@ -309,6 +526,7 @@ def test_document_failure_remains_unread():
         email=email,
         attachments=attachments,
         documents=documents,
+        state=state,
     )
 
     result = processor.process_message(
@@ -319,6 +537,7 @@ def test_document_failure_remains_unread():
 
     assert result.marked_as_read is False
     assert email.mark_calls == []
+    assert state.store_calls == []
 
     assert result.errors == [
         "Document processing failed."
@@ -332,6 +551,7 @@ def test_document_failure_remains_unread():
 
 def test_mixed_success_and_failure_remains_unread():
     email = RecordingEmailService()
+    state = RecordingProcessingStateService()
 
     attachments = RecordingAttachmentService(
         files=[
@@ -361,6 +581,7 @@ def test_mixed_success_and_failure_remains_unread():
         email=email,
         attachments=attachments,
         documents=MixedDocumentProcessor(),
+        state=state,
     )
 
     result = processor.process_message(
@@ -376,21 +597,25 @@ def test_mixed_success_and_failure_remains_unread():
     assert result.succeeded is False
     assert result.marked_as_read is False
     assert email.mark_calls == []
+    assert state.store_calls == []
 
     assert result.errors == [
         "Document processing failed."
     ]
 
 
-def test_mark_read_failure_is_sanitized():
+def test_mark_read_failure_keeps_handled_state():
     email = RecordingEmailService(
         mark_error=RuntimeError(
             "Synthetic private Graph detail"
         )
     )
 
+    state = RecordingProcessingStateService()
+
     processor = build_processor(
-        email=email
+        email=email,
+        state=state,
     )
 
     result = processor.process_message(
@@ -400,6 +625,12 @@ def test_mark_read_failure_is_sanitized():
     )
 
     assert result.marked_as_read is False
+
+    assert state.store_calls == [
+        "synthetic-message-id"
+    ]
+
+    assert state.handled is True
 
     assert result.errors == [
         "Email could not be marked as read."
@@ -411,11 +642,13 @@ def test_mark_read_failure_is_sanitized():
     )
 
 
-def test_missing_message_id_is_not_marked_read():
+def test_missing_message_id_is_not_checked_or_marked():
     email = RecordingEmailService()
+    state = RecordingProcessingStateService()
 
     processor = build_processor(
-        email=email
+        email=email,
+        state=state,
     )
 
     result = processor.process_message(
@@ -427,6 +660,8 @@ def test_missing_message_id_is_not_marked_read():
 
     assert result.marked_as_read is False
     assert email.mark_calls == []
+    assert state.check_calls == []
+    assert state.store_calls == []
 
     assert result.errors == [
         "Message does not contain an ID."
@@ -438,20 +673,32 @@ print("Testing Mailbox Handling")
 print("=" * 60)
 
 run_test(
-    "no attachment is marked read",
-    test_no_attachment_is_marked_read,
+    "no attachment is recorded and marked read",
+    test_no_attachment_is_recorded_and_marked_read,
 )
 run_test(
-    "unsupported attachment is marked read",
-    test_unsupported_attachment_is_marked_read,
+    "unsupported attachment is recorded and marked read",
+    test_unsupported_attachment_is_recorded_and_marked_read,
 )
 run_test(
-    "empty download result is marked read",
-    test_empty_download_result_is_marked_read,
+    "empty download result is recorded and marked read",
+    test_empty_download_result_is_recorded_and_marked_read,
 )
 run_test(
-    "supported document success is marked read",
-    test_supported_document_success_is_marked_read,
+    "supported document success is recorded and marked read",
+    test_supported_document_success_is_recorded_and_marked_read,
+)
+run_test(
+    "already handled message skips processing",
+    test_already_handled_skips_processing,
+)
+run_test(
+    "state check failure blocks processing",
+    test_state_check_failure_blocks_processing,
+)
+run_test(
+    "state storage failure remains unread",
+    test_state_storage_failure_remains_unread,
 )
 run_test(
     "download failure remains unread",
@@ -466,12 +713,12 @@ run_test(
     test_mixed_success_and_failure_remains_unread,
 )
 run_test(
-    "mark-read failure is sanitized",
-    test_mark_read_failure_is_sanitized,
+    "mark-read failure keeps handled state",
+    test_mark_read_failure_keeps_handled_state,
 )
 run_test(
-    "missing message ID is not marked read",
-    test_missing_message_id_is_not_marked_read,
+    "missing message ID is not checked or marked",
+    test_missing_message_id_is_not_checked_or_marked,
 )
 
 print()
@@ -479,6 +726,7 @@ print(f"Passed: {passed}")
 print(f"Failed: {failed}")
 print("Real or mock: Mock mailbox-boundary test")
 print("Microsoft Graph: Mocked")
+print("Processing state: Mocked")
 print("Attachment download: Mocked")
 print("Document processing: Mocked")
 print("OCR: Not called")

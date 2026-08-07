@@ -3255,6 +3255,193 @@ After this change is safely committed, design the smallest durable
 mailbox processing-state and idempotency boundary so production
 processing does not rely solely on Outlook Read/Unread state.
 
+
+------------------------------------------------------------
+DURABLE MAILBOX MESSAGE IDEMPOTENCY STATUS
+------------------------------------------------------------
+
+Mailbox ingestion now has durable local message-level handled state.
+
+Purpose:
+
+Prevent a successfully handled Graph message from repeating attachment
+download, document processing, OCR, Ollama processing, and human review
+if the same message later appears unread again.
+
+Implementation:
+
+- Graph message IDs are normalized locally.
+- Raw Graph message IDs are never persisted.
+- SHA-256 of the message ID is used as the handled-marker filename.
+- Marker content is the constant text handled.
+- Durable state is stored under:
+  data/mailbox_processing_state/
+- The state directory is ignored by Git.
+- MailboxProcessor checks durable state before attachment download.
+- Already-handled messages skip attachment and document processing.
+- Already-handled messages retry only the Graph mark-read operation.
+- Successfully handled messages are recorded before mark-read.
+- A mark-read failure preserves the handled marker so expensive
+  document processing is not repeated.
+- Attachment-download failures are not recorded as handled.
+- Document-processing failures are not recorded as handled.
+- Mixed document success and failure is not recorded as handled.
+- State-check failures block processing.
+- State-storage failures leave messages unread.
+- Missing or invalid message IDs are not recorded.
+
+State result contract:
+
+- handled
+- stored
+- duplicate
+- success
+- status
+
+The contract excludes:
+
+- Graph message IDs
+- message subjects
+- senders
+- email content
+- attachment names
+- local document paths
+- OCR text
+- extracted values
+- source_text
+- patient identifiers
+
+Files changed:
+
+- .gitignore
+- src/graph/mailbox_processor.py
+- src/services/mailbox_processing_state_service.py
+- tests/test_mailbox_handling.py
+- tests/test_mailbox_processing_state_service.py
+- tests/test_mailbox_persistent_idempotency.py
+- update_project_tracker.py
+
+Focused processing-state tests:
+
+Passed: 9
+Failed: 0
+
+Test type:
+
+Synthetic deterministic local-state
+
+Mailbox handling regression:
+
+Passed: 12
+Failed: 0
+
+Test type:
+
+Mock mailbox boundary
+
+Mailbox review orchestration regression:
+
+Passed: 11
+Failed: 0
+
+Test type:
+
+Mock orchestration
+
+Mailbox review session regression:
+
+Passed: 13
+Failed: 0
+
+Test type:
+
+Synthetic deterministic coordinator
+
+Mailbox review command regression:
+
+Passed: 8
+Failed: 0
+
+Test type:
+
+Mock command boundary
+
+Persistent state across separate MailboxProcessor instances:
+
+Passed: 1
+Failed: 0
+
+Test type:
+
+Synthetic deterministic local-state integration
+
+Combined automated result:
+
+Passed: 54
+Failed: 0
+
+Real external verification:
+
+A previously processed Graph message was marked unread again and the
+mailbox review command was rerun.
+
+Observed second-run result:
+
+- Messages: 1
+- Documents: 0
+- Submitted: 0
+- Cancelled: 0
+- Failed: 0
+- Success: True
+- Status: no_documents
+
+This confirmed that the real Graph message was recognized as already
+handled and did not re-enter document review.
+
+Real or mock:
+
+- Microsoft Graph: Real
+- Durable mailbox state: Real local state
+- Attachment processing on repeat run: Skipped
+- OCR on repeat run: Not rerun
+- Ollama on repeat run: Not rerun
+- Human review on repeat run: Not rerun
+- Smartsheet: Not called
+
+PHI handling:
+
+- No raw Graph message ID is stored in durable state.
+- Durable filenames contain only SHA-256-derived identifiers.
+- Marker content contains only the constant handled status.
+- No email body, subject, sender, attachment name, document path,
+  OCR text, extracted value, or source_text is stored in processing
+  state.
+- Tests use synthetic identifiers.
+- Console verification used only PHI-safe counts, booleans, and status.
+- data/mailbox_processing_state/ is ignored by Git.
+
+Limitations:
+
+- State is message-level, not document-level across different emails.
+- Identical attachment bytes arriving in a different Graph message are
+  treated as a new mailbox event.
+- Concurrent processing claims are not implemented.
+- Interrupted-run lease recovery is not implemented.
+- Marker cleanup and retention policy is not yet defined.
+- State is local to this installation.
+- The current durable marker represents successful mailbox ingestion,
+  not a persistent end-to-end human-review queue.
+
+Exact next starting point:
+
+Complete Git safety review, stage only the reviewed mailbox-idempotency
+files and tracker update, commit, push, verify branch synchronization,
+and confirm a clean worktree.
+
+Atomic claims and interrupted-run recovery remain future production
+hardening work and are not required before continuing higher-value
+workflow development.
+
 """
 
 

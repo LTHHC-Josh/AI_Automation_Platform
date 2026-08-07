@@ -1,4 +1,4 @@
-# Virtual Environment
+﻿# Virtual Environment
 .venv/
 
 # Environment Variables
@@ -22,3 +22,6 @@ data/incoming/
 
 # Local Classification Feedback
 data/classification_feedback/
+
+# Local Mailbox Processing State
+data/mailbox_processing_state/
