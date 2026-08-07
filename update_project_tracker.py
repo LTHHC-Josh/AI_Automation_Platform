@@ -3442,6 +3442,291 @@ Atomic claims and interrupted-run recovery remain future production
 hardening work and are not required before continuing higher-value
 workflow development.
 
+
+------------------------------------------------------------
+REVIEWED SMARTSHEET WRITE BOUNDARY STATUS
+------------------------------------------------------------
+
+A controlled reviewed-write boundary is now implemented between the
+existing logical Smartsheet mapping/destination-validation services and
+the existing Smartsheet client.
+
+Purpose:
+
+Prevent unreviewed, unmapped, stale, mismatched, or invalid data from
+reaching the Smartsheet row-write client.
+
+Implementation:
+
+- SmartsheetReviewedWriteService accepts only:
+  - SmartsheetRowMappingResult
+  - SmartsheetDestinationValidationResult
+- The service refuses writes when the logical mapping is not ready.
+- The service refuses writes when destination validation is not ready.
+- The mapping column names must exactly match the validated destination
+  column names.
+- Every destination column ID is rechecked immediately before write.
+- Boolean, zero, negative, missing, and invalid column IDs are rejected.
+- One Smartsheet row is created only after all boundaries pass.
+- The service invokes the existing SmartsheetClient.add_row method.
+- The write-result contract contains only:
+  - written
+  - column_count
+  - success
+  - status
+- The write result excludes:
+  - mapped values
+  - Smartsheet cell payloads
+  - row payloads
+  - row IDs
+  - OCR text
+  - source_text
+  - filenames
+  - local document paths
+  - patient data
+
+The existing logical mapping boundary continues to prohibit source_text,
+raw OCR text, file paths, and processing metrics from Smartsheet
+mapping.
+
+The existing destination validator continues to resolve approved logical
+column names to real positive Smartsheet column IDs before writing.
+
+Files added:
+
+- src/services/smartsheet_reviewed_write_service.py
+- tests/test_smartsheet_reviewed_write_service.py
+- tests/test_smartsheet_reviewed_write_integration.py
+
+Focused reviewed-write tests:
+
+Passed: 13
+Failed: 0
+
+Test type:
+
+Mock Smartsheet write-boundary test
+
+Existing document-to-Smartsheet mapping regression:
+
+Passed: 9
+Failed: 0
+
+Test type:
+
+Synthetic deterministic
+
+Existing Smartsheet destination validation regression:
+
+Passed: 12
+Failed: 0
+
+Test type:
+
+Synthetic deterministic
+
+Reviewed-write integration test:
+
+Passed: 4
+Failed: 0
+
+Test type:
+
+Synthetic deterministic integration with mocked Smartsheet client
+
+Combined automated result:
+
+Passed: 38
+Failed: 0
+
+Real Smartsheet destination-schema validation:
+
+- Real Smartsheet API called
+- Read-only sheet schema retrieval succeeded
+- Rows read: 0
+- Rows written: 0
+- Required reviewed-write logical columns were present
+- Missing mapped columns: 0
+- Invalid column IDs: 0
+- No document or row values were accessed
+
+Real synthetic Smartsheet write:
+
+- Real Smartsheet API called
+- Mapping ready: True
+- Destination ready: True
+- Write ready: True
+- Mapped columns: 12
+- Missing columns: 0
+- Invalid columns: 0
+- Write attempted: True
+- Write success: True
+- Rows written: 1
+- Column count: 12
+- Status: written
+- Microsoft Graph was not called
+- PaddleOCR was not called
+- Ollama was not called
+- No patient data was used
+- Only synthetic test values were written
+- The Smartsheet row payload was not printed or logged
+
+PHI handling:
+
+- No real patient information was used in the external-write test.
+- No OCR text was sent to or printed for Smartsheet.
+- No source_text was mapped or written.
+- No source document path or filename was mapped or written.
+- No Smartsheet payload was printed or logged.
+- No Smartsheet write result contains mapped values.
+- .env remained Git-ignored.
+- Smartsheet credentials were not printed.
+- The configured destination sheet was validated using column titles and
+  IDs only before the first write.
+
+Limitations:
+
+- The current reviewed-write service is not yet wired into the mailbox
+  human-review session automatically.
+- Classification confirmation alone does not authorize a Smartsheet
+  write.
+- The service requires an already-approved complete ReviewOutput mapping.
+- A production policy/configuration for all document types is not yet
+  centralized.
+- The current mapping is focused on the existing authorization workflow.
+- Service-line records are not written as independent Smartsheet rows.
+- No real patient-bearing Smartsheet write has been performed.
+- The synthetic integration-test row may remain in the test destination
+  until intentionally removed.
+- Real write retry/idempotency semantics for Smartsheet are not yet
+  implemented.
+
+
+------------------------------------------------------------
+SMARTSHEET SHEET ROUTING CORRECTION
+------------------------------------------------------------
+
+The project tracker and reviewed AI-output destination now use separate
+Smartsheet configuration boundaries.
+
+Cause found during real integration testing:
+
+SMARTSHEET_SHEET_ID had temporarily been changed from the project-tracker
+sheet to the new AI reviewed-output destination. Existing tracker
+services correctly continued using SMARTSHEET_SHEET_ID, which caused
+update_project_tracker.py to search the AI destination for project task
+names.
+
+Correction:
+
+- SMARTSHEET_SHEET_ID again identifies the project-tracker sheet.
+- SMARTSHEET_PROJECT_TRACKER_SHEET_ID records the explicit local
+  project-tracker destination.
+- SMARTSHEET_AI_DESTINATION_SHEET_ID identifies the reviewed AI-output
+  destination.
+- SmartsheetClient now accepts a sheet-ID environment-variable name.
+- Existing SmartsheetClient() callers preserve their original
+  SMARTSHEET_SHEET_ID behavior.
+- SmartsheetReviewedWriteService explicitly selects
+  SMARTSHEET_AI_DESTINATION_SHEET_ID when no client is injected.
+- No duplicate Smartsheet client or tracker service was created.
+
+Files changed or added:
+
+- src/clients/smartsheet_client.py
+- src/services/smartsheet_reviewed_write_service.py
+- tests/test_smartsheet_reviewed_write_service.py
+- tests/test_smartsheet_reviewed_write_integration.py
+- tests/test_smartsheet_sheet_routing.py
+- update_project_tracker.py
+
+Routing-focused tests:
+
+Passed: 5
+Failed: 0
+Real or mock: Synthetic deterministic/mock
+External integration: Not called
+
+Affected reviewed-write, mapping, and destination regressions:
+
+Passed: 38
+Failed: 0
+Real or mock: Synthetic deterministic/mock
+
+Combined automated Smartsheet result:
+
+Passed: 43
+Failed: 0
+
+Real external routing verification:
+
+- Project-tracker connection succeeded.
+- Project-tracker expected schema was present.
+- AI-destination connection succeeded.
+- AI-destination expected schema was present.
+- Routing verification was read-only.
+- Rows read: 0
+- Rows written: 0
+- Only column metadata was inspected.
+
+Prior real synthetic Smartsheet write:
+
+- Real Smartsheet API called.
+- Mapping ready: True.
+- Destination ready: True.
+- Write ready: True.
+- One synthetic row was written successfully.
+- No patient data was used.
+- Microsoft Graph was not called.
+- PaddleOCR was not called.
+- Ollama was not called.
+- The row payload was not printed or logged.
+
+PHI handling:
+
+- No patient information was used in routing tests.
+- No Smartsheet row values were read during routing verification.
+- No OCR text or source_text was printed or logged.
+- No patient document path or filename was printed or written.
+- Smartsheet credentials and .env values were not printed.
+- .env remained Git-ignored.
+- Only PHI-safe schema metadata was inspected.
+
+Limitations:
+
+- Classification confirmation alone does not authorize a Smartsheet
+  write.
+- Reviewed writing is not yet automatically connected to the complete
+  mailbox human-review workflow.
+- Production mapping policy for all document types is not yet
+  centralized.
+- Service-line records are not yet written as independent rows.
+- No real patient-bearing Smartsheet write has been performed.
+- Smartsheet write retry/idempotency semantics are not yet implemented.
+
+Exact next starting point after this commit:
+
+Design the explicit workflow connection from a completely reviewed
+ReviewOutput through logical mapping, destination validation, and
+controlled Smartsheet writing.
+
+Human review must remain the authority that decides whether automation
+may proceed. Classification confirmation alone must not authorize the
+write.
+
+Exact next starting point:
+
+Complete Git safety review and commit the reviewed Smartsheet write
+boundary.
+
+After that commit, design the explicit workflow connection that allows a
+complete reviewed ReviewOutput to proceed through mapping, destination
+validation, and Smartsheet writing.
+
+Do not authorize Smartsheet writing merely because classification was
+confirmed. The complete review/write-readiness boundary must remain
+separate.
+
 """
 
 
