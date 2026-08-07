@@ -3727,6 +3727,152 @@ Do not authorize Smartsheet writing merely because classification was
 confirmed. The complete review/write-readiness boundary must remain
 separate.
 
+
+------------------------------------------------------------
+COMPLETE REVIEW TO SMARTSHEET WORKFLOW STATUS
+------------------------------------------------------------
+
+Implemented and tested the explicit human-review authority boundary
+required before reviewed AI output can proceed to Smartsheet.
+
+Architecture completed:
+
+ReviewOutput
+-> explicit complete-review approval
+-> logical Smartsheet mapping
+-> destination validation
+-> controlled reviewed write
+
+Classification confirmation remains a separate feedback workflow and
+cannot authorize Smartsheet writing.
+
+Implementation:
+
+- CompleteReviewApprovalService requires an explicit complete-review
+  decision.
+- Approval and rejection are separate explicit reviewer decisions.
+- A ReviewOutput with unresolved human-review requirements cannot be
+  approved for downstream automation.
+- CompleteReviewApprovalResult contains only:
+  - approved
+  - success
+  - status
+- CompleteReviewApprovalInteraction provides a separate local final
+  approval interaction.
+- The interaction displays only PHI-safe workflow metadata:
+  - field count
+  - service-line count
+  - whether review remains required
+  - review-reason count
+  - approval status
+- Field values, service-line values, source_text, OCR text, patient data,
+  classification reason, filenames, and paths are not displayed.
+- MailboxCompleteReviewSessionService coordinates complete-review
+  decisions separately from the existing classification-feedback
+  mailbox session.
+- SmartsheetReviewSubmissionService requires a valid successful
+  CompleteReviewApprovalResult before mapping, destination validation,
+  or controlled writing can proceed.
+- A successful classification-feedback result cannot satisfy the
+  complete-review approval contract.
+- CompleteReviewSmartsheetWorkflowService coordinates:
+  - explicit complete-review interaction
+  - complete-review approval result
+  - approval-gated Smartsheet submission
+- Rejection, cancellation, unresolved review, invalid review output,
+  mapping failure, and destination failure prevent writing.
+- Existing SmartsheetReviewedWriteService remains the final narrow
+  mapped-and-validated write boundary.
+
+Files added:
+
+- src/services/complete_review_approval_service.py
+- src/services/complete_review_smartsheet_workflow_service.py
+- src/services/mailbox_complete_review_session_service.py
+- src/services/smartsheet_review_submission_service.py
+- src/ui/complete_review_approval_interaction.py
+- tests/test_classification_confirmation_smartsheet_gate.py
+- tests/test_complete_review_approval_interaction.py
+- tests/test_complete_review_approval_service.py
+- tests/test_complete_review_smartsheet_workflow_service.py
+- tests/test_mailbox_complete_review_session_service.py
+- tests/test_smartsheet_review_submission_service.py
+
+Focused and affected automated tests:
+
+Passed: 120
+Failed: 0
+
+Test types:
+
+- Synthetic deterministic
+- Synthetic deterministic UI-boundary
+- Synthetic deterministic coordinator
+- Mock Smartsheet write-boundary
+- Synthetic deterministic integration with mocked Smartsheet client
+- Synthetic deterministic/mock coordinator
+
+External systems:
+
+- Real Smartsheet write: Not called
+- Microsoft Graph: Not called
+- PaddleOCR: Not called
+- Ollama: Not called
+- Classification feedback storage: Not called during the new safety-gate
+  test
+
+Safety behavior proven:
+
+- Explicit complete-review approval is required before submission.
+- Classification confirmation alone cannot authorize writing.
+- Classification success=True cannot authorize writing.
+- Classification status text "approved" cannot impersonate complete
+  approval.
+- Rejected complete reviews do not reach Smartsheet submission.
+- Cancelled complete reviews do not reach Smartsheet submission.
+- Unresolved human-review requirements do not reach submission.
+- Invalid review output does not reach submission.
+- Mapping and destination readiness remain independent required gates.
+- Review output is not re-extracted, reinterpreted, or mutated by the
+  approval workflow.
+
+PHI handling:
+
+- Automated tests used synthetic values only.
+- No patient documents were used.
+- No OCR text was printed or transmitted.
+- No field or service-line source_text was printed or transmitted.
+- No patient-bearing local path or filename was printed.
+- No Smartsheet row payload was printed.
+- PHI-safe workflow result contracts contain only booleans, counts, and
+  statuses where applicable.
+- No real patient-bearing Smartsheet write was performed.
+- .env and protected local data locations remain outside the intended
+  commit.
+
+Limitations:
+
+- The complete-review workflow is not yet connected to the live mailbox
+  command/orchestration path.
+- Available Smartsheet columns and mapping policies still need an
+  explicit production orchestration source.
+- Production mapping policy for all document types is not centralized.
+- Service-line records are not yet written as independent Smartsheet
+  rows.
+- Real Smartsheet write retry/idempotency semantics remain future work.
+- No real patient-bearing end-to-end write has been performed.
+
+Exact next starting point after this commit:
+
+Inspect the existing mailbox command/orchestration callers and design the
+smallest explicit connection that invokes the separate complete-review
+workflow after document processing while preserving classification
+feedback as a separate step.
+
+Do not allow classification confirmation to authorize Smartsheet
+writing. Preserve human complete-review approval as the authority that
+decides whether automation may proceed.
+
 """
 
 
