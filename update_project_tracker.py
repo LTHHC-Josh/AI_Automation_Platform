@@ -4004,6 +4004,86 @@ writing.
 
 Preserve complete-review approval as the authority that decides
 whether automation may proceed.
+
+------------------------------------------------------------
+SMARTSHEET DEMO SCHEMA AND APPROVED AUTHORIZATION POLICY - 2026-08-07
+------------------------------------------------------------
+
+Feature:
+Prepared the reviewed Smartsheet path for the live authorization demo.
+
+Files changed:
+
+- src/services/smartsheet_destination_schema_service.py
+- tests/test_smartsheet_destination_schema_service.py
+- src/services/smartsheet_mapping_policy_service.py
+- tests/test_smartsheet_mapping_policy_service.py
+- src/services/smartsheet_review_configuration_service.py
+- tests/test_smartsheet_review_configuration_service.py
+
+Changes:
+
+- Real Smartsheet SDK column collections are accepted as iterables instead
+  of requiring a plain Python list.
+- Destination column capitalization is preserved in mapping policies.
+- Document-type and source-field keys remain normalized.
+- Explicitly approved authorization mappings are registered:
+  authorization_status -> Authorization Status
+  service_codes -> Service Codes
+  authorized_units -> Authorized Units
+  start_date -> Start Date
+  end_date -> End Date
+- No payer-, service-code-, modifier-, or document-specific business
+  conclusions were added.
+- Complete human-review approval remains required before writing.
+
+Focused tests:
+
+- Smartsheet destination schema reader: 11 passed, 0 failed
+- Smartsheet mapping policy registry: 10 passed, 0 failed
+- Smartsheet review configuration resolver: 7 passed, 0 failed
+
+Affected regression execution:
+
+- 8 affected regression scripts completed successfully
+- Script failures: 0
+- Final full-mailbox orchestration group: 10 passed, 0 failed
+- Synthetic deterministic/mock only
+
+Real external read-only validation:
+
+- AI destination schema read succeeded
+- Destination column count: 13
+- Approved authorization policy count: 5
+- Configuration resolution status: ready
+- Smartsheet rows read: 0
+- Smartsheet rows written: 0
+
+PHI handling:
+
+- Only column metadata, field names, counts, booleans, and statuses were
+  displayed.
+- No OCR text, patient data, source_text, filenames, document paths,
+  row values, or Smartsheet payload values were printed or committed.
+
+Limitations:
+
+- No real authorization document has yet been processed through this
+  newly approved configuration.
+- No real Smartsheet row has been written during this work.
+- Service-line rows remain review-output data and are not independently
+  written as multiple Smartsheet rows.
+- Human approval remains required before a reviewed result may write.
+
+Exact next starting point:
+
+Run the live boss demo from a new unread authorization-type mailbox
+attachment through Graph, local PaddleOCR, local Ollama, deterministic
+validation, business rules, classification review, complete human review,
+and the approved AI-destination Smartsheet write. Keep PHI-bearing values,
+OCR text, filenames, paths, source_text, and payload values out of
+terminal/chat output.
+
 """
 
 

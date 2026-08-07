@@ -1,4 +1,4 @@
-﻿from dataclasses import fields
+from dataclasses import fields
 
 from src.models.smartsheet_mapping import (
     SmartsheetColumnPolicy,
@@ -64,6 +64,21 @@ def test_configured_policy_is_returned():
     assert result.status == "ready"
     assert result.policy_count == 2
     assert len(result.policies) == 2
+
+    assert (
+        result.policies[0].source_field
+        == "authorization_status"
+    )
+
+    assert (
+        result.policies[0].column_name
+        == "Authorization Status"
+    )
+
+    assert (
+        result.policies[1].column_name
+        == "Start Date"
+    )
 
 
 def test_document_type_is_normalized():

@@ -1,4 +1,4 @@
-﻿from dataclasses import fields
+from dataclasses import fields
 from types import SimpleNamespace
 
 from src.services.smartsheet_destination_schema_service import (
@@ -218,6 +218,47 @@ def test_empty_schema_is_rejected():
     assert result.status == "empty_schema"
 
 
+
+class IterableColumns:
+    def __init__(
+        self,
+        values,
+    ):
+        self.values = values
+
+    def __iter__(
+        self,
+    ):
+        return iter(
+            self.values
+        )
+
+
+def test_iterable_schema_collection_is_accepted():
+    service = SmartsheetDestinationSchemaService(
+        client=RecordingClient(
+            columns=IterableColumns(
+                [
+                    SimpleNamespace(
+                        title="Authorization Status",
+                        id=123,
+                    )
+                ]
+            )
+        )
+    )
+
+    result = service.read()
+
+    assert result.success is True
+    assert result.status == "ready"
+    assert result.column_count == 1
+
+    assert result.columns == {
+        "Authorization Status": 123
+    }
+
+
 def test_invalid_schema_collection_is_rejected():
     result = (
         SmartsheetDestinationSchemaService(
@@ -330,6 +371,11 @@ run_test(
 run_test(
     "empty schema is rejected",
     test_empty_schema_is_rejected,
+)
+
+run_test(
+    "iterable schema collection is accepted",
+    test_iterable_schema_collection_is_accepted,
 )
 
 run_test(

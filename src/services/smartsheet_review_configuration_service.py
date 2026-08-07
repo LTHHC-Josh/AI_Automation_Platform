@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 
 from src.models.smartsheet_mapping import (
     SmartsheetColumnPolicy,
@@ -9,6 +9,32 @@ from src.services.smartsheet_destination_schema_service import (
 from src.services.smartsheet_mapping_policy_service import (
     SmartsheetMappingPolicyService,
 )
+
+
+APPROVED_POLICIES_BY_DOCUMENT_TYPE = {
+    "authorization": (
+        SmartsheetColumnPolicy(
+            source_field="authorization_status",
+            column_name="Authorization Status",
+        ),
+        SmartsheetColumnPolicy(
+            source_field="service_codes",
+            column_name="Service Codes",
+        ),
+        SmartsheetColumnPolicy(
+            source_field="authorized_units",
+            column_name="Authorized Units",
+        ),
+        SmartsheetColumnPolicy(
+            source_field="start_date",
+            column_name="Start Date",
+        ),
+        SmartsheetColumnPolicy(
+            source_field="end_date",
+            column_name="End Date",
+        ),
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -44,7 +70,11 @@ class SmartsheetReviewConfigurationService:
     ) -> None:
         self.policy_service = (
             policy_service
-            or SmartsheetMappingPolicyService()
+            or SmartsheetMappingPolicyService(
+                policies_by_document_type=(
+                    APPROVED_POLICIES_BY_DOCUMENT_TYPE
+                )
+            )
         )
 
         self.schema_service = (

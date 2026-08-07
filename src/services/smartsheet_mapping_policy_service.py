@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 
 from src.models.smartsheet_mapping import (
     SmartsheetColumnPolicy,
@@ -42,7 +42,7 @@ class SmartsheetMappingPolicyService:
         *,
         document_type,
     ) -> SmartsheetMappingPolicyResult:
-        normalized_type = self._normalize_text(
+        normalized_type = self._normalize_key(
             document_type
         )
 
@@ -89,7 +89,7 @@ class SmartsheetMappingPolicyService:
         for document_type, policies in (
             policies_by_document_type.items()
         ):
-            normalized_type = self._normalize_text(
+            normalized_type = self._normalize_key(
                 document_type
             )
 
@@ -120,11 +120,11 @@ class SmartsheetMappingPolicyService:
                         "Mapping policy entry is invalid."
                     )
 
-                source_field = self._normalize_text(
+                source_field = self._normalize_key(
                     policy.source_field
                 )
 
-                column_name = self._normalize_text(
+                column_name = self._normalize_column_name(
                     policy.column_name
                 )
 
@@ -176,13 +176,22 @@ class SmartsheetMappingPolicyService:
             )
 
     @staticmethod
-    def _normalize_text(
+    def _normalize_key(
         value,
     ) -> str:
         return str(
             value
             or ""
         ).strip().lower()
+
+    @staticmethod
+    def _normalize_column_name(
+        value,
+    ) -> str:
+        return str(
+            value
+            or ""
+        ).strip()
 
     @staticmethod
     def _failure(

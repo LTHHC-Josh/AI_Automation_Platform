@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 from typing import Any
 
 from src.clients.smartsheet_client import (
@@ -53,10 +53,11 @@ class SmartsheetDestinationSchemaService:
             None,
         )
 
-        if not isinstance(
-            raw_columns,
-            list,
-        ):
+        try:
+            raw_columns = list(
+                raw_columns
+            )
+        except TypeError:
             return self._failure(
                 "invalid_schema"
             )
