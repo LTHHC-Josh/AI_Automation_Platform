@@ -74,6 +74,7 @@ class RecordingSubmissionService:
         policies,
         available_columns,
         attachment_source_path=None,
+        run_type="Production",
     ):
         self.calls.append(
             {
@@ -89,6 +90,7 @@ class RecordingSubmissionService:
                     attachment_source_path
                     is not None
                 ),
+                "run_type": run_type,
             }
         )
 
@@ -458,6 +460,37 @@ def test_same_review_output_is_forwarded():
     )
 
 
+def test_run_type_is_forwarded_to_submission():
+    interaction = RecordingReviewInteraction(
+        approved_result()
+    )
+
+    submission = RecordingSubmissionService()
+
+    service = (
+        CompleteReviewSmartsheetWorkflowService(
+            review_interaction=interaction,
+            submission_service=submission,
+        )
+    )
+
+    result = service.run(
+        review_output=build_review_output(),
+        policies=build_policies(),
+        available_columns=build_columns(),
+        run_type="Attachment Verification",
+    )
+
+    assert result.success is True
+
+    assert (
+        submission.calls[0][
+            "run_type"
+        ]
+        == "Attachment Verification"
+    )
+
+
 def test_result_contract_is_phi_safe():
     field_names = {
         field.name
@@ -541,6 +574,11 @@ run_test(
 run_test(
     "same review output is forwarded",
     test_same_review_output_is_forwarded,
+)
+
+run_test(
+    "run type is forwarded to submission",
+    test_run_type_is_forwarded_to_submission,
 )
 
 run_test(

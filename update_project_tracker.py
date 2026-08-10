@@ -4854,6 +4854,193 @@ Smartsheet attachment verification through the existing complete-review
 approval boundary. Verify only PHI-safe attachment metadata and success
 status. Do not print document values, OCR text, source_text, filenames,
 local paths, fingerprints, row IDs, or Smartsheet payload values.
+
+------------------------------------------------------------
+SMARTSHEET REVIEW VISIBILITY AND RUN TYPE - 2026-08-10
+------------------------------------------------------------
+
+Feature:
+
+Expanded the reviewed AI-destination row metadata so reviewers can see
+the AI document classification, the reasons a document requires or
+recommends review, and an explicit PHI-safe operational Run Type.
+
+Smartsheet review visibility:
+
+New mapped review metadata columns:
+
+- AI Document Category
+- AI Document Subtype
+- AI Review Reasons
+
+AI Review Reasons uses the authoritative ReviewOutput.review_reasons
+collection and serializes reasons deterministically in preserved order.
+
+The mapping does not rerun extraction, reinterpret values, or expose
+source_text.
+
+Run Type:
+
+Added the existing Smartsheet column:
+
+- Run Type
+
+Run Type is explicit workflow metadata and is not extracted or inferred
+from OCR, Ollama, filenames, document content, or patient data.
+
+Allowed values:
+
+- Production
+- Boss Demo
+- Attachment Verification
+- Classification Metadata Test
+- End-to-End Test
+
+Production is the default.
+
+Invalid or unavailable Run Type values fail the logical mapping closed.
+
+Run Type is propagated through:
+
+MailboxFullReviewCommand
+-> MailboxFullReviewOrchestrationService
+-> MailboxCompleteReviewSmartsheetService
+-> CompleteReviewSmartsheetWorkflowService
+-> SmartsheetReviewSubmissionService
+-> SmartsheetReviewRowMappingService
+
+Classification confirmation remains separate from complete-review
+approval and does not authorize a Smartsheet write.
+
+Files changed:
+
+- src/services/complete_review_smartsheet_workflow_service.py
+- src/services/mailbox_complete_review_smartsheet_service.py
+- src/services/mailbox_full_review_orchestration_service.py
+- src/services/smartsheet_review_row_mapping_service.py
+- src/services/smartsheet_review_submission_service.py
+- src/ui/mailbox_full_review_command.py
+- tests/test_complete_review_smartsheet_workflow_service.py
+- tests/test_mailbox_complete_review_smartsheet_service.py
+- tests/test_mailbox_full_review_command.py
+- tests/test_mailbox_full_review_orchestration_service.py
+- tests/test_smartsheet_review_row_mapping.py
+- tests/test_smartsheet_review_submission_service.py
+
+Final tested results:
+
+Smartsheet review-row mapping:
+23 passed, 0 failed.
+Synthetic deterministic.
+
+Approval-gated Smartsheet submission:
+11 passed, 0 failed.
+Synthetic deterministic/mock.
+
+Full mailbox review command:
+11 passed, 0 failed.
+Mock command boundary.
+
+Complete-review Smartsheet workflow:
+10 passed, 0 failed.
+Synthetic deterministic/mock.
+
+Mailbox complete-review Smartsheet boundary:
+15 passed, 0 failed.
+Synthetic deterministic/mock.
+
+Full mailbox review orchestration:
+13 passed, 0 failed.
+Mock full-orchestration.
+
+Document-to-Smartsheet mapping integration:
+9 passed, 0 failed.
+Synthetic deterministic.
+
+Smartsheet reviewed-write boundary:
+17 passed, 0 failed.
+Mock Smartsheet write boundary.
+
+Combined final current-feature result:
+
+Passed: 109
+Failed: 0
+
+External systems during automated tests:
+
+- Microsoft Graph: Not called
+- PaddleOCR: Not called
+- Ollama: Not called
+- Smartsheet external write: Not called
+
+Real Smartsheet metadata-only verification:
+
+- Schema read success: True
+- Schema status: ready
+- Destination column count: 27
+- Required new column count: 4
+- Required new columns found: 4
+- Missing new column count: 0
+- Rows read: 0
+- Rows written: 0
+
+Verified destination columns:
+
+- AI Document Category
+- AI Document Subtype
+- AI Review Reasons
+- Run Type
+
+Corrected real attachment verification:
+
+The previously corrected binary-stream Smartsheet attachment path was
+subsequently exercised through the real external boundary and manually
+confirmed successful.
+
+No document filename, patient value, OCR text, source_text, local path,
+row ID, or Smartsheet payload value was included in tracker or chat
+output.
+
+PHI handling:
+
+- Automated tests used synthetic values only.
+- Review-reason tests did not print mapped values or source evidence.
+- Raw OCR text is not mapped.
+- source_text remains prohibited from Smartsheet mapping.
+- Local patient-document paths are not mapped.
+- Run Type accepts only approved PHI-safe operational labels.
+- Smartsheet payload values were not printed or logged.
+- Real schema verification used column metadata only.
+
+Limitations:
+
+- AI Review Reasons currently reflects the authoritative combined review
+  reasons, which can include classification, deterministic validation,
+  and business-rule reasons.
+- A new real patient-bearing row has not yet been written with the new
+  classification/review-reason/Run Type metadata.
+- A fresh complete-review approval is required for any new real row.
+- Automatic rollback after a successful row write followed by attachment
+  failure is still not implemented.
+- Smartsheet retry/idempotency remains future production hardening.
+
+Exact next starting point:
+
+Before the next real write, audit all deterministic validation-action and
+business-rule-action producers used by AI Review Reasons to confirm that
+the sheet-visible reason strings contain only generic PHI-safe reason
+text and never interpolate extracted values or source_text.
+
+Then run the controlled real boss-demo path using the latest supported
+local attachment, explicit Run Type "Boss Demo", real local OCR/Ollama,
+deterministic validation, business rules, and complete human review.
+
+Write only after a fresh explicit complete-review approval.
+
+Keep patient data, OCR text, extracted values, source_text, filenames,
+local paths, fingerprints, row IDs, and Smartsheet payload values out of
+terminal and chat output.
+
 """
 
 

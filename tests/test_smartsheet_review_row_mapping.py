@@ -39,9 +39,12 @@ def build_review_output(
     *,
     needs_human_review=False,
     review_status=None,
+    review_reasons=None,
 ):
     return ReviewOutput(
         document_type="authorization",
+        document_category="authorization",
+        document_subtype="renewal",
         classification_confidence=0.90,
         fields=[
             ReviewField(
@@ -96,6 +99,11 @@ def build_review_output(
                 if needs_human_review
                 else "Verified by AI"
             )
+        ),
+        review_reasons=(
+            list(review_reasons)
+            if review_reasons is not None
+            else []
         ),
         minimum_field_confidence=0.50,
         extraction_attempt_count=2,
@@ -478,6 +486,112 @@ def test_review_metadata_is_preserved():
     )
 
 
+def test_classification_labels_are_mapped_as_review_metadata():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(),
+        policies=[],
+    )
+
+    assert (
+        result.values[
+            "AI Document Category"
+        ]
+        == "authorization"
+    )
+
+    assert (
+        result.values[
+            "AI Document Subtype"
+        ]
+        == "renewal"
+    )
+
+
+def test_review_reasons_are_mapped_without_values_or_source_text():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(
+            needs_human_review=True,
+            review_reasons=[
+                "Authorization quantity requires verification",
+                "Authorization subtype requires verification",
+            ],
+        ),
+        policies=[],
+    )
+
+    assert (
+        result.values[
+            "AI Review Reasons"
+        ]
+        == (
+            "Authorization quantity requires verification"
+            " | "
+            "Authorization subtype requires verification"
+        )
+    )
+
+    assert "PHI-bearing evidence" not in str(
+        result.values[
+            "AI Review Reasons"
+        ]
+    )
+
+
+def test_empty_review_reasons_map_to_empty_text():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(),
+        policies=[],
+    )
+
+    assert (
+        result.values[
+            "AI Review Reasons"
+        ]
+        == ""
+    )
+
+
+def test_run_type_is_mapped_as_workflow_metadata():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(),
+        policies=[],
+        run_type="Attachment Verification",
+    )
+
+    assert (
+        result.values[
+            "Run Type"
+        ]
+        == "Attachment Verification"
+    )
+
+
+def test_invalid_run_type_blocks_mapping():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(),
+        policies=[],
+        run_type="Patient-specific free text",
+    )
+
+    assert result.ready_for_write is False
+    assert result.values == {}
+
+    assert (
+        "Run type is unavailable or invalid."
+        in result.warnings
+    )
+
+
 def test_complete_verified_mapping_is_ready():
     service = SmartsheetReviewRowMappingService()
 
@@ -583,6 +697,26 @@ run_test(
 run_test(
     "review metadata is preserved",
     test_review_metadata_is_preserved,
+)
+run_test(
+    "classification labels are mapped as review metadata",
+    test_classification_labels_are_mapped_as_review_metadata,
+)
+run_test(
+    "review reasons are mapped without values or source text",
+    test_review_reasons_are_mapped_without_values_or_source_text,
+)
+run_test(
+    "empty review reasons map to empty text",
+    test_empty_review_reasons_map_to_empty_text,
+)
+run_test(
+    "run type is mapped as workflow metadata",
+    test_run_type_is_mapped_as_workflow_metadata,
+)
+run_test(
+    "invalid run type blocks mapping",
+    test_invalid_run_type_blocks_mapping,
 )
 run_test(
     "complete verified mapping is ready",

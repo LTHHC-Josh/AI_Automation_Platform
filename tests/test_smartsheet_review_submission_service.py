@@ -157,6 +157,10 @@ def build_columns():
         "AI Selected Extraction Attempt": 1006,
         "AI Extraction Retry Triggered": 1007,
         "AI Authorized Units Reconciled": 1008,
+        "AI Document Category": 1009,
+        "AI Document Subtype": 1010,
+        "AI Review Reasons": 1011,
+        "Run Type": 1012,
     }
 
 

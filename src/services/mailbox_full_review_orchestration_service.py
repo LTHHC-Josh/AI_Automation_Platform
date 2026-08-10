@@ -85,6 +85,7 @@ class MailboxFullReviewOrchestrationService:
         created_at: Any = None,
         skip_classification_review: bool = False,
         approve_complete_review: bool = False,
+        run_type: str = "Production",
     ) -> MailboxFullReviewOrchestrationResult:
         normalized_top = self._normalize_top(
             top
@@ -177,6 +178,7 @@ class MailboxFullReviewOrchestrationService:
                     approve_complete_review=(
                         approve_complete_review
                     ),
+                    run_type=run_type,
                 )
             )
         except Exception:

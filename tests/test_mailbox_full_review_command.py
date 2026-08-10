@@ -46,6 +46,7 @@ class RecordingOrchestrationService:
         created_at=None,
         skip_classification_review=False,
         approve_complete_review=False,
+        run_type="Production",
     ):
         self.calls.append(
             {
@@ -57,6 +58,7 @@ class RecordingOrchestrationService:
                 "approve_complete_review": (
                     approve_complete_review
                 ),
+                "run_type": run_type,
             }
         )
 
@@ -141,6 +143,7 @@ def test_command_calls_full_orchestration_once():
             "created_at": TIMESTAMP,
             "skip_classification_review": False,
             "approve_complete_review": False,
+            "run_type": "Production",
         }
     ]
 
@@ -275,6 +278,11 @@ def test_parser_defaults_are_safe():
         is False
     )
 
+    assert (
+        arguments.run_type
+        == "Production"
+    )
+
 
 def test_parser_accepts_explicit_values():
     parser = build_argument_parser()
@@ -317,6 +325,7 @@ def test_demo_skip_flag_reaches_orchestration():
             "created_at": None,
             "skip_classification_review": True,
             "approve_complete_review": False,
+            "run_type": "Production",
         }
     ]
 
@@ -383,6 +392,44 @@ def test_explicit_complete_review_flag_reaches_orchestration():
     assert (
         arguments.approve_complete_review
         is True
+    )
+
+
+def test_run_type_reaches_orchestration_and_parser():
+    orchestration = RecordingOrchestrationService(
+        result=successful_result()
+    )
+
+    command = MailboxFullReviewCommand(
+        orchestration_service=orchestration,
+        output_writer=OutputRecorder(),
+    )
+
+    result = command.run(
+        run_type="Classification Metadata Test"
+    )
+
+    assert result.success is True
+
+    assert (
+        orchestration.calls[0][
+            "run_type"
+        ]
+        == "Classification Metadata Test"
+    )
+
+    parser = build_argument_parser()
+
+    arguments = parser.parse_args(
+        [
+            "--run-type",
+            "Attachment Verification",
+        ]
+    )
+
+    assert (
+        arguments.run_type
+        == "Attachment Verification"
     )
 
 
@@ -476,6 +523,10 @@ run_test(
     test_explicit_complete_review_flag_reaches_orchestration,
 )
 
+run_test(
+    "run type reaches orchestration and parser",
+    test_run_type_reaches_orchestration_and_parser,
+)
 run_test(
     "command does not construct workflow data",
     test_command_does_not_construct_workflow_data,

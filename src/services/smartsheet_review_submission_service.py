@@ -82,6 +82,7 @@ class SmartsheetReviewSubmissionService:
         policies: list[SmartsheetColumnPolicy],
         available_columns: dict[str, int],
         attachment_source_path: str | Path | None = None,
+        run_type: str = "Production",
     ) -> SmartsheetReviewSubmissionResult:
         """
         Submit one completely reviewed and explicitly approved
@@ -117,6 +118,7 @@ class SmartsheetReviewSubmissionService:
             review_output=review_output,
             policies=policies,
             complete_review_approved=True,
+            run_type=run_type,
         )
 
         if not mapping.ready_for_write:

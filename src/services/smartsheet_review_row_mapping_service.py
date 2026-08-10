@@ -33,6 +33,23 @@ class SmartsheetReviewRowMappingService:
 
     REVIEW_STATUS_COLUMN = "AI Review Status"
     REVIEW_REQUIRED_COLUMN = "AI Review Required"
+    DOCUMENT_CATEGORY_COLUMN = (
+        "AI Document Category"
+    )
+    DOCUMENT_SUBTYPE_COLUMN = (
+        "AI Document Subtype"
+    )
+    REVIEW_REASONS_COLUMN = (
+        "AI Review Reasons"
+    )
+    RUN_TYPE_COLUMN = "Run Type"
+    ALLOWED_RUN_TYPES = {
+        "Production",
+        "Boss Demo",
+        "Attachment Verification",
+        "Classification Metadata Test",
+        "End-to-End Test",
+    }
     CLASSIFICATION_CONFIDENCE_COLUMN = (
         "AI Classification Confidence"
     )
@@ -54,6 +71,7 @@ class SmartsheetReviewRowMappingService:
         review_output: ReviewOutput,
         policies: list[SmartsheetColumnPolicy],
         complete_review_approved: bool = False,
+        run_type: str = "Production",
     ) -> SmartsheetRowMappingResult:
         """
         Build a deterministic mapping from explicit column policies.
@@ -66,6 +84,16 @@ class SmartsheetReviewRowMappingService:
         """
 
         result = SmartsheetRowMappingResult()
+
+        normalized_run_type = self._normalize_run_type(
+            run_type
+        )
+
+        if normalized_run_type is None:
+            result.warnings.append(
+                "Run type is unavailable or invalid."
+            )
+            return result
 
         if not isinstance(
             review_output,
@@ -154,6 +182,7 @@ class SmartsheetReviewRowMappingService:
             review_output=review_output,
             result=result,
             displayed_confidences=displayed_confidences,
+            run_type=normalized_run_type,
         )
 
         result.missing_required_columns = self._deduplicate(
@@ -194,6 +223,7 @@ class SmartsheetReviewRowMappingService:
         review_output: ReviewOutput,
         result: SmartsheetRowMappingResult,
         displayed_confidences: list[float],
+        run_type: str,
     ) -> None:
         """
         Add PHI-safe workflow metadata under stable logical names.
@@ -206,6 +236,24 @@ class SmartsheetReviewRowMappingService:
         result.values[
             self.REVIEW_REQUIRED_COLUMN
         ] = review_output.needs_human_review
+
+        result.values[
+            self.DOCUMENT_CATEGORY_COLUMN
+        ] = review_output.document_category
+
+        result.values[
+            self.DOCUMENT_SUBTYPE_COLUMN
+        ] = review_output.document_subtype
+
+        result.values[
+            self.REVIEW_REASONS_COLUMN
+        ] = self._serialize_value(
+            review_output.review_reasons
+        )
+
+        result.values[
+            self.RUN_TYPE_COLUMN
+        ] = run_type
 
         result.values[
             self.CLASSIFICATION_CONFIDENCE_COLUMN
@@ -237,6 +285,27 @@ class SmartsheetReviewRowMappingService:
             result.warnings.append(
                 "Human review is required before automatic row writing."
             )
+
+    def _normalize_run_type(
+        self,
+        value: Any,
+    ) -> str | None:
+        """
+        Accept only explicitly approved PHI-safe workflow labels.
+
+        Run Type is operational metadata. It must never be inferred
+        from OCR, extracted values, filenames, or document content.
+        """
+
+        normalized = str(
+            value
+            or ""
+        ).strip()
+
+        if normalized not in self.ALLOWED_RUN_TYPES:
+            return None
+
+        return normalized
 
     def _record_missing_required(
         self,

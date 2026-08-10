@@ -90,6 +90,7 @@ class MailboxCompleteReviewSmartsheetService:
             MessageProcessingResult
         ],
         approve_complete_review: bool = False,
+        run_type: str = "Production",
     ) -> MailboxCompleteReviewSmartsheetResult:
         try:
             results = list(
@@ -181,6 +182,7 @@ class MailboxCompleteReviewSmartsheetService:
                             attachment_source_path=(
                                 document.file_path
                             ),
+                            run_type=run_type,
                         )
                     )
                 except Exception:

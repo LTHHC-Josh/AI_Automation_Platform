@@ -42,6 +42,7 @@ class MailboxFullReviewCommand:
         created_at: Any = None,
         skip_classification_review: bool = False,
         approve_complete_review: bool = False,
+        run_type: str = "Production",
     ) -> MailboxFullReviewOrchestrationResult:
         result = self.orchestration_service.run(
             top=top,
@@ -52,6 +53,7 @@ class MailboxFullReviewCommand:
             approve_complete_review=(
                 approve_complete_review
             ),
+            run_type=run_type,
         )
 
         self.output_writer(
@@ -167,6 +169,22 @@ def build_argument_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--run-type",
+        choices=(
+            "Production",
+            "Boss Demo",
+            "Attachment Verification",
+            "Classification Metadata Test",
+            "End-to-End Test",
+        ),
+        default="Production",
+        help=(
+            "PHI-safe workflow label written to the Smartsheet "
+            "Run Type column."
+        ),
+    )
+
+    parser.add_argument(
         "--approve-complete-review",
         action="store_true",
         help=(
@@ -195,6 +213,7 @@ def main(
         approve_complete_review=(
             arguments.approve_complete_review
         ),
+        run_type=arguments.run_type,
     )
 
     if result.success:

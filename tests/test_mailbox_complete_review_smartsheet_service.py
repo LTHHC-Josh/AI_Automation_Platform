@@ -45,6 +45,7 @@ class RecordingWorkflowService:
         available_columns,
         approve_complete_review=False,
         attachment_source_path=None,
+        run_type="Production",
     ):
         self.calls.append(
             {
@@ -57,6 +58,7 @@ class RecordingWorkflowService:
                 "attachment_source_path": (
                     attachment_source_path
                 ),
+                "run_type": run_type,
             }
         )
 
@@ -108,6 +110,7 @@ class FailingWorkflowService:
         available_columns,
         approve_complete_review=False,
         attachment_source_path=None,
+        run_type="Production",
     ):
         raise RuntimeError(
             "PRIVATE-SYNTHETIC-FAILURE"
@@ -407,6 +410,49 @@ def test_explicit_approval_flag_reaches_workflow():
             "approve_complete_review"
         ]
         is True
+    )
+
+
+def test_run_type_reaches_workflow():
+    document = build_document(
+        "one"
+    )
+
+    workflow = RecordingWorkflowService(
+        [
+            written_result(),
+        ]
+    )
+
+    service = (
+        MailboxCompleteReviewSmartsheetService(
+            workflow_service=workflow,
+            configuration_service=(
+                RecordingConfigurationService(
+                    [
+                        ready_configuration(),
+                    ]
+                )
+            ),
+        )
+    )
+
+    result = service.run(
+        message_results=[
+            build_message_result(
+                [document]
+            )
+        ],
+        run_type="End-to-End Test",
+    )
+
+    assert result.success is True
+
+    assert (
+        workflow.calls[0][
+            "run_type"
+        ]
+        == "End-to-End Test"
     )
 
 
@@ -865,6 +911,11 @@ run_test(
 run_test(
     "explicit approval flag reaches workflow",
     test_explicit_approval_flag_reaches_workflow,
+)
+
+run_test(
+    "run type reaches workflow",
+    test_run_type_reaches_workflow,
 )
 
 run_test(

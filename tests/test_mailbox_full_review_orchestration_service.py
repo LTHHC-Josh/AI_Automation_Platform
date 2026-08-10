@@ -91,12 +91,14 @@ class RecordingCompleteReviewService:
         self.error = error
         self.calls = []
         self.approval_flags = []
+        self.run_types = []
 
     def run(
         self,
         *,
         message_results,
         approve_complete_review=False,
+        run_type="Production",
     ):
         self.calls.append(
             message_results
@@ -104,6 +106,10 @@ class RecordingCompleteReviewService:
 
         self.approval_flags.append(
             approve_complete_review
+        )
+
+        self.run_types.append(
+            run_type
         )
 
         if self.error is not None:
@@ -303,6 +309,36 @@ def test_explicit_approval_flag_reaches_complete_review():
 
     assert complete.approval_flags == [
         True
+    ]
+
+
+def test_run_type_reaches_complete_review():
+    message_results = build_message_results()
+
+    complete = RecordingCompleteReviewService(
+        complete_written()
+    )
+
+    service = MailboxFullReviewOrchestrationService(
+        mailbox_processor=RecordingMailboxProcessor(
+            results=message_results
+        ),
+        classification_review_session=(
+            RecordingClassificationSession(
+                classification_completed()
+            )
+        ),
+        complete_review_smartsheet_service=complete,
+    )
+
+    result = service.run(
+        run_type="Boss Demo"
+    )
+
+    assert result.success is True
+
+    assert complete.run_types == [
+        "Boss Demo"
     ]
 
 
@@ -714,6 +750,11 @@ run_test(
 run_test(
     "explicit approval reaches complete review",
     test_explicit_approval_flag_reaches_complete_review,
+)
+
+run_test(
+    "run type reaches complete review",
+    test_run_type_reaches_complete_review,
 )
 
 run_test(
