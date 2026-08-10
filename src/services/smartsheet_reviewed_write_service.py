@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import smartsheet
@@ -11,6 +12,9 @@ from src.models.smartsheet_destination_validation import (
 )
 from src.models.smartsheet_mapping import (
     SmartsheetRowMappingResult,
+)
+from src.services.document_attachment_naming_service import (
+    DocumentAttachmentNamingService,
 )
 
 
@@ -25,6 +29,7 @@ class SmartsheetReviewedWriteResult:
 
     written: bool
     column_count: int
+    attachment_written: bool
     success: bool
     status: str
 
@@ -45,6 +50,7 @@ class SmartsheetReviewedWriteService:
         self,
         *,
         client: SmartsheetClient | None = None,
+        attachment_naming_service=None,
     ) -> None:
         self.client = (
             client
@@ -55,6 +61,11 @@ class SmartsheetReviewedWriteService:
             )
         )
 
+        self.attachment_naming_service = (
+            attachment_naming_service
+            or DocumentAttachmentNamingService()
+        )
+
     def write(
         self,
         *,
@@ -62,6 +73,7 @@ class SmartsheetReviewedWriteService:
         destination_validation: (
             SmartsheetDestinationValidationResult
         ),
+        attachment_source_path: str | Path | None = None,
     ) -> SmartsheetReviewedWriteResult:
         """
         Add one Smartsheet row only after all write boundaries pass.
@@ -158,8 +170,10 @@ class SmartsheetReviewedWriteService:
                 "empty_mapping"
             )
 
+        temporary_path = None
+
         try:
-            self.client.add_row(
+            row = self.client.add_row(
                 cells
             )
         except Exception:
@@ -167,13 +181,94 @@ class SmartsheetReviewedWriteService:
                 "smartsheet_write_failed"
             )
 
+        attachment_written = False
+
+        if attachment_source_path is not None:
+            preparation = (
+                self.attachment_naming_service.prepare(
+                    source_path=attachment_source_path
+                )
+            )
+
+            if not preparation.success:
+                return SmartsheetReviewedWriteResult(
+                    written=True,
+                    column_count=len(cells),
+                    attachment_written=False,
+                    success=False,
+                    status=preparation.status,
+                )
+
+            temporary_path = (
+                preparation.temporary_path
+            )
+
+            row_id = getattr(
+                row,
+                "id",
+                None,
+            )
+
+            if (
+                isinstance(row_id, bool)
+                or not isinstance(row_id, int)
+                or row_id <= 0
+            ):
+                self.attachment_naming_service.cleanup(
+                    temporary_path
+                )
+
+                return SmartsheetReviewedWriteResult(
+                    written=True,
+                    column_count=len(cells),
+                    attachment_written=False,
+                    success=False,
+                    status="invalid_written_row_id",
+                )
+
+            try:
+                self.client.attach_file_to_row(
+                    row_id,
+                    temporary_path,
+                )
+            except Exception:
+                self.attachment_naming_service.cleanup(
+                    temporary_path
+                )
+
+                return SmartsheetReviewedWriteResult(
+                    written=True,
+                    column_count=len(cells),
+                    attachment_written=False,
+                    success=False,
+                    status="smartsheet_attachment_failed",
+                )
+
+            attachment_written = True
+
+            if not self.attachment_naming_service.cleanup(
+                temporary_path
+            ):
+                return SmartsheetReviewedWriteResult(
+                    written=True,
+                    column_count=len(cells),
+                    attachment_written=True,
+                    success=False,
+                    status="attachment_cleanup_failed",
+                )
+
         return SmartsheetReviewedWriteResult(
             written=True,
             column_count=len(
                 cells
             ),
+            attachment_written=attachment_written,
             success=True,
-            status="written",
+            status=(
+                "written_with_attachment"
+                if attachment_written
+                else "written"
+            ),
         )
 
     @staticmethod
@@ -201,6 +296,7 @@ class SmartsheetReviewedWriteService:
         return SmartsheetReviewedWriteResult(
             written=False,
             column_count=0,
+            attachment_written=False,
             success=False,
             status=status,
         )

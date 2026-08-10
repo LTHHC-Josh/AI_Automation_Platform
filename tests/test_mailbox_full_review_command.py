@@ -45,6 +45,7 @@ class RecordingOrchestrationService:
         top=10,
         created_at=None,
         skip_classification_review=False,
+        approve_complete_review=False,
     ):
         self.calls.append(
             {
@@ -52,6 +53,9 @@ class RecordingOrchestrationService:
                 "created_at": created_at,
                 "skip_classification_review": (
                     skip_classification_review
+                ),
+                "approve_complete_review": (
+                    approve_complete_review
                 ),
             }
         )
@@ -136,6 +140,7 @@ def test_command_calls_full_orchestration_once():
             "top": 4,
             "created_at": TIMESTAMP,
             "skip_classification_review": False,
+            "approve_complete_review": False,
         }
     ]
 
@@ -265,6 +270,11 @@ def test_parser_defaults_are_safe():
         is False
     )
 
+    assert (
+        arguments.approve_complete_review
+        is False
+    )
+
 
 def test_parser_accepts_explicit_values():
     parser = build_argument_parser()
@@ -306,6 +316,7 @@ def test_demo_skip_flag_reaches_orchestration():
             "top": 5,
             "created_at": None,
             "skip_classification_review": True,
+            "approve_complete_review": False,
         }
     ]
 
@@ -327,6 +338,50 @@ def test_demo_skip_flag_reaches_orchestration():
     assert arguments.top == 5
     assert (
         arguments.demo_skip_classification_review
+        is True
+    )
+
+
+def test_explicit_complete_review_flag_reaches_orchestration():
+    orchestration = RecordingOrchestrationService(
+        result=successful_result()
+    )
+
+    output = OutputRecorder()
+
+    command = MailboxFullReviewCommand(
+        orchestration_service=orchestration,
+        output_writer=output,
+    )
+
+    result = command.run(
+        approve_complete_review=True
+    )
+
+    assert result.success is True
+
+    assert (
+        orchestration.calls[0][
+            "approve_complete_review"
+        ]
+        is True
+    )
+
+    assert (
+        "Explicit complete review approval: True"
+        in output.lines
+    )
+
+    parser = build_argument_parser()
+
+    arguments = parser.parse_args(
+        [
+            "--approve-complete-review",
+        ]
+    )
+
+    assert (
+        arguments.approve_complete_review
         is True
     )
 
@@ -414,6 +469,11 @@ run_test(
 run_test(
     "demo skip flag reaches orchestration",
     test_demo_skip_flag_reaches_orchestration,
+)
+
+run_test(
+    "explicit complete review flag reaches orchestration",
+    test_explicit_complete_review_flag_reaches_orchestration,
 )
 
 run_test(

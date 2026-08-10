@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from src.models.smartsheet_mapping import (
@@ -80,6 +81,7 @@ class SmartsheetReviewSubmissionService:
         approval_result: CompleteReviewApprovalResult,
         policies: list[SmartsheetColumnPolicy],
         available_columns: dict[str, int],
+        attachment_source_path: str | Path | None = None,
     ) -> SmartsheetReviewSubmissionResult:
         """
         Submit one completely reviewed and explicitly approved
@@ -137,6 +139,7 @@ class SmartsheetReviewSubmissionService:
         write_result = self.write_service.write(
             mapping=mapping,
             destination_validation=destination_validation,
+            attachment_source_path=attachment_source_path,
         )
 
         if not write_result.success:
@@ -152,7 +155,7 @@ class SmartsheetReviewSubmissionService:
         return SmartsheetReviewSubmissionResult(
             written=True,
             success=True,
-            status="written",
+            status=write_result.status,
         )
 
     @staticmethod

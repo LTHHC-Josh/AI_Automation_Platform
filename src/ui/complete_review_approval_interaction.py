@@ -44,6 +44,7 @@ class CompleteReviewApprovalInteraction:
         self,
         *,
         review_output: ReviewOutput,
+        approve_without_prompt: bool = False,
     ) -> CompleteReviewApprovalResult:
         """
         Request one explicit final approval or rejection decision.
@@ -94,6 +95,19 @@ class CompleteReviewApprovalInteraction:
         self.output_writer(
             ""
         )
+
+        if approve_without_prompt:
+            result = self.approval_service.decide(
+                review_output=review_output,
+                reviewer_decision="approved",
+            )
+
+            self.output_writer(
+                f"Approval status: {result.status}"
+            )
+
+            return result
+
         self.output_writer(
             "1. Approve complete review"
         )

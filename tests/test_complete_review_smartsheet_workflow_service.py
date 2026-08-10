@@ -30,14 +30,20 @@ class RecordingReviewInteraction:
     ):
         self.result = result
         self.calls = []
+        self.approval_flags = []
 
     def run(
         self,
         *,
         review_output,
+        approve_without_prompt=False,
     ):
         self.calls.append(
             review_output
+        )
+
+        self.approval_flags.append(
+            approve_without_prompt
         )
 
         return self.result
@@ -67,6 +73,7 @@ class RecordingSubmissionService:
         approval_result,
         policies,
         available_columns,
+        attachment_source_path=None,
     ):
         self.calls.append(
             {
@@ -77,6 +84,10 @@ class RecordingSubmissionService:
                 ),
                 "column_count": len(
                     available_columns
+                ),
+                "attachment_supplied": (
+                    attachment_source_path
+                    is not None
                 ),
             }
         )
@@ -214,6 +225,35 @@ def test_approved_review_reaches_submission_once():
         ].approved
         is True
     )
+
+
+def test_explicit_approval_flag_reaches_interaction():
+    interaction = RecordingReviewInteraction(
+        approved_result()
+    )
+
+    submission = RecordingSubmissionService()
+
+    service = (
+        CompleteReviewSmartsheetWorkflowService(
+            review_interaction=interaction,
+            submission_service=submission,
+        )
+    )
+
+    result = service.run(
+        review_output=build_review_output(),
+        policies=build_policies(),
+        available_columns=build_columns(),
+        approve_complete_review=True,
+    )
+
+    assert result.success is True
+    assert result.written is True
+
+    assert interaction.approval_flags == [
+        True
+    ]
 
 
 def test_rejection_never_reaches_submission():
@@ -466,6 +506,11 @@ print(
 run_test(
     "approved review reaches submission once",
     test_approved_review_reaches_submission_once,
+)
+
+run_test(
+    "explicit approval flag reaches interaction",
+    test_explicit_approval_flag_reaches_interaction,
 )
 
 run_test(

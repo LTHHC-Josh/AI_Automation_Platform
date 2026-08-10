@@ -4561,6 +4561,179 @@ explicit complete-review approval. Keep patient data, OCR text,
 filenames, paths, source_text, and Smartsheet payload values out of
 terminal and chat output.
 
+
+------------------------------------------------------------
+NON-INTERACTIVE COMPLETE REVIEW AND SMARTSHEET ROW ATTACHMENT STATUS
+------------------------------------------------------------
+
+Implemented explicit non-interactive complete-review approval.
+
+CLI flag:
+
+--approve-complete-review
+
+The flag does not bypass the complete-review approval service.
+
+It sends the explicit approved decision through the same
+CompleteReviewApprovalService boundary used by interactive approval.
+
+Current safety behavior remains:
+
+- Human Review Recommended may proceed only after explicit complete
+  review approval.
+- Human Review Required remains blocked.
+- Classification confirmation does not authorize Smartsheet writing.
+- Existing interactive approval remains available when the explicit
+  flag is not supplied.
+
+Implemented Smartsheet row attachment support.
+
+Current flow:
+
+approved complete review
+  -> deterministic Smartsheet mapping
+  -> destination validation
+  -> create reviewed Smartsheet row
+  -> prepare temporary locally renamed document copy
+  -> attach temporary copy to the newly created row
+  -> remove temporary copy
+
+The original local document is not renamed or modified.
+
+Temporary test naming convention:
+
+LTHHC_AUTH_TEST_<12-character SHA-256 fingerprint prefix>.<extension>
+
+This is a temporary test policy only. The final LTHHC document naming
+convention has not yet been defined.
+
+The existing local DocumentFingerprintService supplies the SHA-256
+fingerprint. Patient data, OCR text, source_text, authorization values,
+original filename, and original path are not used in the test filename.
+
+Smartsheet Python SDK support was confirmed locally:
+
+attach_file_to_row(sheet_id, row_id, _file)
+
+The installed SDK accepts a string path or file stream for _file.
+
+SmartsheetReviewedWriteResult now preserves only PHI-safe write state:
+
+- written
+- column_count
+- attachment_written
+- success
+- status
+
+It does not return the Smartsheet row ID, filename, local path,
+fingerprint, mapped payload, OCR text, source_text, or patient data.
+
+If row creation succeeds but attachment preparation or attachment fails,
+the result reports the partial state safely. The already-created
+Smartsheet row is not automatically deleted.
+
+Files added:
+
+- src/services/document_attachment_naming_service.py
+- tests/test_document_attachment_naming_service.py
+
+Files changed include:
+
+- src/clients/smartsheet_client.py
+- src/services/smartsheet_reviewed_write_service.py
+- src/services/smartsheet_review_submission_service.py
+- src/services/complete_review_smartsheet_workflow_service.py
+- src/services/mailbox_complete_review_smartsheet_service.py
+- src/services/mailbox_full_review_orchestration_service.py
+- src/ui/complete_review_approval_interaction.py
+- src/ui/mailbox_full_review_command.py
+- related focused and regression tests
+
+Non-interactive approval testing completed before attachment work:
+
+Focused:
+54 passed
+0 failed
+
+Affected regressions:
+52 passed
+0 failed
+
+Total for that tested checkpoint:
+106 passed
+0 failed
+
+All were synthetic deterministic or mock tests.
+No external Smartsheet, Microsoft Graph, OCR, or Ollama calls occurred.
+
+Attachment and forwarding tests completed:
+
+Document attachment naming:
+2 passed
+0 failed
+Synthetic deterministic local-file test
+
+Smartsheet reviewed write:
+17 passed
+0 failed
+Mock Smartsheet write-boundary test
+
+Approval-gated Smartsheet submission:
+11 passed
+0 failed
+Synthetic deterministic/mock
+
+Complete-review Smartsheet workflow:
+9 passed
+0 failed
+Synthetic deterministic/mock
+
+Mailbox complete-review Smartsheet boundary:
+14 passed
+0 failed
+Synthetic deterministic/mock
+
+Full mailbox review orchestration:
+12 passed
+0 failed
+Mock
+
+Full mailbox review command:
+10 passed
+0 failed
+Mock
+
+PHI handling:
+
+- Synthetic values and synthetic files only were used in these tests.
+- No real patient document was read during attachment tests.
+- No Smartsheet external API write occurred.
+- No Microsoft Graph call occurred.
+- No OCR call occurred.
+- No Ollama call occurred.
+- No mapped Smartsheet payload was printed.
+- No real filename, local patient path, OCR text, source_text, or patient
+  data was printed.
+
+Limitations:
+
+- The attachment filename convention is temporary.
+- A real Smartsheet row attachment has not yet been performed.
+- If row creation succeeds and attachment later fails, the row can
+  remain in Smartsheet and the result reports the failure safely.
+- Automatic rollback of a successfully created row is not implemented.
+- Final production naming requirements remain unresolved.
+- Real OCR/Ollama/review/Smartsheet execution still requires explicit
+  complete-review approval before writing.
+
+Exact next starting point:
+
+Perform the real boss-demo preflight using the latest supported local
+attachment already used for testing. Keep patient data, OCR text,
+source_text, filenames, local paths, fingerprints, row IDs, and
+Smartsheet payload values out of terminal and chat output. Run real local
+OCR/Ollama/review, require explicit complete-review approval, then write
+the reviewed row and attach the temporary renamed copy to Smartsheet.
 """
 
 

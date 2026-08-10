@@ -255,6 +255,44 @@ def test_approve_submits_explicit_approved_decision():
     )
 
 
+def test_explicit_approval_skips_terminal_prompt():
+    approval_service = (
+        RecordingApprovalService()
+    )
+
+    (
+        interaction,
+        input_reader,
+        output,
+    ) = build_interaction(
+        [],
+        approval_service,
+    )
+
+    review_output = build_review_output()
+
+    result = interaction.run(
+        review_output=review_output,
+        approve_without_prompt=True,
+    )
+
+    assert result.approved is True
+    assert result.success is True
+    assert input_reader.prompts == []
+
+    assert approval_service.calls == [
+        {
+            "review_output": review_output,
+            "reviewer_decision": "approved",
+        }
+    ]
+
+    assert (
+        "Approval status: approved"
+        in output.lines
+    )
+
+
 def test_reject_submits_explicit_rejected_decision():
     approval_service = (
         RecordingApprovalService(
@@ -534,6 +572,11 @@ print(
 run_test(
     "approve submits explicit approved decision",
     test_approve_submits_explicit_approved_decision,
+)
+
+run_test(
+    "explicit approval skips terminal prompt",
+    test_explicit_approval_skips_terminal_prompt,
 )
 
 run_test(

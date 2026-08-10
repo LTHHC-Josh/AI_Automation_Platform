@@ -1,4 +1,4 @@
-﻿from dotenv import load_dotenv
+from dotenv import load_dotenv
 import os
 import smartsheet
 
@@ -140,3 +140,18 @@ class SmartsheetClient:
         )
 
         return response.result[0]
+
+    def attach_file_to_row(
+        self,
+        row_id,
+        file_path,
+    ):
+        """
+        Attach one local file to an existing row.
+        """
+
+        return self.client.Attachments.attach_file_to_row(
+            self.sheet_id,
+            row_id,
+            str(file_path),
+        )

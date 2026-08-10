@@ -43,12 +43,20 @@ class RecordingWorkflowService:
         review_output,
         policies,
         available_columns,
+        approve_complete_review=False,
+        attachment_source_path=None,
     ):
         self.calls.append(
             {
                 "review_output": review_output,
                 "policies": policies,
                 "available_columns": available_columns,
+                "approve_complete_review": (
+                    approve_complete_review
+                ),
+                "attachment_source_path": (
+                    attachment_source_path
+                ),
             }
         )
 
@@ -98,6 +106,8 @@ class FailingWorkflowService:
         review_output,
         policies,
         available_columns,
+        approve_complete_review=False,
+        attachment_source_path=None,
     ):
         raise RuntimeError(
             "PRIVATE-SYNTHETIC-FAILURE"
@@ -347,6 +357,56 @@ def test_resolved_config_is_forwarded():
             "available_columns"
         ]
         == configuration_result.available_columns
+    )
+
+    assert (
+        workflow.calls[0][
+            "attachment_source_path"
+        ]
+        == document.file_path
+    )
+
+
+def test_explicit_approval_flag_reaches_workflow():
+    document = build_document(
+        "one"
+    )
+
+    workflow = RecordingWorkflowService(
+        [
+            written_result(),
+        ]
+    )
+
+    service = (
+        MailboxCompleteReviewSmartsheetService(
+            workflow_service=workflow,
+            configuration_service=(
+                RecordingConfigurationService(
+                    [
+                        ready_configuration(),
+                    ]
+                )
+            ),
+        )
+    )
+
+    result = service.run(
+        message_results=[
+            build_message_result(
+                [document]
+            )
+        ],
+        approve_complete_review=True,
+    )
+
+    assert result.success is True
+
+    assert (
+        workflow.calls[0][
+            "approve_complete_review"
+        ]
+        is True
     )
 
 
@@ -800,6 +860,11 @@ run_test(
 run_test(
     "resolved configuration is forwarded",
     test_resolved_config_is_forwarded,
+)
+
+run_test(
+    "explicit approval flag reaches workflow",
+    test_explicit_approval_flag_reaches_workflow,
 )
 
 run_test(

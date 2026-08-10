@@ -89,6 +89,7 @@ class MailboxCompleteReviewSmartsheetService:
         message_results: Iterable[
             MessageProcessingResult
         ],
+        approve_complete_review: bool = False,
     ) -> MailboxCompleteReviewSmartsheetResult:
         try:
             results = list(
@@ -173,6 +174,12 @@ class MailboxCompleteReviewSmartsheetService:
                             available_columns=dict(
                                 configuration_result
                                 .available_columns
+                            ),
+                            approve_complete_review=(
+                                approve_complete_review
+                            ),
+                            attachment_source_path=(
+                                document.file_path
                             ),
                         )
                     )

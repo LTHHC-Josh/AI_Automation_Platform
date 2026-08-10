@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from src.models.smartsheet_mapping import (
@@ -76,6 +77,8 @@ class CompleteReviewSmartsheetWorkflowService:
         review_output: ReviewOutput,
         policies: list[SmartsheetColumnPolicy],
         available_columns: dict[str, int],
+        approve_complete_review: bool = False,
+        attachment_source_path: str | Path | None = None,
     ) -> CompleteReviewSmartsheetWorkflowResult:
         """
         Run one explicit approval decision and submit only when the
@@ -92,7 +95,10 @@ class CompleteReviewSmartsheetWorkflowService:
 
         approval_result = (
             self.review_interaction.run(
-                review_output=review_output
+                review_output=review_output,
+                approve_without_prompt=(
+                    approve_complete_review
+                ),
             )
         )
 
@@ -121,6 +127,7 @@ class CompleteReviewSmartsheetWorkflowService:
                 approval_result=approval_result,
                 policies=policies,
                 available_columns=available_columns,
+                attachment_source_path=attachment_source_path,
             )
         )
 

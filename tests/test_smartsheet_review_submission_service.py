@@ -35,6 +35,7 @@ class RecordingWriteService:
             or SmartsheetReviewedWriteResult(
                 written=True,
                 column_count=8,
+                attachment_written=False,
                 success=True,
                 status="written",
             )
@@ -45,6 +46,7 @@ class RecordingWriteService:
         *,
         mapping,
         destination_validation,
+        attachment_source_path=None,
     ):
         self.calls.append(
             {
@@ -54,6 +56,10 @@ class RecordingWriteService:
                 "destination_ready": (
                     destination_validation
                     .ready_for_write
+                ),
+                "attachment_supplied": (
+                    attachment_source_path
+                    is not None
                 ),
             }
         )
@@ -384,6 +390,7 @@ def test_writer_failure_is_preserved_safely():
         result=SmartsheetReviewedWriteResult(
             written=False,
             column_count=0,
+            attachment_written=False,
             success=False,
             status="smartsheet_write_failed",
         )

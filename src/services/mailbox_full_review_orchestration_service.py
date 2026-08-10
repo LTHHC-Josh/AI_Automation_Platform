@@ -84,6 +84,7 @@ class MailboxFullReviewOrchestrationService:
         top: Any = 10,
         created_at: Any = None,
         skip_classification_review: bool = False,
+        approve_complete_review: bool = False,
     ) -> MailboxFullReviewOrchestrationResult:
         normalized_top = self._normalize_top(
             top
@@ -172,7 +173,10 @@ class MailboxFullReviewOrchestrationService:
         try:
             complete_result = (
                 self.complete_review_smartsheet_service.run(
-                    message_results=message_results
+                    message_results=message_results,
+                    approve_complete_review=(
+                        approve_complete_review
+                    ),
                 )
             )
         except Exception:

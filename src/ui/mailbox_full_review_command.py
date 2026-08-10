@@ -41,12 +41,16 @@ class MailboxFullReviewCommand:
         top: Any = 10,
         created_at: Any = None,
         skip_classification_review: bool = False,
+        approve_complete_review: bool = False,
     ) -> MailboxFullReviewOrchestrationResult:
         result = self.orchestration_service.run(
             top=top,
             created_at=created_at,
             skip_classification_review=(
                 skip_classification_review
+            ),
+            approve_complete_review=(
+                approve_complete_review
             ),
         )
 
@@ -73,6 +77,11 @@ class MailboxFullReviewCommand:
         if skip_classification_review:
             self.output_writer(
                 "Demo classification review skipped: True"
+            )
+
+        if approve_complete_review:
+            self.output_writer(
+                "Explicit complete review approval: True"
             )
 
         self.output_writer(
@@ -157,6 +166,16 @@ def build_argument_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    parser.add_argument(
+        "--approve-complete-review",
+        action="store_true",
+        help=(
+            "Explicitly approve the complete-review decision without "
+            "the terminal approval prompt. The existing complete-review "
+            "approval service still blocks Human Review Required."
+        ),
+    )
+
     return parser
 
 
@@ -172,6 +191,9 @@ def main(
         created_at=arguments.created_at,
         skip_classification_review=(
             arguments.demo_skip_classification_review
+        ),
+        approve_complete_review=(
+            arguments.approve_complete_review
         ),
     )
 
