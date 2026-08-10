@@ -167,6 +167,11 @@ class EvidenceValidationService:
             actions=actions,
         )
 
+        self._validate_authorization_status(
+            document=document,
+            actions=actions,
+        )
+
         self._validate_approved_visits(
             document=document,
             actions=actions,
@@ -655,6 +660,82 @@ class EvidenceValidationService:
             ),
             actions=actions,
         )
+
+    def _validate_authorization_status(
+        self,
+        document: Document,
+        actions: list[str],
+    ) -> None:
+        evidence = document.field_evidence.get(
+            "authorization_status"
+        )
+
+        if not isinstance(
+            evidence,
+            dict,
+        ):
+            return
+
+        value = evidence.get(
+            "value"
+        )
+
+        if value is None:
+            return
+
+        normalized_value = self._normalized_text(
+            value
+        )
+
+        normalized_source = self._normalized_text(
+            evidence.get(
+                "source_text",
+                "",
+            )
+        )
+
+        if not normalized_value:
+            self._invalidate_field(
+                document=document,
+                field_name="authorization_status",
+                reason=(
+                    "Authorization status is empty or ambiguous"
+                ),
+                actions=actions,
+            )
+            return
+
+        request_language = any(
+            term in normalized_value
+            for term in (
+                "request",
+                "requested",
+            )
+        )
+
+        if request_language:
+            self._invalidate_field(
+                document=document,
+                field_name="authorization_status",
+                reason=(
+                    "Authorization status mixes request language "
+                    "with an authorization decision"
+                ),
+                actions=actions,
+            )
+            return
+
+        if normalized_value not in normalized_source:
+            self._invalidate_field(
+                document=document,
+                field_name="authorization_status",
+                reason=(
+                    "Authorization status is not directly supported "
+                    "by its source evidence"
+                ),
+                actions=actions,
+            )
+
 
     def _validate_approved_visits(
         self,

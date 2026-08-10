@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass, field
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -19,12 +19,17 @@ class SmartsheetColumnPolicy:
     review_only:
         Whether the destination is intended only for human-review
         workflows.
+
+    confidence_column_name:
+        Optional explicitly approved destination column for the exact
+        confidence associated with source_field.
     """
 
     source_field: str
     column_name: str
     required: bool = False
     review_only: bool = False
+    confidence_column_name: str | None = None
 
 
 @dataclass

@@ -6,7 +6,7 @@ PROJECT_JOURNAL = """
 LTHHC AI AUTOMATION PLATFORM - DEVELOPMENT JOURNAL
 ============================================================
 
-Last updated: 2026-08-07
+Last updated: 2026-08-10
 
 Repository:
 LTHHC-Josh/AI_Automation_Platform
@@ -4393,6 +4393,173 @@ Preserve this successful boss-demo baseline. Next development should start
 from the clean synchronized repository and should not broaden Smartsheet
 mappings or bypass Human Review Required without a separately confirmed
 business requirement.
+
+
+------------------------------------------------------------
+ENHANCED AUTHORIZATION DEMO FIELD MAPPING - 2026-08-10
+------------------------------------------------------------
+
+Feature:
+
+Expanded the approved authorization and authorization-renewal review
+mapping for the enhanced boss demo while preserving deterministic
+validation, explicit mapping policy, human-review authority, and PHI-safe
+diagnostics.
+
+Implementation:
+
+- Authorization Status now represents only an actual authorization
+  decision or supported authorization state.
+- Request wording is not treated as an authorization decision.
+- Blended status text such as Approved Requested is deterministically
+  rejected rather than written as a final status.
+- Authorization status must retain direct source evidence.
+- Added hours to the structured Ollama extraction contract.
+- Added days_per_week to the structured Ollama extraction contract.
+- Hours and days_per_week may be extracted only from direct document
+  evidence.
+- Hours and days_per_week must not be derived from units, visits,
+  sessions, service codes, date ranges, or arithmetic.
+- SmartsheetColumnPolicy now supports an explicitly approved optional
+  confidence destination column.
+- Review-field confidence is mapped directly from the existing
+  ReviewField confidence value.
+- Low confidence is preserved and is not increased to satisfy a
+  threshold.
+- source_text is still not mapped to Smartsheet.
+- DOB remains unmapped.
+- Authorization and authorization_renewal use the same explicitly
+  approved mapping policy.
+
+Approved value mappings:
+
+- authorization_status -> Authorization Status
+- authorization_number -> Authorization #
+- service_codes -> Service Codes
+- diagnosis_code -> Diagnosis Codes
+- start_date -> Start Date
+- end_date -> End Date
+- authorized_units -> Authorized Units
+- hours -> Hours
+- days_per_week -> Days Per Week
+
+Approved confidence mappings:
+
+- authorization_number -> Authorization # Conf.
+- service_codes -> Service Codes Conf.
+- diagnosis_code -> Diagnosis Codes Conf.
+- authorized_units -> Authorized Units Conf.
+- hours -> Hours Conf.
+- days_per_week -> Days Per Week Conf.
+
+Files changed:
+
+- src/ai/llm/providers/ollama_provider.py
+- src/models/smartsheet_mapping.py
+- src/services/evidence_validation_service.py
+- src/services/smartsheet_mapping_policy_service.py
+- src/services/smartsheet_review_configuration_service.py
+- src/services/smartsheet_review_row_mapping_service.py
+- tests/test_evidence_validation_service.py
+- tests/test_ollama_service_lines.py
+- tests/test_smartsheet_review_configuration_service.py
+- tests/test_smartsheet_review_row_mapping.py
+
+Focused tests:
+
+- Evidence validation: 29 passed, 0 failed
+- Smartsheet mapping policy registry: 10 passed, 0 failed
+- Smartsheet review configuration resolver: 8 passed, 0 failed
+- Smartsheet review row mapping: 15 passed, 0 failed
+- Ollama service-line schema and prompt: 17 passed, 0 failed
+
+Focused total:
+
+Passed: 79
+Failed: 0
+
+Affected regressions:
+
+- Review output service: 8 passed, 0 failed
+- Smartsheet destination schema reader: 11 passed, 0 failed
+- Smartsheet reviewed write boundary: 13 passed, 0 failed
+- Authorization quantity rules: 8 passed, 0 failed
+- Authorization rule registry: 5 passed, 0 failed
+
+Affected regression total:
+
+Passed: 45
+Failed: 0
+
+Combined automated result:
+
+Passed: 124
+Failed: 0
+
+Test classification:
+
+- Synthetic deterministic
+- Synthetic deterministic/mock
+- Mock Smartsheet write-boundary
+- No real OCR prediction was called
+- No real Ollama generation was called
+- Microsoft Graph was not called
+- No real Smartsheet row write occurred
+
+Real external read-only Smartsheet validation:
+
+- Real AI-destination Smartsheet API called
+- Configuration success: True
+- Configuration status: ready
+- Approved policy count: 9
+- Destination column count: 23
+- Rows read: 0
+- Rows written: 0
+- Only column metadata was accessed
+
+PHI handling:
+
+- No patient data was printed or copied into tests or tracker output.
+- No OCR text was printed.
+- No source_text was printed or written to Smartsheet.
+- No patient document filename or identifying local path was printed.
+- No Smartsheet row payload values were printed.
+- No credentials, tokens, or .env contents were printed.
+- Real Smartsheet verification used only PHI-safe schema metadata.
+- Synthetic tests used synthetic values only.
+
+Limitations:
+
+- Hours and days_per_week have not yet been exercised through a real
+  local Ollama extraction run.
+- The enhanced nine-field policy has not yet performed a real reviewed
+  Smartsheet row write.
+- The original document is not yet attached to the Smartsheet row.
+- Document renaming for the enhanced demo is not yet implemented.
+- A non-interactive explicit complete-review approval command option is
+  not yet implemented.
+- Human Review Required remains intentionally blocked.
+- Authorization quantity meaning remains governed by the existing
+  deterministic business-rule and review boundaries.
+- No payer-, service-code-, modifier-, or fixture-specific conclusion
+  was introduced.
+
+Exact next starting point:
+
+Preserve this tested mapping baseline. Next inspect the existing full
+mailbox review command, complete-review approval interaction, reviewed
+Smartsheet write service, and Smartsheet client attachment capabilities.
+
+Implement the smallest explicit non-interactive complete-review approval
+option without weakening Human Review Required, then implement the
+reviewed-row attachment boundary and deterministic document-renaming
+behavior.
+
+After focused and affected tests pass, run the real local
+OCR/Ollama/review workflow and perform a real Smartsheet write only after
+explicit complete-review approval. Keep patient data, OCR text,
+filenames, paths, source_text, and Smartsheet payload values out of
+terminal and chat output.
 
 """
 

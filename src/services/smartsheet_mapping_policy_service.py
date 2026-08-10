@@ -128,6 +128,15 @@ class SmartsheetMappingPolicyService:
                     policy.column_name
                 )
 
+                confidence_column_name = (
+                    self._normalize_column_name(
+                        policy.confidence_column_name
+                    )
+                    if policy.confidence_column_name
+                    is not None
+                    else ""
+                )
+
                 if not source_field:
                     raise ValueError(
                         "Mapping policy source field is invalid."
@@ -148,6 +157,15 @@ class SmartsheetMappingPolicyService:
                         "Duplicate mapping policy column name."
                     )
 
+                if (
+                    confidence_column_name
+                    and confidence_column_name
+                    in seen_column_names
+                ):
+                    raise ValueError(
+                        "Duplicate mapping policy confidence column name."
+                    )
+
                 seen_source_fields.add(
                     source_field
                 )
@@ -155,6 +173,11 @@ class SmartsheetMappingPolicyService:
                 seen_column_names.add(
                     column_name
                 )
+
+                if confidence_column_name:
+                    seen_column_names.add(
+                        confidence_column_name
+                    )
 
                 normalized_policies.append(
                     SmartsheetColumnPolicy(
@@ -165,6 +188,10 @@ class SmartsheetMappingPolicyService:
                         ),
                         review_only=bool(
                             policy.review_only
+                        ),
+                        confidence_column_name=(
+                            confidence_column_name
+                            or None
                         ),
                     )
                 )

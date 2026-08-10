@@ -166,10 +166,20 @@ def test_ready_configuration_is_returned():
 def test_default_authorization_policy_is_approved():
     columns = {
         "Authorization Status": 1001,
-        "Service Codes": 1002,
-        "Authorized Units": 1003,
-        "Start Date": 1004,
-        "End Date": 1005,
+        "Authorization #": 1002,
+        "Authorization # Conf.": 1003,
+        "Service Codes": 1004,
+        "Service Codes Conf.": 1005,
+        "Diagnosis Codes": 1006,
+        "Diagnosis Codes Conf.": 1007,
+        "Start Date": 1008,
+        "End Date": 1009,
+        "Authorized Units": 1010,
+        "Authorized Units Conf.": 1011,
+        "Hours": 1012,
+        "Hours Conf.": 1013,
+        "Days Per Week": 1014,
+        "Days Per Week Conf.": 1015,
     }
 
     schema_service = RecordingSchemaService(
@@ -194,34 +204,60 @@ def test_default_authorization_policy_is_approved():
 
     assert result.success is True
     assert result.status == "ready"
-    assert result.policy_count == 5
+    assert result.policy_count == 9
 
     assert [
         (
             policy.source_field,
             policy.column_name,
+            policy.confidence_column_name,
         )
         for policy in result.policies
     ] == [
         (
             "authorization_status",
             "Authorization Status",
+            None,
+        ),
+        (
+            "authorization_number",
+            "Authorization #",
+            "Authorization # Conf.",
         ),
         (
             "service_codes",
             "Service Codes",
+            "Service Codes Conf.",
         ),
         (
-            "authorized_units",
-            "Authorized Units",
+            "diagnosis_code",
+            "Diagnosis Codes",
+            "Diagnosis Codes Conf.",
         ),
         (
             "start_date",
             "Start Date",
+            None,
         ),
         (
             "end_date",
             "End Date",
+            None,
+        ),
+        (
+            "authorized_units",
+            "Authorized Units",
+            "Authorized Units Conf.",
+        ),
+        (
+            "hours",
+            "Hours",
+            "Hours Conf.",
+        ),
+        (
+            "days_per_week",
+            "Days Per Week",
+            "Days Per Week Conf.",
         ),
     ]
 
@@ -231,10 +267,20 @@ def test_default_authorization_policy_is_approved():
 def test_default_authorization_renewal_policy_is_approved():
     columns = {
         "Authorization Status": 1001,
-        "Service Codes": 1002,
-        "Authorized Units": 1003,
-        "Start Date": 1004,
-        "End Date": 1005,
+        "Authorization #": 1002,
+        "Authorization # Conf.": 1003,
+        "Service Codes": 1004,
+        "Service Codes Conf.": 1005,
+        "Diagnosis Codes": 1006,
+        "Diagnosis Codes Conf.": 1007,
+        "Start Date": 1008,
+        "End Date": 1009,
+        "Authorized Units": 1010,
+        "Authorized Units Conf.": 1011,
+        "Hours": 1012,
+        "Hours Conf.": 1013,
+        "Days Per Week": 1014,
+        "Days Per Week Conf.": 1015,
     }
 
     schema_service = RecordingSchemaService(
@@ -259,34 +305,60 @@ def test_default_authorization_renewal_policy_is_approved():
 
     assert result.success is True
     assert result.status == "ready"
-    assert result.policy_count == 5
+    assert result.policy_count == 9
 
     assert [
         (
             policy.source_field,
             policy.column_name,
+            policy.confidence_column_name,
         )
         for policy in result.policies
     ] == [
         (
             "authorization_status",
             "Authorization Status",
+            None,
+        ),
+        (
+            "authorization_number",
+            "Authorization #",
+            "Authorization # Conf.",
         ),
         (
             "service_codes",
             "Service Codes",
+            "Service Codes Conf.",
         ),
         (
-            "authorized_units",
-            "Authorized Units",
+            "diagnosis_code",
+            "Diagnosis Codes",
+            "Diagnosis Codes Conf.",
         ),
         (
             "start_date",
             "Start Date",
+            None,
         ),
         (
             "end_date",
             "End Date",
+            None,
+        ),
+        (
+            "authorized_units",
+            "Authorized Units",
+            "Authorized Units Conf.",
+        ),
+        (
+            "hours",
+            "Hours",
+            "Hours Conf.",
+        ),
+        (
+            "days_per_week",
+            "Days Per Week",
+            "Days Per Week Conf.",
         ),
     ]
 

@@ -17,12 +17,19 @@ APPROVED_AUTHORIZATION_POLICIES = (
         column_name="Authorization Status",
     ),
     SmartsheetColumnPolicy(
-        source_field="service_codes",
-        column_name="Service Codes",
+        source_field="authorization_number",
+        column_name="Authorization #",
+        confidence_column_name="Authorization # Conf.",
     ),
     SmartsheetColumnPolicy(
-        source_field="authorized_units",
-        column_name="Authorized Units",
+        source_field="service_codes",
+        column_name="Service Codes",
+        confidence_column_name="Service Codes Conf.",
+    ),
+    SmartsheetColumnPolicy(
+        source_field="diagnosis_code",
+        column_name="Diagnosis Codes",
+        confidence_column_name="Diagnosis Codes Conf.",
     ),
     SmartsheetColumnPolicy(
         source_field="start_date",
@@ -31,6 +38,21 @@ APPROVED_AUTHORIZATION_POLICIES = (
     SmartsheetColumnPolicy(
         source_field="end_date",
         column_name="End Date",
+    ),
+    SmartsheetColumnPolicy(
+        source_field="authorized_units",
+        column_name="Authorized Units",
+        confidence_column_name="Authorized Units Conf.",
+    ),
+    SmartsheetColumnPolicy(
+        source_field="hours",
+        column_name="Hours",
+        confidence_column_name="Hours Conf.",
+    ),
+    SmartsheetColumnPolicy(
+        source_field="days_per_week",
+        column_name="Days Per Week",
+        confidence_column_name="Days Per Week Conf.",
     ),
 )
 
@@ -115,6 +137,12 @@ class SmartsheetReviewConfigurationService:
             policy.column_name
             for policy in policy_result.policies
         }
+
+        policy_columns.update(
+            policy.confidence_column_name
+            for policy in policy_result.policies
+            if policy.confidence_column_name
+        )
 
         missing_columns = (
             policy_columns

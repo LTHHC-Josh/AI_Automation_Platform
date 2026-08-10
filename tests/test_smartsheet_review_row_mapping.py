@@ -127,6 +127,28 @@ def test_approved_fields_are_mapped():
     )
 
 
+def test_field_confidence_is_mapped_without_threshold_override():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(),
+        policies=[
+            SmartsheetColumnPolicy(
+                source_field="authorized_units",
+                column_name="Authorized Units",
+                confidence_column_name="Authorized Units Conf.",
+            ),
+        ],
+    )
+
+    assert (
+        result.values[
+            "Authorized Units Conf."
+        ]
+        == 0.50
+    )
+
+
 def test_list_order_is_preserved():
     service = SmartsheetReviewRowMappingService()
 
@@ -420,6 +442,10 @@ print(
 run_test(
     "approved fields are mapped",
     test_approved_fields_are_mapped,
+)
+run_test(
+    "field confidence is mapped without threshold override",
+    test_field_confidence_is_mapped_without_threshold_override,
 )
 run_test(
     "list order is preserved",

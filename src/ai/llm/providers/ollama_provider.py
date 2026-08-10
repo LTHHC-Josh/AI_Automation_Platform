@@ -87,6 +87,8 @@ class OllamaProvider(LLMProvider):
         "provider_npi",
         "diagnosis_code",
         "diagnosis_description",
+        "hours",
+        "days_per_week",
     ]
 
     SERVICE_LINE_FIELD_NAMES = [
@@ -656,6 +658,31 @@ For Molina documents:
 - "Member or Medicaid ID #" may represent the member ID.
 - "Reference#" may represent the authorization number.
 
+AUTHORIZATION STATUS
+
+authorization_status represents only the actual authorization decision
+or authorization state supported by the document.
+
+Do not combine request language with authorization decision language.
+
+Examples:
+
+- clear approval evidence may support Approved
+- clear denial evidence may support Denied
+- clear pending or review-state evidence may support that stated status
+
+A request for services, visits, hours, units, or authorization does not by
+itself prove approval.
+
+Do not return blended or synthesized statuses such as:
+
+- Approved Requested
+- Requested Approved
+- Approved Request
+
+When the authorization decision is missing, conflicting, or ambiguous,
+return null with confidence 0.
+
 REQUEST TYPE
 
 A form may contain both:
@@ -770,6 +797,27 @@ Prefer dates associated with approved authorization service lines.
 Do not use fax dates, submission dates, review dates, printed dates, or
 request dates as authorization start or end dates unless the document
 clearly identifies them as the authorized service period.
+
+HOURS AND DAYS PER WEEK
+
+Extract hours only when the document directly states an hours value in a
+clear service or authorization context.
+
+Extract days_per_week only when the document directly states the number
+of days per week in a clear service or authorization context.
+
+Do not derive hours or days_per_week from:
+
+- authorized units,
+- requested units,
+- visits,
+- sessions,
+- service codes,
+- date ranges,
+- arithmetic,
+- assumptions about service duration or frequency.
+
+If the value is not directly supported, return null with confidence 0.
 
 PROVIDER NPI
 

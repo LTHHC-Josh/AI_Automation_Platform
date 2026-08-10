@@ -122,6 +122,11 @@ class SmartsheetReviewRowMappingService:
                 review_field.value
             )
 
+            if policy.confidence_column_name:
+                result.values[
+                    policy.confidence_column_name
+                ] = review_field.confidence
+
             if policy.review_only:
                 result.review_only_columns.append(
                     policy.column_name
@@ -252,15 +257,35 @@ class SmartsheetReviewRowMappingService:
                 policy.column_name
             ).strip()
 
+            confidence_column_name = (
+                str(
+                    policy.confidence_column_name
+                ).strip()
+                if policy.confidence_column_name
+                is not None
+                else ""
+            )
+
             if not source_field or not column_name:
                 continue
 
             if column_name in seen_columns:
                 continue
 
+            if (
+                confidence_column_name
+                and confidence_column_name in seen_columns
+            ):
+                continue
+
             seen_columns.add(
                 column_name
             )
+
+            if confidence_column_name:
+                seen_columns.add(
+                    confidence_column_name
+                )
 
             normalized.append(
                 SmartsheetColumnPolicy(
@@ -271,6 +296,10 @@ class SmartsheetReviewRowMappingService:
                     ),
                     review_only=bool(
                         policy.review_only
+                    ),
+                    confidence_column_name=(
+                        confidence_column_name
+                        or None
                     ),
                 )
             )

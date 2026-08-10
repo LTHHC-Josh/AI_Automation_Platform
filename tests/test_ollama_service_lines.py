@@ -19,6 +19,45 @@ def build_provider_without_connection() -> OllamaProvider:
     return provider
 
 
+def test_enhanced_demo_fields_are_in_extraction_schema() -> None:
+    field_properties = (
+        OllamaProvider.EXTRACTION_SCHEMA[
+            "properties"
+        ][
+            "fields"
+        ][
+            "properties"
+        ]
+    )
+
+    assert "hours" in field_properties
+    assert "days_per_week" in field_properties
+
+
+def test_authorization_status_prompt_rejects_blended_request_status() -> None:
+    provider = build_provider_without_connection()
+
+    prompt = " ".join(
+        provider._extraction_prompt()
+        .lower()
+        .split()
+    )
+
+    assert "approved requested" in prompt
+    assert "request for services" in prompt
+    assert "does not by itself prove approval" in prompt
+
+
+def test_hours_and_days_prompt_forbids_quantity_inference() -> None:
+    provider = build_provider_without_connection()
+
+    prompt = provider._extraction_prompt().lower()
+
+    assert "hours and days per week" in prompt
+    assert "do not derive hours or days_per_week" in prompt
+    assert "authorized units" in prompt
+
+
 def test_schema_requires_service_lines() -> None:
     required_fields = (
         OllamaProvider.EXTRACTION_SCHEMA[
@@ -369,6 +408,18 @@ def main() -> None:
     )
 
     tests = [
+        (
+            "enhanced demo fields are in extraction schema",
+            test_enhanced_demo_fields_are_in_extraction_schema,
+        ),
+        (
+            "authorization status prompt rejects blended request status",
+            test_authorization_status_prompt_rejects_blended_request_status,
+        ),
+        (
+            "hours and days prompt forbids quantity inference",
+            test_hours_and_days_prompt_forbids_quantity_inference,
+        ),
         (
             "schema requires service lines",
             test_schema_requires_service_lines,

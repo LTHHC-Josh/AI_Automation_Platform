@@ -887,6 +887,96 @@ def run_test(
     return True
 
 
+
+def test_requested_language_is_not_authorization_status() -> None:
+    document = build_document(
+        {
+            "authorization_status": {
+                "value": "Approved Requested",
+                "confidence": 0.77,
+                "source_text": "Approved Requested",
+            },
+        }
+    )
+
+    actions = EvidenceValidationService().validate(
+        document
+    )
+
+    assert (
+        document.field_evidence[
+            "authorization_status"
+        ][
+            "value"
+        ]
+        is None
+    )
+
+    assert (
+        document.field_evidence[
+            "authorization_status"
+        ][
+            "confidence"
+        ]
+        == 0.0
+    )
+
+    assert (
+        document.extracted_data[
+            "authorization_status"
+        ]
+        is None
+    )
+
+    assert any(
+        "mixes request language"
+        in action
+        for action in actions
+    )
+
+
+def test_supported_authorization_status_is_preserved() -> None:
+    document = build_document(
+        {
+            "authorization_status": {
+                "value": "Approved",
+                "confidence": 0.73,
+                "source_text": "Authorization Status Approved",
+            },
+        }
+    )
+
+    actions = EvidenceValidationService().validate(
+        document
+    )
+
+    assert (
+        document.field_evidence[
+            "authorization_status"
+        ][
+            "value"
+        ]
+        == "Approved"
+    )
+
+    assert (
+        document.field_evidence[
+            "authorization_status"
+        ][
+            "confidence"
+        ]
+        == 0.73
+    )
+
+    assert (
+        document.extracted_data[
+            "authorization_status"
+        ]
+        == "Approved"
+    )
+
+    assert actions == []
+
 def main() -> None:
     print("=" * 60)
     print("Testing Evidence Validation Service")
@@ -937,6 +1027,14 @@ def main() -> None:
         (
             "ambiguous request type is cleared",
             test_ambiguous_request_type_is_cleared,
+        ),
+        (
+            "requested language is not authorization status",
+            test_requested_language_is_not_authorization_status,
+        ),
+        (
+            "supported authorization status is preserved",
+            test_supported_authorization_status_is_preserved,
         ),
         (
             "requested visits are not approved visits",
