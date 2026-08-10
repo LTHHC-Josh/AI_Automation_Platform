@@ -1,3 +1,4 @@
+from pathlib import Path
 from dotenv import load_dotenv
 import os
 import smartsheet
@@ -148,10 +149,17 @@ class SmartsheetClient:
     ):
         """
         Attach one local file to an existing row.
+
+        The Smartsheet SDK multipart boundary requires the actual file
+        stream. Passing a local path string causes that string itself to
+        be treated as the multipart file content.
         """
 
-        return self.client.Attachments.attach_file_to_row(
-            self.sheet_id,
-            row_id,
-            str(file_path),
-        )
+        path = Path(file_path)
+
+        with path.open("rb") as file_stream:
+            return self.client.Attachments.attach_file_to_row(
+                self.sheet_id,
+                row_id,
+                file_stream,
+            )

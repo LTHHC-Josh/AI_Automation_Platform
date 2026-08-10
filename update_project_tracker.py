@@ -4734,6 +4734,126 @@ source_text, filenames, local paths, fingerprints, row IDs, and
 Smartsheet payload values out of terminal and chat output. Run real local
 OCR/Ollama/review, require explicit complete-review approval, then write
 the reviewed row and attach the temporary renamed copy to Smartsheet.
+
+------------------------------------------------------------
+SMARTSHEET ATTACHMENT STREAM AND VISIBLE CONFIDENCE FIX - 2026-08-10
+------------------------------------------------------------
+
+Feature:
+
+Corrected the Smartsheet attachment upload boundary and aligned the
+Smartsheet-facing minimum-field-confidence value with the confidence
+columns actually displayed on the destination row.
+
+Attachment correction:
+
+- Installed Smartsheet Python SDK version 4.3.0 was inspected locally.
+- Its attach_file_to_row multipart operation places the supplied object
+  directly into files["file"].
+- The prior implementation supplied a local path string.
+- The real external test showed that Smartsheet accepted that string as
+  a generic file attachment rather than uploading the document bytes.
+- The attachment appeared as a generic file named file and could not be
+  opened after download.
+- SmartsheetClient now opens the prepared temporary document in binary
+  mode and passes the real file stream to the SDK.
+- The stream retains the temporary renamed attachment filename.
+- The stream is closed immediately after the SDK call returns.
+- The existing temporary attachment preparation and cleanup boundary is
+  preserved.
+- The original local source document remains unchanged.
+
+Smartsheet minimum confidence correction:
+
+- Internal ReviewOutput.minimum_field_confidence remains unchanged.
+- Human-review decisions continue to use the full populated extraction
+  field set.
+- Smartsheet AI Minimum Field Confidence now represents the minimum only
+  among populated fields that have explicit displayed confidence
+  destination columns in the approved mapping policy.
+- Hidden internal extraction fields no longer create a Smartsheet
+  minimum that cannot be reconciled with the confidence cells visible
+  to a reviewer.
+- Individual mapped confidence values remain unchanged.
+- Confidence values below the 0.85 review threshold remain preserved
+  without being increased or normalized upward.
+
+Files changed:
+
+- src/clients/smartsheet_client.py
+- src/services/smartsheet_review_row_mapping_service.py
+- tests/test_smartsheet_client.py
+- tests/test_smartsheet_review_row_mapping.py
+
+Focused tests:
+
+- Smartsheet client attachment boundary: 1 passed, 0 failed
+- Smartsheet review row mapping: 18 passed, 0 failed
+
+Focused total:
+
+Passed: 19
+Failed: 0
+
+Affected regressions:
+
+- Smartsheet reviewed write boundary: 17 passed, 0 failed
+- Approval-gated Smartsheet submission: 11 passed, 0 failed
+- Complete-review Smartsheet workflow: 9 passed, 0 failed
+- Mailbox complete-review Smartsheet boundary: 14 passed, 0 failed
+- Full mailbox review orchestration: 12 passed, 0 failed
+- Full mailbox review command: 10 passed, 0 failed
+- Classification-to-Smartsheet safety gate: 3 passed, 0 failed
+
+Affected regression total:
+
+Passed: 76
+Failed: 0
+
+Combined automated result:
+
+Passed: 95
+Failed: 0
+
+Test classification:
+
+- Synthetic deterministic tests
+- Mock Smartsheet SDK attachment boundary
+- Mock reviewed-write and workflow boundaries
+- No real Smartsheet external API call during the fix tests
+- No Microsoft Graph call
+- No PaddleOCR call
+- No local Ollama request
+
+PHI handling:
+
+- Synthetic values and synthetic attachment bytes only were used.
+- No real patient document was read by the attachment boundary test.
+- No OCR text was printed.
+- No source_text was printed.
+- No patient values were printed.
+- No Smartsheet payload was printed.
+- No row ID was printed.
+- No real patient filename or local path was printed.
+
+Limitations:
+
+- The corrected binary-stream attachment path has not yet been verified
+  with a new real Smartsheet attachment.
+- The temporary attachment naming convention remains a test convention.
+- Automatic rollback of a created row after a later attachment failure
+  is not implemented.
+- The internal human-review minimum confidence intentionally continues
+  to evaluate all populated extracted fields and may differ from the
+  Smartsheet-facing minimum used for reviewer display.
+
+Exact next starting point:
+
+After this fix is committed and synchronized, run one controlled real
+Smartsheet attachment verification through the existing complete-review
+approval boundary. Verify only PHI-safe attachment metadata and success
+status. Do not print document values, OCR text, source_text, filenames,
+local paths, fingerprints, row IDs, or Smartsheet payload values.
 """
 
 

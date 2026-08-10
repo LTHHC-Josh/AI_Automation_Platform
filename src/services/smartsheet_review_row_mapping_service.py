@@ -89,6 +89,8 @@ class SmartsheetReviewRowMappingService:
             )
         }
 
+        displayed_confidences: list[float] = []
+
         for policy in normalized_policies:
             if policy.source_field in self.PROHIBITED_SOURCE_FIELDS:
                 result.prohibited_fields.append(
@@ -127,6 +129,22 @@ class SmartsheetReviewRowMappingService:
                     policy.confidence_column_name
                 ] = review_field.confidence
 
+                if (
+                    isinstance(
+                        review_field.confidence,
+                        (int, float),
+                    )
+                    and not isinstance(
+                        review_field.confidence,
+                        bool,
+                    )
+                ):
+                    displayed_confidences.append(
+                        float(
+                            review_field.confidence
+                        )
+                    )
+
             if policy.review_only:
                 result.review_only_columns.append(
                     policy.column_name
@@ -135,6 +153,7 @@ class SmartsheetReviewRowMappingService:
         self._append_review_metadata(
             review_output=review_output,
             result=result,
+            displayed_confidences=displayed_confidences,
         )
 
         result.missing_required_columns = self._deduplicate(
@@ -174,6 +193,7 @@ class SmartsheetReviewRowMappingService:
         self,
         review_output: ReviewOutput,
         result: SmartsheetRowMappingResult,
+        displayed_confidences: list[float],
     ) -> None:
         """
         Add PHI-safe workflow metadata under stable logical names.
@@ -193,7 +213,13 @@ class SmartsheetReviewRowMappingService:
 
         result.values[
             self.MINIMUM_CONFIDENCE_COLUMN
-        ] = review_output.minimum_field_confidence
+        ] = (
+            min(
+                displayed_confidences
+            )
+            if displayed_confidences
+            else None
+        )
 
         result.values[
             self.SELECTED_ATTEMPT_COLUMN

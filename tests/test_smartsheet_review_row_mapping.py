@@ -149,6 +149,87 @@ def test_field_confidence_is_mapped_without_threshold_override():
     )
 
 
+def test_sheet_minimum_confidence_uses_only_displayed_confidences():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(),
+        policies=[
+            SmartsheetColumnPolicy(
+                source_field="service_codes",
+                column_name="Service Codes",
+                confidence_column_name="Service Codes Conf.",
+            ),
+            SmartsheetColumnPolicy(
+                source_field="authorization_status",
+                column_name="Authorization Status",
+            ),
+        ],
+    )
+
+    assert (
+        result.values[
+            "Service Codes Conf."
+        ]
+        == 0.95
+    )
+
+    assert (
+        result.values[
+            "AI Minimum Field Confidence"
+        ]
+        == 0.95
+    )
+
+
+def test_sheet_minimum_confidence_tracks_lowest_displayed_confidence():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(),
+        policies=[
+            SmartsheetColumnPolicy(
+                source_field="service_codes",
+                column_name="Service Codes",
+                confidence_column_name="Service Codes Conf.",
+            ),
+            SmartsheetColumnPolicy(
+                source_field="authorized_units",
+                column_name="Authorized Units",
+                confidence_column_name="Authorized Units Conf.",
+            ),
+        ],
+    )
+
+    assert (
+        result.values[
+            "AI Minimum Field Confidence"
+        ]
+        == 0.50
+    )
+
+
+def test_sheet_minimum_confidence_is_empty_without_displayed_confidences():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(),
+        policies=[
+            SmartsheetColumnPolicy(
+                source_field="authorization_status",
+                column_name="Authorization Status",
+            ),
+        ],
+    )
+
+    assert (
+        result.values[
+            "AI Minimum Field Confidence"
+        ]
+        is None
+    )
+
+
 def test_list_order_is_preserved():
     service = SmartsheetReviewRowMappingService()
 
@@ -446,6 +527,18 @@ run_test(
 run_test(
     "field confidence is mapped without threshold override",
     test_field_confidence_is_mapped_without_threshold_override,
+)
+run_test(
+    "sheet minimum confidence uses only displayed confidences",
+    test_sheet_minimum_confidence_uses_only_displayed_confidences,
+)
+run_test(
+    "sheet minimum confidence tracks lowest displayed confidence",
+    test_sheet_minimum_confidence_tracks_lowest_displayed_confidence,
+)
+run_test(
+    "sheet minimum confidence is empty without displayed confidences",
+    test_sheet_minimum_confidence_is_empty_without_displayed_confidences,
 )
 run_test(
     "list order is preserved",
