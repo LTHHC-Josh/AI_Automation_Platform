@@ -13,6 +13,8 @@ from src.services.smartsheet_review_row_mapping_service import (
 passed = 0
 failed = 0
 
+TEST_RUN_TYPE = "Synthetic mapping regression"
+
 
 def run_test(
     name,
@@ -125,6 +127,7 @@ def test_approved_fields_are_mapped():
                 required=True,
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert (
@@ -147,6 +150,7 @@ def test_field_confidence_is_mapped_without_threshold_override():
                 confidence_column_name="Authorized Units Conf.",
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert (
@@ -173,6 +177,7 @@ def test_sheet_minimum_confidence_uses_only_displayed_confidences():
                 column_name="Authorization Status",
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert (
@@ -207,6 +212,7 @@ def test_sheet_minimum_confidence_tracks_lowest_displayed_confidence():
                 confidence_column_name="Authorized Units Conf.",
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert (
@@ -228,6 +234,7 @@ def test_sheet_minimum_confidence_is_empty_without_displayed_confidences():
                 column_name="Authorization Status",
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert (
@@ -249,6 +256,7 @@ def test_list_order_is_preserved():
                 column_name="Authorized Units",
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert (
@@ -271,6 +279,7 @@ def test_missing_required_value_blocks_write():
                 required=True,
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert (
@@ -290,6 +299,7 @@ def test_human_review_blocks_automatic_write():
             needs_human_review=True
         ),
         policies=[],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.ready_for_write is False
@@ -308,6 +318,7 @@ def test_recommended_review_is_ready_after_complete_approval():
         ),
         policies=[],
         complete_review_approved=True,
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.ready_for_write is True
@@ -335,6 +346,7 @@ def test_required_review_stays_blocked_after_approval_flag():
         ),
         policies=[],
         complete_review_approved=True,
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.ready_for_write is False
@@ -351,6 +363,7 @@ def test_source_text_is_not_mapped():
                 column_name="Source Text",
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert "Source Text" not in result.values
@@ -375,6 +388,7 @@ def test_raw_text_and_file_path_are_prohibited():
                 column_name="File Path",
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.prohibited_fields == [
@@ -400,6 +414,7 @@ def test_zero_and_false_are_preserved():
                 required=True,
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.values[
@@ -426,6 +441,7 @@ def test_duplicate_destination_column_is_ignored():
                 column_name="Shared Column",
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.values[
@@ -445,6 +461,7 @@ def test_review_only_column_is_identified():
                 review_only=True,
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.review_only_columns == [
@@ -458,6 +475,7 @@ def test_review_metadata_is_preserved():
     result = service.map(
         review_output=build_review_output(),
         policies=[],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert (
@@ -492,6 +510,7 @@ def test_classification_labels_are_mapped_as_review_metadata():
     result = service.map(
         review_output=build_review_output(),
         policies=[],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert (
@@ -521,6 +540,7 @@ def test_review_reasons_are_mapped_without_values_or_source_text():
             ],
         ),
         policies=[],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert (
@@ -547,6 +567,7 @@ def test_empty_review_reasons_map_to_empty_text():
     result = service.map(
         review_output=build_review_output(),
         policies=[],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert (
@@ -563,24 +584,24 @@ def test_run_type_is_mapped_as_workflow_metadata():
     result = service.map(
         review_output=build_review_output(),
         policies=[],
-        run_type="Attachment Verification",
+        run_type="Review reason visibility",
     )
 
     assert (
         result.values[
             "Run Type"
         ]
-        == "Attachment Verification"
+        == "Review reason visibility"
     )
 
 
-def test_invalid_run_type_blocks_mapping():
+def test_blank_run_type_blocks_mapping():
     service = SmartsheetReviewRowMappingService()
 
     result = service.map(
         review_output=build_review_output(),
         policies=[],
-        run_type="Patient-specific free text",
+        run_type="",
     )
 
     assert result.ready_for_write is False
@@ -589,6 +610,21 @@ def test_invalid_run_type_blocks_mapping():
     assert (
         "Run type is unavailable or invalid."
         in result.warnings
+    )
+
+
+def test_free_text_run_type_is_preserved():
+    service = SmartsheetReviewRowMappingService()
+
+    result = service.map(
+        review_output=build_review_output(),
+        policies=[],
+        run_type="Classification and review reason columns",
+    )
+
+    assert (
+        result.values["Run Type"]
+        == "Classification and review reason columns"
     )
 
 
@@ -604,6 +640,7 @@ def test_complete_verified_mapping_is_ready():
                 required=True,
             ),
         ],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.ready_for_write is True
@@ -615,6 +652,7 @@ def test_invalid_review_output_is_rejected():
     result = service.map(
         review_output=None,
         policies=[],
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.ready_for_write is False
@@ -715,8 +753,13 @@ run_test(
     test_run_type_is_mapped_as_workflow_metadata,
 )
 run_test(
-    "invalid run type blocks mapping",
-    test_invalid_run_type_blocks_mapping,
+    "blank run type blocks mapping",
+    test_blank_run_type_blocks_mapping,
+)
+
+run_test(
+    "free-text run type is preserved",
+    test_free_text_run_type_is_preserved,
 )
 run_test(
     "complete verified mapping is ready",

@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from src.models.document import (
     AuthorizationServiceLine,
@@ -233,6 +233,7 @@ def build_mapping(
     mapping = SmartsheetReviewRowMappingService().map(
         review_output=review_output,
         policies=build_policies(),
+        run_type="Document mapping integration",
     )
 
     return (

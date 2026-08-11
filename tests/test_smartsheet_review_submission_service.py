@@ -22,6 +22,8 @@ from src.services.smartsheet_reviewed_write_service import (
 passed = 0
 failed = 0
 
+TEST_RUN_TYPE = "Smartsheet submission regression"
+
 
 class RecordingWriteService:
     def __init__(
@@ -186,6 +188,7 @@ def test_approved_review_reaches_writer_once():
         approval_result=approved_result(),
         policies=build_policies(),
         available_columns=build_columns(),
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result == SmartsheetReviewSubmissionResult(
@@ -229,6 +232,7 @@ def test_rejected_review_never_reaches_writer():
         ),
         policies=build_policies(),
         available_columns=build_columns(),
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.written is False
@@ -261,6 +265,7 @@ def test_failed_approval_never_reaches_writer():
         ),
         policies=build_policies(),
         available_columns=build_columns(),
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.written is False
@@ -293,6 +298,7 @@ def test_forged_success_without_approved_status_is_blocked():
         ),
         policies=build_policies(),
         available_columns=build_columns(),
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.written is False
@@ -322,6 +328,7 @@ def test_recommended_review_reaches_writer_after_approval():
         approval_result=approved_result(),
         policies=build_policies(),
         available_columns=build_columns(),
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.written is True
@@ -348,6 +355,7 @@ def test_required_review_still_blocks_mapping():
         approval_result=approved_result(),
         policies=build_policies(),
         available_columns=build_columns(),
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.written is False
@@ -377,6 +385,7 @@ def test_missing_destination_blocks_writer():
         approval_result=approved_result(),
         policies=build_policies(),
         available_columns=columns,
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.written is False
@@ -411,6 +420,7 @@ def test_writer_failure_is_preserved_safely():
         approval_result=approved_result(),
         policies=build_policies(),
         available_columns=build_columns(),
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.written is False
@@ -439,6 +449,7 @@ def test_invalid_approval_contract_is_blocked():
         approval_result=None,
         policies=build_policies(),
         available_columns=build_columns(),
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.written is False
@@ -465,6 +476,7 @@ def test_invalid_review_output_is_blocked():
         approval_result=approved_result(),
         policies=build_policies(),
         available_columns=build_columns(),
+        run_type=TEST_RUN_TYPE,
     )
 
     assert result.written is False

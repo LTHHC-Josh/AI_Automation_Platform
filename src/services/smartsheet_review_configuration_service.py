@@ -34,10 +34,12 @@ APPROVED_AUTHORIZATION_POLICIES = (
     SmartsheetColumnPolicy(
         source_field="start_date",
         column_name="Start Date",
+        confidence_column_name="Start Date Conf.",
     ),
     SmartsheetColumnPolicy(
         source_field="end_date",
         column_name="End Date",
+        confidence_column_name="End Date Conf.",
     ),
     SmartsheetColumnPolicy(
         source_field="authorized_units",

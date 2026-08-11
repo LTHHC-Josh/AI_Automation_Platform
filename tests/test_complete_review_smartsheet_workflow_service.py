@@ -74,7 +74,7 @@ class RecordingSubmissionService:
         policies,
         available_columns,
         attachment_source_path=None,
-        run_type="Production",
+        run_type="",
     ):
         self.calls.append(
             {
@@ -478,7 +478,7 @@ def test_run_type_is_forwarded_to_submission():
         review_output=build_review_output(),
         policies=build_policies(),
         available_columns=build_columns(),
-        run_type="Attachment Verification",
+        run_type="Workflow Run Type forwarding",
     )
 
     assert result.success is True
@@ -487,7 +487,7 @@ def test_run_type_is_forwarded_to_submission():
         submission.calls[0][
             "run_type"
         ]
-        == "Attachment Verification"
+        == "Workflow Run Type forwarding"
     )
 
 

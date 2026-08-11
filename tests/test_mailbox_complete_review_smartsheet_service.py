@@ -45,7 +45,7 @@ class RecordingWorkflowService:
         available_columns,
         approve_complete_review=False,
         attachment_source_path=None,
-        run_type="Production",
+        run_type="",
     ):
         self.calls.append(
             {
@@ -110,7 +110,7 @@ class FailingWorkflowService:
         available_columns,
         approve_complete_review=False,
         attachment_source_path=None,
-        run_type="Production",
+        run_type="",
     ):
         raise RuntimeError(
             "PRIVATE-SYNTHETIC-FAILURE"
@@ -443,7 +443,7 @@ def test_run_type_reaches_workflow():
                 [document]
             )
         ],
-        run_type="End-to-End Test",
+        run_type="Mailbox Run Type forwarding",
     )
 
     assert result.success is True
@@ -452,7 +452,7 @@ def test_run_type_reaches_workflow():
         workflow.calls[0][
             "run_type"
         ]
-        == "End-to-End Test"
+        == "Mailbox Run Type forwarding"
     )
 
 

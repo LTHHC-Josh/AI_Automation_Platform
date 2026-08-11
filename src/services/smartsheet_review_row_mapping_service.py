@@ -43,13 +43,6 @@ class SmartsheetReviewRowMappingService:
         "AI Review Reasons"
     )
     RUN_TYPE_COLUMN = "Run Type"
-    ALLOWED_RUN_TYPES = {
-        "Production",
-        "Boss Demo",
-        "Attachment Verification",
-        "Classification Metadata Test",
-        "End-to-End Test",
-    }
     CLASSIFICATION_CONFIDENCE_COLUMN = (
         "AI Classification Confidence"
     )
@@ -71,7 +64,7 @@ class SmartsheetReviewRowMappingService:
         review_output: ReviewOutput,
         policies: list[SmartsheetColumnPolicy],
         complete_review_approved: bool = False,
-        run_type: str = "Production",
+        run_type: str = "",
     ) -> SmartsheetRowMappingResult:
         """
         Build a deterministic mapping from explicit column policies.
@@ -291,10 +284,11 @@ class SmartsheetReviewRowMappingService:
         value: Any,
     ) -> str | None:
         """
-        Accept only explicitly approved PHI-safe workflow labels.
+        Accept explicit PHI-safe test-purpose text.
 
-        Run Type is operational metadata. It must never be inferred
-        from OCR, extracted values, filenames, or document content.
+        Run Type identifies the change or behavior under test for the
+        current execution. It must never be inferred from OCR,
+        extracted values, filenames, or document content.
         """
 
         normalized = str(
@@ -302,7 +296,13 @@ class SmartsheetReviewRowMappingService:
             or ""
         ).strip()
 
-        if normalized not in self.ALLOWED_RUN_TYPES:
+        if not normalized:
+            return None
+
+        if len(normalized) > 120:
+            return None
+
+        if "\n" in normalized or "\r" in normalized:
             return None
 
         return normalized

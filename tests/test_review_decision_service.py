@@ -361,6 +361,53 @@ def test_business_rule_failure_triggers_review() -> None:
     )
 
 
+def test_review_reasons_exclude_document_values_and_source_text() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+
+    synthetic_value = "SYNTHETIC_VALUE_MUST_NOT_APPEAR"
+    synthetic_source = "SYNTHETIC_SOURCE_MUST_NOT_APPEAR"
+    synthetic_classification = (
+        "SYNTHETIC_CLASSIFICATION_TEXT_MUST_NOT_APPEAR"
+    )
+
+    document.extracted_data[
+        "authorization_number"
+    ] = synthetic_value
+
+    document.field_evidence = {
+        "authorization_number": {
+            "value": synthetic_value,
+            "confidence": 0.95,
+            "source_text": synthetic_source,
+        },
+    }
+
+    document.classification_reason = (
+        synthetic_classification
+    )
+
+    document.validation_actions = [
+        "Authorization status requires verification",
+    ]
+
+    document.rule_actions = [
+        "Authorization quantity requires verification",
+    ]
+
+    decision = service.evaluate(
+        document
+    )
+
+    joined_reasons = " | ".join(
+        decision.reasons
+    )
+
+    assert synthetic_value not in joined_reasons
+    assert synthetic_source not in joined_reasons
+    assert synthetic_classification not in joined_reasons
+
+
 def test_duplicate_reasons_are_removed() -> None:
     service = ReviewDecisionService()
     document = build_document()
@@ -516,6 +563,10 @@ def main() -> None:
         (
             "business rule failure triggers review",
             test_business_rule_failure_triggers_review,
+        ),
+        (
+            "review reasons exclude document values and source text",
+            test_review_reasons_exclude_document_values_and_source_text,
         ),
         (
             "duplicate reasons are removed",

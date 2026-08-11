@@ -46,7 +46,7 @@ class RecordingOrchestrationService:
         created_at=None,
         skip_classification_review=False,
         approve_complete_review=False,
-        run_type="Production",
+        run_type="",
     ):
         self.calls.append(
             {
@@ -143,7 +143,7 @@ def test_command_calls_full_orchestration_once():
             "created_at": TIMESTAMP,
             "skip_classification_review": False,
             "approve_complete_review": False,
-            "run_type": "Production",
+            "run_type": "",
         }
     ]
 
@@ -259,30 +259,19 @@ def test_output_excludes_sensitive_terms():
     assert TIMESTAMP not in rendered
 
 
-def test_parser_defaults_are_safe():
+def test_parser_requires_run_type():
     parser = build_argument_parser()
 
-    arguments = parser.parse_args(
-        []
-    )
-
-    assert arguments.top == 10
-    assert arguments.created_at is None
-    assert (
-        arguments.demo_skip_classification_review
-        is False
-    )
-
-    assert (
-        arguments.approve_complete_review
-        is False
-    )
-
-    assert (
-        arguments.run_type
-        == "Production"
-    )
-
+    try:
+        parser.parse_args(
+            []
+        )
+    except SystemExit as error:
+        assert error.code == 2
+    else:
+        raise AssertionError(
+            "--run-type must be required."
+        )
 
 def test_parser_accepts_explicit_values():
     parser = build_argument_parser()
@@ -293,11 +282,17 @@ def test_parser_accepts_explicit_values():
             "5",
             "--created-at",
             TIMESTAMP,
+            "--run-type",
+            "Parser explicit values",
         ]
     )
 
     assert arguments.top == 5
     assert arguments.created_at == TIMESTAMP
+    assert (
+        arguments.run_type
+        == "Parser explicit values"
+    )
 
 
 def test_demo_skip_flag_reaches_orchestration():
@@ -325,7 +320,7 @@ def test_demo_skip_flag_reaches_orchestration():
             "created_at": None,
             "skip_classification_review": True,
             "approve_complete_review": False,
-            "run_type": "Production",
+            "run_type": "",
         }
     ]
 
@@ -341,6 +336,8 @@ def test_demo_skip_flag_reaches_orchestration():
             "--top",
             "5",
             "--demo-skip-classification-review",
+            "--run-type",
+            "Classification review bypass",
         ]
     )
 
@@ -386,6 +383,8 @@ def test_explicit_complete_review_flag_reaches_orchestration():
     arguments = parser.parse_args(
         [
             "--approve-complete-review",
+            "--run-type",
+            "Complete review approval gate",
         ]
     )
 
@@ -406,7 +405,7 @@ def test_run_type_reaches_orchestration_and_parser():
     )
 
     result = command.run(
-        run_type="Classification Metadata Test"
+        run_type="Review reason visibility"
     )
 
     assert result.success is True
@@ -415,7 +414,7 @@ def test_run_type_reaches_orchestration_and_parser():
         orchestration.calls[0][
             "run_type"
         ]
-        == "Classification Metadata Test"
+        == "Review reason visibility"
     )
 
     parser = build_argument_parser()
@@ -423,13 +422,13 @@ def test_run_type_reaches_orchestration_and_parser():
     arguments = parser.parse_args(
         [
             "--run-type",
-            "Attachment Verification",
+            "Classification and review reason columns",
         ]
     )
 
     assert (
         arguments.run_type
-        == "Attachment Verification"
+        == "Classification and review reason columns"
     )
 
 
@@ -504,8 +503,8 @@ run_test(
 )
 
 run_test(
-    "parser defaults are safe",
-    test_parser_defaults_are_safe,
+    "parser requires run type",
+    test_parser_requires_run_type,
 )
 
 run_test(

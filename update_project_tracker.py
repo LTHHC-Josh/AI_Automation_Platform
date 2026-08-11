@@ -5041,6 +5041,121 @@ Keep patient data, OCR text, extracted values, source_text, filenames,
 local paths, fingerprints, row IDs, and Smartsheet payload values out of
 terminal and chat output.
 
+
+------------------------------------------------------------
+RUN TYPE TEST PURPOSE AND DATE CONFIDENCE - 2026-08-11
+------------------------------------------------------------
+
+Feature:
+
+Changed Smartsheet Run Type from fixed environment/demo labels to
+explicit PHI-safe operator-supplied text describing why the execution
+was performed.
+
+Run Type behavior:
+
+- No automatic Production fallback.
+- No Boss Demo or other fixed environment/demo choices.
+- Test runs require explicit nonblank Run Type text.
+- Run Type is never inferred from OCR, extracted values, filenames,
+  local paths, patient data, or document content.
+- Mapper rejects blank values, values over 120 characters, and values
+  containing carriage returns or line feeds.
+- CLI requires --run-type.
+- Run Type remains workflow metadata and not extracted document data.
+
+Date confidence mapping:
+
+Added existing Smartsheet confidence columns:
+
+- Start Date Conf.
+- End Date Conf.
+
+Mappings:
+
+- start_date -> Start Date / Start Date Conf.
+- end_date -> End Date / End Date Conf.
+
+The existing generic confidence-column mapping is used. These displayed
+confidence values participate in the existing AI Minimum Field
+Confidence calculation.
+
+AI Review Reasons PHI-safety audit:
+
+Reviewed review-decision, deterministic evidence-validation, review
+output, document-processing, and authorization business-rule reason
+producers.
+
+Observed sheet-visible reason producers use generic fixed reason text,
+controlled field names, confidence thresholds, and service-line
+numbers. No reviewed producer interpolated extracted document values or
+source_text into review reasons.
+
+Added a synthetic deterministic regression proving document values,
+source_text, and classification-reason text do not enter
+ReviewDecisionService review reasons through the normal reviewed path.
+
+Focused and affected regression results:
+
+- Smartsheet review configuration: 8 passed, 0 failed
+- Smartsheet review row mapping: 24 passed, 0 failed
+- Mailbox full-review command: 11 passed, 0 failed
+- Complete-review Smartsheet workflow: 10 passed, 0 failed
+- Mailbox complete-review Smartsheet service: 15 passed, 0 failed
+- Mailbox full-review orchestration: 13 passed, 0 failed
+- Smartsheet review submission: 11 passed, 0 failed
+- Smartsheet review mapping integration: 9 passed, 0 failed
+- Review decision: 19 passed, 0 failed
+- Reviewed Smartsheet write integration: 4 passed, 0 failed
+
+Total listed regression passes:
+
+124 passed
+0 failed
+
+Test classification:
+
+Synthetic deterministic and mock only for this change set.
+
+External boundaries:
+
+- Microsoft Graph not called.
+- Fresh PaddleOCR not called.
+- Ollama not called.
+- Smartsheet external write API not called.
+- No new real Smartsheet row was written.
+
+PHI handling:
+
+- Synthetic test values only.
+- OCR text and source_text were not printed.
+- Smartsheet payload values were not printed.
+- Review-reason regression verifies synthetic document values and
+  source evidence are excluded from review reasons.
+- Stale fixed Run Type label audit returned no matches.
+
+Limitations:
+
+Operator-supplied Run Type cannot be semantically guaranteed PHI-free
+by current validation. CLI/help and project policy prohibit patient
+information, document values, filenames, paths, and source_text.
+Mapper validation checks structure, not general PHI detection.
+
+No fresh real OCR/Ollama execution was performed for this change set.
+
+Exact next starting point:
+
+Run the controlled real local OCR/Ollama/review path with explicit
+PHI-safe Run Type:
+
+Review reason visibility and date confidence columns
+
+Keep patient data, OCR text, extracted values, source_text, filenames,
+local paths, payload values, and row IDs out of terminal/chat output.
+
+A fresh explicit complete-review approval is required before any new
+real Smartsheet row is written.
+
 """
 
 

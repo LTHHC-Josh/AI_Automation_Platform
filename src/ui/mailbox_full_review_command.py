@@ -42,7 +42,7 @@ class MailboxFullReviewCommand:
         created_at: Any = None,
         skip_classification_review: bool = False,
         approve_complete_review: bool = False,
-        run_type: str = "Production",
+        run_type: str = "",
     ) -> MailboxFullReviewOrchestrationResult:
         result = self.orchestration_service.run(
             top=top,
@@ -170,17 +170,12 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--run-type",
-        choices=(
-            "Production",
-            "Boss Demo",
-            "Attachment Verification",
-            "Classification Metadata Test",
-            "End-to-End Test",
-        ),
-        default="Production",
+        required=True,
         help=(
-            "PHI-safe workflow label written to the Smartsheet "
-            "Run Type column."
+            "Required PHI-safe description of the change or behavior "
+            "being tested. Written to the Smartsheet Run Type column. "
+            "Do not include patient information, document values, "
+            "filenames, paths, or source_text."
         ),
     )
 

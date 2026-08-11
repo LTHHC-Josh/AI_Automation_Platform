@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 
 from src.models.document import Document
 from src.models.smartsheet_mapping import (
@@ -213,6 +213,7 @@ def build_pipeline(
         .map(
             review_output=review_output,
             policies=build_policies(),
+            run_type="Reviewed write integration",
         )
     )
 

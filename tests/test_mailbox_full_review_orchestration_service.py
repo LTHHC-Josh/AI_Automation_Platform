@@ -98,7 +98,7 @@ class RecordingCompleteReviewService:
         *,
         message_results,
         approve_complete_review=False,
-        run_type="Production",
+        run_type="",
     ):
         self.calls.append(
             message_results
@@ -332,13 +332,13 @@ def test_run_type_reaches_complete_review():
     )
 
     result = service.run(
-        run_type="Boss Demo"
+        run_type="Orchestration Run Type forwarding"
     )
 
     assert result.success is True
 
     assert complete.run_types == [
-        "Boss Demo"
+        "Orchestration Run Type forwarding"
     ]
 
 

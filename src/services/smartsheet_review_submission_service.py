@@ -82,7 +82,7 @@ class SmartsheetReviewSubmissionService:
         policies: list[SmartsheetColumnPolicy],
         available_columns: dict[str, int],
         attachment_source_path: str | Path | None = None,
-        run_type: str = "Production",
+        run_type: str = "",
     ) -> SmartsheetReviewSubmissionResult:
         """
         Submit one completely reviewed and explicitly approved

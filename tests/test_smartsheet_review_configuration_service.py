@@ -173,13 +173,15 @@ def test_default_authorization_policy_is_approved():
         "Diagnosis Codes": 1006,
         "Diagnosis Codes Conf.": 1007,
         "Start Date": 1008,
-        "End Date": 1009,
-        "Authorized Units": 1010,
-        "Authorized Units Conf.": 1011,
-        "Hours": 1012,
-        "Hours Conf.": 1013,
-        "Days Per Week": 1014,
-        "Days Per Week Conf.": 1015,
+        "Start Date Conf.": 1009,
+        "End Date": 1010,
+        "End Date Conf.": 1011,
+        "Authorized Units": 1012,
+        "Authorized Units Conf.": 1013,
+        "Hours": 1014,
+        "Hours Conf.": 1015,
+        "Days Per Week": 1016,
+        "Days Per Week Conf.": 1017,
     }
 
     schema_service = RecordingSchemaService(
@@ -237,12 +239,12 @@ def test_default_authorization_policy_is_approved():
         (
             "start_date",
             "Start Date",
-            None,
+            "Start Date Conf.",
         ),
         (
             "end_date",
             "End Date",
-            None,
+            "End Date Conf.",
         ),
         (
             "authorized_units",
@@ -274,13 +276,15 @@ def test_default_authorization_renewal_policy_is_approved():
         "Diagnosis Codes": 1006,
         "Diagnosis Codes Conf.": 1007,
         "Start Date": 1008,
-        "End Date": 1009,
-        "Authorized Units": 1010,
-        "Authorized Units Conf.": 1011,
-        "Hours": 1012,
-        "Hours Conf.": 1013,
-        "Days Per Week": 1014,
-        "Days Per Week Conf.": 1015,
+        "Start Date Conf.": 1009,
+        "End Date": 1010,
+        "End Date Conf.": 1011,
+        "Authorized Units": 1012,
+        "Authorized Units Conf.": 1013,
+        "Hours": 1014,
+        "Hours Conf.": 1015,
+        "Days Per Week": 1016,
+        "Days Per Week Conf.": 1017,
     }
 
     schema_service = RecordingSchemaService(
@@ -338,12 +342,12 @@ def test_default_authorization_renewal_policy_is_approved():
         (
             "start_date",
             "Start Date",
-            None,
+            "Start Date Conf.",
         ),
         (
             "end_date",
             "End Date",
-            None,
+            "End Date Conf.",
         ),
         (
             "authorized_units",

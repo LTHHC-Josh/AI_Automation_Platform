@@ -90,7 +90,7 @@ class MailboxCompleteReviewSmartsheetService:
             MessageProcessingResult
         ],
         approve_complete_review: bool = False,
-        run_type: str = "Production",
+        run_type: str = "",
     ) -> MailboxCompleteReviewSmartsheetResult:
         try:
             results = list(

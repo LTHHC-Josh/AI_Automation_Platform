@@ -79,7 +79,7 @@ class CompleteReviewSmartsheetWorkflowService:
         available_columns: dict[str, int],
         approve_complete_review: bool = False,
         attachment_source_path: str | Path | None = None,
-        run_type: str = "Production",
+        run_type: str = "",
     ) -> CompleteReviewSmartsheetWorkflowResult:
         """
         Run one explicit approval decision and submit only when the
