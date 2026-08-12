@@ -652,11 +652,14 @@ Do not confuse:
 - provider NPIs,
 - claim numbers.
 
-For Molina documents:
+Authorization documents may use labels such as:
 
-- "Health Plan ID" may represent the member ID.
-- "Member or Medicaid ID #" may represent the member ID.
-- "Reference#" may represent the authorization number.
+- "Health Plan ID" for a member identifier,
+- "Member or Medicaid ID #" for a member identifier,
+- "Reference#" for an authorization or reference identifier.
+
+Use the surrounding label-value relationship and document evidence.
+Do not infer identifier meaning from payer, sender, filename, or template.
 
 AUTHORIZATION STATUS
 
@@ -778,7 +781,22 @@ Return an empty service_lines array when no reliable row-level service
 data can be reconstructed.
 
 A service-line source_text value must contain the shortest available OCR
-text that supports the relationship among the row values.
+text that directly supports every non-null field in that service line and
+the relationship among those row values.
+
+Before returning any non-null service-line field, verify it against that
+same service-line source_text:
+
+- service_code must appear in the row evidence,
+- modifier must appear in the row evidence,
+- quantity must appear in the row evidence,
+- start_date and end_date must each be directly supported by a date in
+  the row evidence,
+- status must appear in the row evidence.
+
+If that same row evidence does not support a field, return null for that
+field. Do not preserve a value merely because it appears elsewhere in the
+document.
 
 Service-line confidence must reflect confidence in the whole row, not
 only the service code.
@@ -889,12 +907,17 @@ Reconstruct every service line independently and in document order.
 
 For each proposed service line:
 
-- identify the shortest row-level source_text that supports the row,
+- identify the shortest row-level source_text that directly supports
+  every non-null field in that row,
 - confirm that service_code appears in that same row evidence,
-- confirm that quantity appears in that same row evidence,
-- keep modifier, dates, and status only when their relationship to that
-  row is directly supported,
-- use null for an unsupported row field,
+- confirm that modifier appears in that same row evidence when non-null,
+- confirm that quantity appears in that same row evidence when non-null,
+- confirm that each non-null start_date and end_date is directly supported
+  by a date in that same row evidence,
+- confirm that status appears in that same row evidence when non-null,
+- use null for any field not supported by that same row evidence,
+- do not preserve a row value merely because it appears elsewhere in the
+  document,
 - omit the row when a reliable row relationship cannot be reconstructed.
 
 Do not combine a service code from one row with a quantity, modifier,

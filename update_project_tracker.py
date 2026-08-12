@@ -5384,6 +5384,134 @@ narrow to support otherwise valid extracted values.
 Do not weaken evidence requirements, infer modifier ownership, or
 interpret authorization quantity meaning without deterministic support.
 
+
+------------------------------------------------------------
+SOURCE-AGNOSTIC AUTHORIZATION AND SERVICE-LINE EVIDENCE - 2026-08-12
+------------------------------------------------------------
+
+Feature:
+
+Completed the source-agnostic authorization naming cleanup and strengthened
+the Ollama service-line extraction evidence contract.
+
+Authorization naming cleanup:
+
+- Removed payer-specific identifier guidance from the production Ollama
+  extraction prompt.
+- Authorization identifier labels are interpreted using surrounding
+  label-value relationships and document evidence.
+- Identifier meaning must not be inferred from payer, sender, filename,
+  or template.
+- Renamed the single-document authorization test runners from
+  payer-specific names to document-purpose names.
+- Production provider and renamed authorization runners contain no
+  payer-specific Molina references.
+- Remaining Molina references in the focused prompt test are intentional
+  negative assertions verifying payer-specific prompt language is absent.
+
+Service-line extraction guidance:
+
+- Every non-null service-line field must be directly supported by the
+  same service-line source evidence.
+- service_code, modifier, quantity, dates, and status must each be
+  supported by that row's evidence before being returned.
+- A value appearing elsewhere in the document is not sufficient evidence
+  for a service-line field.
+- The stronger prompt guidance remains aligned with the existing
+  deterministic evidence-validation contract.
+- No service-line values from separate Ollama attempts are merged.
+
+Files changed:
+
+- AGENTS.md
+- scripts/test_molina_document.py removed
+- scripts/test_molina_timing.py removed
+- scripts/test_authorization_document.py added
+- scripts/test_authorization_timing.py added
+- src/ai/llm/providers/ollama_provider.py
+- tests/test_ollama_service_lines.py
+- update_project_tracker.py
+
+Compilation:
+
+Modified provider, focused test, and renamed authorization runners compiled
+successfully.
+
+Focused Ollama service-line regression:
+
+Passed: 19
+Failed: 0
+
+Affected evidence-validation regression:
+
+Passed: 29
+Failed: 0
+
+Affected document-processor regression:
+
+Passed: 16
+Failed: 0
+
+Combined automated result:
+
+Passed: 64
+Failed: 0
+
+Test classification:
+
+Synthetic deterministic.
+
+The renamed real-document authorization runners were compiled but were not
+executed during this checkpoint.
+
+External boundaries during these regression tests:
+
+- Microsoft Graph not called.
+- PaddleOCR not called.
+- Ollama not called.
+- Smartsheet external API not called.
+- No real Smartsheet row was written.
+
+PHI handling:
+
+- Synthetic deterministic test data only.
+- No OCR text was printed or copied into tracker output.
+- No patient data or extracted patient values were printed.
+- No source_text containing PHI was printed.
+- No identifying protected filename or local patient path was printed.
+- No Smartsheet payload values or row IDs were printed.
+- Rename verification used only safe source-code paths and reference
+  counts.
+
+Limitations:
+
+- The strengthened service-line prompt has not yet been exercised through
+  a new real local Ollama extraction run.
+- The renamed authorization runners have not yet been executed after the
+  naming cleanup.
+- Real cached OCR behavior has not yet been reverified against the stronger
+  same-row evidence prompt.
+- Quantity meaning and modifier ownership remain conservative and require
+  deterministic support or human review.
+- No new real Smartsheet write was performed or authorized during this
+  checkpoint.
+
+Exact next starting point:
+
+Run one controlled local authorization test through the renamed
+single-document harness using real cached OCR and real local Ollama.
+
+Keep OCR text, patient data, extracted values, source_text, protected
+filenames, local patient paths, credentials, payload values, and row IDs
+out of terminal and chat output.
+
+Verify only PHI-safe counts, booleans, attempts, confidence metadata,
+review status/reason counts, selected attempt, reconciliation state, and
+success/failure.
+
+Do not perform a real Smartsheet write without a fresh explicit
+complete-review approval.
+
 """
 
 

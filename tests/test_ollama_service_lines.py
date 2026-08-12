@@ -58,6 +58,60 @@ def test_hours_and_days_prompt_forbids_quantity_inference() -> None:
     assert "authorized units" in prompt
 
 
+def test_identifier_prompt_is_payer_agnostic() -> None:
+    provider = build_provider_without_connection()
+
+    prompt = " ".join(
+        provider._extraction_prompt()
+        .lower()
+        .split()
+    )
+
+    assert "for molina documents" not in prompt
+    assert "authorization documents may use labels such as" in prompt
+    assert "do not infer identifier meaning from payer" in prompt
+
+
+def test_service_line_prompt_matches_deterministic_evidence_contract() -> None:
+    provider = build_provider_without_connection()
+
+    base_prompt = " ".join(
+        provider._extraction_prompt()
+        .lower()
+        .split()
+    )
+
+    retry_prompt = " ".join(
+        provider._retry_prompt_addendum()
+        .lower()
+        .split()
+    )
+
+    for prompt in (
+        base_prompt,
+        retry_prompt,
+    ):
+        assert "service_code" in prompt
+        assert "modifier" in prompt
+        assert "quantity" in prompt
+        assert "start_date" in prompt
+        assert "end_date" in prompt
+        assert "status" in prompt
+        assert "same row evidence" in prompt
+
+    assert (
+        "do not preserve a value merely because it appears elsewhere "
+        "in the document"
+        in base_prompt
+    )
+
+    assert (
+        "do not preserve a row value merely because it appears elsewhere "
+        "in the document"
+        in retry_prompt
+    )
+
+
 def test_schema_requires_service_lines() -> None:
     required_fields = (
         OllamaProvider.EXTRACTION_SCHEMA[
@@ -419,6 +473,14 @@ def main() -> None:
         (
             "hours and days prompt forbids quantity inference",
             test_hours_and_days_prompt_forbids_quantity_inference,
+        ),
+        (
+            "identifier prompt is payer agnostic",
+            test_identifier_prompt_is_payer_agnostic,
+        ),
+        (
+            "service-line prompt matches deterministic evidence contract",
+            test_service_line_prompt_matches_deterministic_evidence_contract,
         ),
         (
             "schema requires service lines",

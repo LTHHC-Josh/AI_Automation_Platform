@@ -1,3 +1,4 @@
+import argparse
 import re
 from pathlib import Path
 from time import perf_counter
@@ -164,14 +165,13 @@ def print_safe_flat_fields(
     field_confidences: dict[str, float],
 ) -> None:
     """
-    Print only non-identifier fields needed for regression testing.
+    Print PHI-safe flat-field regression diagnostics.
 
-    Source evidence is intentionally excluded because it may contain
-    PHI or other sensitive document content.
+    Extracted values and source evidence are intentionally excluded.
     """
 
     print(
-        "Safe flat-field regression output:"
+        "PHI-safe flat-field regression output:"
     )
 
     for field_name in SAFE_FLAT_FIELDS:
@@ -189,8 +189,8 @@ def print_safe_flat_fields(
         )
 
         print(
-            "    value: "
-            f"{format_value(value)}"
+            "    value present: "
+            f"{value is not None}"
         )
 
         print(
@@ -204,42 +204,25 @@ def print_service_line(
     service_line: AuthorizationServiceLine,
 ) -> None:
     """
-    Print the neutral service-line structure without source evidence.
+    Print PHI-safe service-line structure without extracted values.
     """
 
     print(
         f"  Service line {line_number}:"
     )
 
-    print(
-        "    service_code: "
-        f"{format_value(service_line.service_code)}"
-    )
-
-    print(
-        "    modifier: "
-        f"{format_value(service_line.modifier)}"
-    )
-
-    print(
-        "    quantity: "
-        f"{format_value(service_line.quantity)}"
-    )
-
-    print(
-        "    start_date: "
-        f"{format_value(service_line.start_date)}"
-    )
-
-    print(
-        "    end_date: "
-        f"{format_value(service_line.end_date)}"
-    )
-
-    print(
-        "    status: "
-        f"{format_value(service_line.status)}"
-    )
+    for field_name in (
+        "service_code",
+        "modifier",
+        "quantity",
+        "start_date",
+        "end_date",
+        "status",
+    ):
+        print(
+            f"    {field_name} present: "
+            f"{getattr(service_line, field_name) is not None}"
+        )
 
     print(
         "    confidence: "
@@ -1263,25 +1246,44 @@ def print_semantic_results(
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run the authorization document regression against one explicitly "
+            "selected local PDF without printing its filename."
+        )
+    )
+
+    parser.add_argument(
+        "--document-index",
+        type=int,
+        required=True,
+        help=(
+            "1-based index of the local PDF after filename sorting. "
+            "The filename is never printed."
+        ),
+    )
+
+    args = parser.parse_args()
+
     print(
         "=" * 60
     )
 
     print(
-        "Testing Molina Authorization Service-Line Extraction"
+        "Testing Authorization Document Service-Line Extraction"
     )
 
     print(
         "=" * 60
     )
 
-    pdf_files = sorted(
+    available_pdf_files = sorted(
         PDF_DIRECTORY.glob(
             "*.pdf"
         )
     )
 
-    if not pdf_files:
+    if not available_pdf_files:
         print(
             "No PDF files were found in the configured incoming "
             "directory."
@@ -1290,6 +1292,29 @@ def main() -> None:
         raise SystemExit(
             1
         )
+
+    if (
+        args.document_index < 1
+        or args.document_index > len(available_pdf_files)
+    ):
+        print(
+            "Requested document index is outside the available "
+            "PHI-safe document range."
+        )
+
+        raise SystemExit(
+            1
+        )
+
+    pdf_files = [
+        available_pdf_files[
+            args.document_index - 1
+        ]
+    ]
+
+    print(
+        "Selected one local document by PHI-safe numeric index."
+    )
 
     processor = DocumentProcessor()
 
@@ -1456,8 +1481,8 @@ def main() -> None:
             )
 
             print(
-                "ERROR: "
-                f"{type(ex).__name__}: {ex}"
+                "ERROR type: "
+                f"{type(ex).__name__}"
             )
 
             print(

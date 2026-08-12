@@ -312,7 +312,7 @@ def print_timing_result(
 
 def main() -> None:
     print("=" * 60)
-    print("Testing Molina Authorization Timing")
+    print("Testing Authorization Document Timing")
     print("=" * 60)
 
     pdf_files = sorted(
