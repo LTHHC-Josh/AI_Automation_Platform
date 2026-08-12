@@ -231,6 +231,15 @@ def written_result():
     )
 
 
+def written_with_attachment_result():
+    return CompleteReviewSmartsheetWorkflowResult(
+        approved=True,
+        written=True,
+        success=True,
+        status="written_with_attachment",
+    )
+
+
 def rejected_result():
     return CompleteReviewSmartsheetWorkflowResult(
         approved=False,
@@ -529,6 +538,45 @@ def test_written_document_is_counted():
 
     assert result.message_count == 1
     assert result.document_count == 1
+    assert result.approved_count == 1
+    assert result.written_count == 1
+    assert result.failed_count == 0
+    assert result.success is True
+    assert result.status == "completed"
+
+
+def test_written_with_attachment_is_counted():
+    service = (
+        MailboxCompleteReviewSmartsheetService(
+            workflow_service=(
+                RecordingWorkflowService(
+                    [
+                        written_with_attachment_result(),
+                    ]
+                )
+            ),
+            configuration_service=(
+                RecordingConfigurationService(
+                    [
+                        ready_configuration(),
+                    ]
+                )
+            ),
+        )
+    )
+
+    result = service.run(
+        message_results=[
+            build_message_result(
+                [
+                    build_document(
+                        "attachment"
+                    )
+                ]
+            )
+        ]
+    )
+
     assert result.approved_count == 1
     assert result.written_count == 1
     assert result.failed_count == 0
@@ -926,6 +974,11 @@ run_test(
 run_test(
     "written document is counted",
     test_written_document_is_counted,
+)
+
+run_test(
+    "written with attachment is counted",
+    test_written_with_attachment_is_counted,
 )
 
 run_test(

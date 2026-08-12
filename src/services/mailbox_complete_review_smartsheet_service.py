@@ -195,8 +195,6 @@ class MailboxCompleteReviewSmartsheetService:
                 if (
                     workflow_result.success
                     and workflow_result.written
-                    and workflow_result.status
-                    == "written"
                 ):
                     written_count += 1
                     continue

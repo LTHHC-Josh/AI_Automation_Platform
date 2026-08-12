@@ -1,4 +1,4 @@
-﻿from dataclasses import dataclass
+from dataclasses import dataclass
 from typing import Any
 
 from src.models.document import Document
@@ -106,6 +106,30 @@ class ReviewConfirmationSubmissionService:
                 created_at=created_at,
             )
         )
+
+        if workflow_result.success:
+            normalized_category = str(
+                confirmed_category
+                or ""
+            ).strip().lower()
+
+            normalized_subtype = str(
+                confirmed_subtype
+                or ""
+            ).strip().lower()
+
+            document.document_category = (
+                normalized_category
+            )
+            document.document_subtype = (
+                normalized_subtype
+            )
+            document.review_output.document_category = (
+                normalized_category
+            )
+            document.review_output.document_subtype = (
+                normalized_subtype
+            )
 
         return ReviewConfirmationSubmissionResult(
             fingerprint=workflow_result.fingerprint,

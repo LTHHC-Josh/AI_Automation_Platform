@@ -1,4 +1,4 @@
-﻿from dataclasses import fields
+from dataclasses import fields
 from pathlib import Path
 
 from src.models.document import Document
@@ -165,6 +165,23 @@ def test_corrected_submission_is_supported():
         workflow.last_arguments[
             "confirmed_subtype"
         ]
+        == "renewal"
+    )
+
+    assert (
+        document.document_category
+        == "authorization"
+    )
+    assert (
+        document.document_subtype
+        == "renewal"
+    )
+    assert (
+        document.review_output.document_category
+        == "authorization"
+    )
+    assert (
+        document.review_output.document_subtype
         == "renewal"
     )
 
@@ -346,8 +363,10 @@ def test_workflow_failure_is_preserved_safely():
         )
     )
 
+    document = build_document()
+
     result = service.submit(
-        document=build_document(),
+        document=document,
         confirmed_category="authorization",
         confirmed_subtype="renewal",
         reviewer_confirmation_status="corrected",
@@ -358,6 +377,15 @@ def test_workflow_failure_is_preserved_safely():
     assert result.status == "feedback_invalid"
     assert result.fingerprint == "b" * 64
     assert result.byte_count == 30
+
+    assert (
+        document.document_subtype
+        == "unknown"
+    )
+    assert (
+        document.review_output.document_subtype
+        == "unknown"
+    )
 
 
 def test_result_contract_has_only_safe_fields():

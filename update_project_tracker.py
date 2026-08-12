@@ -5156,6 +5156,135 @@ local paths, payload values, and row IDs out of terminal/chat output.
 A fresh explicit complete-review approval is required before any new
 real Smartsheet row is written.
 
+
+------------------------------------------------------------
+CLASSIFICATION CORRECTION PROPAGATION AND WRITE SUMMARY - 2026-08-12
+------------------------------------------------------------
+
+Feature:
+
+Fixed two defects discovered during a controlled real mailbox review and
+Smartsheet write.
+
+Classification correction propagation:
+
+Human-confirmed classification corrections were previously stored as
+classification feedback but the existing in-memory Document and
+ReviewOutput retained the original predicted classification.
+
+That allowed a later explicitly approved Smartsheet write to use the
+original predicted subtype instead of the human-confirmed subtype.
+
+After successful classification-feedback storage, the confirmed category
+and subtype now update both:
+
+- Document classification state
+- Existing ReviewOutput classification state
+
+The change does not rerun classification, OCR, Ollama, extraction,
+validation, business rules, or review-output construction.
+
+A failed feedback-storage result does not mutate classification state.
+
+Smartsheet write-summary correction:
+
+A successful reviewed row with an attachment returns:
+
+written=True
+success=True
+status=written_with_attachment
+
+MailboxCompleteReviewSmartsheetService previously counted a successful
+write only when status was exactly written.
+
+The coordinator now treats success=True plus written=True as the
+successful-write contract, so successful rows with attachments are
+counted as written instead of failures.
+
+Files changed:
+
+- src/services/review_confirmation_submission_service.py
+- src/services/mailbox_complete_review_smartsheet_service.py
+- tests/test_review_confirmation_submission_service.py
+- tests/test_mailbox_complete_review_smartsheet_service.py
+
+Real test that exposed the defects:
+
+- Real mailbox processing was used.
+- Cached local OCR text was used.
+- Local Ollama classification/extraction path ran.
+- Explicit local classification review was performed.
+- Classification feedback was stored.
+- Explicit complete-review approval was given.
+- A real Smartsheet row and attachment were observed.
+- The human-confirmed subtype did not reach the written row.
+- The final summary reported the successful attached write as a failure.
+
+No row values, patient data, OCR text, source_text, identifying filenames,
+local document paths, Smartsheet payload values, or row IDs were copied
+into tracker or chat output.
+
+Focused and affected regression results after the fixes:
+
+- Review confirmation submission: 12 passed, 0 failed
+- Mailbox complete-review Smartsheet service: 16 passed, 0 failed
+- Classification review interaction: 12 passed, 0 failed
+- Mailbox review session: 13 passed, 0 failed
+- Mailbox full-review orchestration: 13 passed, 0 failed
+- Complete-review Smartsheet workflow: 10 passed, 0 failed
+- Approval-gated Smartsheet submission: 11 passed, 0 failed
+
+Total:
+
+87 passed
+0 failed
+
+Test classification:
+
+Synthetic deterministic and mock for post-fix verification.
+
+External boundaries during post-fix regression tests:
+
+- Microsoft Graph not called.
+- OCR not called.
+- Ollama not called.
+- Smartsheet external API not called.
+- No additional real row was written during post-fix regression testing.
+
+PHI handling:
+
+- Synthetic test values only.
+- OCR text and source_text were not printed.
+- Smartsheet payload values were not printed.
+- Failure results remain PHI-safe.
+- Classification correction tests use classification labels only.
+- No external integration was invoked by the regression suites.
+
+Limitations:
+
+The two defects are covered by synthetic deterministic/mock regressions
+but have not yet been reverified with a second real external Smartsheet
+write after the fixes.
+
+Exact next starting point:
+
+After this tested change is committed and pushed, run one controlled real
+full mailbox review with a brand-new unread supported attachment and the
+PHI-safe Run Type:
+
+Classification correction propagation and attachment write summary
+
+If classification requires correction, confirm only a locally verified
+supported category/subtype.
+
+A fresh explicit complete-review approval is required before the next
+real Smartsheet row is written.
+
+Verify only PHI-safe outcomes such as classification labels, counts,
+booleans, write success, attachment presence, and final status. Keep
+patient data, OCR text, extracted values, source_text, filenames, local
+document paths, payload values, and row IDs out of terminal/chat output.
+
 """
 
 
