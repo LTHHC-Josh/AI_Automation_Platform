@@ -686,8 +686,10 @@ def test_service_line_full_confidence_is_downgraded() -> None:
     assert (
         "Service line 1 confidence requires "
         "deterministic verification"
-        in actions
+        not in actions
     )
+
+    assert actions == []
 
 
 def test_duplicate_service_lines_are_removed() -> None:

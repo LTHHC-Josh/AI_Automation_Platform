@@ -5285,6 +5285,105 @@ booleans, write success, attachment presence, and final status. Keep
 patient data, OCR text, extracted values, source_text, filenames, local
 document paths, payload values, and row IDs out of terminal/chat output.
 
+
+------------------------------------------------------------
+SERVICE-LINE CONFIDENCE REVIEW NOISE CLEANUP - 2026-08-12
+------------------------------------------------------------
+
+Feature:
+
+Removed a redundant service-line review reason created solely when raw
+model confidence of 1.0 was conservatively capped to 0.95.
+
+The deterministic 1.0 to 0.95 confidence cap remains unchanged.
+
+The cap itself no longer emits:
+
+Service line N confidence requires deterministic verification
+
+A service line still emits a low-confidence review action when its final
+validated confidence is below the existing 0.85 threshold.
+
+Unsupported or invalid service-line evidence continues to generate
+targeted review reasons. No authorization safety rule was weakened.
+
+Files changed:
+
+- src/services/evidence_validation_service.py
+- tests/test_evidence_validation_service.py
+
+Focused test:
+
+- Evidence validation: 29 passed, 0 failed
+
+Affected regressions:
+
+- Review decision: 19 passed, 0 failed
+- Review output service: 8 passed, 0 failed
+- Review output integration: 7 passed, 0 failed
+- Document-to-Smartsheet mapping integration: 9 passed, 0 failed
+
+Combined automated result:
+
+Passed: 72
+Failed: 0
+
+Test classification:
+
+Synthetic deterministic only.
+
+External boundaries during this change:
+
+- Microsoft Graph not called.
+- PaddleOCR not called.
+- Ollama not called.
+- Smartsheet external API not called.
+- No new row was written.
+
+PHI handling:
+
+- Synthetic test values only.
+- No OCR text or source_text was printed.
+- No patient values, filenames, local paths, Smartsheet payloads, or row
+  IDs were printed.
+- Review-reason behavior remains generic and PHI-safe.
+
+Related controlled real verification completed before this cleanup:
+
+- One real mailbox document completed successfully.
+- Human-confirmed classification correction was submitted.
+- Complete-review approval was explicitly given.
+- Approved: 1
+- Written: 1
+- Failed: 0
+- Success: True
+- Status: completed
+- The written row was manually confirmed to use the human-confirmed
+  renewal subtype.
+- The row attachment was manually confirmed present.
+- No row values, patient data, OCR text, source_text, filename, path,
+  payload value, or row ID was copied into tracker output.
+
+Limitation:
+
+The remaining service-line review reasons have not yet been changed.
+Unsupported date, status, modifier, low-confidence, and unresolved
+authorization-quantity conditions remain active where deterministic
+evidence does not support them.
+
+Exact next starting point:
+
+Inspect the current service-line date, status, modifier, and source_text
+validation contracts together with the Ollama service-line extraction
+prompt and tests.
+
+Determine whether the remaining review reasons reflect genuinely
+unsupported evidence or whether service-line source evidence is too
+narrow to support otherwise valid extracted values.
+
+Do not weaken evidence requirements, infer modifier ownership, or
+interpret authorization quantity meaning without deterministic support.
+
 """
 
 

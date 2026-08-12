@@ -912,11 +912,6 @@ class EvidenceValidationService:
                     self.SERVICE_LINE_MAX_MODEL_CONFIDENCE
                 )
 
-                actions.append(
-                    f"Service line {line_number} confidence "
-                    "requires deterministic verification"
-                )
-
             self._validate_service_line_code(
                 service_line=service_line,
                 line_number=line_number,
