@@ -5645,6 +5645,69 @@ and success/failure.
 Do not perform a real Smartsheet write without a fresh explicit
 complete-review approval.
 
+
+------------------------------------------------------------
+CODEX / WORK WEEKLY CAPACITY CONTINUITY - 2026-08-13
+------------------------------------------------------------
+
+Feature:
+
+Added Codex/Work weekly-capacity planning to durable project memory.
+
+Behavior:
+
+- Codex and Work share the weekly usage limit.
+- The exact reset timestamp shown in Codex and Work Analytics is
+  authoritative when known.
+- The currently known reset is August 18, 2026 at 1:26 PM local time.
+- The known timestamp is current-cycle information and must be replaced
+  after reset when a new authoritative timestamp is observed.
+- Begin Day considers both remaining useful capacity and time until reset.
+- Appropriate Codex work includes workspace inspection, complex
+  multi-file edits, debugging, refactoring, caller/reference analysis,
+  and architecture review.
+- Worthwhile capacity should be used before expiration when it materially
+  improves the work.
+- Codex must never be used merely to consume credits.
+- Codex must preserve uncommitted work, follow AGENTS.md, remain PHI-safe,
+  and respect local PHI/OCR/Ollama boundaries.
+
+Files changed:
+
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Test classification:
+
+Synthetic deterministic repository-text validation.
+
+External boundaries:
+
+- Microsoft Graph not called.
+- PaddleOCR not called.
+- Ollama not called.
+- Smartsheet not called.
+- No patient document accessed.
+
+PHI handling:
+
+No PHI, OCR text, source_text, protected patient filename/path,
+credentials, secrets, tokens, payload values, or row IDs were used.
+
+Limitations:
+
+- Usage balance and reset timestamp are not continuously monitored.
+- A new reset timestamp must be observed from Codex and Work Analytics
+  after the current reset cycle.
+- Codex selection remains task-driven rather than automatic.
+
+Exact next starting point:
+
+Continue from the authoritative CURRENT NEXT START in PROJECT_MEMORY.md.
+
+During Begin Day, also consider worthwhile Codex work against the current
+known reset timestamp.
+
 """
 
 

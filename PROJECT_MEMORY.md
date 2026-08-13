@@ -157,6 +157,38 @@ remains true.
 - Every new real Smartsheet write requires fresh explicit complete-review
   approval.
 
+## Weekly Codex / Work Capacity
+
+Codex and Work share a weekly usage limit.
+
+When the Codex and Work Analytics page provides an exact reset timestamp,
+that timestamp is authoritative. Do not rely only on an assumed weekday.
+
+Currently known reset:
+
+- August 18, 2026 at 1:26 PM local time
+
+Treat the known timestamp as current-cycle information. After the reset,
+replace it when a new authoritative reset timestamp is observed.
+
+Each week, identify work where VS Code Codex materially improves safety
+or speed, including:
+
+- workspace inspection
+- complex multi-file edits
+- debugging
+- refactoring
+- caller/reference analysis
+- architecture review
+
+On Begin Day, consider both remaining useful capacity and time until the
+known reset. Prefer completing worthwhile Codex-suited work before unused
+capacity expires, but never use Codex merely to consume credits.
+
+Codex work must preserve uncommitted changes, follow `AGENTS.md`, remain
+PHI-safe, and keep PHI/OCR/Ollama-sensitive data within approved local
+boundaries.
+
 ## Begin Day Procedure
 
 When the operator says `begin day`:
@@ -170,16 +202,18 @@ When the operator says `begin day`:
 6. Preserve and reconcile any uncommitted work before making changes.
 7. Inspect files, callers, interfaces, and tests relevant to
    `CURRENT NEXT START`.
-8. Produce a concise Begin Day Brief containing:
+8. Check whether a known Codex/Work reset timestamp is approaching and
+   identify worthwhile current/upcoming Codex-suited work.
+9. Produce a concise Begin Day Brief containing:
    - repository state
    - last tested baseline
    - where work stopped
    - known limitations or blockers
    - today's exact objective
    - smallest safe first step
-9. Continue from `CURRENT NEXT START` unless new evidence requires a
+10. Continue from `CURRENT NEXT START` unless new evidence requires a
    different safe path.
-10. Do not automatically run PHI-sensitive patient-document, OCR, Ollama,
+11. Do not automatically run PHI-sensitive patient-document, OCR, Ollama,
     Graph, or Smartsheet operations.
 
 ## End of Day Procedure
