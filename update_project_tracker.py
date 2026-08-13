@@ -5512,6 +5512,139 @@ success/failure.
 Do not perform a real Smartsheet write without a fresh explicit
 complete-review approval.
 
+
+------------------------------------------------------------
+PROJECT MEMORY AND BEGIN/END DAY CONTINUITY - 2026-08-13
+------------------------------------------------------------
+
+Feature:
+
+Implemented a durable project continuity layer so work can resume from a
+compact, committed project memory rather than relying on conversation
+history alone.
+
+Project memory:
+
+Added `PROJECT_MEMORY.md` as the current-state continuity source.
+
+The file records:
+
+- source-of-truth ordering
+- platform goal
+- current architecture
+- safety invariants
+- implemented capabilities
+- recent tested baseline
+- known limitations and open questions
+- Begin Day procedure
+- End of Day procedure
+- exactly one authoritative CURRENT NEXT START
+
+The file explicitly prohibits PHI, OCR text, patient/member data,
+source_text, protected filenames and paths, credentials, secrets, tokens,
+Smartsheet payload values, and Smartsheet row IDs.
+
+AGENTS continuity:
+
+Replaced the volatile Current Work section in `AGENTS.md` with durable
+Project Continuity rules.
+
+`AGENTS.md` now defines:
+
+- `PROJECT_MEMORY.md` as the current continuity layer
+- Begin Day behavior
+- End of Day behavior
+- preservation and reconciliation of uncommitted work
+- Git/local-state verification before continuing
+- prohibition on automatically executing PHI-sensitive operations during
+  Begin Day
+
+Source-of-truth responsibilities are now separated:
+
+- Git committed state: authoritative committed code
+- confirmed local uncommitted state: work not yet committed
+- AGENTS.md: durable repository and execution rules
+- PROJECT_MEMORY.md: current project state and next start
+- update_project_tracker.py: detailed historical checkpoints and project
+  task synchronization
+
+Continuity validation:
+
+Passed: 14
+Failed: 0
+
+Validated behavior:
+
+- AGENTS contains Project Continuity
+- stale Current Work section removed
+- AGENTS references PROJECT_MEMORY
+- Begin Day procedure present
+- End of Day procedure present
+- PROJECT_MEMORY purpose present
+- source-of-truth order present
+- tested baseline present
+- limitations section present
+- Begin Day procedure present in memory
+- End of Day procedure present in memory
+- exactly one CURRENT NEXT START exists
+- current 19/29/16 regression baseline preserved
+- fresh explicit complete-review approval requirement preserved
+
+Test classification:
+
+Synthetic deterministic repository-text validation.
+
+External boundaries:
+
+- Microsoft Graph not called.
+- PaddleOCR not called.
+- Ollama not called.
+- Smartsheet external API not called.
+- No real patient document was accessed.
+- No real Smartsheet row was written.
+
+PHI handling:
+
+- No patient data was used.
+- No OCR text was used.
+- No source_text was used.
+- No protected patient filename or local patient path was used.
+- No credentials, secrets, tokens, payload values, or row IDs were used.
+- Validation inspected repository instruction and continuity text only.
+
+Files changed:
+
+- AGENTS.md
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Limitations:
+
+- PROJECT_MEMORY.md must be maintained whenever current project state,
+  tested baseline, limitations, or CURRENT NEXT START changes.
+- Begin Day still requires inspection of actual Git and local state rather
+  than trusting the memory file blindly.
+- Git remains authoritative for committed code.
+- The project tracker remains the detailed historical record.
+- The continuity system does not itself execute local-only commands or
+  PHI-sensitive operations.
+
+Exact next starting point:
+
+Use the new Begin Day procedure to rehydrate project state, then run one
+controlled local authorization test through the renamed single-document
+authorization harness.
+
+Use real cached OCR and real local Ollama while keeping PHI-bearing data
+local.
+
+Report only PHI-safe counts, booleans, attempts, confidence metadata,
+review status and reason counts, selected attempt, reconciliation state,
+and success/failure.
+
+Do not perform a real Smartsheet write without a fresh explicit
+complete-review approval.
+
 """
 
 

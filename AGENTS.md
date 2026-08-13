@@ -170,16 +170,43 @@ After commit:
 - verify local/remote sync
 - confirm clean tree
 
-## Current Work
+## Project Continuity
 
-Current uncommitted work includes:
+Current project state and the authoritative next starting point are
+maintained in `PROJECT_MEMORY.md`.
 
-- PHI-safe single-document authorization harness changes
-- generic authorization identifier prompt cleanup
-- stronger service-line same-row evidence guidance
-- focused Ollama prompt tests
+`AGENTS.md` contains durable repository rules. Do not duplicate volatile
+current-work state here.
 
-Do not revert or overwrite those existing changes.
+When the operator says `begin day`:
+
+- read `AGENTS.md`
+- read all of `PROJECT_MEMORY.md`
+- inspect the latest relevant checkpoint in `update_project_tracker.py`
+- inspect the current Git branch, status, and local/remote synchronization
+- preserve and reconcile any uncommitted work
+- inspect files, callers, interfaces, and tests relevant to
+  `CURRENT NEXT START`
+- provide a concise Begin Day Brief
+- continue from `CURRENT NEXT START` unless current evidence requires a
+  different safe path
+
+Begin Day must not automatically execute PHI-sensitive OCR, Ollama,
+Microsoft Graph, patient-document, or Smartsheet operations.
+
+When the operator says `end of day`:
+
+- reach the smallest safe tested checkpoint
+- run focused and affected regressions
+- update `update_project_tracker.py`
+- update `PROJECT_MEMORY.md`
+- keep exactly one authoritative `CURRENT NEXT START`
+- run the project tracker and require `Not Found : 0` and `Failed : 0`
+- complete Git safety review
+- stage only reviewed safe files
+- commit and push
+- verify local/remote synchronization
+- confirm a clean working tree
 
 ## Communication / Execution
 
