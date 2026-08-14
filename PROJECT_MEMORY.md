@@ -117,15 +117,24 @@ Latest continuity-system validation:
 
 Latest focused checkpoint:
 
-- Authorization harness contract: 5 passed, 0 failed.
-- Document-processor regression: 17 passed, 0 failed.
+- Service-line quantity reconciliation: 10 passed, 0 failed.
+- Document-processor regression: 18 passed, 0 failed.
 - Evidence-validation regression: 29 passed, 0 failed.
+- Authorization quantity-rule regression: 8 passed, 0 failed.
 - Ollama service-line regression: 19 passed, 0 failed.
 - Review-output service regression: 8 passed, 0 failed.
-- Review-output integration regression: 7 passed, 0 failed.
-- Combined: 85 passed, 0 failed.
-- Test classification: synthetic deterministic.
+- Smartsheet review-mapping integration: 9 passed, 0 failed.
+- Combined: 101 passed, 0 failed.
+- Test classification: synthetic deterministic and mock.
 - All modified Python files compiled successfully.
+- Quantity reconciliation was verified end to end across validation,
+  candidate selection, business rules, review output, and Smartsheet mapping.
+- Reconciliation remains within one independently validated candidate;
+  extraction attempts are never merged and ties keep attempt 1.
+- Missing or null top-level `authorized_units` is not inferred, unsupported
+  row quantities are excluded, and `approved_visits` remains separate.
+- No production code change was required; only missing synthetic regression
+  coverage was added.
 - Microsoft Graph was not called.
 - PaddleOCR was not called.
 - Real Ollama generation was not called.
@@ -168,6 +177,7 @@ remains true.
 
 - Authorization quantity meaning remains conservative where deterministic
   evidence is insufficient.
+- Quantity business meaning and final approval remain human-review decisions.
 - Modifier ownership remains unresolved without row evidence.
 - Final production document taxonomy will expand beyond current
   authorization work.
@@ -270,33 +280,33 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Inspect the existing authorization service-line quantity-reconciliation
-boundary, its callers, and its synthetic tests.
+Inspect the existing Microsoft Graph authentication-error boundary in
+`src/graph/auth.py`, its configuration, callers, and current synthetic tests.
 
 Test classification:
 
 - synthetic deterministic
-- mock where existing test doubles are used
+- mock MSAL/Graph responses only
 
-Confirm that supported quantities remain preserved and reconciled only
-within one independently validated candidate, while quantity is never
-interpreted as visits, sessions, equipment, approval, or sufficient
-authorization.
+Establish dedicated PHI-safe regression coverage for invalid credentials,
+expired secrets, missing permissions, Microsoft Graph authorization failures,
+and sanitized error handling. Confirm that access tokens and provider error
+details cannot be exposed through user-facing or logged failure output.
 
-Inspect before editing. Make a code change only if current callers/tests
-demonstrate a concrete safety or preservation gap. Do not invent quantity
-meaning without confirmed business requirements.
+Inspect before editing. Make the smallest production change only if current
+callers and a failing synthetic regression demonstrate a concrete gap. Do not
+make a live Microsoft Graph request and do not use real credentials or tokens.
 
 Report only PHI-safe metadata:
 
 - test counts and classification
-- reconciliation state and action presence
-- whether any inference gap was found
+- authentication failure category and sanitized status
+- whether any credential or token exposure gap was found
 - exact safe files affected
 
-Do not expose OCR text, patient data, extracted values, `source_text`,
-protected filenames, local patient paths, credentials, payload values, or
-row IDs.
+Do not expose provider error descriptions, credentials, secrets, tokens,
+OCR text, patient data, extracted values, `source_text`, protected filenames,
+local patient paths, Smartsheet payload values, or row IDs.
 
 Do not perform a real Smartsheet write without a fresh explicit
 complete-review approval.

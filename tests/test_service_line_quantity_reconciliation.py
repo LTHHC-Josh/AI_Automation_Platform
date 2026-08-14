@@ -247,6 +247,93 @@ def test_reconciliation_preserves_original_source() -> None:
     assert "SYNTH1 quantity 1" in source_text
 
 
+def test_unsupported_row_quantity_is_not_reconciled() -> None:
+    document = build_document(
+        authorized_units=[6],
+        service_lines=[
+            AuthorizationServiceLine(
+                service_code="SYNTH1",
+                quantity=7,
+                confidence=0.95,
+                source_text="SYNTH1 quantity 6",
+            ),
+        ],
+    )
+
+    actions = EvidenceValidationService().validate(
+        document
+    )
+
+    assert document.service_lines[0].quantity is None
+    assert document.extracted_data[
+        "authorized_units"
+    ] == [6]
+    assert RECONCILIATION_ACTION not in actions
+
+
+def test_supported_quantity_survives_unresolved_row_field() -> None:
+    document = build_document(
+        authorized_units=[6],
+        service_lines=[
+            build_line(6),
+            AuthorizationServiceLine(
+                service_code="SYNTH2",
+                quantity=1,
+                confidence=0.95,
+                source_text="quantity 1",
+            ),
+        ],
+    )
+
+    actions = EvidenceValidationService().validate(
+        document
+    )
+
+    assert document.service_lines[1].service_code is None
+    assert document.service_lines[1].quantity == "1"
+    assert document.service_lines[1].confidence == 0.50
+    assert document.extracted_data[
+        "authorized_units"
+    ] == ["6", "1"]
+    assert document.field_confidences[
+        "authorized_units"
+    ] == 0.50
+    assert RECONCILIATION_ACTION in actions
+
+
+def test_reconciliation_does_not_change_approved_visits() -> None:
+    document = build_document(
+        authorized_units=[6],
+        service_lines=[
+            build_line(6),
+            build_line(1),
+        ],
+    )
+    document.field_evidence["approved_visits"] = {
+        "value": 3,
+        "confidence": 0.90,
+        "source_text": "Approved visits 3",
+    }
+
+    actions = EvidenceValidationService().validate(
+        document
+    )
+
+    assert document.extracted_data[
+        "authorized_units"
+    ] == ["6", "1"]
+    assert document.extracted_data[
+        "approved_visits"
+    ] == 3
+    assert document.field_confidences[
+        "approved_visits"
+    ] == 0.90
+    assert document.field_evidence[
+        "approved_visits"
+    ]["source_text"] == "Approved visits 3"
+    assert RECONCILIATION_ACTION in actions
+
+
 def run_test(
     name: str,
     function: Callable[[], None],
@@ -298,6 +385,18 @@ def main() -> None:
         (
             "original source evidence is preserved",
             test_reconciliation_preserves_original_source,
+        ),
+        (
+            "unsupported row quantity is not reconciled",
+            test_unsupported_row_quantity_is_not_reconciled,
+        ),
+        (
+            "supported quantity survives unresolved row field",
+            test_supported_quantity_survives_unresolved_row_field,
+        ),
+        (
+            "reconciliation does not change approved visits",
+            test_reconciliation_does_not_change_approved_visits,
         ),
     ]
 

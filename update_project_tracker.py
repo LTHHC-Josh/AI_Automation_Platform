@@ -5867,6 +5867,87 @@ authorization.
 Make a code change only if inspection demonstrates a concrete gap. Do not
 invent quantity meaning without confirmed business requirements.
 
+
+------------------------------------------------------------
+AUTHORIZATION QUANTITY RECONCILIATION SAFETY CHECKPOINT - 2026-08-14
+------------------------------------------------------------
+
+Feature:
+
+Inspected the authorization service-line quantity-reconciliation boundary
+end to end across deterministic validation, independent extraction-candidate
+selection, authorization business rules, review output, and reviewed
+Smartsheet mapping.
+
+Verified behavior:
+
+- Reconciliation uses only supported quantities from one independently
+  validated candidate.
+- Separate extraction attempts are never merged and ties retain attempt 1.
+- Missing or null top-level authorized units are not inferred.
+- Unsupported row quantities are cleared and excluded from reconciliation.
+- Supported quantities remain eligible when another row field is unresolved;
+  conservative confidence and review actions are preserved.
+- Approved visits remain separate and unchanged.
+- Quantity is not interpreted as visits, sessions, equipment, recurring
+  services, approval, or sufficient authorization.
+- Authorization business rules continue to require human verification.
+- Review output preserves validated quantity state, confidence, evidence, and
+  review metadata without reinterpretation.
+- Smartsheet mapping performs no quantity conversion or reinterpretation.
+- No production code change was required.
+
+Files changed:
+
+- tests/test_document_processor.py
+- tests/test_service_line_quantity_reconciliation.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Synthetic deterministic and mock validation:
+
+- Service-line quantity reconciliation: 10 passed, 0 failed.
+- Document processor: 18 passed, 0 failed.
+- Evidence validation: 29 passed, 0 failed.
+- Authorization quantity rules: 8 passed, 0 failed.
+- Review-output service: 8 passed, 0 failed.
+- Smartsheet review-mapping integration: 9 passed, 0 failed.
+- Ollama prompt and schema guardrails: 19 passed, 0 failed.
+- Combined: 101 passed, 0 failed.
+- All modified Python test files compiled successfully.
+
+External and PHI boundaries:
+
+- No patient document or protected data was accessed.
+- Microsoft Graph, PaddleOCR, Ollama, the reviewed-document Smartsheet
+  workflow, and external AI were not called during inspection or regression
+  testing.
+- No OCR text, patient values, source evidence, protected filenames or paths,
+  credentials, secrets, tokens, payload values, or row IDs were exposed.
+
+Limitations:
+
+- Quantity business meaning and final approval remain human-review decisions.
+- Modifier ownership remains unresolved without row evidence.
+- No real Smartsheet write was performed or authorized.
+
+Codex / Work Analytics continuity:
+
+- Weekly usage remaining remains the observed 99%.
+- The authoritative reset remains August 20, 2026 at 9:53 AM local time.
+- The reason for the reset timestamp change remains unknown and was not
+  guessed.
+
+Exact next starting point:
+
+Inspect the existing Microsoft Graph authentication-error boundary in
+src/graph/auth.py, its configuration, callers, and current synthetic tests.
+Add dedicated mock regression coverage for invalid credentials, expired
+secrets, missing permissions, Graph authorization failures, and sanitized
+error handling. Make a production change only if a failing synthetic
+regression demonstrates a concrete gap. Do not make a live Graph request or
+use real credentials or tokens.
+
 """
 
 
@@ -5989,7 +6070,9 @@ updates = [
             "Implemented independent deterministic validation and scoring of "
             "extraction candidates. Candidates are never merged; the stronger "
             "supported candidate is selected and ambiguity remains routed to "
-            "human review."
+            "human review. Quantity reconciliation was verified to remain "
+            "within one independently validated candidate without inference "
+            "or attempt merging."
         ),
     ),
     (
@@ -6007,8 +6090,9 @@ updates = [
         (
             "Real authorization testing confirms that unresolved quantity and "
             "modifier relationships route to human review. Synthetic retry, "
-            "candidate-selection, validator, and review tests pass, while final "
-            "business rules remain pending management confirmation."
+            "candidate-selection, quantity-reconciliation, validator, review, "
+            "and mapping tests pass, while quantity meaning, final approval, "
+            "and final business rules remain pending human confirmation."
         ),
     ),
     (

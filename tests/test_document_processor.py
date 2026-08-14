@@ -766,6 +766,47 @@ def test_candidates_are_never_merged() -> None:
     ) is None
 
 
+def test_candidate_quantities_are_never_merged() -> None:
+    processor = build_processor_without_providers()
+
+    first_result = build_incomplete_extraction()
+    second_result = build_complete_extraction()
+
+    first_result[
+        "fields"
+    ][
+        "authorized_units"
+    ] = confidence_field(
+        [9],
+        "9",
+    )
+    first_result["service_lines"][0]["quantity"] = 9
+    first_result["service_lines"][0]["source_text"] = (
+        "SYNTH1 U1 9 11/25/2025 "
+        "05/23/2026 Approved"
+    )
+
+    selected, selected_attempt = (
+        processor._select_extraction_candidate(
+            template_document=build_template_document(),
+            first_result=first_result,
+            second_result=second_result,
+        )
+    )
+
+    assert selected_attempt == 2
+    assert {
+        str(quantity)
+        for quantity in selected.extracted_data[
+            "authorized_units"
+        ]
+    } == {"1", "6"}
+    assert {
+        str(service_line.quantity)
+        for service_line in selected.service_lines
+    } == {"1", "6"}
+
+
 def run_test(
     test_name: str,
     test_function: Callable[[], None],
@@ -867,6 +908,10 @@ def main() -> None:
         (
             "candidates are never merged",
             test_candidates_are_never_merged,
+        ),
+        (
+            "candidate quantities are never merged",
+            test_candidate_quantities_are_never_merged,
         ),
     ]
 
