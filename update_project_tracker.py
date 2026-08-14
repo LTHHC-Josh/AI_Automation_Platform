@@ -53,8 +53,8 @@ Microsoft 365 shared mailbox
   -> Independent deterministic candidate validation
   -> Stronger supported candidate selection
   -> Business rules
-  -> Human-review decision
-  -> Smartsheet
+  -> Automatic Smartsheet row population
+  -> Conditional downstream human-review exception workflow
 
 Shared mailbox:
 
@@ -94,7 +94,8 @@ File
   -> Select the stronger deterministically supported candidate
   -> Synchronize corrected flat extraction values
   -> Deterministic business rules
-  -> Human-review decision
+  -> Automatic intentionally mapped Smartsheet row population
+  -> Conditional downstream human-review exception workflow
   -> Document result
 
 Classification and extraction intentionally remain separate.
@@ -6032,6 +6033,74 @@ path, OCR-text, and extracted-value exposure, then make the smallest changes
 needed to restrict output to PHI-safe counts, booleans, timings, confidence
 metadata, and sanitized statuses. Do not run a live mailbox or real document.
 
+
+------------------------------------------------------------
+AUTOMATIC SMARTSHEET PRODUCTION FLOW CLARIFICATION - 2026-08-14
+------------------------------------------------------------
+
+Authoritative business requirement:
+
+- Normal production processing automatically creates or populates the
+  intentionally mapped Smartsheet row after deterministic validation and
+  business rules.
+- Human review is a downstream exception workflow and is not a write gate.
+- Review-required rows must preserve supported values, keep unsupported or
+  unreliable values null/unknown, and carry review status and reasons.
+- The existing configured review thresholds remain unchanged; no new
+  threshold was invented.
+- Smartsheet is an approved production destination for intentionally mapped
+  PHI and full document content.
+- PHI or document content may reach Smartsheet only through an explicit
+  production mapping/write path. Internal diagnostics, credentials, tokens,
+  local paths, cache metadata, and unrelated internal fields remain excluded.
+
+Durable continuity changes:
+
+- AGENTS.md now defines automatic Smartsheet population before conditional
+  downstream human review.
+- PROJECT_MEMORY.md records the clarified architecture and implementation
+  gap and contains one authoritative next start.
+- Earlier tracker entries describing complete-review approval as write
+  authority remain historical; this checkpoint supersedes that architecture
+  decision.
+
+Inspected implementation gap:
+
+- SmartsheetReviewSubmissionService requires a successful explicit approval
+  result before mapping or writing.
+- CompleteReviewSmartsheetWorkflowService invokes an approval interaction
+  before submission.
+- Mailbox and full-review orchestration propagate explicit approval state.
+- SmartsheetReviewRowMappingService blocks review-required rows unless a
+  narrow approval exception applies and currently prohibits source_text.
+- Existing focused tests encode these approval-gated assumptions.
+- Correcting this coherently spans several active interfaces, so no broad
+  production refactor was made during the durable-rule reconciliation.
+
+External and PHI boundaries:
+
+- Eleven focused Smartsheet/review-boundary suites passed: 120 passed,
+  0 failed.
+- Tests used synthetic deterministic or mocked data only and documented the
+  current approval-gated contracts that are now obsolete.
+- update_project_tracker.py compiled successfully.
+- No real Smartsheet write is performed for this checkpoint.
+- Microsoft Graph, PaddleOCR, Ollama, patient documents, and external AI are
+  not called.
+- No protected data, payload values, credentials, tokens, filenames, paths,
+  OCR text, or source evidence is exposed.
+
+Exact next starting point:
+
+Add focused synthetic red regressions for automatic Smartsheet population of
+both verified and review-required null-safe rows, then reconcile row mapping,
+submission, complete-review workflow, mailbox orchestration, command options,
+and callers as the smallest coherent interface change. Preserve review
+status/reasons, configured thresholds, deterministic validation, explicit
+destination mapping, and all no-inference rules. Use mocked Smartsheet only.
+After this production boundary is green, resume the deferred legacy
+Graph/mailbox diagnostic-output hardening task.
+
 """
 
 
@@ -6047,8 +6116,8 @@ updates = [
             "Completed the approved local-first architecture using Microsoft "
             "Graph, local PaddleOCR, local Ollama, field-level evidence, "
             "authorization service-line extraction, deterministic candidate "
-            "validation, controlled retry, business rules, human review, and "
-            "Smartsheet."
+            "validation, controlled retry, business rules, automatic "
+            "Smartsheet population, and downstream exception review."
         ),
     ),
     (
@@ -6058,7 +6127,8 @@ updates = [
             "Completed integration architecture for Microsoft Graph mailbox "
             "ingestion followed by local OCR, separate local LLM requests, "
             "structured extraction, controlled retry, evidence validation, "
-            "human review, and Smartsheet."
+            "business rules, automatic Smartsheet population, and conditional "
+            "downstream human review."
         ),
     ),
     (
@@ -6069,7 +6139,8 @@ updates = [
             "registries, factories, field-level evidence, neutral service-line "
             "records, PHI-safe metrics, deterministic attempt routing, a "
             "generic retry verification prompt, deterministic validation, "
-            "business rules, and human review."
+            "business rules, automatic destination handoff, and conditional "
+            "human review."
         ),
     ),
     (
@@ -6191,7 +6262,9 @@ updates = [
             "Ollama, and the corrected semantic harness passes in the "
             "controlled real regression. Graph failure handling now uses "
             "sanitized application-owned categories; legacy diagnostic output "
-            "still requires PHI-safe hardening."
+            "still requires PHI-safe hardening. The active Smartsheet path "
+            "still requires reconciliation from approval-gated writing to "
+            "automatic population with downstream exception review."
         ),
     ),
     (

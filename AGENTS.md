@@ -23,7 +23,10 @@ Long-term goal: a reusable company AI platform. The current document processor i
 ## Architecture
 
 - Preserve architecture; extend, do not duplicate.
-- Keep classification, extraction, validation, business rules, human review, and external writes separate.
+- Keep classification, extraction, validation, business rules, external writes, and human review separate.
+- The normal production flow performs deterministic validation and business rules before automatically creating or populating the intentionally mapped Smartsheet row.
+- Human review is a downstream exception workflow, not a prerequisite or approval gate for the Smartsheet write.
+- When configured accuracy/reliability rules require review, write the supported/null-safe row first and include its review status and reasons for downstream handling.
 - Treat MCO/payer/sender/source as metadata/context, not document meaning.
 - Prefer evidence-driven, source-agnostic logic.
 - Do not hard-code conclusions from one payer, fixture, template, service code, or modifier.
@@ -31,7 +34,8 @@ Long-term goal: a reusable company AI platform. The current document processor i
 
 ## PHI / Security
 
-PHI must remain local.
+PHI must remain within approved LTHHC systems and intentionally designed
+production integrations.
 
 Never print, expose, log, upload, commit, or include in responses:
 
@@ -62,7 +66,12 @@ Never commit:
 
 Use PHI-safe diagnostics only: counts, booleans, timings, attempts, confidence, field names, statuses, evidence-present flags, exit codes, and safe file paths outside protected data.
 
-Never write `source_text` to Smartsheet unless explicitly approved.
+Smartsheet is an approved production destination for required PHI and full
+document content. PHI, `source_text`, and document content may reach it only
+through an explicit, intentionally designed mapping/write path. Never pass an
+object through wholesale merely because it contains an approved field; map
+only intended destination fields and exclude internal diagnostics,
+credentials, tokens, local paths, cache metadata, and unrelated fields.
 
 ## AI / Extraction
 
@@ -87,7 +96,10 @@ Never write `source_text` to Smartsheet unless explicitly approved.
 - Keep deterministic validation, business rules, and human review separate.
 - Review output must preserve values, confidence, `source_text`, actions, status/reasons, retry metadata, selected attempt, and reconciliation.
 - Do not rerun or reinterpret extraction while constructing review output.
-- Only explicit complete-review approval may permit a real Smartsheet write.
+- Deterministic validation and business rules must complete before the automatic production Smartsheet write.
+- Human review is a downstream exception workflow and must not gate normal Smartsheet row creation/population.
+- A row requiring review must carry the existing review status and reasons; unsupported or unreliable values remain null/unknown.
+- Use the existing configured accuracy/reliability thresholds. If a needed threshold is unresolved, record that gap rather than inventing a value.
 
 ## Testing
 

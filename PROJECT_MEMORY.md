@@ -40,8 +40,8 @@ Microsoft 365 / Microsoft Graph
 -> structured extraction
 -> deterministic evidence validation
 -> business rules
--> human review
--> approved external destinations such as Smartsheet
+-> automatic population of the intentionally mapped Smartsheet row
+-> conditional downstream human-review exception workflow
 
 The architecture must remain reusable for future document types,
 healthcare sources, EHR/API integrations, cross-source validation,
@@ -50,7 +50,7 @@ workflow automation, and internal AI task completion.
 ## Current Architecture
 
 Classification, extraction, deterministic validation, business rules,
-human review, and external writes are separate boundaries.
+external writes, and human review are separate boundaries.
 
 MCO, payer, sender, source, filename, logo, and template are context or
 metadata and must not determine document meaning.
@@ -63,9 +63,12 @@ The strongest deterministically supported candidate is selected. Ties keep
 attempt 1.
 
 Unsupported, conflicting, ambiguous, guessed, invalid, or insufficiently
-evidenced values remain null/unknown and route to review.
+evidenced values remain null/unknown and flag the row for review as
+appropriate.
 
-Real Smartsheet writes require explicit complete-review approval.
+After deterministic validation and business rules, the normal production
+flow automatically creates or populates the intentionally mapped Smartsheet
+row. Human review is a downstream exception workflow, not a write gate.
 
 ## Important Safety Invariants
 
@@ -77,11 +80,18 @@ Real Smartsheet writes require explicit complete-review approval.
 - Modifier ownership requires row evidence.
 - Service-line values must be supported by evidence from the same service
   line.
-- `source_text` is not written to Smartsheet without explicit approval.
-- PHI remains local.
+- PHI, `source_text`, and full document content may reach Smartsheet only
+  through an explicit, intentionally designed production mapping/write path.
+- Internal diagnostics, credentials, tokens, local paths, cache metadata,
+  and unrelated internal fields are never included merely because an object
+  contains approved destination data.
+- PHI remains within approved LTHHC systems and production integrations and
+  is excluded from console output, logs, Git, continuity files, tests,
+  diagnostics, screenshots, and Codex responses.
 - Run Type is explicit PHI-safe operator text and is never inferred from
   document data.
-- Human Review Required cannot be bypassed by complete-review approval.
+- Review status and reasons accompany an automatically populated row when
+  the configured accuracy/reliability rules require downstream review.
 - Payer, sender, filename, and template must not imply document meaning or
   authorization conclusions.
 
@@ -98,8 +108,9 @@ Real Smartsheet writes require explicit complete-review approval.
 - Deterministic evidence validation.
 - Authorization business-rule boundary.
 - Human classification review and local feedback.
-- Complete-review approval boundary.
-- Reviewed Smartsheet row mapping and writes.
+- Reviewed Smartsheet row mapping and write components; their current
+  approval-gated orchestration requires reconciliation with the clarified
+  automatic-write production requirement.
 - Smartsheet document attachment support.
 - Explicit PHI-safe Run Type.
 - Human-confirmed classification propagation.
@@ -109,6 +120,22 @@ Real Smartsheet writes require explicit complete-review approval.
 - Application-owned sanitized Microsoft Graph failure categories.
 
 ## Recent Tested Baseline
+
+Latest automatic-Smartsheet business-rule reconciliation:
+
+- Durable architecture now requires automatic intentionally mapped
+  Smartsheet row population after deterministic validation and business
+  rules, followed by conditional downstream human-review handling.
+- The existing configured review thresholds remain unchanged.
+- Eleven focused Smartsheet/review-boundary suites: 120 passed, 0 failed.
+- Test classification: synthetic deterministic and mock.
+- The green suites document the current approval-gated implementation and
+  identify the contracts that are obsolete under the clarified requirement;
+  production behavior was not changed in this continuity checkpoint.
+- `update_project_tracker.py` compiled successfully.
+- No real Smartsheet write, Microsoft Graph, PaddleOCR, Ollama, patient
+  document, or external-AI operation occurred.
+- No protected data was accessed or exposed.
 
 Latest continuity-system validation:
 
@@ -206,8 +233,17 @@ remains true.
 - Production hardening and future integrations remain ongoing.
 - Graph authentication and authorization failure verification is mock-only;
   no live negative authentication request was performed.
-- Every new real Smartsheet write requires fresh explicit complete-review
-  approval.
+- The current Smartsheet submission, complete-review workflow, mailbox
+  coordinator, and full-review command still require complete-review
+  approval before writing. This directly conflicts with the clarified
+  automatic production-write requirement and must be corrected together
+  with their synthetic contracts.
+- Current row mapping blocks review-required rows and prohibits
+  `source_text`; the next implementation must allow supported/null-safe rows
+  to write with review status/reasons and must define any intended PHI/full-
+  document mapping explicitly without passing internal objects wholesale.
+- Review thresholds currently remain the configured values in
+  `ReviewDecisionService`; this clarification does not change them.
 
 ## Weekly Codex / Work Capacity
 
@@ -304,40 +340,23 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Inspect the legacy Graph/mailbox diagnostic entry points and their current
-output contracts:
+Reconcile the active Smartsheet production path with the clarified automatic-
+write requirement using focused synthetic red regressions first.
 
-- `scripts/test_graph_connection.py`
-- `scripts/test_graph_attachments.py`
-- `scripts/check_graph_read_status.py`
-- `scripts/test_mailbox_processor.py`
+Inspect and update the smallest coherent interface set spanning row mapping,
+submission, complete-review workflow, mailbox orchestration, command options,
+and their callers/tests so deterministic validation and business rules are
+followed by automatic Smartsheet row population. Human review must remain a
+downstream exception workflow, and review-required rows must retain review
+status/reasons rather than being blocked from writing.
 
-Test classification:
+Define any intended PHI, `source_text`, or full-document destination mapping
+explicitly. Do not pass review/document objects wholesale, and exclude
+internal diagnostics, credentials, tokens, local paths, cache metadata, and
+unrelated fields. Preserve configured review thresholds and all null/unknown,
+no-inference, and destination-validation safeguards. Use mocked Smartsheet
+only; do not run Graph, OCR, Ollama, patient documents, or a real Smartsheet
+write.
 
-- synthetic deterministic
-- mocked mailbox, Graph, attachment, and document results only
-
-Add PHI-safe stdout regressions reproducing the current exposure of message
-metadata, identifiers, attachment/document paths, OCR text, and extracted
-document values without using any real protected value. Confirm both success
-and failure output contracts.
-
-Then make the smallest changes needed so these diagnostics report only safe
-counts, booleans, timings, confidence metadata, and sanitized statuses while
-remaining operationally useful. Do not change mailbox-processing behavior or
-core document-processing interfaces.
-
-Report only PHI-safe metadata:
-
-- test counts and classification
-- diagnostic output field categories
-- whether protected output exposure was detected before and after correction
-- exact safe files affected
-
-Do not run these scripts against a live mailbox or real documents. Do not
-expose provider diagnostics, credentials, secrets, tokens, OCR text, patient
-data, extracted values, `source_text`, protected filenames or paths,
-Smartsheet payload values, or row IDs.
-
-Do not perform a real Smartsheet write without a fresh explicit
-complete-review approval.
+After that boundary is green, resume the deferred legacy Graph/mailbox
+diagnostic-output hardening task.
