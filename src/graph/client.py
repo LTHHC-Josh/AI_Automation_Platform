@@ -1,6 +1,10 @@
 import requests
 
 from .auth import GraphAuthenticator
+from .errors import (
+    GraphAuthorizationError,
+    GraphRequestError,
+)
 
 
 class GraphClient:
@@ -22,54 +26,89 @@ class GraphClient:
         endpoint: str,
         params: dict | None = None,
     ):
-        response = requests.get(
-            f"{self.BASE_URL}{endpoint}",
-            headers=self._headers(),
+        return self._request(
+            request_method=requests.get,
+            endpoint=endpoint,
             params=params,
-            timeout=30,
         )
-
-        response.raise_for_status()
-
-        if not response.content:
-            return {}
-
-        return response.json()
 
     def post(
         self,
         endpoint: str,
         payload: dict,
     ):
-        response = requests.post(
-            f"{self.BASE_URL}{endpoint}",
-            headers=self._headers(),
+        return self._request(
+            request_method=requests.post,
+            endpoint=endpoint,
             json=payload,
-            timeout=30,
         )
-
-        response.raise_for_status()
-
-        if not response.content:
-            return {}
-
-        return response.json()
 
     def patch(
         self,
         endpoint: str,
         payload: dict,
     ):
-        response = requests.patch(
-            f"{self.BASE_URL}{endpoint}",
-            headers=self._headers(),
+        return self._request(
+            request_method=requests.patch,
+            endpoint=endpoint,
             json=payload,
-            timeout=30,
         )
 
-        response.raise_for_status()
+    def _request(
+        self,
+        *,
+        request_method,
+        endpoint: str,
+        **kwargs,
+    ):
+        failure_category = None
+        response = None
 
-        if not response.content:
-            return {}
+        try:
+            response = request_method(
+                f"{self.BASE_URL}{endpoint}",
+                headers=self._headers(),
+                timeout=30,
+                **kwargs,
+            )
 
-        return response.json()
+            response.raise_for_status()
+
+            if not response.content:
+                return {}
+
+            return response.json()
+
+        except requests.HTTPError as error:
+            error_response = getattr(
+                error,
+                "response",
+                None,
+            )
+            status_code = getattr(
+                error_response,
+                "status_code",
+                None,
+            )
+
+            if status_code in {
+                401,
+                403,
+            }:
+                failure_category = "authorization_failed"
+            else:
+                failure_category = "graph_request_failed"
+
+        except (
+            requests.RequestException,
+            ValueError,
+        ):
+            failure_category = "graph_request_failed"
+
+        response = None
+        kwargs.clear()
+
+        if failure_category == "authorization_failed":
+            raise GraphAuthorizationError()
+
+        raise GraphRequestError()

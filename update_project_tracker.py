@@ -5948,6 +5948,90 @@ error handling. Make a production change only if a failing synthetic
 regression demonstrates a concrete gap. Do not make a live Graph request or
 use real credentials or tokens.
 
+
+------------------------------------------------------------
+MICROSOFT GRAPH SANITIZED FAILURE BOUNDARY - 2026-08-14
+------------------------------------------------------------
+
+Feature:
+
+Inspected and corrected the Microsoft Graph configuration, authentication,
+request, authorization, caller, and diagnostic-entry-point failure boundary.
+
+Confirmed pre-fix gap:
+
+- MSAL/provider authentication descriptions were included in raised errors.
+- Raw MSAL construction and token-acquisition exceptions could escape.
+- Raw Graph 401/403, request, and response-decoding exceptions could escape.
+- Uncaught diagnostic entry points could display those raw exceptions.
+
+Implemented behavior:
+
+- Added application-owned sanitized categories: configuration_error,
+  authentication_failed, authorization_failed, and graph_request_failed.
+- Missing configuration reports missing environment-variable names only and
+  never reports values.
+- Provider descriptions, response bodies, credentials, secrets, tokens, and
+  authorization headers are not included in sanitized error output.
+- Blank or failed token acquisition stops before any Graph request.
+- HTTP 401 and 403 responses map to authorization_failed.
+- Other request and response-decoding failures map to graph_request_failed.
+- Successful token acquisition still returns the token internally without
+  printing or logging it.
+- Sanitized failures retain no provider exception cause or context.
+- Existing RuntimeError compatibility is preserved through subclasses.
+
+Files changed:
+
+- src/graph/auth.py
+- src/graph/client.py
+- src/graph/config.py
+- src/graph/errors.py
+- tests/test_graph_security_boundary.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Synthetic deterministic and mock validation:
+
+- Initial red regression: 1 passed, 11 failed.
+- Final Graph security boundary: 17 passed, 0 failed.
+- Ten affected mailbox suites: 108 passed, 0 failed.
+- Combined final result: 125 passed, 0 failed.
+- All five modified Graph/security Python files compiled successfully.
+
+External and PHI boundaries:
+
+- Microsoft Graph and MSAL were mocked only.
+- No real credentials or .env values were read or printed.
+- No live Graph, patient-document, PaddleOCR, Ollama, reviewed-document
+  Smartsheet, or external-AI operation occurred.
+- No protected data, provider detail, credential, secret, token, response
+  payload, OCR text, protected filename/path, or row ID was exposed.
+
+Limitations:
+
+- Verification is mock-only; no live negative authentication or authorization
+  request was performed.
+- Legacy Graph/mailbox diagnostic scripts still contain direct output of
+  message metadata, identifiers, paths, OCR text, or extracted values and must
+  not be run against live data before their output boundary is corrected.
+
+Codex / Work Analytics continuity:
+
+- Weekly usage remaining remains the observed 99%.
+- The authoritative reset remains August 20, 2026 at 9:53 AM local time.
+- The reason for the reset timestamp change remains unknown and was not
+  guessed.
+
+Exact next starting point:
+
+Inspect scripts/test_graph_connection.py, scripts/test_graph_attachments.py,
+scripts/check_graph_read_status.py, and scripts/test_mailbox_processor.py.
+Add mocked stdout regressions for their current message metadata, identifier,
+path, OCR-text, and extracted-value exposure, then make the smallest changes
+needed to restrict output to PHI-safe counts, booleans, timings, confidence
+metadata, and sanitized statuses. Do not run a live mailbox or real document.
+
 """
 
 
@@ -6105,8 +6189,9 @@ updates = [
             "validation, business rules, and human review. Real retry detection "
             "and recovery are verified locally with cached OCR and local "
             "Ollama, and the corrected semantic harness passes in the "
-            "controlled real regression. Production Smartsheet routing remains "
-            "subject to explicit approval and further hardening."
+            "controlled real regression. Graph failure handling now uses "
+            "sanitized application-owned categories; legacy diagnostic output "
+            "still requires PHI-safe hardening."
         ),
     ),
     (
@@ -6161,12 +6246,12 @@ updates = [
     ),
     (
         "Handle Authentication Errors",
-        "In Progress",
+        "Completed",
         (
-            "Normal Microsoft Graph authentication is implemented and tested. "
-            "Dedicated tests for invalid credentials, expired secrets, missing "
-            "permissions, Graph authorization failures, and sanitized error "
-            "logging remain incomplete."
+            "Implemented and mock-tested sanitized configuration, authentication, "
+            "authorization, request, and response-decoding failures. Provider "
+            "details, credentials, tokens, and exception context are excluded, "
+            "and failed token acquisition cannot reach a Graph request."
         ),
     ),
 ]

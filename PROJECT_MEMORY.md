@@ -106,6 +106,7 @@ Real Smartsheet writes require explicit complete-review approval.
 - Source-agnostic authorization identifier prompt guidance.
 - Source-agnostic authorization document/timing harness naming.
 - Same-row service-line evidence guidance.
+- Application-owned sanitized Microsoft Graph failure categories.
 
 ## Recent Tested Baseline
 
@@ -115,7 +116,28 @@ Latest continuity-system validation:
 - Test classification: synthetic deterministic repository-text validation.
 - No Microsoft Graph, PaddleOCR, Ollama, or Smartsheet call occurred.
 
-Latest focused checkpoint:
+Latest Graph security checkpoint:
+
+- Initial red security regression: 1 passed, 11 failed.
+- Final Graph security boundary: 17 passed, 0 failed.
+- Ten affected mailbox suites: 108 passed, 0 failed.
+- Combined: 125 passed, 0 failed.
+- Test classification: synthetic deterministic and mock.
+- All five modified Graph/security Python files compiled successfully.
+- Safe failure categories are `configuration_error`,
+  `authentication_failed`, `authorization_failed`, and
+  `graph_request_failed`.
+- Missing configuration reports environment-variable names only.
+- Provider/MSAL descriptions, raw MSAL exceptions, 401/403 details,
+  request details, and response-decoding details are not propagated.
+- Blank or failed token acquisition cannot proceed to a Graph request.
+- Sanitized failures retain no provider exception cause or context.
+- Microsoft Graph and MSAL were mocked; no live request occurred.
+- No real credentials or `.env` values were read.
+- No patient document or protected data was accessed.
+- PaddleOCR, Ollama, Smartsheet, and external AI were not called.
+
+Previous quantity-reconciliation checkpoint:
 
 - Service-line quantity reconciliation: 10 passed, 0 failed.
 - Document-processor regression: 18 passed, 0 failed.
@@ -182,6 +204,8 @@ remains true.
 - Final production document taxonomy will expand beyond current
   authorization work.
 - Production hardening and future integrations remain ongoing.
+- Graph authentication and authorization failure verification is mock-only;
+  no live negative authentication request was performed.
 - Every new real Smartsheet write requires fresh explicit complete-review
   approval.
 
@@ -280,33 +304,40 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Inspect the existing Microsoft Graph authentication-error boundary in
-`src/graph/auth.py`, its configuration, callers, and current synthetic tests.
+Inspect the legacy Graph/mailbox diagnostic entry points and their current
+output contracts:
+
+- `scripts/test_graph_connection.py`
+- `scripts/test_graph_attachments.py`
+- `scripts/check_graph_read_status.py`
+- `scripts/test_mailbox_processor.py`
 
 Test classification:
 
 - synthetic deterministic
-- mock MSAL/Graph responses only
+- mocked mailbox, Graph, attachment, and document results only
 
-Establish dedicated PHI-safe regression coverage for invalid credentials,
-expired secrets, missing permissions, Microsoft Graph authorization failures,
-and sanitized error handling. Confirm that access tokens and provider error
-details cannot be exposed through user-facing or logged failure output.
+Add PHI-safe stdout regressions reproducing the current exposure of message
+metadata, identifiers, attachment/document paths, OCR text, and extracted
+document values without using any real protected value. Confirm both success
+and failure output contracts.
 
-Inspect before editing. Make the smallest production change only if current
-callers and a failing synthetic regression demonstrate a concrete gap. Do not
-make a live Microsoft Graph request and do not use real credentials or tokens.
+Then make the smallest changes needed so these diagnostics report only safe
+counts, booleans, timings, confidence metadata, and sanitized statuses while
+remaining operationally useful. Do not change mailbox-processing behavior or
+core document-processing interfaces.
 
 Report only PHI-safe metadata:
 
 - test counts and classification
-- authentication failure category and sanitized status
-- whether any credential or token exposure gap was found
+- diagnostic output field categories
+- whether protected output exposure was detected before and after correction
 - exact safe files affected
 
-Do not expose provider error descriptions, credentials, secrets, tokens,
-OCR text, patient data, extracted values, `source_text`, protected filenames,
-local patient paths, Smartsheet payload values, or row IDs.
+Do not run these scripts against a live mailbox or real documents. Do not
+expose provider diagnostics, credentials, secrets, tokens, OCR text, patient
+data, extracted values, `source_text`, protected filenames or paths,
+Smartsheet payload values, or row IDs.
 
 Do not perform a real Smartsheet write without a fresh explicit
 complete-review approval.

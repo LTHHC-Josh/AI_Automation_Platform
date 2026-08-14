@@ -1,26 +1,61 @@
 from msal import ConfidentialClientApplication
 
 from .config import load_graph_config
+from .errors import GraphAuthenticationError
 
 
 class GraphAuthenticator:
     def __init__(self):
         self.config = load_graph_config()
 
-        self._app = ConfidentialClientApplication(
-            client_id=self.config.client_id,
-            client_credential=self.config.client_secret,
-            authority=f"https://login.microsoftonline.com/{self.config.tenant_id}",
-        )
+        application = None
+
+        try:
+            application = ConfidentialClientApplication(
+                client_id=self.config.client_id,
+                client_credential=self.config.client_secret,
+                authority=(
+                    "https://login.microsoftonline.com/"
+                    f"{self.config.tenant_id}"
+                ),
+            )
+        except Exception:
+            pass
+
+        if application is None:
+            raise GraphAuthenticationError()
+
+        self._app = application
 
     def get_access_token(self) -> str:
-        result = self._app.acquire_token_for_client(
-            scopes=["https://graph.microsoft.com/.default"]
+        result = None
+
+        try:
+            result = self._app.acquire_token_for_client(
+                scopes=[
+                    "https://graph.microsoft.com/.default"
+                ]
+            )
+        except Exception:
+            pass
+
+        if not isinstance(
+            result,
+            dict,
+        ):
+            raise GraphAuthenticationError()
+
+        access_token = result.get(
+            "access_token"
         )
 
-        if "access_token" not in result:
-            raise RuntimeError(
-                f"Microsoft Graph authentication failed: {result.get('error_description')}"
+        if (
+            not isinstance(
+                access_token,
+                str,
             )
+            or not access_token.strip()
+        ):
+            raise GraphAuthenticationError()
 
-        return result["access_token"]
+        return access_token

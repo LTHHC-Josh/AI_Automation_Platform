@@ -3,6 +3,8 @@ import os
 
 from dotenv import load_dotenv
 
+from .errors import GraphConfigurationError
+
 
 load_dotenv(override=True)
 
@@ -35,9 +37,8 @@ def load_graph_config() -> GraphConfig:
     ]
 
     if missing:
-        raise RuntimeError(
-            "Missing Microsoft Graph configuration: "
-            + ", ".join(missing)
+        raise GraphConfigurationError(
+            missing
         )
 
     return config
