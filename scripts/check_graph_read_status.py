@@ -1,44 +1,49 @@
 from src.graph.email_service import EmailService
+from src.graph.errors import GraphBoundaryError
 
 
 def main() -> None:
-    print("=" * 60)
-    print("Checking Microsoft Graph Read Status")
-    print("=" * 60)
+    print("Read-status diagnostic attempted: True")
 
-    service = EmailService()
-    messages = service.get_recent_messages(top=10)
-
-    if not messages:
-        print("No inbox messages found.")
+    try:
+        service = EmailService()
+        messages = service.get_recent_messages(
+            top=10
+        )
+    except GraphBoundaryError as error:
+        print("Messages checked: 0")
+        print("Read messages: 0")
+        print("Unread messages: 0")
+        print(
+            f"Status: {error.category}"
+        )
+        return
+    except Exception:
+        print("Messages checked: 0")
+        print("Read messages: 0")
+        print("Unread messages: 0")
+        print("Status: read_status_diagnostic_failed")
         return
 
-    for index, message in enumerate(
-        messages,
-        start=1,
-    ):
-        print()
-        print("-" * 60)
-        print(f"Message number: {index}")
-        print(
-            "Subject: "
-            f"{message.get('subject', '(No subject)')}"
-        )
-        print(
-            "Received: "
-            f"{message.get('receivedDateTime', '')}"
-        )
-        print(
-            "Graph isRead: "
-            f"{message.get('isRead')}"
-        )
-        print(
-            "Message ID: "
-            f"{message.get('id', '')}"
-        )
+    read_count = sum(
+        1
+        for message in messages
+        if message.get(
+            "isRead"
+        ) is True
+    )
 
-    print()
-    print("=" * 60)
+    print(
+        f"Messages checked: {len(messages)}"
+    )
+    print(
+        f"Read messages: {read_count}"
+    )
+    print(
+        "Unread messages: "
+        f"{len(messages) - read_count}"
+    )
+    print("Status: completed")
 
 
 if __name__ == "__main__":

@@ -6147,6 +6147,59 @@ Retain only PHI-safe counts, booleans, confidence/status/timing metadata. Do
 not change mailbox or document-processing behavior. Do not run live Graph,
 mailbox, or documents.
 
+
+------------------------------------------------------------
+LEGACY GRAPH/MAILBOX DIAGNOSTIC STDOUT HARDENED - 2026-08-14
+------------------------------------------------------------
+
+Work completed:
+
+- Hardened scripts/test_graph_connection.py,
+  scripts/test_graph_attachments.py, scripts/check_graph_read_status.py,
+  and scripts/test_mailbox_processor.py.
+- Added tests/test_legacy_graph_mailbox_diagnostic_stdout.py with synthetic
+  marker-based stdout and sanitized-failure coverage.
+- Removed subjects, sender addresses, received identifying metadata, message
+  IDs, filenames, paths, raw OCR/document text, extracted values, raw mailbox
+  errors, and raw provider diagnostics from covered script output.
+- Confirmed source_text and field-evidence values remain excluded.
+- Retained PHI-safe counts, booleans, safe sequence numbers, document/review
+  status, confidence metadata, action/reason counts, and application-owned
+  sanitized failure categories.
+- No EmailService, AttachmentService, MailboxProcessor, mark-as-read,
+  idempotency, document-processing, validation/business-rule, review, or
+  automatic-Smartsheet behavior changed.
+
+Regression evidence:
+
+- Initial focused red result: 2 passed, 16 failed.
+- Final focused stdout regression: 22 passed, 0 failed.
+- Affected Graph/mailbox regressions: 121 passed, 0 failed.
+- Combined: 143 passed, 0 failed.
+- Compilation: 5 passed, 0 failed.
+- Test classification: synthetic deterministic and mock.
+- No protected stdout exposure remains in the covered paths.
+- No PHI or protected data was accessed.
+- No live Microsoft Graph, mailbox, attachment, PaddleOCR, Ollama,
+  patient-document, production-Smartsheet, or external-AI operation occurred.
+
+Limitation:
+
+- Verification is mock-only; the hardened diagnostics were not run against a
+  live mailbox.
+
+Exact next starting point:
+
+Inspect the existing automatic Smartsheet row-write and attachment-upload
+boundary for the previously tracked partial-success and retry/idempotency
+limitation. Use focused mocked red regressions first for a successful row
+creation followed by attachment failure and for a subsequent retry. Determine
+the smallest safe correction that prevents duplicate rows or explicitly
+preserves partial-success state without changing deterministic validation,
+business rules, automatic writing, downstream review, or explicit destination
+mappings. Do not run a real Smartsheet write, Graph, OCR, Ollama, mailbox, or
+patient document.
+
 """
 
 
@@ -6312,7 +6365,10 @@ updates = [
             "with review status and reasons preserved for downstream exception "
             "handling. The full document uses explicit attachment upload; OCR "
             "text and source_text have no configured destination. Legacy "
-            "Graph/mailbox diagnostic output still requires PHI-safe hardening."
+            "Graph/mailbox diagnostic output is now limited to PHI-safe "
+            "counts, booleans, confidence/status metadata, and sanitized "
+            "failure categories. Smartsheet attachment partial-success and "
+            "retry/idempotency behavior remains future production hardening."
         ),
     ),
     (

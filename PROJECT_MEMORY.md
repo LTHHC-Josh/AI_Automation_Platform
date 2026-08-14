@@ -118,8 +118,31 @@ row. Human review is a downstream exception workflow, not a write gate.
 - Source-agnostic authorization document/timing harness naming.
 - Same-row service-line evidence guidance.
 - Application-owned sanitized Microsoft Graph failure categories.
+- PHI-safe legacy Graph/mailbox diagnostic stdout limited to aggregate
+  counts, booleans, confidence/status metadata, and sanitized categories.
 
 ## Recent Tested Baseline
+
+Latest legacy Graph/mailbox diagnostic-output checkpoint:
+
+- Initial focused red result: 2 passed, 16 failed.
+- Final focused stdout regression: 22 passed, 0 failed.
+- Affected Graph/mailbox regressions: 121 passed, 0 failed.
+- Combined: 143 passed, 0 failed.
+- All five modified Python files compiled successfully.
+- Test classification: synthetic deterministic and mock.
+- Subjects, sender addresses, received identifying metadata, message IDs,
+  filenames, paths, raw OCR/document text, extracted values, `source_text`,
+  field-evidence values, raw mailbox errors, provider diagnostics, and
+  credential/token-like values are excluded from covered diagnostic output.
+- Output retains PHI-safe counts, booleans, safe sequence numbers,
+  confidence/status metadata, and sanitized failure categories.
+- No `EmailService`, `AttachmentService`, `MailboxProcessor`, mark-as-read,
+  idempotency, document-processing, validation/business-rule, review, or
+  automatic-Smartsheet behavior changed.
+- No live Microsoft Graph, mailbox, attachment, PaddleOCR, Ollama,
+  patient-document, production-Smartsheet, or external-AI operation occurred.
+- No protected data was accessed or exposed.
 
 Latest automatic-Smartsheet production-write checkpoint:
 
@@ -239,6 +262,11 @@ remains true.
 - Production hardening and future integrations remain ongoing.
 - Graph authentication and authorization failure verification is mock-only;
   no live negative authentication request was performed.
+- Legacy Graph/mailbox diagnostic-output verification is mock-only; the
+  hardened scripts have not been run against a live mailbox.
+- Automatic rollback after a successful Smartsheet row write followed by an
+  attachment-upload failure is not implemented, and Smartsheet retry/
+  idempotency remains future production hardening.
 - The full document currently reaches Smartsheet only through the existing
   explicit attachment-upload path.
 - OCR text and `source_text` have no explicitly configured Smartsheet
@@ -343,13 +371,12 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Resume the deferred legacy Graph/mailbox diagnostic stdout hardening for
-`scripts/test_graph_connection.py`, `scripts/test_graph_attachments.py`,
-`scripts/check_graph_read_status.py`, and
-`scripts/test_mailbox_processor.py`.
+Inspect the existing automatic Smartsheet row-write and attachment-upload
+boundary for the tracked partial-success and retry/idempotency limitation.
 
-Use synthetic/mock stdout regressions first. Remove protected subjects,
-sender addresses, message IDs, paths, raw OCR, extracted values, and raw error
-text. Retain only PHI-safe counts, booleans, confidence/status/timing metadata.
-Do not change mailbox or document-processing behavior. Do not run live Graph,
-mailbox, or documents.
+Use focused mocked red regressions first for a successful row creation followed
+by attachment failure and for a subsequent retry. Determine the smallest safe
+correction that prevents duplicate rows or explicitly preserves partial-success
+state without changing deterministic validation, business rules, automatic
+write behavior, downstream review, or explicit destination mappings. Do not
+run a real Smartsheet write, Graph, OCR, Ollama, mailbox, or patient document.
