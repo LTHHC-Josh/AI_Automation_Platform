@@ -12,14 +12,14 @@ from src.services.review_output_service import (
 
 class SmartsheetReviewRowMappingService:
     """
-    Maps structured review output into an approved logical Smartsheet
+    Maps structured review output into an explicitly configured Smartsheet
     row contract.
 
     This service:
     - does not connect to Smartsheet;
     - does not create SDK Cell objects;
     - does not log mapped values;
-    - does not map source_text;
+    - does not map source_text because no destination is configured;
     - does not infer missing values;
     - does not reinterpret quantities, visits, units, or approval.
     """
@@ -63,7 +63,6 @@ class SmartsheetReviewRowMappingService:
         self,
         review_output: ReviewOutput,
         policies: list[SmartsheetColumnPolicy],
-        complete_review_approved: bool = False,
         run_type: str = "",
     ) -> SmartsheetRowMappingResult:
         """
@@ -72,8 +71,10 @@ class SmartsheetReviewRowMappingService:
         A result is ready for automatic writing only when:
         - the review output is valid;
         - required approved values are populated;
-        - no prohibited source field was requested;
-        - human review is not required.
+        - no prohibited source field was requested.
+
+        Human-review state is mapped as downstream exception metadata
+        and does not gate automatic row population.
         """
 
         result = SmartsheetRowMappingResult()
@@ -191,22 +192,9 @@ class SmartsheetReviewRowMappingService:
             result.warnings
         )
 
-        recommended_review_approved = (
-            complete_review_approved is True
-            and str(
-                review_output.review_status
-                or ""
-            ).strip().lower()
-            == "human review recommended"
-        )
-
         result.ready_for_write = (
             not result.missing_required_columns
             and not result.prohibited_fields
-            and (
-                not review_output.needs_human_review
-                or recommended_review_approved
-            )
         )
 
         return result
@@ -276,7 +264,7 @@ class SmartsheetReviewRowMappingService:
 
         if review_output.needs_human_review:
             result.warnings.append(
-                "Human review is required before automatic row writing."
+                "Downstream human review is required after automatic row writing."
             )
 
     def _normalize_run_type(

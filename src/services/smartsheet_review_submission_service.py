@@ -5,9 +5,6 @@ from typing import Any
 from src.models.smartsheet_mapping import (
     SmartsheetColumnPolicy,
 )
-from src.services.complete_review_approval_service import (
-    CompleteReviewApprovalResult,
-)
 from src.services.review_output_service import (
     ReviewOutput,
 )
@@ -25,7 +22,7 @@ from src.services.smartsheet_reviewed_write_service import (
 @dataclass(frozen=True)
 class SmartsheetReviewSubmissionResult:
     """
-    PHI-safe result from one approval-gated Smartsheet submission.
+    PHI-safe result from one automatic Smartsheet submission.
 
     The result excludes mapped values, source_text, OCR text,
     document paths, filenames, row payloads, and patient data.
@@ -38,20 +35,20 @@ class SmartsheetReviewSubmissionResult:
 
 class SmartsheetReviewSubmissionService:
     """
-    Coordinates the existing approved Smartsheet write boundaries.
+    Coordinates the automatic Smartsheet write boundaries.
 
     Required order:
 
-    complete human-review approval
-    -> logical mapping
+    logical mapping
     -> destination validation
     -> reviewed write
 
     This service does not perform OCR, classification, extraction,
     deterministic validation, business rules, or human review.
 
-    It does not treat classification confirmation as permission
-    to write.
+    Classification confirmation is not accepted as a credential or
+    prerequisite. Write eligibility comes from the validated mapping
+    and destination-validation contracts.
     """
 
     def __init__(
@@ -78,15 +75,14 @@ class SmartsheetReviewSubmissionService:
         self,
         *,
         review_output: ReviewOutput,
-        approval_result: CompleteReviewApprovalResult,
         policies: list[SmartsheetColumnPolicy],
         available_columns: dict[str, int],
         attachment_source_path: str | Path | None = None,
         run_type: str = "",
     ) -> SmartsheetReviewSubmissionResult:
         """
-        Submit one completely reviewed and explicitly approved
-        review output through the existing write boundaries.
+        Submit one deterministically processed review output through
+        the existing mapping, destination, and write boundaries.
         """
 
         if not isinstance(
@@ -97,27 +93,9 @@ class SmartsheetReviewSubmissionService:
                 "invalid_review_output"
             )
 
-        if not isinstance(
-            approval_result,
-            CompleteReviewApprovalResult,
-        ):
-            return self._failure(
-                "invalid_approval_result"
-            )
-
-        if (
-            not approval_result.success
-            or not approval_result.approved
-            or approval_result.status != "approved"
-        ):
-            return self._failure(
-                "complete_review_not_approved"
-            )
-
         mapping = self.mapping_service.map(
             review_output=review_output,
             policies=policies,
-            complete_review_approved=True,
             run_type=run_type,
         )
 

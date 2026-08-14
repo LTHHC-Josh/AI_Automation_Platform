@@ -41,7 +41,6 @@ class MailboxFullReviewCommand:
         top: Any = 10,
         created_at: Any = None,
         skip_classification_review: bool = False,
-        approve_complete_review: bool = False,
         run_type: str = "",
     ) -> MailboxFullReviewOrchestrationResult:
         result = self.orchestration_service.run(
@@ -49,9 +48,6 @@ class MailboxFullReviewCommand:
             created_at=created_at,
             skip_classification_review=(
                 skip_classification_review
-            ),
-            approve_complete_review=(
-                approve_complete_review
             ),
             run_type=run_type,
         )
@@ -81,11 +77,6 @@ class MailboxFullReviewCommand:
                 "Demo classification review skipped: True"
             )
 
-        if approve_complete_review:
-            self.output_writer(
-                "Explicit complete review approval: True"
-            )
-
         self.output_writer(
             "Classification submitted  : "
             f"{result.classification_submitted_count}"
@@ -97,20 +88,7 @@ class MailboxFullReviewCommand:
         )
 
         self.output_writer(
-            f"Approved                  : {result.approved_count}"
-        )
-
-        self.output_writer(
             f"Written                   : {result.written_count}"
-        )
-
-        self.output_writer(
-            f"Rejected                  : {result.rejected_count}"
-        )
-
-        self.output_writer(
-            "Complete review cancelled : "
-            f"{result.complete_review_cancelled_count}"
         )
 
         self.output_writer(
@@ -131,10 +109,9 @@ class MailboxFullReviewCommand:
 def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Process unread mailbox documents, run explicit local "
-            "classification review, run explicit complete review, "
-            "and allow approved reviewed output to proceed through "
-            "the controlled Smartsheet write workflow."
+            "Process unread mailbox documents, automatically populate "
+            "the validated Smartsheet row, then run downstream local "
+            "classification review when enabled."
         )
     )
 
@@ -163,8 +140,8 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help=(
             "DEMO ONLY: allow the existing AI classification/extraction "
             "result to proceed without classification confirmation. "
-            "Final complete-review approval is still required before "
-            "Smartsheet writing."
+            "This does not alter extraction, validation, business rules, "
+            "or Smartsheet destination validation."
         ),
     )
 
@@ -176,16 +153,6 @@ def build_argument_parser() -> argparse.ArgumentParser:
             "being tested. Written to the Smartsheet Run Type column. "
             "Do not include patient information, document values, "
             "filenames, paths, or source_text."
-        ),
-    )
-
-    parser.add_argument(
-        "--approve-complete-review",
-        action="store_true",
-        help=(
-            "Explicitly approve the complete-review decision without "
-            "the terminal approval prompt. The existing complete-review "
-            "approval service still blocks Human Review Required."
         ),
     )
 
@@ -204,9 +171,6 @@ def main(
         created_at=arguments.created_at,
         skip_classification_review=(
             arguments.demo_skip_classification_review
-        ),
-        approve_complete_review=(
-            arguments.approve_complete_review
         ),
         run_type=arguments.run_type,
     )

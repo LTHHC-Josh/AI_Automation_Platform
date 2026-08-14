@@ -279,7 +279,7 @@ def test_verified_document_reaches_write():
     ) == 1
 
 
-def test_human_review_blocks_entire_write():
+def test_human_review_reaches_write_with_review_metadata():
     (
         _,
         review_output,
@@ -308,12 +308,14 @@ def test_human_review_blocks_entire_write():
         is True
     )
 
-    assert mapping.ready_for_write is False
-    assert validation.ready_for_write is False
+    assert mapping.ready_for_write is True
+    assert validation.ready_for_write is True
 
-    assert result.success is False
-    assert result.written is False
-    assert client.add_calls == []
+    assert result.success is True
+    assert result.written is True
+    assert len(client.add_calls) == 1
+    assert mapping.values["AI Review Required"] is True
+    assert mapping.values["AI Review Reasons"]
 
 
 def test_source_evidence_never_enters_cells():
@@ -418,8 +420,8 @@ run_test(
 )
 
 run_test(
-    "human review blocks entire write",
-    test_human_review_blocks_entire_write,
+    "human review reaches write with review metadata",
+    test_human_review_reaches_write_with_review_metadata,
 )
 
 run_test(

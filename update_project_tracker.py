@@ -6101,6 +6101,52 @@ destination mapping, and all no-inference rules. Use mocked Smartsheet only.
 After this production boundary is green, resume the deferred legacy
 Graph/mailbox diagnostic-output hardening task.
 
+
+------------------------------------------------------------
+AUTOMATIC SMARTSHEET WRITE BOUNDARY IMPLEMENTED - 2026-08-14
+------------------------------------------------------------
+
+Implemented production boundary:
+
+- Deterministic validation and business rules continue to precede submission.
+- Normal mailbox processing now automatically submits the intentionally
+  mapped row without a complete-review approval result or approval flag.
+- Review-required rows still write with review status and reasons; human
+  review is downstream exception handling.
+- Missing and unsupported values remain null or omitted under the existing
+  mapping rules.
+- Required missing destination data and destination-validation failures still
+  prevent the writer call.
+- Classification confirmation remains downstream feedback, not a write
+  credential.
+- The command path no longer requires an approval option.
+- The full document continues through the existing explicit attachment-upload
+  path.
+- OCR text and source_text have no explicit Smartsheet destination and remain
+  unmapped.
+- No new columns or mappings were introduced, and document/review/internal
+  objects are not serialized wholesale.
+
+Regression evidence:
+
+- Focused red result for obsolete approval gating: 5 passed, 8 failed.
+- Final affected regression baseline: 286 passed, 0 failed.
+- Test classification: synthetic deterministic and mock.
+- No PHI or protected data was accessed.
+- No real Microsoft Graph, PaddleOCR, Ollama, patient-document, Smartsheet
+  production-write, or external-AI operation occurred.
+
+Exact next starting point:
+
+Resume the deferred legacy Graph/mailbox diagnostic stdout hardening for
+scripts/test_graph_connection.py, scripts/test_graph_attachments.py,
+scripts/check_graph_read_status.py, and scripts/test_mailbox_processor.py.
+Use synthetic/mock stdout regressions first. Remove protected subjects, sender
+addresses, message IDs, paths, raw OCR, extracted values, and raw error text.
+Retain only PHI-safe counts, booleans, confidence/status/timing metadata. Do
+not change mailbox or document-processing behavior. Do not run live Graph,
+mailbox, or documents.
+
 """
 
 
@@ -6261,10 +6307,12 @@ updates = [
             "and recovery are verified locally with cached OCR and local "
             "Ollama, and the corrected semantic harness passes in the "
             "controlled real regression. Graph failure handling now uses "
-            "sanitized application-owned categories; legacy diagnostic output "
-            "still requires PHI-safe hardening. The active Smartsheet path "
-            "still requires reconciliation from approval-gated writing to "
-            "automatic population with downstream exception review."
+            "sanitized application-owned categories. Automatic Smartsheet row "
+            "population is implemented after validation and business rules, "
+            "with review status and reasons preserved for downstream exception "
+            "handling. The full document uses explicit attachment upload; OCR "
+            "text and source_text have no configured destination. Legacy "
+            "Graph/mailbox diagnostic output still requires PHI-safe hardening."
         ),
     ),
     (

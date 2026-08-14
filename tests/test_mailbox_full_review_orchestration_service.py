@@ -1,4 +1,5 @@
 from dataclasses import fields
+import inspect
 
 from src.graph.mailbox_processor import (
     MessageProcessingResult,
@@ -56,10 +57,12 @@ class RecordingClassificationSession:
         result,
         *,
         error=None,
+        event_log=None,
     ):
         self.result = result
         self.error = error
         self.calls = []
+        self.event_log = event_log
 
     def run(
         self,
@@ -67,6 +70,9 @@ class RecordingClassificationSession:
         message_results,
         created_at=None,
     ):
+        if self.event_log is not None:
+            self.event_log.append("classification")
+
         self.calls.append(
             {
                 "message_results": message_results,
@@ -86,26 +92,25 @@ class RecordingCompleteReviewService:
         result,
         *,
         error=None,
+        event_log=None,
     ):
         self.result = result
         self.error = error
         self.calls = []
-        self.approval_flags = []
         self.run_types = []
+        self.event_log = event_log
 
     def run(
         self,
         *,
         message_results,
-        approve_complete_review=False,
         run_type="",
     ):
+        if self.event_log is not None:
+            self.event_log.append("smartsheet")
+
         self.calls.append(
             message_results
-        )
-
-        self.approval_flags.append(
-            approve_complete_review
         )
 
         self.run_types.append(
@@ -174,8 +179,23 @@ def complete_written():
     )
 
 
+def complete_no_documents():
+    return MailboxCompleteReviewSmartsheetResult(
+        message_count=0,
+        document_count=0,
+        approved_count=0,
+        written_count=0,
+        rejected_count=0,
+        cancelled_count=0,
+        failed_count=0,
+        success=True,
+        status="no_documents",
+    )
+
+
 def test_same_mailbox_results_reach_both_review_stages():
     message_results = build_message_results()
+    event_log = []
 
     mailbox = RecordingMailboxProcessor(
         results=message_results
@@ -183,13 +203,15 @@ def test_same_mailbox_results_reach_both_review_stages():
 
     classification = (
         RecordingClassificationSession(
-            classification_completed()
+            classification_completed(),
+            event_log=event_log,
         )
     )
 
     complete = (
         RecordingCompleteReviewService(
-            complete_written()
+            complete_written(),
+            event_log=event_log,
         )
     )
 
@@ -224,6 +246,11 @@ def test_same_mailbox_results_reach_both_review_stages():
 
     assert complete.calls == [
         message_results
+    ]
+
+    assert event_log == [
+        "smartsheet",
+        "classification",
     ]
 
     assert result.success is True
@@ -282,7 +309,7 @@ def test_demo_skip_bypasses_classification_review_only():
     assert result.success is True
 
 
-def test_explicit_approval_flag_reaches_complete_review():
+def test_automatic_path_has_no_approval_flag():
     message_results = build_message_results()
 
     complete = RecordingCompleteReviewService(
@@ -301,15 +328,14 @@ def test_explicit_approval_flag_reaches_complete_review():
         complete_review_smartsheet_service=complete,
     )
 
-    result = service.run(
-        approve_complete_review=True
-    )
+    result = service.run()
 
     assert result.success is True
-
-    assert complete.approval_flags == [
-        True
-    ]
+    assert len(complete.calls) == 1
+    assert (
+        "approve_complete_review"
+        not in inspect.signature(service.run).parameters
+    )
 
 
 def test_run_type_reaches_complete_review():
@@ -342,7 +368,7 @@ def test_run_type_reaches_complete_review():
     ]
 
 
-def test_classification_failure_blocks_complete_review():
+def test_classification_failure_occurs_after_automatic_write():
     message_results = build_message_results()
 
     classification_result = (
@@ -385,16 +411,17 @@ def test_classification_failure_blocks_complete_review():
 
     assert (
         result.status
-        == "completed_with_failures"
+        == "completed_with_review_failures"
     )
 
-    assert complete.calls == []
+    assert len(complete.calls) == 1
+    assert result.written_count == 2
 
 
-def test_no_documents_skips_complete_review():
+def test_no_documents_skips_downstream_review():
     complete = (
         RecordingCompleteReviewService(
-            complete_written()
+            complete_no_documents()
         )
     )
 
@@ -426,21 +453,21 @@ def test_no_documents_skips_complete_review():
 
     assert result.success is True
     assert result.status == "no_documents"
-    assert complete.calls == []
+    assert len(complete.calls) == 1
 
 
-def test_rejected_complete_review_is_preserved():
+def test_automatic_submission_completion_is_preserved():
     complete_result = (
         MailboxCompleteReviewSmartsheetResult(
             message_count=1,
             document_count=2,
             approved_count=1,
             written_count=1,
-            rejected_count=1,
+            rejected_count=0,
             cancelled_count=0,
             failed_count=0,
             success=True,
-            status="completed_with_rejections",
+            status="completed",
         )
     )
 
@@ -467,12 +494,12 @@ def test_rejected_complete_review_is_preserved():
     result = service.run()
 
     assert result.success is True
-    assert result.rejected_count == 1
+    assert result.rejected_count == 0
     assert result.written_count == 1
 
     assert (
         result.status
-        == "completed_with_rejections"
+        == "completed"
     )
 
 
@@ -595,10 +622,11 @@ def test_classification_exception_is_sanitized():
 
     assert (
         result.status
-        == "classification_review_failed"
+        == "completed_with_review_failures"
     )
 
-    assert complete.calls == []
+    assert len(complete.calls) == 1
+    assert result.written_count == 2
 
 
 def test_complete_review_exception_is_sanitized():
@@ -631,7 +659,7 @@ def test_complete_review_exception_is_sanitized():
 
     assert (
         result.status
-        == "complete_review_failed"
+        == "smartsheet_submission_failed"
     )
 
     assert (
@@ -748,8 +776,8 @@ run_test(
 )
 
 run_test(
-    "explicit approval reaches complete review",
-    test_explicit_approval_flag_reaches_complete_review,
+    "automatic path has no approval flag",
+    test_automatic_path_has_no_approval_flag,
 )
 
 run_test(
@@ -758,18 +786,18 @@ run_test(
 )
 
 run_test(
-    "classification failure blocks complete review",
-    test_classification_failure_blocks_complete_review,
+    "classification failure occurs after automatic write",
+    test_classification_failure_occurs_after_automatic_write,
 )
 
 run_test(
-    "no documents skips complete review",
-    test_no_documents_skips_complete_review,
+    "no documents skips downstream review",
+    test_no_documents_skips_downstream_review,
 )
 
 run_test(
-    "rejected complete review is preserved",
-    test_rejected_complete_review_is_preserved,
+    "automatic submission completion is preserved",
+    test_automatic_submission_completion_is_preserved,
 )
 
 run_test(

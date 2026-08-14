@@ -34,14 +34,16 @@ class CompleteReviewSmartsheetWorkflowResult:
 
 class CompleteReviewSmartsheetWorkflowService:
     """
-    Coordinates the explicit complete-review approval boundary with
-    the existing approval-gated Smartsheet submission service.
+    Preserves the separate optional human complete-review workflow.
+
+    This is not the normal production write path. Production mailbox
+    processing uses automatic Smartsheet submission without approval.
 
     Order:
 
     complete-review interaction
     -> explicit CompleteReviewApprovalResult
-    -> approval-gated Smartsheet submission
+    -> optional manually initiated Smartsheet submission
 
     This service does not rerun OCR, Ollama, extraction, deterministic
     validation, business rules, or review-output construction.
@@ -125,7 +127,6 @@ class CompleteReviewSmartsheetWorkflowService:
         submission_result = (
             self.submission_service.submit(
                 review_output=review_output,
-                approval_result=approval_result,
                 policies=policies,
                 available_columns=available_columns,
                 attachment_source_path=attachment_source_path,

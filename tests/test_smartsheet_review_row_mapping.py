@@ -291,7 +291,7 @@ def test_missing_required_value_blocks_write():
     assert result.ready_for_write is False
 
 
-def test_human_review_blocks_automatic_write():
+def test_human_review_is_ready_for_automatic_write():
     service = SmartsheetReviewRowMappingService()
 
     result = service.map(
@@ -302,13 +302,13 @@ def test_human_review_blocks_automatic_write():
         run_type=TEST_RUN_TYPE,
     )
 
-    assert result.ready_for_write is False
+    assert result.ready_for_write is True
     assert len(
         result.warnings
     ) == 1
 
 
-def test_recommended_review_is_ready_after_complete_approval():
+def test_recommended_review_is_ready_without_approval():
     service = SmartsheetReviewRowMappingService()
 
     result = service.map(
@@ -317,7 +317,6 @@ def test_recommended_review_is_ready_after_complete_approval():
             review_status="Human Review Recommended",
         ),
         policies=[],
-        complete_review_approved=True,
         run_type=TEST_RUN_TYPE,
     )
 
@@ -336,7 +335,7 @@ def test_recommended_review_is_ready_after_complete_approval():
     )
 
 
-def test_required_review_stays_blocked_after_approval_flag():
+def test_required_review_is_ready_without_approval():
     service = SmartsheetReviewRowMappingService()
 
     result = service.map(
@@ -345,11 +344,10 @@ def test_required_review_stays_blocked_after_approval_flag():
             review_status="Human Review Required",
         ),
         policies=[],
-        complete_review_approved=True,
         run_type=TEST_RUN_TYPE,
     )
 
-    assert result.ready_for_write is False
+    assert result.ready_for_write is True
 
 
 def test_source_text_is_not_mapped():
@@ -701,16 +699,16 @@ run_test(
     test_missing_required_value_blocks_write,
 )
 run_test(
-    "human review blocks automatic write",
-    test_human_review_blocks_automatic_write,
+    "human review remains ready for automatic write",
+    test_human_review_is_ready_for_automatic_write,
 )
 run_test(
-    "recommended review proceeds after complete approval",
-    test_recommended_review_is_ready_after_complete_approval,
+    "recommended review proceeds without approval",
+    test_recommended_review_is_ready_without_approval,
 )
 run_test(
-    "required review remains blocked after approval flag",
-    test_required_review_stays_blocked_after_approval_flag,
+    "required review proceeds without approval",
+    test_required_review_is_ready_without_approval,
 )
 run_test(
     "source_text is not mapped",

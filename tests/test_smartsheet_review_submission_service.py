@@ -1,10 +1,10 @@
 from dataclasses import fields
 
+from src.models.smartsheet_destination_validation import (
+    SmartsheetDestinationValidationResult,
+)
 from src.models.smartsheet_mapping import (
     SmartsheetColumnPolicy,
-)
-from src.services.complete_review_approval_service import (
-    CompleteReviewApprovalResult,
 )
 from src.services.review_output_service import (
     ReviewField,
@@ -19,29 +19,32 @@ from src.services.smartsheet_reviewed_write_service import (
 )
 
 
-passed = 0
-failed = 0
+class RecordingDestinationValidationService:
+    def __init__(self, *, ready=True):
+        self.ready = ready
+        self.calls = []
 
-TEST_RUN_TYPE = "Smartsheet submission regression"
+    def validate(self, *, mapping, available_columns):
+        self.calls.append(mapping)
+        return SmartsheetDestinationValidationResult(
+            column_ids=(
+                {
+                    name: index + 1
+                    for index, name in enumerate(mapping.values)
+                }
+                if self.ready
+                else {}
+            ),
+            mapping_ready=mapping.ready_for_write,
+            destination_ready=self.ready,
+            ready_for_write=(mapping.ready_for_write and self.ready),
+        )
 
 
 class RecordingWriteService:
-    def __init__(
-        self,
-        *,
-        result=None,
-    ):
+    def __init__(self, *, success=True):
+        self.success = success
         self.calls = []
-        self.result = (
-            result
-            or SmartsheetReviewedWriteResult(
-                written=True,
-                column_count=8,
-                attachment_written=False,
-                success=True,
-                status="written",
-            )
-        )
 
     def write(
         self,
@@ -52,570 +55,208 @@ class RecordingWriteService:
     ):
         self.calls.append(
             {
-                "mapping_ready": (
-                    mapping.ready_for_write
-                ),
-                "destination_ready": (
-                    destination_validation
-                    .ready_for_write
-                ),
-                "attachment_supplied": (
-                    attachment_source_path
-                    is not None
-                ),
+                "mapping": mapping,
+                "destination_validation": destination_validation,
+                "attachment_supplied": attachment_source_path is not None,
             }
         )
-
-        return self.result
-
-
-def run_test(
-    name,
-    test,
-):
-    global passed
-    global failed
-
-    try:
-        test()
-        passed += 1
-        print(
-            f"PASSED: {name}"
-        )
-    except Exception as error:
-        failed += 1
-        print(
-            f"FAILED: {name}: "
-            f"{type(error).__name__}"
+        return SmartsheetReviewedWriteResult(
+            written=self.success,
+            column_count=(len(mapping.values) if self.success else 0),
+            attachment_written=False,
+            success=self.success,
+            status=("written" if self.success else "synthetic_write_failed"),
         )
 
 
-def build_review_output(
-    *,
-    needs_human_review=False,
-    review_status=None,
-):
+def build_review_output(*, needs_human_review=False):
     return ReviewOutput(
         document_type="authorization",
         document_category="authorization",
-        document_subtype="initial",
-        classification_reason="Synthetic reason",
-        classification_confidence=0.95,
+        document_subtype="renewal",
+        classification_confidence=0.94,
         fields=[
             ReviewField(
-                name="authorization_status",
-                value="Synthetic status",
-                confidence=0.95,
+                name="authorization_number",
+                value="SYNTHETIC-AUTH",
+                confidence=0.93,
                 source_text="Synthetic evidence",
-            ),
-        ],
-        service_lines=[],
-        validation_actions=[],
-        rule_actions=[],
-        needs_human_review=(
-            needs_human_review
-        ),
-        review_status=(
-            review_status
-            if review_status is not None
-            else (
-                "Human Review Recommended"
-                if needs_human_review
-                else "Verified by AI"
             )
+        ],
+        needs_human_review=needs_human_review,
+        review_status=(
+            "Human Review Required"
+            if needs_human_review
+            else "Verified by AI"
         ),
         review_reasons=(
-            [
-                "Synthetic review reason"
-            ]
+            ["Synthetic unsupported value remained empty."]
             if needs_human_review
             else []
         ),
-        minimum_field_confidence=0.95,
-        extraction_attempt_count=1,
-        extraction_retry_triggered=False,
-        extraction_selected_attempt=1,
-        authorized_units_reconciled=False,
     )
 
 
-def build_policies():
-    return [
-        SmartsheetColumnPolicy(
-            source_field="authorization_status",
-            column_name="Authorization Status",
-            required=True,
-        ),
-    ]
+def build_service(*, destination_ready=True, write_success=True):
+    destination = RecordingDestinationValidationService(
+        ready=destination_ready
+    )
+    writer = RecordingWriteService(success=write_success)
+    service = SmartsheetReviewSubmissionService(
+        destination_validation_service=destination,
+        write_service=writer,
+    )
+    return service, destination, writer
 
 
-def build_columns():
-    return {
-        "Authorization Status": 1001,
-        "AI Review Status": 1002,
-        "AI Review Required": 1003,
-        "AI Classification Confidence": 1004,
-        "AI Minimum Field Confidence": 1005,
-        "AI Selected Extraction Attempt": 1006,
-        "AI Extraction Retry Triggered": 1007,
-        "AI Authorized Units Reconciled": 1008,
-        "AI Document Category": 1009,
-        "AI Document Subtype": 1010,
-        "AI Review Reasons": 1011,
-        "Run Type": 1012,
-    }
+POLICIES = [
+    SmartsheetColumnPolicy(
+        source_field="authorization_number",
+        column_name="Authorization #",
+    )
+]
 
 
-def approved_result():
-    return CompleteReviewApprovalResult(
-        approved=True,
-        success=True,
-        status="approved",
+def submit(service, *, review_output=None, attachment_source_path=None):
+    return service.submit(
+        review_output=(review_output or build_review_output()),
+        policies=POLICIES,
+        available_columns={},
+        attachment_source_path=attachment_source_path,
+        run_type="Synthetic Submission Regression",
     )
 
 
-def test_approved_review_reaches_writer_once():
-    writer = RecordingWriteService()
-
-    service = (
-        SmartsheetReviewSubmissionService(
-            write_service=writer
-        )
-    )
-
-    result = service.submit(
-        review_output=build_review_output(),
-        approval_result=approved_result(),
-        policies=build_policies(),
-        available_columns=build_columns(),
-        run_type=TEST_RUN_TYPE,
-    )
-
-    assert result == SmartsheetReviewSubmissionResult(
-        written=True,
-        success=True,
-        status="written",
-    )
-
-    assert len(
-        writer.calls
-    ) == 1
-
-    assert (
-        writer.calls[0]["mapping_ready"]
-        is True
-    )
-
-    assert (
-        writer.calls[0]["destination_ready"]
-        is True
-    )
-
-
-def test_rejected_review_never_reaches_writer():
-    writer = RecordingWriteService()
-
-    service = (
-        SmartsheetReviewSubmissionService(
-            write_service=writer
-        )
-    )
-
-    result = service.submit(
-        review_output=build_review_output(),
-        approval_result=(
-            CompleteReviewApprovalResult(
-                approved=False,
-                success=True,
-                status="rejected",
-            )
-        ),
-        policies=build_policies(),
-        available_columns=build_columns(),
-        run_type=TEST_RUN_TYPE,
-    )
-
-    assert result.written is False
-    assert result.success is False
-    assert (
-        result.status
-        == "complete_review_not_approved"
-    )
-
-    assert writer.calls == []
-
-
-def test_failed_approval_never_reaches_writer():
-    writer = RecordingWriteService()
-
-    service = (
-        SmartsheetReviewSubmissionService(
-            write_service=writer
-        )
-    )
-
-    result = service.submit(
-        review_output=build_review_output(),
-        approval_result=(
-            CompleteReviewApprovalResult(
-                approved=False,
-                success=False,
-                status="review_still_required",
-            )
-        ),
-        policies=build_policies(),
-        available_columns=build_columns(),
-        run_type=TEST_RUN_TYPE,
-    )
-
-    assert result.written is False
-    assert result.success is False
-    assert (
-        result.status
-        == "complete_review_not_approved"
-    )
-
-    assert writer.calls == []
-
-
-def test_forged_success_without_approved_status_is_blocked():
-    writer = RecordingWriteService()
-
-    service = (
-        SmartsheetReviewSubmissionService(
-            write_service=writer
-        )
-    )
-
-    result = service.submit(
-        review_output=build_review_output(),
-        approval_result=(
-            CompleteReviewApprovalResult(
-                approved=True,
-                success=True,
-                status="confirmed",
-            )
-        ),
-        policies=build_policies(),
-        available_columns=build_columns(),
-        run_type=TEST_RUN_TYPE,
-    )
-
-    assert result.written is False
-    assert result.success is False
-    assert (
-        result.status
-        == "complete_review_not_approved"
-    )
-
-    assert writer.calls == []
-
-
-def test_recommended_review_reaches_writer_after_approval():
-    writer = RecordingWriteService()
-
-    service = (
-        SmartsheetReviewSubmissionService(
-            write_service=writer
-        )
-    )
-
-    result = service.submit(
-        review_output=build_review_output(
-            needs_human_review=True,
-            review_status="Human Review Recommended",
-        ),
-        approval_result=approved_result(),
-        policies=build_policies(),
-        available_columns=build_columns(),
-        run_type=TEST_RUN_TYPE,
-    )
-
-    assert result.written is True
+def test_validated_review_reaches_writer_once():
+    service, destination, writer = build_service()
+    result = submit(service)
     assert result.success is True
-    assert result.status == "written"
-
+    assert result.written is True
+    assert len(destination.calls) == 1
     assert len(writer.calls) == 1
 
 
-def test_required_review_still_blocks_mapping():
-    writer = RecordingWriteService()
-
-    service = (
-        SmartsheetReviewSubmissionService(
-            write_service=writer
-        )
+def test_review_required_output_reaches_writer():
+    service, destination, writer = build_service()
+    result = submit(
+        service,
+        review_output=build_review_output(needs_human_review=True),
     )
+    assert result.success is True
+    assert result.written is True
+    mapping = destination.calls[0]
+    assert mapping.values["AI Review Required"] is True
+    assert mapping.values["AI Review Reasons"]
+    assert len(writer.calls) == 1
 
-    result = service.submit(
-        review_output=build_review_output(
-            needs_human_review=True,
-            review_status="Human Review Required",
-        ),
-        approval_result=approved_result(),
-        policies=build_policies(),
-        available_columns=build_columns(),
-        run_type=TEST_RUN_TYPE,
+
+def test_destination_failure_blocks_writer():
+    service, destination, writer = build_service(
+        destination_ready=False
     )
-
-    assert result.written is False
+    result = submit(service)
     assert result.success is False
-    assert result.status == "mapping_not_ready"
-
+    assert result.status == "destination_not_ready"
+    assert len(destination.calls) == 1
     assert writer.calls == []
 
 
-def test_missing_destination_blocks_writer():
-    writer = RecordingWriteService()
-
-    service = (
-        SmartsheetReviewSubmissionService(
-            write_service=writer
-        )
-    )
-
-    columns = build_columns()
-
-    del columns[
-        "Authorization Status"
-    ]
-
+def test_mapping_failure_blocks_destination_and_writer():
+    service, destination, writer = build_service()
     result = service.submit(
         review_output=build_review_output(),
-        approval_result=approved_result(),
-        policies=build_policies(),
-        available_columns=columns,
-        run_type=TEST_RUN_TYPE,
+        policies=[
+            SmartsheetColumnPolicy(
+                source_field="missing_required",
+                column_name="Missing Required",
+                required=True,
+            )
+        ],
+        available_columns={},
+        run_type="Synthetic Submission Regression",
     )
-
-    assert result.written is False
     assert result.success is False
-    assert (
-        result.status
-        == "destination_not_ready"
-    )
-
+    assert result.status == "mapping_not_ready"
+    assert destination.calls == []
     assert writer.calls == []
 
 
 def test_writer_failure_is_preserved_safely():
-    writer = RecordingWriteService(
-        result=SmartsheetReviewedWriteResult(
-            written=False,
-            column_count=0,
-            attachment_written=False,
-            success=False,
-            status="smartsheet_write_failed",
-        )
-    )
-
-    service = (
-        SmartsheetReviewSubmissionService(
-            write_service=writer
-        )
-    )
-
-    result = service.submit(
-        review_output=build_review_output(),
-        approval_result=approved_result(),
-        policies=build_policies(),
-        available_columns=build_columns(),
-        run_type=TEST_RUN_TYPE,
-    )
-
-    assert result.written is False
+    service, _, writer = build_service(write_success=False)
+    result = submit(service)
     assert result.success is False
-    assert (
-        result.status
-        == "smartsheet_write_failed"
+    assert result.status == "synthetic_write_failed"
+    assert len(writer.calls) == 1
+
+
+def test_attachment_path_is_forwarded_without_logging():
+    service, _, writer = build_service()
+    result = submit(
+        service,
+        attachment_source_path="synthetic-document.bin",
     )
-
-    assert len(
-        writer.calls
-    ) == 1
-
-
-def test_invalid_approval_contract_is_blocked():
-    writer = RecordingWriteService()
-
-    service = (
-        SmartsheetReviewSubmissionService(
-            write_service=writer
-        )
-    )
-
-    result = service.submit(
-        review_output=build_review_output(),
-        approval_result=None,
-        policies=build_policies(),
-        available_columns=build_columns(),
-        run_type=TEST_RUN_TYPE,
-    )
-
-    assert result.written is False
-    assert result.success is False
-    assert (
-        result.status
-        == "invalid_approval_result"
-    )
-
-    assert writer.calls == []
+    assert result.success is True
+    assert writer.calls[0]["attachment_supplied"] is True
 
 
 def test_invalid_review_output_is_blocked():
-    writer = RecordingWriteService()
-
-    service = (
-        SmartsheetReviewSubmissionService(
-            write_service=writer
-        )
-    )
-
+    service, destination, writer = build_service()
     result = service.submit(
         review_output=None,
-        approval_result=approved_result(),
-        policies=build_policies(),
-        available_columns=build_columns(),
-        run_type=TEST_RUN_TYPE,
+        policies=POLICIES,
+        available_columns={},
+        run_type="Synthetic Submission Regression",
     )
-
-    assert result.written is False
     assert result.success is False
-    assert (
-        result.status
-        == "invalid_review_output"
-    )
-
+    assert result.status == "invalid_review_output"
+    assert destination.calls == []
     assert writer.calls == []
 
 
 def test_result_contract_is_phi_safe():
-    result_field_names = {
+    assert {
         item.name
-        for item in fields(
-            SmartsheetReviewSubmissionResult
-        )
-    }
-
-    assert result_field_names == {
-        "written",
-        "success",
-        "status",
-    }
-
-    prohibited_names = {
-        "value",
-        "values",
-        "source_text",
-        "raw_text",
-        "file_path",
-        "filename",
-        "fields",
-        "service_lines",
-        "payload",
-        "row_id",
-        "column_ids",
-    }
-
-    assert (
-        result_field_names
-        .isdisjoint(
-            prohibited_names
-        )
-    )
+        for item in fields(SmartsheetReviewSubmissionResult)
+    } == {"written", "success", "status"}
 
 
-print(
-    "=" * 60
-)
-print(
-    "Testing Approval-Gated Smartsheet Submission"
-)
-print(
-    "=" * 60
-)
+TESTS = [
+    ("validated review reaches writer once", test_validated_review_reaches_writer_once),
+    ("review-required output reaches writer", test_review_required_output_reaches_writer),
+    ("destination failure blocks writer", test_destination_failure_blocks_writer),
+    ("mapping failure blocks downstream calls", test_mapping_failure_blocks_destination_and_writer),
+    ("writer failure remains PHI-safe", test_writer_failure_is_preserved_safely),
+    ("attachment path is forwarded", test_attachment_path_is_forwarded_without_logging),
+    ("invalid review output is blocked", test_invalid_review_output_is_blocked),
+    ("submission result is PHI-safe", test_result_contract_is_phi_safe),
+]
 
-run_test(
-    "approved review reaches writer once",
-    test_approved_review_reaches_writer_once,
-)
 
-run_test(
-    "rejected review blocks writer",
-    test_rejected_review_never_reaches_writer,
-)
+passed = 0
+failed = 0
 
-run_test(
-    "failed approval blocks writer",
-    test_failed_approval_never_reaches_writer,
-)
+print("=" * 60)
+print("Testing Automatic Smartsheet Submission")
+print("=" * 60)
 
-run_test(
-    "non-approved status blocks writer",
-    test_forged_success_without_approved_status_is_blocked,
-)
-
-run_test(
-    "recommended review reaches writer after approval",
-    test_recommended_review_reaches_writer_after_approval,
-)
-
-run_test(
-    "required review still blocks mapping",
-    test_required_review_still_blocks_mapping,
-)
-
-run_test(
-    "missing destination blocks writer",
-    test_missing_destination_blocks_writer,
-)
-
-run_test(
-    "writer failure remains PHI-safe",
-    test_writer_failure_is_preserved_safely,
-)
-
-run_test(
-    "invalid approval contract is blocked",
-    test_invalid_approval_contract_is_blocked,
-)
-
-run_test(
-    "invalid review output is blocked",
-    test_invalid_review_output_is_blocked,
-)
-
-run_test(
-    "submission result is PHI-safe",
-    test_result_contract_is_phi_safe,
-)
+for name, test in TESTS:
+    try:
+        test()
+        passed += 1
+        print(f"PASSED: {name}")
+    except Exception as exception:
+        failed += 1
+        print(f"FAILED: {name}: {type(exception).__name__}")
 
 print()
-print(
-    f"Passed: {passed}"
-)
-print(
-    f"Failed: {failed}"
-)
-print(
-    "Real or mock: Synthetic deterministic/mock"
-)
-print(
-    "Smartsheet external API: Not called"
-)
-print(
-    "Microsoft Graph: Not called"
-)
-print(
-    "OCR: Not called"
-)
-print(
-    "Ollama: Not called"
-)
-print(
-    "PHI handling: Synthetic values only; "
-    "mapped payload not printed"
-)
+print(f"Passed: {passed}")
+print(f"Failed: {failed}")
+print("Real or mock: Synthetic deterministic/mock")
+print("Smartsheet external API: Not called")
+print("Microsoft Graph: Not called")
+print("OCR: Not called")
+print("Ollama: Not called")
+print("PHI handling: Synthetic values only; payload not printed")
 
 if failed:
     raise SystemExit(1)

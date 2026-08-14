@@ -45,7 +45,6 @@ class RecordingOrchestrationService:
         top=10,
         created_at=None,
         skip_classification_review=False,
-        approve_complete_review=False,
         run_type="",
     ):
         self.calls.append(
@@ -54,9 +53,6 @@ class RecordingOrchestrationService:
                 "created_at": created_at,
                 "skip_classification_review": (
                     skip_classification_review
-                ),
-                "approve_complete_review": (
-                    approve_complete_review
                 ),
                 "run_type": run_type,
             }
@@ -71,13 +67,13 @@ def successful_result():
         document_count=3,
         classification_submitted_count=3,
         classification_cancelled_count=0,
-        approved_count=2,
+        approved_count=0,
         written_count=2,
-        rejected_count=1,
+        rejected_count=0,
         complete_review_cancelled_count=0,
         failed_count=0,
         success=True,
-        status="completed_with_rejections",
+        status="completed",
     )
 
 
@@ -142,7 +138,6 @@ def test_command_calls_full_orchestration_once():
             "top": 4,
             "created_at": TIMESTAMP,
             "skip_classification_review": False,
-            "approve_complete_review": False,
             "run_type": "",
         }
     ]
@@ -171,15 +166,12 @@ def test_successful_summary_contains_safe_counts():
         "Documents                 : 3",
         "Classification submitted  : 3",
         "Classification cancelled  : 0",
-        "Approved                  : 2",
         "Written                   : 2",
-        "Rejected                  : 1",
-        "Complete review cancelled : 0",
         "Failed                    : 0",
         "Success                   : True",
         (
             "Status                    : "
-            "completed_with_rejections"
+            "completed"
         ),
     }
 
@@ -319,7 +311,6 @@ def test_demo_skip_flag_reaches_orchestration():
             "top": 5,
             "created_at": None,
             "skip_classification_review": True,
-            "approve_complete_review": False,
             "run_type": "",
         }
     ]
@@ -348,50 +339,14 @@ def test_demo_skip_flag_reaches_orchestration():
     )
 
 
-def test_explicit_complete_review_flag_reaches_orchestration():
-    orchestration = RecordingOrchestrationService(
-        result=successful_result()
-    )
+def test_complete_review_approval_option_is_absent():
+    option_strings = {
+        option
+        for action in build_argument_parser()._actions
+        for option in action.option_strings
+    }
 
-    output = OutputRecorder()
-
-    command = MailboxFullReviewCommand(
-        orchestration_service=orchestration,
-        output_writer=output,
-    )
-
-    result = command.run(
-        approve_complete_review=True
-    )
-
-    assert result.success is True
-
-    assert (
-        orchestration.calls[0][
-            "approve_complete_review"
-        ]
-        is True
-    )
-
-    assert (
-        "Explicit complete review approval: True"
-        in output.lines
-    )
-
-    parser = build_argument_parser()
-
-    arguments = parser.parse_args(
-        [
-            "--approve-complete-review",
-            "--run-type",
-            "Complete review approval gate",
-        ]
-    )
-
-    assert (
-        arguments.approve_complete_review
-        is True
-    )
+    assert "--approve-complete-review" not in option_strings
 
 
 def test_run_type_reaches_orchestration_and_parser():
@@ -518,8 +473,8 @@ run_test(
 )
 
 run_test(
-    "explicit complete review flag reaches orchestration",
-    test_explicit_complete_review_flag_reaches_orchestration,
+    "complete review approval option is absent",
+    test_complete_review_approval_option_is_absent,
 )
 
 run_test(

@@ -108,9 +108,9 @@ row. Human review is a downstream exception workflow, not a write gate.
 - Deterministic evidence validation.
 - Authorization business-rule boundary.
 - Human classification review and local feedback.
-- Reviewed Smartsheet row mapping and write components; their current
-  approval-gated orchestration requires reconciliation with the clarified
-  automatic-write production requirement.
+- Automatic Smartsheet row mapping and submission after deterministic
+  validation and business rules, with review-required rows written with
+  downstream review status and reasons.
 - Smartsheet document attachment support.
 - Explicit PHI-safe Run Type.
 - Human-confirmed classification propagation.
@@ -121,20 +121,26 @@ row. Human review is a downstream exception workflow, not a write gate.
 
 ## Recent Tested Baseline
 
-Latest automatic-Smartsheet business-rule reconciliation:
+Latest automatic-Smartsheet production-write checkpoint:
 
-- Durable architecture now requires automatic intentionally mapped
-  Smartsheet row population after deterministic validation and business
-  rules, followed by conditional downstream human-review handling.
-- The existing configured review thresholds remain unchanged.
-- Eleven focused Smartsheet/review-boundary suites: 120 passed, 0 failed.
+- Focused red result against the obsolete approval-gated contracts:
+  5 passed, 8 failed.
+- Final affected regression baseline: 286 passed, 0 failed.
 - Test classification: synthetic deterministic and mock.
-- The green suites document the current approval-gated implementation and
-  identify the contracts that are obsolete under the clarified requirement;
-  production behavior was not changed in this continuity checkpoint.
-- `update_project_tracker.py` compiled successfully.
+- Automatic intentionally mapped Smartsheet row population now follows
+  deterministic validation and business rules without a complete-review
+  approval gate.
+- Review-required rows are written with review status and reasons; human
+  review remains downstream exception handling.
+- The existing configured review thresholds remain unchanged.
+- Missing required destination data and destination-validation failures still
+  block submission before the writer is called.
+- The full document continues through the existing explicit attachment-upload
+  path.
+- OCR text and `source_text` have no explicit Smartsheet destination and are
+  not mapped.
 - No real Smartsheet write, Microsoft Graph, PaddleOCR, Ollama, patient
-  document, or external-AI operation occurred.
+  document, or external-AI operation occurred during this checkpoint.
 - No protected data was accessed or exposed.
 
 Latest continuity-system validation:
@@ -233,15 +239,12 @@ remains true.
 - Production hardening and future integrations remain ongoing.
 - Graph authentication and authorization failure verification is mock-only;
   no live negative authentication request was performed.
-- The current Smartsheet submission, complete-review workflow, mailbox
-  coordinator, and full-review command still require complete-review
-  approval before writing. This directly conflicts with the clarified
-  automatic production-write requirement and must be corrected together
-  with their synthetic contracts.
-- Current row mapping blocks review-required rows and prohibits
-  `source_text`; the next implementation must allow supported/null-safe rows
-  to write with review status/reasons and must define any intended PHI/full-
-  document mapping explicitly without passing internal objects wholesale.
+- The full document currently reaches Smartsheet only through the existing
+  explicit attachment-upload path.
+- OCR text and `source_text` have no explicitly configured Smartsheet
+  destination and therefore remain unmapped. Any future destination must be
+  intentionally designed without serializing document/review objects
+  wholesale.
 - Review thresholds currently remain the configured values in
   `ReviewDecisionService`; this clarification does not change them.
 
@@ -340,23 +343,13 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Reconcile the active Smartsheet production path with the clarified automatic-
-write requirement using focused synthetic red regressions first.
+Resume the deferred legacy Graph/mailbox diagnostic stdout hardening for
+`scripts/test_graph_connection.py`, `scripts/test_graph_attachments.py`,
+`scripts/check_graph_read_status.py`, and
+`scripts/test_mailbox_processor.py`.
 
-Inspect and update the smallest coherent interface set spanning row mapping,
-submission, complete-review workflow, mailbox orchestration, command options,
-and their callers/tests so deterministic validation and business rules are
-followed by automatic Smartsheet row population. Human review must remain a
-downstream exception workflow, and review-required rows must retain review
-status/reasons rather than being blocked from writing.
-
-Define any intended PHI, `source_text`, or full-document destination mapping
-explicitly. Do not pass review/document objects wholesale, and exclude
-internal diagnostics, credentials, tokens, local paths, cache metadata, and
-unrelated fields. Preserve configured review thresholds and all null/unknown,
-no-inference, and destination-validation safeguards. Use mocked Smartsheet
-only; do not run Graph, OCR, Ollama, patient documents, or a real Smartsheet
-write.
-
-After that boundary is green, resume the deferred legacy Graph/mailbox
-diagnostic-output hardening task.
+Use synthetic/mock stdout regressions first. Remove protected subjects,
+sender addresses, message IDs, paths, raw OCR, extracted values, and raw error
+text. Retain only PHI-safe counts, booleans, confidence/status/timing metadata.
+Do not change mailbox or document-processing behavior. Do not run live Graph,
+mailbox, or documents.

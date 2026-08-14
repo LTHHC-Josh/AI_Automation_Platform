@@ -21,6 +21,9 @@ class MailboxFullReviewOrchestrationResult:
     The result excludes message IDs, subjects, filenames, paths,
     OCR text, source_text, extracted values, review payloads,
     Smartsheet payloads, row IDs, and patient data.
+
+    Legacy complete-review counters remain for result compatibility;
+    normal automatic production processing does not use them as gates.
     """
 
     message_count: int
@@ -43,11 +46,10 @@ class MailboxFullReviewOrchestrationService:
     Order:
 
     mailbox processing
-    -> classification review/feedback
-    -> explicit complete review
-    -> approved Smartsheet submission
+    -> automatic Smartsheet submission
+    -> conditional downstream classification review/feedback
 
-    Classification confirmation never authorizes writing by itself.
+    Classification confirmation is not a separate write credential.
     """
 
     def __init__(
@@ -84,7 +86,6 @@ class MailboxFullReviewOrchestrationService:
         top: Any = 10,
         created_at: Any = None,
         skip_classification_review: bool = False,
-        approve_complete_review: bool = False,
         run_type: str = "",
     ) -> MailboxFullReviewOrchestrationResult:
         normalized_top = self._normalize_top(
@@ -108,6 +109,65 @@ class MailboxFullReviewOrchestrationService:
                 "mailbox_processing_failed"
             )
 
+        try:
+            complete_result = (
+                self.complete_review_smartsheet_service.run(
+                    message_results=message_results,
+                    run_type=run_type,
+                )
+            )
+        except Exception:
+            mailbox_summary = (
+                self._build_skipped_classification_result(
+                    message_results
+                )
+            )
+            return MailboxFullReviewOrchestrationResult(
+                message_count=mailbox_summary.message_count,
+                document_count=mailbox_summary.document_count,
+                classification_submitted_count=0,
+                classification_cancelled_count=0,
+                approved_count=0,
+                written_count=0,
+                rejected_count=0,
+                complete_review_cancelled_count=0,
+                failed_count=1,
+                success=False,
+                status="smartsheet_submission_failed",
+            )
+
+        if complete_result.status == "no_documents":
+            return MailboxFullReviewOrchestrationResult(
+                message_count=complete_result.message_count,
+                document_count=0,
+                classification_submitted_count=0,
+                classification_cancelled_count=0,
+                approved_count=0,
+                written_count=0,
+                rejected_count=0,
+                complete_review_cancelled_count=0,
+                failed_count=0,
+                success=True,
+                status="no_documents",
+            )
+
+        if not complete_result.success:
+            return MailboxFullReviewOrchestrationResult(
+                message_count=complete_result.message_count,
+                document_count=complete_result.document_count,
+                classification_submitted_count=0,
+                classification_cancelled_count=0,
+                approved_count=complete_result.approved_count,
+                written_count=complete_result.written_count,
+                rejected_count=complete_result.rejected_count,
+                complete_review_cancelled_count=(
+                    complete_result.cancelled_count
+                ),
+                failed_count=complete_result.failed_count,
+                success=False,
+                status=complete_result.status,
+            )
+
         if skip_classification_review:
             classification_result = (
                 self._build_skipped_classification_result(
@@ -123,8 +183,22 @@ class MailboxFullReviewOrchestrationService:
                     )
                 )
             except Exception:
-                return self._failure(
-                    "classification_review_failed"
+                return MailboxFullReviewOrchestrationResult(
+                    message_count=complete_result.message_count,
+                    document_count=complete_result.document_count,
+                    classification_submitted_count=0,
+                    classification_cancelled_count=0,
+                    approved_count=complete_result.approved_count,
+                    written_count=complete_result.written_count,
+                    rejected_count=complete_result.rejected_count,
+                    complete_review_cancelled_count=(
+                        complete_result.cancelled_count
+                    ),
+                    failed_count=(
+                        complete_result.failed_count + 1
+                    ),
+                    success=False,
+                    status="completed_with_review_failures",
                 )
 
         if not classification_result.success:
@@ -141,67 +215,18 @@ class MailboxFullReviewOrchestrationService:
                 classification_cancelled_count=(
                     classification_result.cancelled_count
                 ),
-                approved_count=0,
-                written_count=0,
-                rejected_count=0,
-                complete_review_cancelled_count=0,
+                approved_count=complete_result.approved_count,
+                written_count=complete_result.written_count,
+                rejected_count=complete_result.rejected_count,
+                complete_review_cancelled_count=(
+                    complete_result.cancelled_count
+                ),
                 failed_count=(
-                    classification_result.failed_count
+                    complete_result.failed_count
+                    + classification_result.failed_count
                 ),
                 success=False,
-                status=(
-                    classification_result.status
-                ),
-            )
-
-        if classification_result.status == "no_documents":
-            return MailboxFullReviewOrchestrationResult(
-                message_count=(
-                    classification_result.message_count
-                ),
-                document_count=0,
-                classification_submitted_count=0,
-                classification_cancelled_count=0,
-                approved_count=0,
-                written_count=0,
-                rejected_count=0,
-                complete_review_cancelled_count=0,
-                failed_count=0,
-                success=True,
-                status="no_documents",
-            )
-
-        try:
-            complete_result = (
-                self.complete_review_smartsheet_service.run(
-                    message_results=message_results,
-                    approve_complete_review=(
-                        approve_complete_review
-                    ),
-                    run_type=run_type,
-                )
-            )
-        except Exception:
-            return MailboxFullReviewOrchestrationResult(
-                message_count=(
-                    classification_result.message_count
-                ),
-                document_count=(
-                    classification_result.document_count
-                ),
-                classification_submitted_count=(
-                    classification_result.submitted_count
-                ),
-                classification_cancelled_count=(
-                    classification_result.cancelled_count
-                ),
-                approved_count=0,
-                written_count=0,
-                rejected_count=0,
-                complete_review_cancelled_count=0,
-                failed_count=1,
-                success=False,
-                status="complete_review_failed",
+                status="completed_with_review_failures",
             )
 
         failed_count = (
@@ -216,12 +241,6 @@ class MailboxFullReviewOrchestrationService:
 
         if not success:
             status = "completed_with_failures"
-
-        elif complete_result.cancelled_count:
-            status = "completed_with_cancellations"
-
-        elif complete_result.rejected_count:
-            status = "completed_with_rejections"
 
         else:
             status = "completed"
@@ -264,7 +283,7 @@ class MailboxFullReviewOrchestrationService:
         Build a PHI-safe demo-only classification-review summary.
 
         This does not alter AI classification, extraction, validation,
-        business rules, review output, or complete-review write authority.
+        business rules, review output, or Smartsheet write readiness.
         """
         try:
             results = list(

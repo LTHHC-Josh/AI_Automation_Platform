@@ -70,7 +70,6 @@ class RecordingSubmissionService:
         self,
         *,
         review_output,
-        approval_result,
         policies,
         available_columns,
         attachment_source_path=None,
@@ -79,7 +78,6 @@ class RecordingSubmissionService:
         self.calls.append(
             {
                 "review_output": review_output,
-                "approval_result": approval_result,
                 "policy_count": len(
                     policies
                 ),
@@ -221,12 +219,7 @@ def test_approved_review_reaches_submission_once():
         submission.calls
     ) == 1
 
-    assert (
-        submission.calls[0][
-            "approval_result"
-        ].approved
-        is True
-    )
+    assert submission.calls[0]["review_output"] is review_output
 
 
 def test_explicit_approval_flag_reaches_interaction():

@@ -4,11 +4,11 @@ from typing import Iterable
 from src.graph.mailbox_processor import (
     MessageProcessingResult,
 )
-from src.services.complete_review_smartsheet_workflow_service import (
-    CompleteReviewSmartsheetWorkflowService,
-)
 from src.services.review_output_service import (
     ReviewOutput,
+)
+from src.services.smartsheet_review_submission_service import (
+    SmartsheetReviewSubmissionService,
 )
 from src.services.smartsheet_review_configuration_service import (
     SmartsheetReviewConfigurationService,
@@ -24,6 +24,9 @@ class MailboxCompleteReviewSmartsheetResult:
     The result excludes message identifiers, subjects, document paths,
     filenames, OCR text, extracted values, source_text, mapped values,
     Smartsheet payloads, row IDs, and patient data.
+
+    Approval/rejection/cancellation counters are retained for backward
+    result compatibility and remain zero on the automatic path.
     """
 
     message_count: int
@@ -39,8 +42,11 @@ class MailboxCompleteReviewSmartsheetResult:
 
 class MailboxCompleteReviewSmartsheetService:
     """
-    Applies the existing complete-review-to-Smartsheet workflow to
-    already processed mailbox documents.
+    Applies automatic Smartsheet submission to already processed
+    mailbox documents.
+
+    The legacy class name is retained for caller compatibility. Human
+    review is downstream exception handling and is not a write gate.
 
     For each valid ReviewOutput, this service resolves the explicitly
     approved mapping policy and current destination schema using the
@@ -55,17 +61,14 @@ class MailboxCompleteReviewSmartsheetService:
     - infer mapping policy;
     - infer destination columns.
 
-    Classification confirmation is not accepted as write authority.
+    Classification confirmation is not accepted as a write credential.
     """
-
-    REJECTED_STATUS = "rejected"
-    CANCELLED_STATUS = "cancelled"
 
     def __init__(
         self,
         *,
-        workflow_service: (
-            CompleteReviewSmartsheetWorkflowService
+        submission_service: (
+            SmartsheetReviewSubmissionService
             | None
         ) = None,
         configuration_service: (
@@ -73,9 +76,9 @@ class MailboxCompleteReviewSmartsheetService:
             | None
         ) = None,
     ) -> None:
-        self.workflow_service = (
-            workflow_service
-            or CompleteReviewSmartsheetWorkflowService()
+        self.submission_service = (
+            submission_service
+            or SmartsheetReviewSubmissionService()
         )
 
         self.configuration_service = (
@@ -89,7 +92,6 @@ class MailboxCompleteReviewSmartsheetService:
         message_results: Iterable[
             MessageProcessingResult
         ],
-        approve_complete_review: bool = False,
         run_type: str = "",
     ) -> MailboxCompleteReviewSmartsheetResult:
         try:
@@ -166,8 +168,8 @@ class MailboxCompleteReviewSmartsheetService:
                     continue
 
                 try:
-                    workflow_result = (
-                        self.workflow_service.run(
+                    submission_result = (
+                        self.submission_service.submit(
                             review_output=review_output,
                             policies=list(
                                 configuration_result.policies
@@ -175,9 +177,6 @@ class MailboxCompleteReviewSmartsheetService:
                             available_columns=dict(
                                 configuration_result
                                 .available_columns
-                            ),
-                            approve_complete_review=(
-                                approve_complete_review
                             ),
                             attachment_source_path=(
                                 document.file_path
@@ -189,28 +188,11 @@ class MailboxCompleteReviewSmartsheetService:
                     failed_count += 1
                     continue
 
-                if workflow_result.approved:
-                    approved_count += 1
-
                 if (
-                    workflow_result.success
-                    and workflow_result.written
+                    submission_result.success
+                    and submission_result.written
                 ):
                     written_count += 1
-                    continue
-
-                if (
-                    workflow_result.status
-                    == self.REJECTED_STATUS
-                ):
-                    rejected_count += 1
-                    continue
-
-                if (
-                    workflow_result.status
-                    == self.CANCELLED_STATUS
-                ):
-                    cancelled_count += 1
                     continue
 
                 failed_count += 1
@@ -231,14 +213,6 @@ class MailboxCompleteReviewSmartsheetService:
         if failed_count:
             status = "completed_with_failures"
             success = False
-
-        elif cancelled_count:
-            status = "completed_with_cancellations"
-            success = True
-
-        elif rejected_count:
-            status = "completed_with_rejections"
-            success = True
 
         else:
             status = "completed"

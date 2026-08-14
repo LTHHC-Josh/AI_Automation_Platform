@@ -362,7 +362,7 @@ def test_verified_document_can_be_ready():
     assert mapping.ready_for_write is True
 
 
-def test_human_review_blocks_write():
+def test_human_review_preserves_metadata_and_allows_write():
     (
         _,
         review_output,
@@ -372,7 +372,9 @@ def test_human_review_blocks_write():
     )
 
     assert review_output.needs_human_review is True
-    assert mapping.ready_for_write is False
+    assert mapping.ready_for_write is True
+    assert mapping.values["AI Review Required"] is True
+    assert mapping.values["AI Review Reasons"]
     assert len(
         mapping.warnings
     ) == 1
@@ -432,8 +434,8 @@ run_test(
     test_verified_document_can_be_ready,
 )
 run_test(
-    "human review blocks write",
-    test_human_review_blocks_write,
+    "human review preserves metadata and allows write",
+    test_human_review_preserves_metadata_and_allows_write,
 )
 run_test(
     "service lines remain in review output only",
