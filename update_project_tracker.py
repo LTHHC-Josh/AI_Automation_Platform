@@ -5708,6 +5708,165 @@ Continue from the authoritative CURRENT NEXT START in PROJECT_MEMORY.md.
 During Begin Day, also consider worthwhile Codex work against the current
 known reset timestamp.
 
+
+------------------------------------------------------------
+CONTROLLED AUTHORIZATION RETRY AND HARNESS CONTRACT - 2026-08-14
+------------------------------------------------------------
+
+Run Type:
+
+Controlled Authorization Regression
+
+Retry fix:
+
+- Authorization raw and validated completeness checks now request the
+  existing single controlled retry when no supported service-line rows
+  remain, even when top-level service-code fields are also empty.
+- Authorization-only scope, independent candidate validation, no candidate
+  merging, deterministic selection, and attempt-1 tie behavior remain
+  unchanged.
+- No payer, service code, modifier, quantity, date, filename, or source
+  conclusion was added to production retry logic.
+
+Synthetic validation:
+
+- Authorization harness contract: 5 passed, 0 failed.
+- Document processor: 17 passed, 0 failed.
+- Evidence validation: 29 passed, 0 failed.
+- Ollama service lines: 19 passed, 0 failed.
+- Review-output service: 8 passed, 0 failed.
+- Review-output integration: 7 passed, 0 failed.
+- Combined synthetic result: 85 passed, 0 failed.
+- All modified Python files compiled successfully.
+
+Real cached-OCR/local-Ollama verification:
+
+- Classification: authorization.
+- Extraction attempt count: 2.
+- Raw retry required: False.
+- Validated retry required: True.
+- Retry triggered: True.
+- Selected attempt: 2.
+- Final service-line count: 2.
+- Supported service-code and quantity evidence remained on both rows.
+- A modifier remained only where row evidence supported it.
+- Unsupported row dates and statuses were cleared.
+- Unsupported authorization status was cleared.
+- Human review required: True.
+- Review output remained attached and preserved final review state.
+- Microsoft Graph and Smartsheet were not called.
+- No external AI was used.
+
+Semantic harness correction:
+
+The previous harness required authorization status and service-line dates
+and statuses to remain populated even when deterministic evidence did not
+support them. It also always required the modifier-relationship action.
+
+The corrected contract now verifies that supported values remain supported,
+unsupported values are cleared with validation actions, modifier-relationship
+review is required only when a supported top-level modifier remains unresolved
+across validated rows, human review remains required, review output preserves
+final state, and retry metadata matches the controlled checkpoint.
+
+PHI handling:
+
+- Real processing remained local and PHI output was suppressed.
+- No OCR text, source_text, patient values, protected filenames or paths,
+  credentials, tokens, Smartsheet payload values, or row IDs were recorded.
+- All harness-correction tests used synthetic deterministic data only.
+
+Codex / Work Analytics:
+
+- Weekly usage remaining observed: 99%.
+- Authoritative reset: August 20, 2026 at 9:53 AM local time.
+- Source: Codex and Work Analytics.
+- This observation supersedes the prior August 18 reset value.
+- The reason for the platform timestamp change is unknown and was not
+  inferred.
+
+Limitations:
+
+- The corrected semantic harness has not yet been rerun against the
+  controlled real cached-OCR/local-Ollama regression.
+- Quantity meaning remains conservative and requires deterministic support
+  or human review.
+- No real Smartsheet write was performed or authorized.
+
+Exact next starting point:
+
+Run one controlled local authorization test through the corrected
+single-document harness. Verify only PHI-safe retry metadata, supported-value
+presence, cleared-value evidence flags, review state, reason counts, selected
+attempt, service-line count, and semantic success/failure.
+
+Do not expose PHI-bearing data and do not perform a real Smartsheet write
+without fresh explicit complete-review approval.
+
+
+------------------------------------------------------------
+CONTROLLED AUTHORIZATION REGRESSION FINAL PASS - 2026-08-14
+------------------------------------------------------------
+
+Run Type:
+
+Controlled Authorization Regression
+
+Verified real result:
+
+- Semantic regression: PASSED.
+- Passed: 1.
+- Failed: 0.
+- Real cached OCR and real local Ollama were used locally.
+- Extraction attempt count: 2.
+- Retry triggered: True.
+- Raw retry required: False.
+- Validated retry required: True.
+- Selected attempt: 2.
+- Final service-line count: 2.
+- Supported service-code and quantity structure remained preserved.
+- Unsupported authorization and service-line values remained cleared with
+  validation and review reasons.
+- Human review required: True.
+- Review output remained attached and preserved final state.
+- Raw OCR text and the local document path were excluded from review output.
+
+External boundaries:
+
+- Microsoft Graph was not called.
+- Smartsheet was not called and no row was written.
+- No external AI was used.
+- PHI output remained suppressed.
+
+Continuity:
+
+- The retry fix is verified in real cached-OCR/local-Ollama execution.
+- The corrected authorization harness is verified in the same controlled
+  real execution.
+- Weekly usage remaining remains the observed 99%.
+- The authoritative Codex and Work Analytics reset remains August 20, 2026
+  at 9:53 AM local time.
+- This newer observation supersedes the historical August 18 value; the
+  reason for the timestamp change is unknown and was not guessed.
+
+Limitations:
+
+- Authorization quantity meaning remains intentionally conservative when
+  deterministic evidence is insufficient.
+- Modifier ownership remains unresolved without row evidence.
+- No real Smartsheet write was performed or authorized.
+
+Exact next starting point:
+
+Inspect the existing authorization service-line quantity-reconciliation
+boundary, callers, and synthetic tests. Confirm supported quantities are
+preserved only within one independently validated candidate and are never
+interpreted as visits, sessions, equipment, approval, or sufficient
+authorization.
+
+Make a code change only if inspection demonstrates a concrete gap. Do not
+invent quantity meaning without confirmed business requirements.
+
 """
 
 
@@ -5818,8 +5977,9 @@ updates = [
             "Implemented field-level extraction, neutral service-line "
             "extraction, PHI-safe generation metrics, deterministic attempt "
             "routing, and one controlled retry with a generic verification "
-            "prompt. A real retry event was observed, but recovery with the "
-            "new retry prompt has not yet been observed in a real run."
+            "prompt. A controlled real authorization run triggered validated "
+            "retry, selected attempt 2, and recovered supported service-line "
+            "structure while unsupported values remained cleared."
         ),
     ),
     (
@@ -5859,8 +6019,10 @@ updates = [
             "PHI-safe metrics, service-line extraction, deterministic attempt "
             "routing, controlled retry logic, independent candidate "
             "validation, business rules, and human review. Real retry detection "
-            "is verified; real recovery with the new retry prompt and "
-            "production Smartsheet routing remain incomplete."
+            "and recovery are verified locally with cached OCR and local "
+            "Ollama, and the corrected semantic harness passes in the "
+            "controlled real regression. Production Smartsheet routing remains "
+            "subject to explicit approval and further hardening."
         ),
     ),
     (

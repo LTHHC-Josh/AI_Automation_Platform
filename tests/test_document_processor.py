@@ -275,6 +275,58 @@ def build_incomplete_extraction() -> dict[str, Any]:
     }
 
 
+def build_structurally_empty_authorization_extraction() -> dict[str, Any]:
+    """
+    Build an authorization extraction with schema but no service data.
+    """
+
+    return {
+        "fields": {
+            "authorization_status": confidence_field(
+                None,
+                "",
+                0.0,
+            ),
+            "service_code": confidence_field(
+                None,
+                "",
+                0.0,
+            ),
+            "service_codes": confidence_field(
+                [],
+                "",
+                0.0,
+            ),
+            "modifier": confidence_field(
+                None,
+                "",
+                0.0,
+            ),
+            "authorized_units": confidence_field(
+                None,
+                "",
+                0.0,
+            ),
+            "approved_visits": confidence_field(
+                None,
+                "",
+                0.0,
+            ),
+            "start_date": confidence_field(
+                None,
+                "",
+                0.0,
+            ),
+            "end_date": confidence_field(
+                None,
+                "",
+                0.0,
+            ),
+        },
+        "service_lines": [],
+    }
+
+
 def test_missing_service_lines_returns_empty_list() -> None:
     processor = build_processor_without_providers()
 
@@ -544,6 +596,36 @@ def test_missing_service_codes_list_requires_raw_retry() -> None:
     )
 
 
+def test_structurally_empty_authorization_requires_retry() -> None:
+    processor = build_processor_without_providers()
+
+    extraction_result = (
+        build_structurally_empty_authorization_extraction()
+    )
+
+    raw_retry_required = processor._should_retry_extraction(
+        extraction_result=extraction_result,
+        document_type="authorization",
+    )
+
+    candidate = processor._build_validated_candidate(
+        template_document=build_template_document(),
+        extraction_result=extraction_result,
+    )
+
+    assert candidate.service_lines == []
+
+    validated_retry_required = (
+        processor._should_retry_validated_candidate(
+            candidate=candidate,
+            document_type="authorization",
+        )
+    )
+
+    assert raw_retry_required
+    assert validated_retry_required
+
+
 def test_non_authorization_does_not_use_authorization_retry() -> None:
     processor = build_processor_without_providers()
 
@@ -761,6 +843,10 @@ def main() -> None:
         (
             "missing service_codes requires raw retry",
             test_missing_service_codes_list_requires_raw_retry,
+        ),
+        (
+            "structurally empty authorization requires retry",
+            test_structurally_empty_authorization_requires_retry,
         ),
         (
             "non-authorization does not use authorization retry",

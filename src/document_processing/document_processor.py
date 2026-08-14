@@ -568,12 +568,7 @@ class DocumentProcessor:
             )
         ]
 
-        if (
-            not non_empty_rows
-            and not self._is_empty_value(
-                top_level_service_code
-            )
-        ):
+        if not non_empty_rows:
             return True
 
         for row in non_empty_rows:
@@ -668,12 +663,7 @@ class DocumentProcessor:
             )
         ]
 
-        if (
-            not non_empty_rows
-            and not self._is_empty_value(
-                top_level_service_code
-            )
-        ):
+        if not non_empty_rows:
             return True
 
         for service_line in non_empty_rows:

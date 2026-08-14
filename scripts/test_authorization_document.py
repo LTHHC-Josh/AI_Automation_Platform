@@ -1,5 +1,6 @@
 import argparse
 import re
+from datetime import datetime
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -53,6 +54,23 @@ ISO_DATE_PATTERN = re.compile(
 SOURCE_TOKEN_PATTERN = re.compile(
     r"[A-Za-z0-9]+"
 )
+
+
+def parse_run_type(
+    value: str,
+) -> str:
+    """
+    Require explicit nonblank PHI-safe operator metadata.
+    """
+
+    normalized_value = value.strip()
+
+    if not normalized_value:
+        raise argparse.ArgumentTypeError(
+            "Run Type must be explicit nonblank operator text."
+        )
+
+    return normalized_value
 
 
 def format_percentage(
@@ -158,6 +176,39 @@ def source_contains_date(
     """
 
     return date_value in source_text
+
+
+def source_supports_iso_date(
+    source_text: str,
+    date_value: str,
+) -> bool:
+    """
+    Match an ISO date to supported date text without printing evidence.
+    """
+
+    date_pattern = re.compile(
+        r"\b\d{1,2}[/-]\d{1,2}[/-]\d{4}\b"
+        r"|\b\d{4}-\d{2}-\d{2}\b"
+    )
+
+    for date_text in date_pattern.findall(source_text):
+        for date_format in (
+            "%Y-%m-%d",
+            "%m/%d/%Y",
+            "%m-%d-%Y",
+        ):
+            try:
+                normalized_date = datetime.strptime(
+                    date_text,
+                    date_format,
+                ).date().isoformat()
+            except ValueError:
+                continue
+
+            if normalized_date == date_value:
+                return True
+
+    return False
 
 
 def print_safe_flat_fields(
@@ -702,6 +753,8 @@ def print_processing_metrics(
 
 def validate_flat_fields(
     extracted_data: dict[str, Any],
+    field_evidence: dict[str, dict[str, Any]],
+    validation_actions: list[str],
 ) -> list[str]:
     """
     Validate known flat-field expectations for this regression document.
@@ -716,9 +769,37 @@ def validate_flat_fields(
         or ""
     ).strip().lower()
 
-    if authorization_status != "approved":
+    if authorization_status:
+        if authorization_status != "approved":
+            failures.append(
+                "authorization_status must be Approved when retained"
+            )
+
+        status_evidence = field_evidence.get(
+            "authorization_status",
+            {},
+        )
+
+        status_source = str(
+            status_evidence.get(
+                "source_text",
+                "",
+            )
+            or ""
+        ).strip().lower()
+
+        if authorization_status not in status_source:
+            failures.append(
+                "retained authorization_status must be directly "
+                "supported by its source evidence"
+            )
+    elif not any(
+        "authorization status" in action.lower()
+        or "authorization_status" in action.lower()
+        for action in validation_actions
+    ):
         failures.append(
-            "authorization_status must remain Approved"
+            "cleared authorization_status must have a validation action"
         )
 
     service_code = str(
@@ -807,6 +888,7 @@ def validate_flat_fields(
 
 def validate_service_lines(
     service_lines: list[AuthorizationServiceLine],
+    validation_actions: list[str],
 ) -> list[str]:
     """
     Validate row-level expectations for this regression document.
@@ -880,31 +962,63 @@ def validate_service_lines(
                     "must be supported by row evidence"
                 )
 
-        if not is_iso_date(
-            service_line.start_date
+        for field_name, field_label in (
+            ("start_date", "start date"),
+            ("end_date", "end date"),
         ):
-            failures.append(
-                f"service line {line_number} start_date "
-                "must be ISO formatted"
+            date_value = getattr(
+                service_line,
+                field_name,
             )
 
-        if not is_iso_date(
-            service_line.end_date
-        ):
-            failures.append(
-                f"service line {line_number} end_date "
-                "must be ISO formatted"
-            )
+            if date_value is None:
+                if not any(
+                    f"Service line {line_number} {field_label}"
+                    in action
+                    for action in validation_actions
+                ):
+                    failures.append(
+                        f"cleared service line {line_number} "
+                        f"{field_name} must have a validation action"
+                    )
+            elif not is_iso_date(date_value):
+                failures.append(
+                    f"retained service line {line_number} {field_name} "
+                    "must be ISO formatted"
+                )
+            elif not source_supports_iso_date(
+                service_line.source_text,
+                date_value,
+            ):
+                failures.append(
+                    f"retained service line {line_number} {field_name} "
+                    "must be supported by row evidence"
+                )
 
         status = str(
             service_line.status
             or ""
         ).strip().lower()
 
-        if status != "approved":
+        if status:
+            if status != "approved":
+                failures.append(
+                    f"retained service line {line_number} status "
+                    "must be Approved"
+                )
+
+            if status not in service_line.source_text.lower():
+                failures.append(
+                    f"retained service line {line_number} status "
+                    "must be supported by row evidence"
+                )
+        elif not any(
+            f"Service line {line_number} status" in action
+            for action in validation_actions
+        ):
             failures.append(
-                f"service line {line_number} must preserve "
-                "Approved status"
+                f"cleared service line {line_number} status "
+                "must have a validation action"
             )
 
         if not service_line.source_text:
@@ -936,6 +1050,8 @@ def validate_review_decision(
     needs_human_review: bool,
     validation_actions: list[str],
     review_reasons: list[str],
+    extracted_data: dict[str, Any],
+    service_lines: list[AuthorizationServiceLine],
 ) -> list[str]:
     """
     Confirm unresolved ambiguity still routes to human review.
@@ -948,10 +1064,44 @@ def validate_review_decision(
         .SERVICE_LINE_MODIFIER_RELATIONSHIP_ACTION
     )
 
-    if relationship_action not in validation_actions:
+    top_level_modifiers = {
+        value.upper()
+        for value in normalize_value_set(
+            extracted_data.get(
+                "modifier"
+            )
+        )
+    }
+
+    row_modifiers = {
+        str(service_line.modifier).strip().upper()
+        for service_line in service_lines
+        if service_line.modifier
+    }
+
+    relationship_unresolved = bool(
+        top_level_modifiers
+        - row_modifiers
+    )
+
+    action_present = (
+        relationship_action in validation_actions
+    )
+
+    reason_present = (
+        relationship_action in review_reasons
+    )
+
+    if relationship_unresolved and not action_present:
         failures.append(
             "unresolved service-line modifier relationship "
             "must create a validation action"
+        )
+
+    if not relationship_unresolved and action_present:
+        failures.append(
+            "resolved service-line modifier relationship "
+            "must not create a validation action"
         )
 
     if not needs_human_review:
@@ -969,11 +1119,43 @@ def validate_review_decision(
             "review reasons must be populated"
         )
 
-    if relationship_action not in review_reasons:
+    if relationship_unresolved and not reason_present:
         failures.append(
             "modifier relationship action must appear "
             "in review reasons"
         )
+
+    if not relationship_unresolved and reason_present:
+        failures.append(
+            "resolved modifier relationship must not appear "
+            "in review reasons"
+        )
+
+    return failures
+
+
+def validate_retry_metadata(
+    processing_metrics: dict[str, Any],
+) -> list[str]:
+    """
+    Validate the PHI-safe controlled-retry checkpoint.
+    """
+
+    failures: list[str] = []
+
+    expected_metrics = {
+        "extraction_attempt_count": 2,
+        "extraction_raw_retry_required": False,
+        "extraction_validated_retry_required": True,
+        "extraction_retry_triggered": True,
+        "extraction_selected_attempt": 2,
+    }
+
+    for metric_name, expected_value in expected_metrics.items():
+        if processing_metrics.get(metric_name) != expected_value:
+            failures.append(
+                f"{metric_name} must preserve the controlled retry result"
+            )
 
     return failures
 
@@ -1263,6 +1445,16 @@ def main() -> None:
         ),
     )
 
+    parser.add_argument(
+        "--run-type",
+        type=parse_run_type,
+        required=True,
+        help=(
+            "Required PHI-safe operator description of this test run. "
+            "The value is metadata only and is not inferred."
+        ),
+    )
+
     args = parser.parse_args()
 
     print(
@@ -1422,13 +1614,16 @@ def main() -> None:
 
             semantic_failures.extend(
                 validate_flat_fields(
-                    document.extracted_data
+                    extracted_data=document.extracted_data,
+                    field_evidence=document.field_evidence,
+                    validation_actions=document.validation_actions,
                 )
             )
 
             semantic_failures.extend(
                 validate_service_lines(
-                    document.service_lines
+                    service_lines=document.service_lines,
+                    validation_actions=document.validation_actions,
                 )
             )
 
@@ -1443,6 +1638,18 @@ def main() -> None:
                     review_reasons=(
                         document.review_reasons
                     ),
+                    extracted_data=(
+                        document.extracted_data
+                    ),
+                    service_lines=(
+                        document.service_lines
+                    ),
+                )
+            )
+
+            semantic_failures.extend(
+                validate_retry_metadata(
+                    document.processing_metrics
                 )
             )
 
@@ -1495,6 +1702,10 @@ def main() -> None:
     print()
     print(
         "=" * 60
+    )
+
+    print(
+        f"Run Type: {args.run_type}"
     )
 
     print(

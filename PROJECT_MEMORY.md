@@ -117,18 +117,42 @@ Latest continuity-system validation:
 
 Latest focused checkpoint:
 
-- Ollama service-line regression: 19 passed, 0 failed.
+- Authorization harness contract: 5 passed, 0 failed.
+- Document-processor regression: 17 passed, 0 failed.
 - Evidence-validation regression: 29 passed, 0 failed.
-- Document-processor regression: 16 passed, 0 failed.
-- Combined: 64 passed, 0 failed.
+- Ollama service-line regression: 19 passed, 0 failed.
+- Review-output service regression: 8 passed, 0 failed.
+- Review-output integration regression: 7 passed, 0 failed.
+- Combined: 85 passed, 0 failed.
 - Test classification: synthetic deterministic.
-- Modified provider and renamed authorization runners compiled
-  successfully.
+- All modified Python files compiled successfully.
 - Microsoft Graph was not called.
 - PaddleOCR was not called.
 - Real Ollama generation was not called.
 - Smartsheet external API was not called.
 - No real Smartsheet row was written.
+
+Latest controlled real authorization checkpoint:
+
+- Run Type: Controlled Authorization Regression.
+- Real cached OCR and real local Ollama were used locally.
+- Classification remained authorization.
+- Two extraction attempts occurred.
+- Raw retry was not required; validated retry was required.
+- The controlled retry triggered and attempt 2 was selected.
+- The final validated candidate preserved two service lines.
+- Supported row service-code and quantity evidence was preserved.
+- A modifier remained only on the row with supporting row evidence.
+- Unsupported row dates and statuses were cleared.
+- Unsupported authorization status was cleared.
+- Human review remained required.
+- Review output was attached and preserved final review state.
+- Raw OCR text and the local document path were excluded from review output.
+- The corrected semantic harness passed: 1 passed, 0 failed.
+- The retry fix and corrected harness contract are now verified with real
+  cached OCR and real local Ollama.
+- PHI output remained suppressed.
+- Microsoft Graph and Smartsheet were not called.
 
 Latest completed end-of-day state:
 
@@ -142,12 +166,6 @@ remains true.
 
 ## Known Limitations / Open Questions
 
-- The strengthened service-line prompt has not yet been exercised through
-  a new controlled real local Ollama extraction.
-- The renamed authorization document/timing runners were compiled but
-  have not yet been executed after the source-agnostic naming cleanup.
-- Real cached OCR behavior has not yet been reverified against the
-  stronger same-row evidence guidance.
 - Authorization quantity meaning remains conservative where deterministic
   evidence is insufficient.
 - Modifier ownership remains unresolved without row evidence.
@@ -164,9 +182,14 @@ Codex and Work share a weekly usage limit.
 When the Codex and Work Analytics page provides an exact reset timestamp,
 that timestamp is authoritative. Do not rely only on an assumed weekday.
 
-Currently known reset:
+Current Analytics observation:
 
-- August 18, 2026 at 1:26 PM local time
+- Weekly usage remaining: 99%.
+- Authoritative reset timestamp: August 20, 2026 at 9:53 AM local time.
+- Source: Codex and Work Analytics.
+- This newer observation supersedes the prior August 18 reset value.
+- The reason the platform changed the reset timestamp is unknown and must
+  not be guessed.
 
 Treat the known timestamp as current-cycle information. After the reset,
 replace it when a new authoritative reset timestamp is observed.
@@ -247,28 +270,29 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Run one controlled local authorization test through the renamed
-single-document authorization harness.
+Inspect the existing authorization service-line quantity-reconciliation
+boundary, its callers, and its synthetic tests.
 
 Test classification:
 
-- real cached OCR
-- real local Ollama
-- local deterministic validation
-- local business rules
-- local human-review construction
+- synthetic deterministic
+- mock where existing test doubles are used
+
+Confirm that supported quantities remain preserved and reconciled only
+within one independently validated candidate, while quantity is never
+interpreted as visits, sessions, equipment, approval, or sufficient
+authorization.
+
+Inspect before editing. Make a code change only if current callers/tests
+demonstrate a concrete safety or preservation gap. Do not invent quantity
+meaning without confirmed business requirements.
 
 Report only PHI-safe metadata:
 
-- counts
-- booleans
-- attempts
-- confidence metadata
-- review status
-- review-reason count
-- selected attempt
-- reconciliation state
-- success/failure
+- test counts and classification
+- reconciliation state and action presence
+- whether any inference gap was found
+- exact safe files affected
 
 Do not expose OCR text, patient data, extracted values, `source_text`,
 protected filenames, local patient paths, credentials, payload values, or
