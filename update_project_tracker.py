@@ -6200,6 +6200,64 @@ business rules, automatic writing, downstream review, or explicit destination
 mappings. Do not run a real Smartsheet write, Graph, OCR, Ollama, mailbox, or
 patient document.
 
+
+------------------------------------------------------------
+SMARTSHEET PARTIAL-SUCCESS RETRY SAFETY - 2026-08-14
+------------------------------------------------------------
+
+Work completed:
+
+- Updated src/services/smartsheet_review_submission_service.py to preserve a
+  created-row/failed-attachment result as written=True and success=False.
+- Added an explicit retry operation that requires the prior PHI-safe
+  submission result, blocks retry when that result confirms an existing row,
+  and permits retry only when no row was created.
+- Updated src/services/mailbox_complete_review_smartsheet_service.py to count
+  the existing row, retain the failure, and report
+  completed_with_partial_success.
+- Added tests/test_smartsheet_partial_success_retry.py with mocked first-write,
+  attachment-failure, retry, mailbox-summary, orchestration, destination,
+  optional-attachment, review-required, and output-suppression coverage.
+- No external row identifier is stored or exposed by the retry contract.
+
+Regression evidence:
+
+- Initial focused red result: 6 passed, 5 failed.
+- Final focused partial-success/retry regression: 12 passed, 0 failed.
+- Affected Smartsheet/mailbox regressions: 123 passed, 0 failed.
+- Combined: 135 passed, 0 failed.
+- Compilation: 3 passed, 0 failed.
+- Test classification: synthetic deterministic and mock.
+- Normal first-attempt automatic writes, destination validation,
+  review-required writes, optional attachment handling, mapping,
+  deterministic validation, business rules, review thresholds, mailbox
+  mark-as-read/idempotency, and no-inference protections remained unchanged.
+- No result representation, status, stdout, or stderr exposed external row
+  identifiers, payload values, credentials, tokens, PHI, filenames, paths, or
+  provider details.
+- No PHI or protected data was accessed.
+- No real Smartsheet, Microsoft Graph, mailbox, attachment, PaddleOCR, Ollama,
+  patient-document, or external-AI operation occurred.
+
+Limitation:
+
+- Attachment upload cannot resume against an already-created row because no
+  safe persisted row reference exists. Explicit retry is safe only while the
+  prior PHI-safe submission result remains available. After process-state loss,
+  manual resubmission cannot be safely deduplicated and must not be attempted
+  blindly.
+
+Exact next starting point:
+
+Prepare the smallest PHI-safe controlled real-document training/evaluation
+cycle without fine-tuning. First inspect the existing single-document/local
+test harnesses and classification-feedback/error-capture boundaries. Define a
+controlled procedure and safe result contract for local real documents using
+cached OCR and local Ollama only when explicitly authorized. Return only
+PHI-safe metadata to ChatGPT/Codex. Do not automatically run patient documents
+during preparation, and do not perform a live Smartsheet write, Graph request,
+mailbox operation, external-AI call, or model fine-tune.
+
 """
 
 
@@ -6367,8 +6425,10 @@ updates = [
             "text and source_text have no configured destination. Legacy "
             "Graph/mailbox diagnostic output is now limited to PHI-safe "
             "counts, booleans, confidence/status metadata, and sanitized "
-            "failure categories. Smartsheet attachment partial-success and "
-            "retry/idempotency behavior remains future production hardening."
+            "failure categories. Smartsheet attachment partial success now "
+            "preserves the existing-row state and blocks explicit duplicate "
+            "retry when the prior PHI-safe result is available; process-restart "
+            "resume remains unavailable without safe persisted row state."
         ),
     ),
     (

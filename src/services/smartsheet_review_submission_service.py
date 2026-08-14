@@ -49,6 +49,11 @@ class SmartsheetReviewSubmissionService:
     Classification confirmation is not accepted as a credential or
     prerequisite. Write eligibility comes from the validated mapping
     and destination-validation contracts.
+
+    A failed attachment after row creation is preserved as
+    ``written=True, success=False``. Because this boundary does not
+    persist external row references, explicit retry blocks when the
+    prior result confirms that a row already exists.
     """
 
     def __init__(
@@ -123,8 +128,12 @@ class SmartsheetReviewSubmissionService:
         )
 
         if not write_result.success:
-            return self._failure(
-                write_result.status
+            return SmartsheetReviewSubmissionResult(
+                written=write_result.written,
+                success=False,
+                status=self._normalize_status(
+                    write_result.status
+                ),
             )
 
         if not write_result.written:
@@ -138,17 +147,67 @@ class SmartsheetReviewSubmissionService:
             status=write_result.status,
         )
 
+    def retry(
+        self,
+        *,
+        previous_result: SmartsheetReviewSubmissionResult,
+        review_output: ReviewOutput,
+        policies: list[SmartsheetColumnPolicy],
+        available_columns: dict[str, int],
+        attachment_source_path: str | Path | None = None,
+        run_type: str = "",
+    ) -> SmartsheetReviewSubmissionResult:
+        """
+        Retry only when the prior attempt did not create a row.
+
+        No external row reference is stored by this service, so an
+        existing-row attachment continuation cannot be performed safely.
+        Blocking that retry prevents blind duplicate row creation.
+        """
+
+        if not isinstance(
+            previous_result,
+            SmartsheetReviewSubmissionResult,
+        ):
+            return self._failure(
+                "invalid_previous_submission_result"
+            )
+
+        if previous_result.written:
+            return SmartsheetReviewSubmissionResult(
+                written=True,
+                success=False,
+                status="retry_blocked_existing_row",
+            )
+
+        return self.submit(
+            review_output=review_output,
+            policies=policies,
+            available_columns=available_columns,
+            attachment_source_path=attachment_source_path,
+            run_type=run_type,
+        )
+
     @staticmethod
     def _failure(
         status: Any,
     ) -> SmartsheetReviewSubmissionResult:
-        normalized_status = str(
-            status
-            or "submission_failed"
-        ).strip()
-
         return SmartsheetReviewSubmissionResult(
             written=False,
             success=False,
-            status=normalized_status,
+            status=(
+                SmartsheetReviewSubmissionService
+                ._normalize_status(
+                    status
+                )
+            ),
         )
+
+    @staticmethod
+    def _normalize_status(
+        status: Any,
+    ) -> str:
+        return str(
+            status
+            or "submission_failed"
+        ).strip()

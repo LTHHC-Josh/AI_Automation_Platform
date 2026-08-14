@@ -120,8 +120,36 @@ row. Human review is a downstream exception workflow, not a write gate.
 - Application-owned sanitized Microsoft Graph failure categories.
 - PHI-safe legacy Graph/mailbox diagnostic stdout limited to aggregate
   counts, booleans, confidence/status metadata, and sanitized categories.
+- PHI-safe Smartsheet partial-success propagation and explicit duplicate-
+  blocking retry when a prior submission result confirms a row exists.
 
 ## Recent Tested Baseline
+
+Latest Smartsheet partial-success/retry checkpoint:
+
+- Initial focused red result: 6 passed, 5 failed.
+- Final focused partial-success/retry regression: 12 passed, 0 failed.
+- Affected Smartsheet/mailbox regressions: 123 passed, 0 failed.
+- Combined: 135 passed, 0 failed.
+- All three modified Python files compiled successfully.
+- Test classification: synthetic deterministic and mock.
+- A created row followed by attachment failure now remains
+  `written=True, success=False` through submission, mailbox aggregation, and
+  full orchestration.
+- Mailbox aggregation reports `completed_with_partial_success` and preserves
+  both the existing-row count and failure count.
+- Explicit retry blocks a duplicate when the prior PHI-safe result confirms
+  that a row exists and allows retry when the prior attempt created no row.
+- No external row identifier is stored in or exposed by the retry contract.
+- Normal first-attempt automatic writes, destination validation,
+  review-required writes, optional attachments, mapping, deterministic
+  validation, business rules, review thresholds, mailbox mark-as-read/
+  idempotency, and no-inference protections remain unchanged.
+- No result representation, status, stdout, or stderr exposed row identifiers,
+  payload values, credentials, tokens, PHI, paths, or provider details.
+- No real Smartsheet, Microsoft Graph, mailbox, PaddleOCR, Ollama,
+  patient-document, or external-AI operation occurred.
+- No protected data was accessed or exposed.
 
 Latest legacy Graph/mailbox diagnostic-output checkpoint:
 
@@ -264,9 +292,11 @@ remains true.
   no live negative authentication request was performed.
 - Legacy Graph/mailbox diagnostic-output verification is mock-only; the
   hardened scripts have not been run against a live mailbox.
-- Automatic rollback after a successful Smartsheet row write followed by an
-  attachment-upload failure is not implemented, and Smartsheet retry/
-  idempotency remains future production hardening.
+- Attachment upload cannot resume against an already-created Smartsheet row
+  because no safe persisted row reference exists. Explicit retry is safe only
+  while the prior PHI-safe submission result is available; after process-state
+  loss, manual resubmission cannot be safely deduplicated and must not be
+  attempted blindly.
 - The full document currently reaches Smartsheet only through the existing
   explicit attachment-upload path.
 - OCR text and `source_text` have no explicitly configured Smartsheet
@@ -371,12 +401,13 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Inspect the existing automatic Smartsheet row-write and attachment-upload
-boundary for the tracked partial-success and retry/idempotency limitation.
+Prepare the smallest PHI-safe controlled real-document training/evaluation
+cycle; do not fine-tune a model yet.
 
-Use focused mocked red regressions first for a successful row creation followed
-by attachment failure and for a subsequent retry. Determine the smallest safe
-correction that prevents duplicate rows or explicitly preserves partial-success
-state without changing deterministic validation, business rules, automatic
-write behavior, downstream review, or explicit destination mappings. Do not
-run a real Smartsheet write, Graph, OCR, Ollama, mailbox, or patient document.
+First inspect the existing single-document/local test harnesses and the current
+classification-feedback and error-capture boundaries. Define the controlled
+procedure and a safe result contract for local real documents using cached OCR
+and local Ollama only when explicitly authorized. Results returned to
+ChatGPT/Codex must contain PHI-safe metadata only. Do not automatically run a
+patient document during preparation, and do not perform a live Smartsheet
+write, Graph request, mailbox operation, external-AI call, or model fine-tune.

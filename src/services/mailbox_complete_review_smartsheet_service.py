@@ -124,6 +124,7 @@ class MailboxCompleteReviewSmartsheetService:
         rejected_count = 0
         cancelled_count = 0
         failed_count = 0
+        partial_success_count = 0
 
         for message_result in results:
             documents = getattr(
@@ -188,12 +189,17 @@ class MailboxCompleteReviewSmartsheetService:
                     failed_count += 1
                     continue
 
+                if submission_result.written:
+                    written_count += 1
+
                 if (
                     submission_result.success
                     and submission_result.written
                 ):
-                    written_count += 1
                     continue
+
+                if submission_result.written:
+                    partial_success_count += 1
 
                 failed_count += 1
 
@@ -211,7 +217,11 @@ class MailboxCompleteReviewSmartsheetService:
             )
 
         if failed_count:
-            status = "completed_with_failures"
+            status = (
+                "completed_with_partial_success"
+                if partial_success_count
+                else "completed_with_failures"
+            )
             success = False
 
         else:
