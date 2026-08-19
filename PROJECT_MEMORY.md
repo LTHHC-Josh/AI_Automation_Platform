@@ -127,10 +127,42 @@ row. Human review is a downstream exception workflow, not a write gate.
   authorization, aggregate-only results, and sanitized failures.
 - Opt-in cache-only OCR enforcement that cannot silently fall through to
   PaddleOCR while normal production OCR behavior remains unchanged.
-- Optional synchronous in-memory protected-review consumer boundary that is
-  excluded from evaluator serialization, output, and persistence.
+- Opt-in synchronous Tkinter protected-review consumer that displays the
+  source-document action, extracted fields and evidence, service lines, and
+  validation/review context locally in memory while remaining excluded from
+  evaluator serialization, output, logging, clipboard writes, and
+  persistence.
 
 ## Recent Tested Baseline
+
+Latest local protected-review UI checkpoint:
+
+- Initial synthetic red result: 0 passed, 8 failed.
+- Final protected-review UI/evaluator regression: 27 passed, 0 failed.
+- Affected cache-only OCR, document-processor, review-output, automatic-
+  Smartsheet, and mailbox-Smartsheet regressions: 62 passed, 0 failed.
+- Combined: 89 passed, 0 failed.
+- All six modified Python files compiled successfully.
+- Test classification: synthetic deterministic and mock.
+- A real local Tkinter window was opened with synthetic non-PHI values only.
+  The overview, extracted-field/evidence, service-line, and validation/review
+  sections rendered; the injected source-document action, Done action, and
+  normal close action completed successfully.
+- The visual smoke test produced no protected stdout/stderr, clipboard write,
+  persisted review output, screenshot, or extra file.
+- The concrete consumer remains opt-in, synchronous, local-only, and in
+  memory. It opens the existing selected source through the OS-default action
+  without displaying or serializing the path.
+- Aggregate evaluator output adds only protected-review requested/completed/
+  status metadata and uses the sanitized `protected_review_unavailable` and
+  `protected_review_failed` categories.
+- Production DocumentProcessor/OCR behavior, validation, business rules,
+  review decisions, extraction retry/candidate selection, Graph/mailbox,
+  automatic Smartsheet submission, classification feedback, and the
+  fixture-specific authorization harness remain unchanged.
+- No PHI or protected data was accessed.
+- No patient document, real PaddleOCR, local Ollama request, Microsoft Graph,
+  mailbox, production Smartsheet workflow, or external AI ran.
 
 Latest generic local-evaluator checkpoint:
 
@@ -348,10 +380,9 @@ remains true.
   wholesale.
 - Review thresholds currently remain the configured values in
   `ReviewDecisionService`; this clarification does not change them.
-- A concrete approved local protected-review UI/consumer is not yet
-  implemented. The evaluator can hand a protected `Document` to an injected
-  synchronous in-memory consumer, but a reviewed UI surface is required before
-  the first controlled real-document training/evaluation run.
+- The protected-review UI has been rendered only with synthetic non-PHI data;
+  the first operator-controlled protected comparison with a real local
+  document has not yet run.
 
 ## Weekly Codex / Work Capacity
 
@@ -448,12 +479,13 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Implement the smallest concrete local protected-review UI/consumer required
-before the first controlled real-document training run.
+Run the first controlled real-document training/evaluation cycle.
 
-The consumer must remain local-only, display protected extracted values only
-inside the approved local UI, never print or log those values, never expose
-them to ChatGPT/Codex, allow the operator to compare them against the source
-document locally, avoid unapproved persistence, preserve the aggregate-only
-evaluator result, and leave production paths unchanged. Do not run a real
-patient document during this task.
+Require an explicit operator-selected numeric document index, explicit
+PHI-safe Run Type, explicit protected local document/cache-access
+authorization, and explicit local-Ollama authorization. Prefer cached OCR for
+the first run and use `LocalProtectedReviewConsumer` for the operator's local
+protected comparison. Do not use Graph/mailbox, production Smartsheet, or
+external AI. Return only an aggregate PHI-safe summary to ChatGPT/Codex and do
+not expose the filename/path, OCR text, extracted values, `source_text`, or
+evidence outside the local protected UI.

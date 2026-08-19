@@ -16,6 +16,9 @@ from src.models.document import Document
 from src.services.review_decision_service import (
     ReviewDecisionService,
 )
+from src.services.local_protected_review_errors import (
+    ProtectedReviewUnavailableError,
+)
 
 
 class LocalEvaluationExecutionClassification(Enum):
@@ -90,7 +93,9 @@ class LocalDocumentEvaluationResult:
     processing_stderr_suppressed: bool = True
     protected_values_suppressed: bool = True
     external_integrations_invoked: bool = False
+    protected_review_requested: bool = False
     protected_review_handoff_completed: bool = False
+    protected_review_status: str = "not_requested"
 
     def to_safe_dict(
         self,
@@ -153,8 +158,14 @@ class LocalDocumentEvaluationResult:
             "external_integrations_invoked": (
                 self.external_integrations_invoked
             ),
+            "protected_review_requested": (
+                self.protected_review_requested
+            ),
             "protected_review_handoff_completed": (
                 self.protected_review_handoff_completed
+            ),
+            "protected_review_status": (
+                self.protected_review_status
             ),
         }
 
@@ -321,13 +332,6 @@ class LocalDocumentEvaluationService:
                     ocr_cache_only=True,
                 )
 
-                protected_review_handoff_completed = False
-
-                if self._protected_review_consumer is not None:
-                    self._protected_review_consumer.review(
-                        document
-                    )
-                    protected_review_handoff_completed = True
         except OCRCacheOnlyMissError:
             return self._failure(
                 run_type=normalized_run_type,
@@ -339,6 +343,40 @@ class LocalDocumentEvaluationService:
                 category="local_processing_failed",
             )
 
+        protected_review_requested = (
+            self._protected_review_consumer is not None
+        )
+        protected_review_handoff_completed = False
+        protected_review_status = "not_requested"
+
+        if self._protected_review_consumer is not None:
+            try:
+                with redirect_stdout(
+                    discard_stdout
+                ), redirect_stderr(
+                    discard_stderr
+                ):
+                    self._protected_review_consumer.review(
+                        document
+                    )
+            except ProtectedReviewUnavailableError:
+                return self._failure(
+                    run_type=normalized_run_type,
+                    category="protected_review_unavailable",
+                    protected_review_requested=True,
+                    protected_review_status="unavailable",
+                )
+            except Exception:
+                return self._failure(
+                    run_type=normalized_run_type,
+                    category="protected_review_failed",
+                    protected_review_requested=True,
+                    protected_review_status="failed",
+                )
+
+            protected_review_handoff_completed = True
+            protected_review_status = "completed"
+
         return self._build_success(
             run_type=normalized_run_type,
             document=document,
@@ -346,6 +384,10 @@ class LocalDocumentEvaluationService:
             protected_review_handoff_completed=(
                 protected_review_handoff_completed
             ),
+            protected_review_requested=(
+                protected_review_requested
+            ),
+            protected_review_status=protected_review_status,
         )
 
     def _select_document(
@@ -381,6 +423,8 @@ class LocalDocumentEvaluationService:
         document: Document,
         known_contract_pass: bool | None,
         protected_review_handoff_completed: bool,
+        protected_review_requested: bool,
+        protected_review_status: str,
     ) -> LocalDocumentEvaluationResult:
         extracted_data = (
             document.extracted_data
@@ -540,6 +584,10 @@ class LocalDocumentEvaluationService:
             protected_review_handoff_completed=(
                 protected_review_handoff_completed
             ),
+            protected_review_requested=(
+                protected_review_requested
+            ),
+            protected_review_status=protected_review_status,
         )
 
     def _failure(
@@ -547,6 +595,8 @@ class LocalDocumentEvaluationService:
         *,
         run_type: str,
         category: str,
+        protected_review_requested: bool = False,
+        protected_review_status: str = "not_requested",
     ) -> LocalDocumentEvaluationResult:
         return LocalDocumentEvaluationResult(
             run_type=run_type,
@@ -557,6 +607,10 @@ class LocalDocumentEvaluationService:
                 LocalEvaluationExecutionClassification
                 .NOT_COMPLETED.value
             ),
+            protected_review_requested=(
+                protected_review_requested
+            ),
+            protected_review_status=protected_review_status,
         )
 
     @classmethod

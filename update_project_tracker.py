@@ -6332,6 +6332,70 @@ allow local comparison with the source document; preserve the aggregate-only
 evaluator result; leave production paths unchanged; and do not run a real
 patient document yet.
 
+
+------------------------------------------------------------
+LOCAL PROTECTED-REVIEW UI IMPLEMENTED - 2026-08-19
+------------------------------------------------------------
+
+Work completed:
+
+- Added src/ui/local_protected_review.py with an opt-in synchronous Tkinter
+  review window for local protected comparison.
+- The window provides an OS-default source-document action without displaying
+  the path, plus overview, extracted-field/evidence, service-line, and
+  validation/business-rule/review sections with Done and normal-close actions.
+- Added application-owned protected_review_unavailable and
+  protected_review_failed categories in
+  src/services/local_protected_review_errors.py.
+- Integrated the concrete consumer into scripts/evaluate_local_document.py
+  through the explicit --protected-review option.
+- Extended the aggregate evaluator contract only with PHI-safe requested,
+  completed, and status metadata.
+- Added tests/test_local_protected_review.py and extended the evaluator tests
+  for local-only in-memory display, safe errors, output suppression, no
+  persistence/clipboard operations, explicit CLI opt-in, and unchanged
+  no-consumer behavior.
+
+Regression and visual evidence:
+
+- Initial synthetic red result: 0 passed, 8 failed.
+- Final protected-review UI/evaluator result: 27 passed, 0 failed.
+- Affected cache-only OCR, document-processor, review-output, automatic-
+  Smartsheet, and mailbox-Smartsheet result: 62 passed, 0 failed.
+- Combined: 89 passed, 0 failed.
+- Compilation: 6 passed, 0 failed.
+- Test classification: synthetic deterministic and mock.
+- A real local Tkinter visual smoke test used only synthetic non-PHI values.
+  Both windows rendered, all review sections were present, the injected Open
+  action worked, and Done and normal-close actions exited successfully.
+- The visual test created no extra output file, performed no clipboard write,
+  emitted no synthetic protected marker to stdout/stderr, and took no
+  screenshot.
+
+Production compatibility and PHI boundary:
+
+- DocumentProcessor/OCR behavior, validation, business rules, review
+  decisions, extraction retry/candidate selection, Graph/mailbox, automatic
+  Smartsheet submission, classification feedback, and the fixture-specific
+  authorization harness remain unchanged.
+- UI contents remain local-only and in memory and are excluded from evaluator
+  serialization, logs, persistence, and external responses.
+- No PHI or protected data was accessed.
+- No patient document, real PaddleOCR, local Ollama request, Microsoft Graph,
+  mailbox, production Smartsheet workflow, or external AI ran.
+
+Exact next starting point:
+
+Run the first controlled real-document training/evaluation cycle. Require an
+explicit operator-selected numeric document index, explicit PHI-safe Run Type,
+explicit protected local document/cache-access authorization, and explicit
+local-Ollama authorization. Prefer cached OCR for the first run and use
+LocalProtectedReviewConsumer for the operator's local protected comparison.
+Do not use Graph/mailbox, production Smartsheet, or external AI. Return only an
+aggregate PHI-safe summary to ChatGPT/Codex and do not expose the filename/path,
+OCR text, extracted values, source_text, or evidence outside the local
+protected UI.
+
 """
 
 
@@ -6506,8 +6570,10 @@ updates = [
             "generic local evaluator now requires numeric selection, explicit "
             "Run Type and local execution authorization, enforces cache-only "
             "OCR without fallback, suppresses nested output, and returns only "
-            "aggregate metadata. A concrete approved local protected-review "
-            "UI remains required before the first real training run."
+            "aggregate metadata. The opt-in local Tkinter protected-review "
+            "consumer now provides an in-memory source-document, field/evidence, "
+            "service-line, and validation/review comparison surface while "
+            "aggregate external results remain PHI-safe."
         ),
     ),
     (

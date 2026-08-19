@@ -4,6 +4,9 @@ import json
 from src.services.local_document_evaluation_service import (
     LocalDocumentEvaluationService,
 )
+from src.ui.local_protected_review import (
+    LocalProtectedReviewConsumer,
+)
 
 
 def parse_document_index(
@@ -91,13 +94,30 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help="Authorize local Ollama for this evaluation.",
     )
 
+    parser.add_argument(
+        "--protected-review",
+        action="store_true",
+        help=(
+            "Open the processed document and protected extraction details "
+            "in the synchronous local desktop review window."
+        ),
+    )
+
     return parser
 
 
 def main() -> None:
     args = build_argument_parser().parse_args()
 
-    result = LocalDocumentEvaluationService().evaluate(
+    protected_review_consumer = (
+        LocalProtectedReviewConsumer()
+        if args.protected_review
+        else None
+    )
+
+    result = LocalDocumentEvaluationService(
+        protected_review_consumer=protected_review_consumer,
+    ).evaluate(
         document_index=args.document_index,
         run_type=args.run_type,
         authorize_cached_ocr_access=(

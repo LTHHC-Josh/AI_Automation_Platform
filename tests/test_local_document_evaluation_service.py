@@ -420,7 +420,75 @@ def test_protected_review_handoff_is_in_memory_and_not_in_result():
         assert len(consumer.documents) == 1
         assert consumer.documents[0].raw_text == PROTECTED_MARKER
         assert result.protected_review_handoff_completed is True
+        assert result.protected_review_requested is True
+        assert result.protected_review_status == "completed"
         assert PROTECTED_MARKER not in repr(result)
+        assert stdout == ""
+        assert stderr == ""
+    finally:
+        temporary.cleanup()
+
+
+def test_no_protected_review_consumer_preserves_existing_operation():
+    temporary, _, _, result, _, _ = evaluate_with_synthetic_document()
+
+    try:
+        assert result.success is True
+        assert result.protected_review_requested is False
+        assert result.protected_review_handoff_completed is False
+        assert result.protected_review_status == "not_requested"
+    finally:
+        temporary.cleanup()
+
+
+def test_protected_review_unavailable_is_sanitized():
+    from src.ui.local_protected_review import (
+        ProtectedReviewUnavailableError,
+    )
+
+    class UnavailableConsumer:
+        def review(self, document):
+            raise ProtectedReviewUnavailableError(PROTECTED_MARKER)
+
+    temporary, protected_path, _, result, stdout, stderr = (
+        evaluate_with_synthetic_document(
+            protected_review_consumer=UnavailableConsumer(),
+        )
+    )
+
+    try:
+        assert result.success is False
+        assert result.failure_category == "protected_review_unavailable"
+        assert result.protected_review_requested is True
+        assert result.protected_review_handoff_completed is False
+        assert result.protected_review_status == "unavailable"
+        assert PROTECTED_MARKER not in repr(result)
+        assert str(protected_path) not in repr(result)
+        assert stdout == ""
+        assert stderr == ""
+    finally:
+        temporary.cleanup()
+
+
+def test_protected_review_failure_is_sanitized():
+    class FailingConsumer:
+        def review(self, document):
+            raise RuntimeError(PROTECTED_MARKER)
+
+    temporary, protected_path, _, result, stdout, stderr = (
+        evaluate_with_synthetic_document(
+            protected_review_consumer=FailingConsumer(),
+        )
+    )
+
+    try:
+        assert result.success is False
+        assert result.failure_category == "protected_review_failed"
+        assert result.protected_review_requested is True
+        assert result.protected_review_handoff_completed is False
+        assert result.protected_review_status == "failed"
+        assert PROTECTED_MARKER not in repr(result)
+        assert str(protected_path) not in repr(result)
         assert stdout == ""
         assert stderr == ""
     finally:
