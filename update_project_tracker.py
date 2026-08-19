@@ -6396,6 +6396,64 @@ aggregate PHI-safe summary to ChatGPT/Codex and do not expose the filename/path,
 OCR text, extracted values, source_text, or evidence outside the local
 protected UI.
 
+
+------------------------------------------------------------
+GRAPH ATTACHMENT ENUMERATION DIAGNOSTIC CHECKPOINT - 2026-08-19
+------------------------------------------------------------
+
+Work completed:
+
+- Inspected the production mailbox preflight, email service, attachment
+  service, Graph client, sanitized error boundary, and focused callers/tests.
+- Confirmed the production AttachmentService attachment-listing GET endpoint,
+  method, parameters, and response handling were not defective and remain
+  unchanged.
+- Identified the earlier graph_request_failed result as incorrect PowerShell
+  interpolation of the $select query key in a custom read-only probe rather
+  than a production endpoint failure.
+- Added allowlisted PHI-safe Graph request diagnostic metadata for operation
+  category, HTTP status, response presence, coarse content type, and failure
+  kind. Raw provider errors, identifiers, request URLs, response bodies,
+  credentials, and tokens remain excluded.
+- Added focused synthetic attachment-enumeration and sanitization regressions.
+
+Files:
+
+- src/graph/attachment_service.py
+- src/graph/client.py
+- src/graph/email_service.py
+- src/graph/errors.py
+- tests/test_graph_attachment_enumeration.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Initial focused red: 0 passed, 4 failed.
+- Expanded focused red: 2 passed, 2 failed.
+- Focused final: 6 passed, 0 failed.
+- Affected Graph/mailbox regressions: 52 passed, 0 failed.
+- Combined: 58 passed, 0 failed.
+- Compilation: 5 changed Python files passed.
+- Classification: synthetic deterministic/mock.
+- No PHI or protected data was accessed by tests.
+- No live Graph, mailbox, OCR, Ollama, Smartsheet, patient-document, or external
+  AI operation was performed by tests.
+- An approved live read-only production-service preflight found exactly one
+  unread candidate and exactly one processable attachment.
+- The live preflight performed no attachment download, document processing,
+  mailbox mutation, OCR, Ollama, or Smartsheet write.
+
+Limitation:
+
+- The first true production-path execution has not yet run; the successful live
+  check was read-only preflight only.
+
+Exact next starting point:
+
+Run the first true end-to-end production-path test against the single verified
+unread/processable mailbox item.
+
 """
 
 
@@ -6573,7 +6631,10 @@ updates = [
             "aggregate metadata. The opt-in local Tkinter protected-review "
             "consumer now provides an in-memory source-document, field/evidence, "
             "service-line, and validation/review comparison surface while "
-            "aggregate external results remain PHI-safe."
+            "aggregate external results remain PHI-safe. Production Graph "
+            "attachment enumeration now retains only allowlisted diagnostic "
+            "metadata, and a live read-only preflight verified one unread "
+            "candidate with one processable attachment without mutation."
         ),
     ),
     (

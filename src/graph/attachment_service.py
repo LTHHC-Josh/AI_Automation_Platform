@@ -18,7 +18,12 @@ class AttachmentService:
             f"/messages/{message_id}/attachments"
         )
 
-        response = self.client.get(endpoint)
+        response = self.client.get(
+            endpoint,
+            operation_category=(
+                "attachment_enumeration"
+            ),
+        )
         return response.get("value", [])
 
     def download_file_attachments(self, message_id: str) -> list[Path]:

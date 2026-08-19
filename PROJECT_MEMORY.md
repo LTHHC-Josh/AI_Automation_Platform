@@ -135,6 +135,30 @@ row. Human review is a downstream exception workflow, not a write gate.
 
 ## Recent Tested Baseline
 
+Latest Graph attachment-enumeration diagnostic checkpoint:
+
+- The production `AttachmentService` attachment-listing GET path, method, and
+  response handling were inspected and remain unchanged.
+- The earlier `graph_request_failed` result was caused by incorrect PowerShell
+  interpolation of the `$select` query key in a custom read-only probe, not by
+  the production Graph endpoint or attachment service.
+- Added allowlisted PHI-safe Graph diagnostic metadata for operation category,
+  HTTP status, response presence, coarse content type, and failure kind without
+  retaining raw provider errors, identifiers, request URLs, tokens, or response
+  bodies.
+- Initial focused synthetic result: 0 passed, 4 failed; expanded red result:
+  2 passed, 2 failed; final focused result: 6 passed, 0 failed.
+- Affected Graph security, attachment, mailbox, idempotency, and diagnostic-
+  output regressions: 52 passed, 0 failed.
+- Combined: 58 passed, 0 failed; all five changed Python files compiled.
+- Test classification: synthetic deterministic/mock; no protected data was
+  accessed by tests and no live processing integration was invoked by tests.
+- The approved live read-only production-service preflight passed with exactly
+  one unread candidate and exactly one processable attachment.
+- The preflight did not download an attachment, process a document, invoke OCR
+  or Ollama, write Smartsheet, mark the message read, or change durable
+  idempotency state.
+
 Latest local protected-review UI checkpoint:
 
 - Initial synthetic red result: 0 passed, 8 failed.
@@ -383,6 +407,9 @@ remains true.
 - The protected-review UI has been rendered only with synthetic non-PHI data;
   the first operator-controlled protected comparison with a real local
   document has not yet run.
+- The first true single-item production-path run has not yet executed; only its
+  live read-only Graph candidate and attachment-enumeration preflight has
+  completed.
 
 ## Weekly Codex / Work Capacity
 
@@ -479,13 +506,5 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Run the first controlled real-document training/evaluation cycle.
-
-Require an explicit operator-selected numeric document index, explicit
-PHI-safe Run Type, explicit protected local document/cache-access
-authorization, and explicit local-Ollama authorization. Prefer cached OCR for
-the first run and use `LocalProtectedReviewConsumer` for the operator's local
-protected comparison. Do not use Graph/mailbox, production Smartsheet, or
-external AI. Return only an aggregate PHI-safe summary to ChatGPT/Codex and do
-not expose the filename/path, OCR text, extracted values, `source_text`, or
-evidence outside the local protected UI.
+Run the first true end-to-end production-path test against the single verified
+unread/processable mailbox item.

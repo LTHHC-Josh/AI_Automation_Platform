@@ -33,6 +33,9 @@ class EmailService:
         response = self.client.get(
             endpoint,
             params=params,
+            operation_category=(
+                "mailbox_enumeration"
+            ),
         )
 
         return response.get("value", [])
