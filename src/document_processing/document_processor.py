@@ -87,6 +87,8 @@ class DocumentProcessor:
     def process(
         self,
         file_path: str | Path,
+        *,
+        ocr_cache_only: bool = False,
     ) -> Document:
         """
         Process a document through the complete local pipeline.
@@ -116,9 +118,15 @@ class DocumentProcessor:
 
         ocr_started_at = perf_counter()
 
-        document.raw_text = self.ocr.extract_text(
-            normalized_path
-        )
+        if ocr_cache_only:
+            document.raw_text = self.ocr.extract_text(
+                normalized_path,
+                cache_only=True,
+            )
+        else:
+            document.raw_text = self.ocr.extract_text(
+                normalized_path
+            )
 
         document.processing_metrics[
             "ocr_wall_seconds"

@@ -13,7 +13,12 @@ class OCRService:
     def __init__(self):
         self.provider = OCRFactory.create()
 
-    def extract_text(self, file_path):
+    def extract_text(
+        self,
+        file_path,
+        *,
+        cache_only: bool = False,
+    ):
         """
         Extract text from the supplied document.
 
@@ -24,4 +29,12 @@ class OCRService:
             Extracted text from the configured OCR provider.
         """
 
-        return self.provider.extract_text(file_path)
+        if cache_only:
+            return self.provider.extract_text(
+                file_path,
+                cache_only=True,
+            )
+
+        return self.provider.extract_text(
+            file_path
+        )

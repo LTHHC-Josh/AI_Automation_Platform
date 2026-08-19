@@ -6258,6 +6258,80 @@ PHI-safe metadata to ChatGPT/Codex. Do not automatically run patient documents
 during preparation, and do not perform a live Smartsheet write, Graph request,
 mailbox operation, external-AI call, or model fine-tune.
 
+
+------------------------------------------------------------
+GENERIC PHI-SAFE LOCAL EVALUATOR - 2026-08-19
+------------------------------------------------------------
+
+Work completed:
+
+- Added scripts/evaluate_local_document.py as an explicit operator-controlled
+  numeric-selection entry point with required PHI-safe Run Type, cached-OCR/
+  protected-document access authorization, and local-Ollama authorization.
+- Added src/services/local_document_evaluation_service.py with an explicit
+  aggregate-only result contract, allowlisted category/status metadata,
+  deterministic counts, safe timing fields, nested stdout/stderr suppression,
+  and application-owned failure categories.
+- Added an optional synchronous LocalProtectedReviewConsumer protocol for a
+  local-only in-memory protected-document handoff. The protected Document is
+  not present in result objects and is not serialized, logged, or persisted.
+- Added src/ai/ocr/errors.py and opt-in OCR cache-only propagation through
+  OCRService, DocumentProcessor, and PaddleOCRProvider.
+- Cache-only misses stop with a sanitized application error before PaddleOCR
+  prediction. Existing callers retain the default non-cache-only behavior.
+- Added tests/test_local_document_evaluation_service.py and
+  tests/test_ocr_cache_only.py with synthetic authorization, output-
+  suppression, sanitized-error, aggregate-contract, cache-hit/miss, caller-
+  compatibility, and CLI-preflight coverage.
+- The fixture-specific authorization regression remained unchanged.
+
+Regression evidence:
+
+- Initial focused red result: 1 passed, 18 failed.
+- Final focused evaluator/cache-only result: 21 passed, 0 failed.
+- Affected processor, OCR, review, classification-feedback, authorization-
+  harness, and automatic-Smartsheet regressions: 108 passed, 0 failed.
+- Combined: 129 passed, 0 failed.
+- Compilation: 8 passed, 0 failed.
+- Test classification: synthetic deterministic and mock.
+- One combined in-process run encountered a Windows temporary-directory
+  PermissionError in the existing concurrent classification-feedback locking
+  suite. It passed 4/0 in isolation; all other affected tests passed 104/0 in
+  a separate process. The concurrency test was not weakened or removed.
+- No PHI or protected data was accessed.
+- No patient document, PaddleOCR prediction, local Ollama request, Microsoft
+  Graph, mailbox, production Smartsheet workflow, or external AI ran.
+
+Production compatibility and PHI boundary:
+
+- Existing DocumentProcessor and OCRService callers omit the new opt-in flag,
+  so normal production OCR can still execute and mailbox processing remains
+  unchanged.
+- Deterministic validation, business rules, review thresholds, extraction
+  retry/candidate selection, classification feedback, and automatic
+  Smartsheet submission were not changed.
+- Evaluator result, repr, status, stdout, and stderr exclude filenames, paths,
+  fingerprints, OCR/document text, extracted and service-line values, source
+  evidence, protected review objects, patient/provider details, authorization
+  values, credentials, tokens, provider diagnostics, destination payloads,
+  and row identifiers.
+
+Limitation:
+
+- A concrete approved local protected-review UI/consumer remains required
+  before the first controlled real-document training/evaluation run. The
+  current protocol defines only the synchronous in-memory handoff.
+
+Exact next starting point:
+
+Implement the smallest concrete local protected-review UI/consumer required
+before the first controlled real-document training run. Keep it local-only;
+display protected extracted values only inside the approved local UI; never
+print, log, persist without approval, or expose those values to ChatGPT/Codex;
+allow local comparison with the source document; preserve the aggregate-only
+evaluator result; leave production paths unchanged; and do not run a real
+patient document yet.
+
 """
 
 
@@ -6428,7 +6502,12 @@ updates = [
             "failure categories. Smartsheet attachment partial success now "
             "preserves the existing-row state and blocks explicit duplicate "
             "retry when the prior PHI-safe result is available; process-restart "
-            "resume remains unavailable without safe persisted row state."
+            "resume remains unavailable without safe persisted row state. The "
+            "generic local evaluator now requires numeric selection, explicit "
+            "Run Type and local execution authorization, enforces cache-only "
+            "OCR without fallback, suppresses nested output, and returns only "
+            "aggregate metadata. A concrete approved local protected-review "
+            "UI remains required before the first real training run."
         ),
     ),
     (

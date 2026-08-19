@@ -3,6 +3,7 @@ from typing import Any
 
 from paddleocr import PaddleOCR
 
+from src.ai.ocr.errors import OCRCacheOnlyMissError
 from src.ai.ocr.ocr_provider import OCRProvider
 from src.ai.ocr.provider_registration import register_ocr_provider
 from src.services.document_fingerprint_service import (
@@ -63,6 +64,8 @@ class PaddleOCRProvider(OCRProvider):
     def extract_text(
         self,
         file_path: str | Path,
+        *,
+        cache_only: bool = False,
     ) -> str:
         """
         Extract OCR text from a supported local document.
@@ -136,6 +139,11 @@ class PaddleOCRProvider(OCRProvider):
             )
 
             return legacy_cached_text
+
+        if cache_only:
+            raise OCRCacheOnlyMissError(
+                "OCR cache is unavailable."
+            ) from None
 
         print(
             "No OCR cache found. Processing local document "

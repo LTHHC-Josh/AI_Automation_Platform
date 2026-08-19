@@ -122,8 +122,51 @@ row. Human review is a downstream exception workflow, not a write gate.
   counts, booleans, confidence/status metadata, and sanitized categories.
 - PHI-safe Smartsheet partial-success propagation and explicit duplicate-
   blocking retry when a prior submission result confirms a row exists.
+- Generic PHI-safe local document evaluation with explicit numeric selection,
+  Run Type, protected-document/cache authorization, local-Ollama
+  authorization, aggregate-only results, and sanitized failures.
+- Opt-in cache-only OCR enforcement that cannot silently fall through to
+  PaddleOCR while normal production OCR behavior remains unchanged.
+- Optional synchronous in-memory protected-review consumer boundary that is
+  excluded from evaluator serialization, output, and persistence.
 
 ## Recent Tested Baseline
+
+Latest generic local-evaluator checkpoint:
+
+- Initial focused red result: 1 passed, 18 failed.
+- Final evaluator/cache-only regression: 21 passed, 0 failed.
+- Affected processor, OCR, review, classification-feedback, authorization-
+  harness, and automatic-Smartsheet regressions: 108 passed, 0 failed.
+- Combined: 129 passed, 0 failed.
+- All eight modified Python files compiled successfully.
+- Test classification: synthetic deterministic and mock.
+- The evaluator requires a positive numeric selector, explicit validated
+  nonblank Run Type, explicit cached-OCR/protected-document access
+  authorization, and explicit local-Ollama authorization.
+- The evaluator invokes `DocumentProcessor.process()` directly and has no
+  Graph, mailbox, or Smartsheet dependency.
+- Cache-only evaluation stops with the sanitized `ocr_cache_unavailable`
+  category on a cache miss; PaddleOCR prediction cannot run after that miss.
+- Existing callers omit `ocr_cache_only`, so normal production OCR, mailbox
+  processing, validation, retry/candidate selection, business rules, review,
+  and automatic Smartsheet submission remain unchanged.
+- External results contain aggregate allowlisted metadata only and exclude
+  document paths, filenames, fingerprints, OCR/document text, extracted or
+  service-line values, evidence, protected review objects, provider details,
+  credentials, tokens, and destination payload identifiers.
+- Nested protected-processing stdout and stderr are discarded without
+  retaining captured content; raw exceptions become application-owned safe
+  failure categories.
+- `LocalProtectedReviewConsumer` is an optional synchronous local-only
+  in-memory handoff. It is not serialized, logged, or persisted.
+- One large in-process regression run encountered a Windows temporary-
+  directory `PermissionError` in the existing concurrent classification-
+  feedback locking suite. That suite passed 4/0 in isolation, and the other
+  affected suites passed 104/0 separately; no concurrency test was weakened.
+- No PHI or protected data was accessed.
+- No real patient document, PaddleOCR prediction, Ollama request, Microsoft
+  Graph, mailbox, Smartsheet production workflow, or external AI ran.
 
 Latest Smartsheet partial-success/retry checkpoint:
 
@@ -305,6 +348,10 @@ remains true.
   wholesale.
 - Review thresholds currently remain the configured values in
   `ReviewDecisionService`; this clarification does not change them.
+- A concrete approved local protected-review UI/consumer is not yet
+  implemented. The evaluator can hand a protected `Document` to an injected
+  synchronous in-memory consumer, but a reviewed UI surface is required before
+  the first controlled real-document training/evaluation run.
 
 ## Weekly Codex / Work Capacity
 
@@ -401,13 +448,12 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Prepare the smallest PHI-safe controlled real-document training/evaluation
-cycle; do not fine-tune a model yet.
+Implement the smallest concrete local protected-review UI/consumer required
+before the first controlled real-document training run.
 
-First inspect the existing single-document/local test harnesses and the current
-classification-feedback and error-capture boundaries. Define the controlled
-procedure and a safe result contract for local real documents using cached OCR
-and local Ollama only when explicitly authorized. Results returned to
-ChatGPT/Codex must contain PHI-safe metadata only. Do not automatically run a
-patient document during preparation, and do not perform a live Smartsheet
-write, Graph request, mailbox operation, external-AI call, or model fine-tune.
+The consumer must remain local-only, display protected extracted values only
+inside the approved local UI, never print or log those values, never expose
+them to ChatGPT/Codex, allow the operator to compare them against the source
+document locally, avoid unapproved persistence, preserve the aggregate-only
+evaluator result, and leave production paths unchanged. Do not run a real
+patient document during this task.
