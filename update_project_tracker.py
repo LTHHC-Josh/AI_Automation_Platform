@@ -6541,6 +6541,42 @@ and reconcile it against committed code, tests, continuity, tracker history,
 and Git evidence. Change only evidence-supported statuses, add the durable
 tracker-reconciliation rule, and leave uncertain or future work unchanged.
 
+
+------------------------------------------------------------
+PROJECT TRACKER WBS RECONCILIATION - 2026-08-19
+------------------------------------------------------------
+
+Work completed:
+
+- Read all 75 actual project-tracker tasks and inspected every one of the 33
+  tasks currently Not Started or In Progress.
+- Compared each task with committed source, committed tests, project memory,
+  tracker checkpoint history, and Git history.
+- Advanced 16 statuses where committed evidence was sufficient.
+- Left 17 statuses unchanged where requirements, approval, accuracy
+  benchmarking, user acceptance, go-live, or hypercare evidence was
+  incomplete or absent.
+- Added a durable repository rule requiring affected WBS/task reconciliation
+  after meaningful tested work without inferring completion.
+- Added synthetic repository-text validation for exact intended task names and
+  statuses, unchanged uncertain tasks, the durable rule, and a single current
+  next start.
+
+Safety:
+
+- Tracker output and continuity contain task names, statuses, counts, and
+  PHI-safe implementation summaries only.
+- No row identifiers, tracker payload values, credentials, tokens, PHI, or
+  protected data are recorded.
+
+Exact next starting point:
+
+Resolve the remaining filename business rules and establish the authoritative
+SharePoint reference-workbook drive/item configuration before wiring
+reference-driven filename generation into production. Confirm person-name
+ordering, service-token requirements, separators, date source, timestamp
+rules, and the definitive INBOUND RENEW definition/token without guessing.
+
 """
 
 
@@ -6549,6 +6585,134 @@ tasks = service.tasks
 
 
 updates = [
+    (
+        "LTHHC AI Platform",
+        "In Progress",
+        (
+            "Core document automation is operating through a tested production "
+            "path, while broader platform capabilities, reference-source "
+            "configuration, and production naming remain in progress."
+        ),
+    ),
+    (
+        "Design Security Model",
+        "In Progress",
+        (
+            "Implemented PHI boundaries, local AI processing, protected caches, "
+            "sanitized Graph failures, explicit destination mapping, and "
+            "PHI-safe diagnostics; broader platform security design continues."
+        ),
+    ),
+    (
+        "Install PaddleOCR",
+        "Completed",
+        "PaddleOCR is installed and verified through real local OCR execution.",
+    ),
+    (
+        "Extract Image Text",
+        "Completed",
+        (
+            "Implemented and tested local scanned-document text extraction with "
+            "protected hash-based cache reuse."
+        ),
+    ),
+    (
+        "Handle Low Confidence",
+        "Completed",
+        (
+            "Implemented configured confidence evaluation, deterministic review "
+            "routing, null-safe clearing, and destination-safe confidence status "
+            "mapping without inventing confidence."
+        ),
+    ),
+    (
+        "Install Base Model",
+        "Completed",
+        "Installed and verified the configured local Ollama base model.",
+    ),
+    (
+        "Handle Retry Logic",
+        "Completed",
+        (
+            "Implemented and tested one controlled extraction retry with "
+            "independent candidate validation, deterministic selection, and no "
+            "attempt merging."
+        ),
+    ),
+    (
+        "Benchmark Performance",
+        "In Progress",
+        (
+            "Added PHI-safe stage timing and recorded controlled real local "
+            "performance observations; broader representative benchmarking is "
+            "not complete."
+        ),
+    ),
+    (
+        "Create Rules Engine",
+        "Completed",
+        (
+            "Implemented the separate deterministic business-rule service and "
+            "document-type rule registry with synthetic coverage."
+        ),
+    ),
+    (
+        "Validate Required Fields",
+        "Completed",
+        (
+            "Implemented deterministic required-evidence and destination-required "
+            "field validation with null-safe failure behavior."
+        ),
+    ),
+    (
+        "Normalize Values",
+        "Completed",
+        (
+            "Implemented deterministic normalization for supported dates, lists, "
+            "identifiers, confidences, and service-line structures."
+        ),
+    ),
+    (
+        "Generate Exceptions",
+        "Completed",
+        (
+            "Implemented deterministic validation, business-rule, and review "
+            "reasons plus downstream human-review exception metadata."
+        ),
+    ),
+    (
+        "Handle API Errors",
+        "Completed",
+        (
+            "Implemented and tested application-owned sanitized Graph and "
+            "Smartsheet failure boundaries without provider details or secrets."
+        ),
+    ),
+    (
+        "System Testing",
+        "In Progress",
+        (
+            "Completed the first successful single-item production end-to-end "
+            "run; broader system scenarios and remaining integrations continue."
+        ),
+    ),
+    (
+        "Performance Testing",
+        "In Progress",
+        (
+            "Captured PHI-safe real local stage and total timings; comprehensive "
+            "load and representative performance testing remains pending."
+        ),
+    ),
+    (
+        "Production Deployment",
+        "In Progress",
+        (
+            "The automatic mailbox-to-Smartsheet path completed one controlled "
+            "production run; final reference configuration, naming, and broader "
+            "deployment work remain open."
+        ),
+    ),
     (
         "Design Solution Architecture",
         "Completed",

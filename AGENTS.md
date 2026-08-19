@@ -160,6 +160,11 @@ After meaningful tested work:
 
 - inspect its current structure and insertion boundary
 - record feature, files, tests, results, real/mock classification, PHI handling, limitations, and exact next start
+- reconcile affected tracked WBS/task rows
+- if work starts a tracked task, mark it `In Progress`
+- if committed evidence proves a tracked task complete, mark it `Completed`
+- never infer completion without evidence
+- leave unrelated or uncertain tasks unchanged
 - run the tracker
 - require `Not Found : 0` and `Failed : 0`
 

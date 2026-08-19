@@ -146,6 +146,25 @@ row. Human review is a downstream exception workflow, not a write gate.
 
 ## Recent Tested Baseline
 
+Latest project-tracker WBS reconciliation checkpoint:
+
+- Inspected all 75 actual project-tracker tasks and evaluated all 33 tasks
+  currently Not Started or In Progress against committed source, tests,
+  continuity, tracker history, and Git evidence.
+- Advanced 16 evidence-supported statuses and intentionally left 17 unchanged
+  where requirements, approval, accuracy benchmarking, user acceptance,
+  go-live, or hypercare evidence was insufficient.
+- Foundational installed/tested components and deterministic processing
+  boundaries were marked Completed only where committed evidence was direct.
+- Broader platform, security design, benchmarking, system testing, performance
+  testing, and production deployment were marked In Progress where work has
+  demonstrably started but is not complete.
+- Added a durable rule requiring checkpoint history and affected WBS rows to be
+  reconciled after meaningful tested work without inferring completion.
+- Synthetic tracker reconciliation validation: 3 passed, 0 failed.
+- No tracker row identifiers, payload values, credentials, tokens, PHI, or
+  protected data are recorded here.
+
 Latest review-summary, confidence, and reference-architecture checkpoint:
 
 - Smartsheet receives a deterministic concise review summary while the full
@@ -567,7 +586,8 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Inspect every actual project-tracker task currently Not Started or In Progress
-and reconcile it against committed code, tests, continuity, tracker history,
-and Git evidence. Change only evidence-supported statuses, add the durable
-tracker-reconciliation rule, and leave uncertain or future work unchanged.
+Resolve the remaining filename business rules and establish the authoritative
+SharePoint reference-workbook drive/item configuration before wiring
+reference-driven filename generation into production. Confirm person-name
+ordering, service-token requirements, separators, date source, timestamp
+rules, and the definitive `INBOUND RENEW` definition/token without guessing.
