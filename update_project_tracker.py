@@ -6454,6 +6454,39 @@ Exact next starting point:
 Run the first true end-to-end production-path test against the single verified
 unread/processable mailbox item.
 
+
+------------------------------------------------------------
+FIRST PRODUCTION END-TO-END CHECKPOINT - 2026-08-19
+------------------------------------------------------------
+
+Production milestone:
+
+- Exactly one intended mailbox message completed the production path.
+- Microsoft Graph retrieval and attachment download passed.
+- Real local OCR, classification, and local Ollama processing passed.
+- Deterministic validation and business rules completed.
+- Intentional Smartsheet mapping and destination validation passed.
+- The Smartsheet row write and document attachment upload passed with no
+  partial success.
+- Mailbox handled/read state and the durable idempotency marker completed.
+- Total elapsed time was 542.992 seconds.
+- Classification: real production integration using local AI; external AI was
+  not used.
+
+PHI boundary:
+
+- No PHI, protected filename, extracted value, source_text, payload content,
+  external row identifier, local protected path, credential, or token is
+  recorded in this checkpoint.
+
+Exact next starting point:
+
+Implement deterministic human-readable Smartsheet AI Review Reasons while
+preserving full technical reasons internally, then add the inspected,
+synthetic-tested reference-table and filename-component architecture. Do not
+run live Graph/mailbox, patient-document, OCR, Ollama, production Smartsheet,
+or external-AI operations. Do not commit the new implementation checkpoint.
+
 """
 
 

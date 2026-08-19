@@ -135,6 +135,22 @@ row. Human review is a downstream exception workflow, not a write gate.
 
 ## Recent Tested Baseline
 
+Latest first production end-to-end checkpoint:
+
+- Exactly one intended mailbox message completed the production path.
+- Microsoft Graph retrieval and attachment download passed.
+- Real local OCR, classification, and local Ollama processing passed.
+- Deterministic validation and business rules completed.
+- Intentional Smartsheet mapping and destination validation passed.
+- The Smartsheet row write and document attachment upload passed with no
+  partial success.
+- Mailbox handled/read state and the durable idempotency marker completed.
+- Total elapsed time was 542.992 seconds.
+- Test classification: real production integration using local AI; external
+  AI was not used.
+- No PHI, protected filename, extracted value, payload content, external row
+  identifier, credential, or token is recorded here.
+
 Latest Graph attachment-enumeration diagnostic checkpoint:
 
 - The production `AttachmentService` attachment-listing GET path, method, and
@@ -407,9 +423,8 @@ remains true.
 - The protected-review UI has been rendered only with synthetic non-PHI data;
   the first operator-controlled protected comparison with a real local
   document has not yet run.
-- The first true single-item production-path run has not yet executed; only its
-  live read-only Graph candidate and attachment-enumeration preflight has
-  completed.
+- The first true single-item production-path run completed successfully. No
+  additional production item has been authorized for testing.
 
 ## Weekly Codex / Work Capacity
 
@@ -506,5 +521,8 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Run the first true end-to-end production-path test against the single verified
-unread/processable mailbox item.
+Implement deterministic human-readable Smartsheet AI Review Reasons while
+preserving full technical reasons internally, then add the inspected,
+synthetic-tested reference-table and filename-component architecture. Do not
+run live Graph/mailbox, patient-document, OCR, Ollama, production Smartsheet,
+or external-AI operations. Do not commit the new implementation checkpoint.
