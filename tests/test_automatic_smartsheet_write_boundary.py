@@ -204,7 +204,10 @@ def test_review_metadata_is_retained_for_review_required_row():
     )
     assert (
         result.values["AI Review Reasons"]
-        == review_output.review_reasons[0]
+        == (
+            "Manual review needed for document details due to "
+            "unclear source support."
+        )
     )
     assert result.values["AI Review Required"] is True
 

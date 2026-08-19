@@ -30,6 +30,7 @@ class SmartsheetColumnPolicy:
     required: bool = False
     review_only: bool = False
     confidence_column_name: str | None = None
+    confidence_column_supports_text: bool = False
 
 
 @dataclass

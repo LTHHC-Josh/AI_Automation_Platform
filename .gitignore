@@ -25,3 +25,6 @@ data/classification_feedback/
 
 # Local Mailbox Processing State
 data/mailbox_processing_state/
+
+# Local Business Reference Cache
+data/reference_cache/

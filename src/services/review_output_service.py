@@ -21,6 +21,18 @@ class ReviewField:
     value: Any = None
     confidence: float = 0.0
     source_text: str = ""
+    confidence_available: bool | None = None
+
+    def __post_init__(self) -> None:
+        if self.confidence_available is not None:
+            self.confidence_available = bool(self.confidence_available)
+            return
+
+        self.confidence_available = (
+            self.value is not None
+            and not isinstance(self.confidence, bool)
+            and isinstance(self.confidence, (int, float))
+        )
 
 
 @dataclass
@@ -239,6 +251,11 @@ class ReviewOutputService:
                         "source_text"
                     )
                 )
+                confidence_available = self._confidence_is_available(
+                    evidence.get("confidence")
+                    if "confidence" in evidence
+                    else None
+                )
             else:
                 value = deepcopy(
                     document.extracted_data.get(
@@ -251,6 +268,12 @@ class ReviewOutputService:
                     )
                 )
                 source_text = ""
+                confidence_available = (
+                    field_name in document.field_confidences
+                    and self._confidence_is_available(
+                        document.field_confidences.get(field_name)
+                    )
+                )
 
             fields.append(
                 ReviewField(
@@ -258,10 +281,21 @@ class ReviewOutputService:
                     value=value,
                     confidence=confidence,
                     source_text=source_text,
+                    confidence_available=confidence_available,
                 )
             )
 
         return fields
+
+    @staticmethod
+    def _confidence_is_available(value: Any) -> bool:
+        if isinstance(value, bool) or value is None:
+            return False
+        try:
+            float(value)
+        except (TypeError, ValueError):
+            return False
+        return True
 
     def _build_service_lines(
         self,

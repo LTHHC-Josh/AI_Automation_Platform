@@ -192,6 +192,10 @@ def test_default_authorization_policy_is_approved():
             columns=columns,
             success=True,
             status="ready",
+            column_types={
+                name: "TEXT_NUMBER"
+                for name in columns
+            },
         )
     )
 
@@ -205,6 +209,12 @@ def test_default_authorization_policy_is_approved():
     )
 
     assert result.success is True
+    service_policy = next(
+        policy
+        for policy in result.policies
+        if policy.source_field == "service_codes"
+    )
+    assert service_policy.confidence_column_supports_text is True
     assert result.status == "ready"
     assert result.policy_count == 9
 

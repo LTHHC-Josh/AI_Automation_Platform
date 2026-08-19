@@ -61,10 +61,12 @@ def build_columns():
         SimpleNamespace(
             title="Authorization Status",
             id=1001,
+            type="TEXT_NUMBER",
         ),
         SimpleNamespace(
             title="AI Review Status",
             id=1002,
+            type="PICKLIST",
         ),
     ]
 
@@ -89,6 +91,10 @@ def test_valid_schema_is_returned():
     assert result.columns == {
         "Authorization Status": 1001,
         "AI Review Status": 1002,
+    }
+    assert result.column_types == {
+        "Authorization Status": "TEXT_NUMBER",
+        "AI Review Status": "PICKLIST",
     }
 
     assert client.call_count == 1
@@ -307,6 +313,7 @@ def test_result_contract_is_phi_safe():
     assert field_names == {
         "column_count",
         "columns",
+        "column_types",
         "success",
         "status",
     }

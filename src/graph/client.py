@@ -35,6 +35,18 @@ class GraphClient:
             operation_category=operation_category,
         )
 
+    def get_content(
+        self,
+        endpoint: str,
+        operation_category: str = "graph_request",
+    ) -> bytes:
+        return self._request(
+            request_method=requests.get,
+            endpoint=endpoint,
+            operation_category=operation_category,
+            response_format="bytes",
+        )
+
     def post(
         self,
         endpoint: str,
@@ -67,6 +79,7 @@ class GraphClient:
         request_method,
         endpoint: str,
         operation_category: str = "graph_request",
+        response_format: str = "json",
         **kwargs,
     ):
         failure_category = None
@@ -89,6 +102,9 @@ class GraphClient:
 
             if not response.content:
                 return {}
+
+            if response_format == "bytes":
+                return bytes(response.content)
 
             return response.json()
 

@@ -158,6 +158,23 @@ class SmartsheetReviewConfigurationService:
                 "policy_columns_missing"
             )
 
+        resolved_policies = tuple(
+            SmartsheetColumnPolicy(
+                source_field=policy.source_field,
+                column_name=policy.column_name,
+                required=policy.required,
+                review_only=policy.review_only,
+                confidence_column_name=policy.confidence_column_name,
+                confidence_column_supports_text=(
+                    bool(policy.confidence_column_name)
+                    and schema_result.column_types.get(
+                        policy.confidence_column_name, ""
+                    ) == "TEXT_NUMBER"
+                ),
+            )
+            for policy in policy_result.policies
+        )
+
         return SmartsheetReviewConfigurationResult(
             policy_count=(
                 policy_result.policy_count
@@ -166,7 +183,7 @@ class SmartsheetReviewConfigurationService:
                 schema_result.column_count
             ),
             policies=(
-                policy_result.policies
+                resolved_policies
             ),
             available_columns=dict(
                 schema_result.columns

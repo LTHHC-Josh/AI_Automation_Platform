@@ -6487,6 +6487,60 @@ synthetic-tested reference-table and filename-component architecture. Do not
 run live Graph/mailbox, patient-document, OCR, Ollama, production Smartsheet,
 or external-AI operations. Do not commit the new implementation checkpoint.
 
+
+------------------------------------------------------------
+REVIEW SUMMARY, CONFIDENCE, AND REFERENCE ARCHITECTURE - 2026-08-19
+------------------------------------------------------------
+
+Work completed:
+
+- Added deterministic staff-friendly Smartsheet review-reason summaries while
+  preserving the complete technical reason list in ReviewOutput.
+- Added explicit confidence-availability tracking so unavailable confidence is
+  not converted to numeric zero.
+- Added missing/not-extracted and unsupported/cleared confidence statuses only
+  for confirmed text-capable destination columns. Numeric-only destinations
+  never receive status text.
+- Added validated standard-library XLSX loading for PAYOR LISTING and SERVICES
+  LISTING plus optional future DOCUMENT TYPES support.
+- Added exact composite-key lookups, safe rejection of ambiguous or malformed
+  mappings, an injectable Graph/SharePoint metadata/download boundary, and an
+  ignored version-aware last-known-good cache.
+- Added an explicit-policy filename-component builder without connecting it to
+  production attachment naming.
+
+Verification:
+
+- Confidence regression: 5 passed, 0 failed.
+- Focused configuration, policy, review-output, and mapping regressions:
+  61 passed, 0 failed.
+- Affected processing, validation, review, Smartsheet, and mailbox
+  regressions: 223 passed, 0 failed.
+- Compilation: 20 modified Python files passed.
+- git diff --check passed.
+- Classification: synthetic deterministic and mock.
+- No live Graph, mailbox, patient document, OCR, Ollama, production Smartsheet
+  write, or external AI operation occurred.
+
+Safety and limitations:
+
+- Review thresholds, validation, business rules, automatic Smartsheet write
+  sequencing, and the existing production attachment naming path are
+  unchanged.
+- Reference lookup failures never guess, and the cache remains ignored.
+- No real reference workbook, PHI, protected filename, source evidence,
+  payload, external identifier, credential, token, cache, model, patient file,
+  or temporary file is included.
+- Final filename rules, authoritative SharePoint source configuration, and the
+  production filename integration point remain unresolved.
+
+Exact next starting point:
+
+Inspect every actual project-tracker task currently Not Started or In Progress
+and reconcile it against committed code, tests, continuity, tracker history,
+and Git evidence. Change only evidence-supported statuses, add the durable
+tracker-reconciliation rule, and leave uncertain or future work unchanged.
+
 """
 
 

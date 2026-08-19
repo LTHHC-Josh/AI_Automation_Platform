@@ -193,6 +193,9 @@ class SmartsheetMappingPolicyService:
                             confidence_column_name
                             or None
                         ),
+                        confidence_column_supports_text=bool(
+                            policy.confidence_column_supports_text
+                        ),
                     )
                 )
 

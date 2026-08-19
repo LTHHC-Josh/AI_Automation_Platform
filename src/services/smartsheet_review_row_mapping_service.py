@@ -8,6 +8,9 @@ from src.services.review_output_service import (
     ReviewField,
     ReviewOutput,
 )
+from src.services.review_reason_summary_service import (
+    ReviewReasonSummaryService,
+)
 
 
 class SmartsheetReviewRowMappingService:
@@ -58,6 +61,11 @@ class SmartsheetReviewRowMappingService:
     RECONCILIATION_COLUMN = (
         "AI Authorized Units Reconciled"
     )
+
+    def __init__(self, *, review_reason_summary_service=None) -> None:
+        self.review_reason_summary_service = (
+            review_reason_summary_service or ReviewReasonSummaryService()
+        )
 
     def map(
         self,
@@ -129,6 +137,13 @@ class SmartsheetReviewRowMappingService:
                     policy=policy,
                     result=result,
                 )
+                self._map_unavailable_confidence(
+                    policy=policy,
+                    review_field=None,
+                    review_output=review_output,
+                    result=result,
+                    displayed_confidences=displayed_confidences,
+                )
                 continue
 
             if self._is_empty_value(
@@ -138,6 +153,13 @@ class SmartsheetReviewRowMappingService:
                     policy=policy,
                     result=result,
                 )
+                self._map_unavailable_confidence(
+                    policy=policy,
+                    review_field=review_field,
+                    review_output=review_output,
+                    result=result,
+                    displayed_confidences=displayed_confidences,
+                )
                 continue
 
             result.values[
@@ -146,7 +168,10 @@ class SmartsheetReviewRowMappingService:
                 review_field.value
             )
 
-            if policy.confidence_column_name:
+            if (
+                policy.confidence_column_name
+                and review_field.confidence_available
+            ):
                 result.values[
                     policy.confidence_column_name
                 ] = review_field.confidence
@@ -199,6 +224,82 @@ class SmartsheetReviewRowMappingService:
 
         return result
 
+    def _map_unavailable_confidence(
+        self,
+        *,
+        policy: SmartsheetColumnPolicy,
+        review_field: ReviewField | None,
+        review_output: ReviewOutput,
+        result: SmartsheetRowMappingResult,
+        displayed_confidences: list[float],
+    ) -> None:
+        column_name = policy.confidence_column_name
+        if not column_name:
+            return
+
+        status = self._confidence_status(
+            field_name=policy.source_field,
+            reasons=(
+                list(review_output.review_reasons)
+                + list(review_output.validation_actions)
+                + list(review_output.rule_actions)
+            ),
+        )
+
+        if status and policy.confidence_column_supports_text:
+            result.values[column_name] = status
+            return
+
+        if status:
+            result.warnings.append(
+                "confidence_status_destination_constraint"
+            )
+
+        if (
+            review_field is not None
+            and review_field.confidence_available
+            and isinstance(review_field.confidence, (int, float))
+            and not isinstance(review_field.confidence, bool)
+        ):
+            result.values[column_name] = review_field.confidence
+            displayed_confidences.append(float(review_field.confidence))
+
+    @staticmethod
+    def _confidence_status(*, field_name: str, reasons: list[str]) -> str | None:
+        normalized_field = field_name.replace("_", " ").strip().lower()
+        aliases = {normalized_field}
+        if normalized_field.endswith("s"):
+            aliases.add(normalized_field[:-1])
+        else:
+            aliases.add(f"{normalized_field}s")
+
+        matching = []
+        for reason in reasons:
+            text = str(reason or "").strip().lower()
+            if text and any(alias in text for alias in aliases):
+                matching.append(text)
+
+        if any(
+            signal in reason
+            for reason in matching
+            for signal in ("unsupported", "cleared", "invalid", "conflict")
+        ):
+            return "Unsupported/Cleared"
+
+        if any(
+            signal in reason
+            for reason in matching
+            for signal in (
+                "not extracted",
+                "missing",
+                "could not be determined",
+                "unavailable",
+            )
+        ):
+            return "Missing/Not extracted"
+
+        return None
+
     def _append_review_metadata(
         self,
         review_output: ReviewOutput,
@@ -228,7 +329,7 @@ class SmartsheetReviewRowMappingService:
 
         result.values[
             self.REVIEW_REASONS_COLUMN
-        ] = self._serialize_value(
+        ] = self.review_reason_summary_service.summarize(
             review_output.review_reasons
         )
 
@@ -383,6 +484,9 @@ class SmartsheetReviewRowMappingService:
                     confidence_column_name=(
                         confidence_column_name
                         or None
+                    ),
+                    confidence_column_supports_text=bool(
+                        policy.confidence_column_supports_text
                     ),
                 )
             )

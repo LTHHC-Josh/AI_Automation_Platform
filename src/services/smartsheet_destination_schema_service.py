@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from src.clients.smartsheet_client import (
@@ -12,6 +12,7 @@ class SmartsheetDestinationSchemaResult:
     columns: dict[str, int]
     success: bool
     status: str
+    column_types: dict[str, str] = field(default_factory=dict)
 
 
 class SmartsheetDestinationSchemaService:
@@ -63,6 +64,7 @@ class SmartsheetDestinationSchemaService:
             )
 
         columns = {}
+        column_types = {}
 
         for column in raw_columns:
             title = getattr(
@@ -76,6 +78,10 @@ class SmartsheetDestinationSchemaService:
                 "id",
                 None,
             )
+
+            column_type = str(
+                getattr(column, "type", "") or ""
+            ).strip().upper()
 
             if (
                 not isinstance(
@@ -115,6 +121,7 @@ class SmartsheetDestinationSchemaService:
             columns[
                 normalized_title
             ] = column_id
+            column_types[normalized_title] = column_type
 
         if not columns:
             return self._failure(
@@ -128,6 +135,7 @@ class SmartsheetDestinationSchemaService:
             columns=columns,
             success=True,
             status="ready",
+            column_types=column_types,
         )
 
     @staticmethod
@@ -139,4 +147,5 @@ class SmartsheetDestinationSchemaService:
             columns={},
             success=False,
             status=status,
+            column_types={},
         )

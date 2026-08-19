@@ -132,8 +132,49 @@ row. Human review is a downstream exception workflow, not a write gate.
   validation/review context locally in memory while remaining excluded from
   evaluator serialization, output, logging, clipboard writes, and
   persistence.
+- Deterministic staff-friendly Smartsheet review-reason summaries while full
+  technical review reasons remain available in `ReviewOutput`.
+- Confidence mapping that distinguishes unavailable confidence from actual
+  numeric zero and uses missing/cleared text only for confirmed text-capable
+  confidence destinations.
+- Validated deterministic business-reference workbook loading for payer and
+  service naming data, with optional future document-type data, exact lookups,
+  an injectable Graph/SharePoint source boundary, and an ignored version-aware
+  last-known-good cache.
+- An explicit-policy filename-component builder that is not connected to the
+  production attachment naming path.
 
 ## Recent Tested Baseline
+
+Latest review-summary, confidence, and reference-architecture checkpoint:
+
+- Smartsheet receives a deterministic concise review summary while the full
+  technical reason list remains unchanged in `ReviewOutput`.
+- Missing and deterministically cleared confidence statuses are written only
+  to confirmed text-capable confidence destinations. Unavailable confidence
+  remains blank, and actual numeric zero remains numeric zero.
+- Reference workbooks require validated PAYOR LISTING and SERVICES LISTING
+  sheets; optional DOCUMENT TYPES support uses a separate schema.
+- Duplicate, ambiguous, missing, malformed, and blank-result mappings fail
+  safely without guessing.
+- Version metadata controls refresh; malformed new data cannot replace the
+  last-known-good ignored local cache.
+- SharePoint/Graph access is behind an injectable metadata/download boundary.
+  No live source configuration or workbook was accessed.
+- The filename-component builder requires an explicit composition policy and
+  all resolved components. It is not wired into production processing.
+- Confidence-focused regression: 5 passed, 0 failed.
+- Focused configuration, policy, review-output, and mapping regressions:
+  61 passed, 0 failed.
+- Affected processing, validation, review, Smartsheet, and mailbox
+  regressions: 223 passed, 0 failed.
+- All 20 modified Python files compiled; `git diff --check` passed.
+- Classification: synthetic deterministic and mock. No live Graph, mailbox,
+  patient document, OCR, Ollama, production Smartsheet write, or external AI
+  operation occurred.
+- No PHI, protected filename, source evidence, workbook content, payload,
+  external identifier, credential, token, cache, model, or patient file is
+  included in this checkpoint.
 
 Latest first production end-to-end checkpoint:
 
@@ -425,6 +466,11 @@ remains true.
   document has not yet run.
 - The first true single-item production-path run completed successfully. No
   additional production item has been authorized for testing.
+- Final production filename rules remain unresolved, including person-name
+  ordering, service-token requirement, separators, date source, timestamp
+  rules, and the definitive `INBOUND RENEW` business definition/token.
+- The authoritative SharePoint reference drive/item configuration and the
+  production attachment-naming integration point remain unresolved.
 
 ## Weekly Codex / Work Capacity
 
@@ -521,8 +567,7 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Implement deterministic human-readable Smartsheet AI Review Reasons while
-preserving full technical reasons internally, then add the inspected,
-synthetic-tested reference-table and filename-component architecture. Do not
-run live Graph/mailbox, patient-document, OCR, Ollama, production Smartsheet,
-or external-AI operations. Do not commit the new implementation checkpoint.
+Inspect every actual project-tracker task currently Not Started or In Progress
+and reconcile it against committed code, tests, continuity, tracker history,
+and Git evidence. Change only evidence-supported statuses, add the durable
+tracker-reconciliation rule, and leave uncertain or future work unchanged.
