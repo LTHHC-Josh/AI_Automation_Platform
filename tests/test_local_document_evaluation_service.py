@@ -720,6 +720,77 @@ def test_changed_candidate_order_fails_before_evaluation():
         assert processor_calls == []
 
 
+def test_protected_selector_uses_stable_index_without_processing_or_safe_output():
+    from src.services.local_document_evaluation_service import (
+        LocalDocumentEvaluationService,
+    )
+
+    class Selector:
+        def __init__(self):
+            self.candidates = None
+
+        def select(self, candidates):
+            self.candidates = candidates
+            return 2
+
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        incoming = root / "incoming"
+        incoming.mkdir()
+        first = incoming / f"a_{PROTECTED_MARKER}.pdf"
+        second = incoming / f"b_{PROTECTED_MARKER}.pdf"
+        first.write_bytes(b"first")
+        second.write_bytes(b"second")
+        processor_calls = []
+        selector = Selector()
+        service = LocalDocumentEvaluationService(
+            document_directory=incoming,
+            processor_factory=lambda: processor_calls.append(True),
+            selection_snapshot_path=root / "selection.json",
+            ocr_cache_directory=root / "cache",
+        )
+
+        result = service.select_document(selector)
+
+        assert result.success is True
+        assert result.selection_status == "selected"
+        assert result.selected_index == 2
+        assert selector.candidates == ((1, first), (2, second))
+        assert processor_calls == []
+        assert PROTECTED_MARKER not in repr(result)
+        assert PROTECTED_MARKER not in repr(result.to_safe_dict())
+        assert str(first) not in repr(result)
+        assert str(second) not in repr(result)
+
+
+def test_protected_selector_cancellation_does_not_process():
+    from src.services.local_document_evaluation_service import (
+        LocalDocumentEvaluationService,
+    )
+
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        incoming = root / "incoming"
+        incoming.mkdir()
+        (incoming / "synthetic.pdf").write_bytes(b"synthetic")
+        processor_calls = []
+        service = LocalDocumentEvaluationService(
+            document_directory=incoming,
+            processor_factory=lambda: processor_calls.append(True),
+            selection_snapshot_path=root / "selection.json",
+            ocr_cache_directory=root / "cache",
+        )
+
+        result = service.select_document(
+            type("Selector", (), {"select": lambda self, candidates: None})()
+        )
+
+        assert result.success is False
+        assert result.selection_status == "cancelled"
+        assert result.selected_index is None
+        assert processor_calls == []
+
+
 def test_cli_list_mode_requires_no_evaluation_arguments_or_processor():
     from unittest.mock import patch
 

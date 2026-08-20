@@ -7105,6 +7105,61 @@ local Ollama. If selection state changed, relist. Do not fetch mailbox content,
 rerun OCR, write Smartsheet, rename files, enable production filename wiring,
 or use external AI.
 
+
+------------------------------------------------------------
+LOCAL PROTECTED DOCUMENT SELECTOR - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Added explicit --select-document mode to the existing local learning
+  analyzer and reused the synchronous Tkinter protected-UI architecture.
+- The protected window derives and displays candidate filenames locally. The
+  selector returns only a stable numeric index; filenames and paths never
+  enter CLI output, safe result objects, continuity, tracker detail, or logs.
+- Candidate enumeration and snapshot recording remain owned by the evaluator
+  service. The selected index follows the existing snapshot-change check
+  before cache-only processing; no newest-document selection was added.
+- Cancellation and selector unavailability fail safely before processor
+  construction. Existing --document-index and --list-documents automation
+  modes remain unchanged.
+
+Files changed:
+
+- scripts/evaluate_local_document.py
+- src/services/local_document_evaluation_service.py
+- src/ui/local_protected_review.py
+- tests/test_local_document_evaluation_service.py
+- tests/test_local_protected_review.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Five changed Python files compiled successfully.
+- Focused selector, evaluator, and protected-UI tests: 39 passed, 0 failed.
+- Affected learning-report tests: 4 passed, 0 failed.
+- Combined synthetic deterministic/mock: 43 passed, 0 failed.
+
+PHI, compatibility, and limitations:
+
+- Tests used synthetic paths and values only. Protected display labels were
+  available only to an injected local selector view and were absent from
+  captured stdout, stderr, repr, and safe mappings.
+- No protected document or real filename was displayed or processed. No OCR,
+  Paddle, Ollama, Graph/mailbox, Smartsheet, clipboard, persistence, rename,
+  production filename wiring, or external AI operation occurred.
+- The real protected selector window and subsequent analyzer run have not yet
+  been operator-executed.
+
+Exact next starting point:
+
+Run the reusable analyzer once through --select-document with
+--learning-report, cached OCR only, and approved local Ollama. Keep the source
+filename inside the protected UI and verify only sanitized structural output
+is returned. Do not fetch mailbox content, rerun OCR, write Smartsheet, rename
+files, enable production filename wiring, or use external AI.
+
 """
 
 

@@ -34,11 +34,130 @@ class ProtectedReviewView(Protocol):
         ...
 
 
+class ProtectedDocumentSelectorView(Protocol):
+    def show(
+        self,
+        *,
+        candidates: tuple[tuple[int, Path], ...],
+    ) -> int | None:
+        ...
+
+
 def _load_tkinter() -> tuple[Any, Any]:
     import tkinter
     from tkinter import ttk
 
     return tkinter, ttk
+
+
+class TkinterProtectedDocumentSelectorView:
+    """Synchronous local-only filename selector for protected documents."""
+
+    def __init__(self) -> None:
+        tkinter_module = None
+        ttk_module = None
+        try:
+            tkinter_module, ttk_module = _load_tkinter()
+        except Exception:
+            pass
+        if tkinter_module is None or ttk_module is None:
+            raise ProtectedReviewUnavailableError(
+                "protected_review_unavailable"
+            )
+        self._tk = tkinter_module
+        self._ttk = ttk_module
+
+    def show(
+        self,
+        *,
+        candidates: tuple[tuple[int, Path], ...],
+    ) -> int | None:
+        window = self._tk.Tk()
+        window.title("Select Local Protected Document")
+        window.geometry("900x500")
+        window.minsize(650, 350)
+        selected_index: int | None = None
+
+        container = self._ttk.Frame(window, padding=12)
+        container.pack(fill="both", expand=True)
+        self._ttk.Label(
+            container,
+            text="Select exactly one local document to analyze.",
+        ).pack(anchor="w", pady=(0, 10))
+
+        tree = self._ttk.Treeview(
+            container,
+            columns=("index", "filename"),
+            show="headings",
+            selectmode="browse",
+        )
+        tree.heading("index", text="Index")
+        tree.heading("filename", text="Filename")
+        tree.column("index", width=80, minwidth=70, stretch=False)
+        tree.column("filename", width=720, minwidth=350, stretch=True)
+        tree.pack(fill="both", expand=True)
+
+        for index, source_path in candidates:
+            tree.insert(
+                "",
+                "end",
+                iid=str(index),
+                values=(index, source_path.name),
+            )
+
+        def choose() -> None:
+            nonlocal selected_index
+            selection = tree.selection()
+            if len(selection) != 1:
+                return
+            try:
+                selected_index = int(selection[0])
+            except (TypeError, ValueError):
+                return
+            window.destroy()
+
+        actions = self._ttk.Frame(container)
+        actions.pack(fill="x", pady=(10, 0))
+        self._ttk.Button(
+            actions,
+            text="Cancel",
+            command=window.destroy,
+        ).pack(side="right")
+        self._ttk.Button(
+            actions,
+            text="Analyze selected document",
+            command=choose,
+        ).pack(side="right", padx=(0, 8))
+        tree.bind("<Double-1>", lambda _event: choose())
+        window.protocol("WM_DELETE_WINDOW", window.destroy)
+        window.mainloop()
+        return selected_index
+
+
+class LocalProtectedDocumentSelector:
+    """Display protected filenames locally and return only a numeric index."""
+
+    def __init__(
+        self,
+        *,
+        view_factory: Callable[[], ProtectedDocumentSelectorView] | None = None,
+    ) -> None:
+        self._view_factory = view_factory or TkinterProtectedDocumentSelectorView
+
+    def select(
+        self,
+        candidates: tuple[tuple[int, Path], ...],
+    ) -> int | None:
+        try:
+            view = self._view_factory()
+            return view.show(candidates=candidates)
+        except ProtectedReviewUnavailableError:
+            pass
+        except Exception:
+            pass
+        raise ProtectedReviewUnavailableError(
+            "protected_review_unavailable"
+        )
 
 
 class TkinterProtectedReviewView:

@@ -53,6 +53,16 @@ class LocalProtectedReviewConsumer(Protocol):
         ...
 
 
+class LocalProtectedDocumentSelector(Protocol):
+    """Local-only selector that must not emit or persist candidate paths."""
+
+    def select(
+        self,
+        candidates: tuple[tuple[int, Path], ...],
+    ) -> int | None:
+        ...
+
+
 class _DiscardingTextStream(TextIO):
     """Discard nested output without retaining protected content."""
 
@@ -97,6 +107,20 @@ class LocalDocumentListResult:
             "failure_category": self.failure_category,
             "candidate_count": self.candidate_count,
             "documents": [item.to_safe_dict() for item in self.documents],
+        }
+
+
+@dataclass(frozen=True)
+class LocalDocumentSelectionResult:
+    success: bool
+    selection_status: str
+    selected_index: int | None
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "selection_status": self.selection_status,
+            "selected_index": self.selected_index,
         }
 
 
@@ -375,6 +399,67 @@ class LocalDocumentEvaluationService:
             failure_category=None,
             candidate_count=len(items),
             documents=items,
+        )
+
+    def select_document(
+        self,
+        selector: LocalProtectedDocumentSelector,
+    ) -> LocalDocumentSelectionResult:
+        candidates = self._document_candidates()
+        if candidates is None:
+            return LocalDocumentSelectionResult(
+                success=False,
+                selection_status="unavailable",
+                selected_index=None,
+            )
+
+        snapshot_entries = self._snapshot_entries(candidates)
+        if snapshot_entries is None or not self._write_selection_snapshot(
+            snapshot_entries
+        ):
+            return LocalDocumentSelectionResult(
+                success=False,
+                selection_status="unavailable",
+                selected_index=None,
+            )
+
+        try:
+            selected_index = selector.select(
+                tuple(
+                    (index, path)
+                    for index, path in enumerate(candidates, start=1)
+                )
+            )
+        except Exception:
+            return LocalDocumentSelectionResult(
+                success=False,
+                selection_status="unavailable",
+                selected_index=None,
+            )
+
+        if selected_index is None:
+            return LocalDocumentSelectionResult(
+                success=False,
+                selection_status="cancelled",
+                selected_index=None,
+            )
+
+        valid_indexes = range(1, len(candidates) + 1)
+        if (
+            not isinstance(selected_index, int)
+            or isinstance(selected_index, bool)
+            or selected_index not in valid_indexes
+        ):
+            return LocalDocumentSelectionResult(
+                success=False,
+                selection_status="invalid_selection",
+                selected_index=None,
+            )
+
+        return LocalDocumentSelectionResult(
+            success=True,
+            selection_status="selected",
+            selected_index=selected_index,
         )
 
     def evaluate(

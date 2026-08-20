@@ -32,6 +32,16 @@ class RecordingView:
             raise self.error
 
 
+class RecordingSelectorView:
+    def __init__(self, selected_index=None):
+        self.selected_index = selected_index
+        self.calls = []
+
+    def show(self, *, candidates):
+        self.calls.append(candidates)
+        return self.selected_index
+
+
 def build_document(path: Path) -> Document:
     document = Document(
         file_path=path,
@@ -338,3 +348,139 @@ def test_tkinter_dependency_is_standard_library_and_lazy():
     source = inspect.getsource(local_protected_review)
     assert "import tkinter" in source
     assert "def _load_tkinter" in source
+
+
+def test_protected_filename_is_available_only_inside_selector_view():
+    from src.ui.local_protected_review import (
+        LocalProtectedDocumentSelector,
+    )
+
+    with TemporaryDirectory() as directory:
+        protected_path = Path(directory) / f"{PROTECTED_MARKER}.pdf"
+        protected_path.write_bytes(b"synthetic")
+        view = RecordingSelectorView(selected_index=1)
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            selected_index = LocalProtectedDocumentSelector(
+                view_factory=lambda: view,
+            ).select(((1, protected_path),))
+
+        assert selected_index == 1
+        assert view.calls == [((1, protected_path),)]
+        assert view.calls[0][0][1].name == protected_path.name
+        assert PROTECTED_MARKER not in stdout.getvalue()
+        assert PROTECTED_MARKER not in stderr.getvalue()
+        assert stdout.getvalue() == ""
+        assert stderr.getvalue() == ""
+
+
+def test_selector_cancellation_returns_none_without_output():
+    from src.ui.local_protected_review import (
+        LocalProtectedDocumentSelector,
+    )
+
+    with TemporaryDirectory() as directory:
+        protected_path = Path(directory) / f"{PROTECTED_MARKER}.pdf"
+        protected_path.write_bytes(b"synthetic")
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            selected_index = LocalProtectedDocumentSelector(
+                view_factory=lambda: RecordingSelectorView(None),
+            ).select(((1, protected_path),))
+
+        assert selected_index is None
+        assert PROTECTED_MARKER not in stdout.getvalue()
+        assert PROTECTED_MARKER not in stderr.getvalue()
+
+
+def test_cli_selector_maps_numeric_choice_and_cancellation_is_safe():
+    from dataclasses import dataclass
+    from unittest.mock import patch
+
+    from scripts import evaluate_local_document
+
+    @dataclass
+    class Selection:
+        success: bool
+        selection_status: str
+        selected_index: int | None
+
+        def to_safe_dict(self):
+            return {
+                "success": self.success,
+                "selection_status": self.selection_status,
+                "selected_index": self.selected_index,
+            }
+
+    class Result:
+        success = True
+
+        @staticmethod
+        def to_safe_dict():
+            return {"success": True, "learning_report": {}}
+
+    captured = {}
+
+    class FakeService:
+        normalize_run_type = staticmethod(
+            evaluate_local_document.LocalDocumentEvaluationService
+            .normalize_run_type
+        )
+        selection = Selection(True, "selected", 2)
+
+        def __init__(self, **arguments):
+            captured["constructor"] = arguments
+
+        def select_document(self, selector):
+            captured["selector"] = selector
+            return self.selection
+
+        def evaluate(self, **arguments):
+            captured["evaluation"] = arguments
+            return Result()
+
+    arguments = [
+        "evaluate_local_document.py",
+        "--select-document",
+        "--run-type",
+        "Synthetic Learning",
+        "--authorize-cached-ocr-access",
+        "--authorize-local-ollama",
+        "--learning-report",
+    ]
+
+    def run():
+        stdout = io.StringIO()
+        with patch.object(
+            evaluate_local_document,
+            "LocalDocumentEvaluationService",
+            FakeService,
+        ), patch.object(
+            evaluate_local_document,
+            "LocalProtectedDocumentSelector",
+            return_value=object(),
+        ), patch("sys.argv", arguments), contextlib.redirect_stdout(
+            stdout
+        ), contextlib.redirect_stderr(io.StringIO()):
+            try:
+                evaluate_local_document.main()
+            except SystemExit as error:
+                return stdout.getvalue(), error.code
+        return stdout.getvalue(), None
+
+    selected_output, selected_exit = run()
+    assert selected_exit is None
+    assert captured["evaluation"]["document_index"] == 2
+    assert PROTECTED_MARKER not in selected_output
+
+    FakeService.selection = Selection(False, "cancelled", None)
+    captured.pop("evaluation")
+    cancelled_output, cancelled_exit = run()
+    assert cancelled_exit == 1
+    assert "evaluation" not in captured
+    assert "cancelled" in cancelled_output
+    assert PROTECTED_MARKER not in cancelled_output

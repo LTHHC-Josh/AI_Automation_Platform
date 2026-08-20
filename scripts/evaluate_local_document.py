@@ -6,6 +6,7 @@ from src.services.local_document_evaluation_service import (
     LocalDocumentEvaluationService,
 )
 from src.ui.local_protected_review import (
+    LocalProtectedDocumentSelector,
     LocalProtectedReviewConsumer,
 )
 
@@ -212,6 +213,15 @@ def build_argument_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    mode.add_argument(
+        "--select-document",
+        action="store_true",
+        help=(
+            "Choose one document by filename inside the local protected "
+            "desktop selector."
+        ),
+    )
+
     parser.add_argument(
         "--run-type",
         type=parse_run_type,
@@ -292,10 +302,30 @@ def main() -> None:
         else None
     )
 
-    result = LocalDocumentEvaluationService(
+    service = LocalDocumentEvaluationService(
         protected_review_consumer=protected_review_consumer,
-    ).evaluate(
-        document_index=args.document_index,
+    )
+
+    document_index = args.document_index
+    if args.select_document:
+        selection = service.select_document(
+            LocalProtectedDocumentSelector()
+        )
+        if not selection.success:
+            safe_selection = selection.to_safe_dict()
+            print(
+                json.dumps(safe_selection, sort_keys=True)
+                if args.json
+                else (
+                    "Document selection status: "
+                    + selection.selection_status
+                )
+            )
+            raise SystemExit(1)
+        document_index = selection.selected_index
+
+    result = service.evaluate(
+        document_index=document_index,
         run_type=args.run_type,
         authorize_cached_ocr_access=(
             args.authorize_cached_ocr_access

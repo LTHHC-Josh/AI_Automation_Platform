@@ -186,6 +186,25 @@ do not automatically become production rules.
 
 ## Recent Tested Baseline
 
+Latest local protected document-selector checkpoint:
+
+- Added explicit `--select-document` evaluation mode using the existing
+  synchronous local Tkinter protected-UI architecture. The window may display
+  source filenames locally so the authorized operator can choose exactly one
+  candidate; filenames do not enter CLI output or safe result contracts.
+- The evaluator service retains candidate enumeration and records the same
+  ignored selection snapshot before opening the selector. The UI returns only
+  a numeric index, which flows through the existing selection-change check
+  before cache-only processing.
+- Cancellation and UI unavailability return sanitized local status and cannot
+  construct the processor or invoke OCR/Ollama. Existing `--document-index`
+  and `--list-documents` modes remain available and unchanged.
+- Focused and affected synthetic deterministic/mock tests: 43 passed, 0
+  failed. Modified Python compiled successfully.
+- No protected document, real filename, OCR, Paddle, Ollama, Graph/mailbox,
+  Smartsheet, rename, production filename wiring, or external AI operation
+  occurred.
+
 Latest PHI-safe local document listing checkpoint:
 
 - Added `--list-documents` to the existing local evaluator. It requires no
@@ -846,10 +865,11 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Run the PHI-safe `--list-documents` mode, explicitly choose one returned
-numeric index, then run the reusable analyzer once with `--learning-report`,
-cached OCR only, and approved local Ollama. If the candidate sequence changed,
-relist instead of evaluating. Verify the report is structurally comprehensive
-and PHI-safe before using observed evidence or proposed interpretations for
-planning. Do not fetch mailbox content, rerun OCR, write Smartsheet, rename
-files, enable production filename wiring, or use external AI.
+Run the reusable analyzer once through the local protected
+`--select-document` UI with `--learning-report`, cached OCR only, and approved
+local Ollama. Verify the report is structurally comprehensive and PHI-safe
+before using observed evidence or proposed interpretations for planning. If
+selection state changes, select again rather than evaluating. Do not expose
+the protected filename outside the local UI, fetch mailbox content, rerun OCR,
+write Smartsheet, rename files, enable production filename wiring, or use
+external AI.
