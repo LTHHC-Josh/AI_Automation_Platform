@@ -266,6 +266,133 @@ class OllamaProvider(LLMProvider):
         },
     }
 
+    LEARNING_ANALYSIS_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "document_structure": {
+                "type": "object",
+                "properties": {
+                    "document_form_type": {"type": "string"},
+                    "document_category": {
+                        "type": "string",
+                        "enum": [
+                            "authorization", "referral", "termination",
+                            "denial", "assessment", "plan_of_care", "claim",
+                            "communication", "form", "other", "unknown",
+                        ],
+                    },
+                    "purpose_concepts": {"type": "array", "items": {"type": "string"}},
+                    "direction_context": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": [
+                    "document_form_type", "document_category",
+                    "purpose_concepts", "direction_context",
+                ],
+                "additionalProperties": False,
+            },
+            "date_fields": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "field_name": {"type": "string"},
+                        "semantic_role": {
+                            "type": "string",
+                            "enum": [
+                                "posted", "effective", "start", "end",
+                                "request", "approval", "service",
+                                "communication", "unknown",
+                            ],
+                        },
+                        "evidence_status": {
+                            "type": "string",
+                            "enum": [
+                                "supported", "unsupported", "conflicting",
+                                "ambiguous", "tentative", "missing", "unknown",
+                            ],
+                        },
+                    },
+                    "required": ["field_name", "semantic_role", "evidence_status"],
+                    "additionalProperties": False,
+                },
+            },
+            "authorization_service_structure": {
+                "type": "object",
+                "properties": {
+                    name: {"type": "boolean"}
+                    for name in (
+                        "authorization_concepts_present",
+                        "quantity_concepts_present", "units_concepts_present",
+                        "visits_concepts_present", "approval_concepts_present",
+                        "request_concepts_present",
+                    )
+                },
+                "required": [
+                    "authorization_concepts_present",
+                    "quantity_concepts_present", "units_concepts_present",
+                    "visits_concepts_present", "approval_concepts_present",
+                    "request_concepts_present",
+                ],
+                "additionalProperties": False,
+            },
+            "business_concepts": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "concept_label": {"type": "string"},
+                        "explicitly_supported": {"type": "boolean"},
+                        "evidence_status": {
+                            "type": "string",
+                            "enum": [
+                                "supported", "unsupported", "conflicting",
+                                "ambiguous", "tentative", "missing", "unknown",
+                            ],
+                        },
+                        "current_modeled_field": {"type": "boolean"},
+                    },
+                    "required": [
+                        "concept_label", "explicitly_supported",
+                        "evidence_status", "current_modeled_field",
+                    ],
+                    "additionalProperties": False,
+                },
+            },
+            "schema_gaps": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "candidate_name": {"type": "string"},
+                        "structural_type": {
+                            "type": "string",
+                            "enum": [
+                                "date", "identifier", "status", "checkbox",
+                                "quantity", "code", "name", "text",
+                                "selection", "table", "other",
+                            ],
+                        },
+                        "evidence_status": {
+                            "type": "string",
+                            "enum": [
+                                "supported", "unsupported", "conflicting",
+                                "ambiguous", "tentative", "missing", "unknown",
+                            ],
+                        },
+                    },
+                    "required": ["candidate_name", "structural_type", "evidence_status"],
+                    "additionalProperties": False,
+                },
+            },
+        },
+        "required": [
+            "document_structure", "date_fields",
+            "authorization_service_structure", "business_concepts",
+            "schema_gaps",
+        ],
+        "additionalProperties": False,
+    }
+
     def __init__(self) -> None:
         self.base_url = os.getenv(
             "OLLAMA_BASE_URL",
@@ -421,6 +548,27 @@ class OllamaProvider(LLMProvider):
             self._last_request_metrics
         )
 
+    def analyze_learning_structure(
+        self,
+        text: str,
+    ) -> dict:
+        """Return structured concepts without returning document values."""
+
+        cleaned_text = self._validate_text(text)
+        result = self._chat(
+            system_prompt=self._learning_analysis_prompt(),
+            user_prompt=(
+                "Analyze the complete document structure. Do not reproduce "
+                "any document value or narrative text.\n\nDOCUMENT TEXT\n"
+                "=============\n" + cleaned_text
+            ),
+            schema=self.LEARNING_ANALYSIS_SCHEMA,
+            seed=self.seed,
+        )
+        self._last_request_metrics["request_type"] = "learning_analysis"
+        self._last_request_metrics["seed"] = self.seed
+        return result
+
     def test_connection(self) -> dict:
         """
         Verify the local Ollama server and configured model.
@@ -480,6 +628,28 @@ class OllamaProvider(LLMProvider):
                 installed_models
             ),
         }
+
+    def _learning_analysis_prompt(self) -> str:
+        return """
+You are a local structural document-learning service for a healthcare
+automation platform. Analyze the entire OCR text, including labeled fields,
+tables, checkboxes, headings, comments, and narrative business concepts.
+
+Return structural metadata only. Never return, quote, paraphrase, summarize,
+or embed patient/member/provider names, identifiers, codes, actual dates,
+field values, comments, narrative phrases, sender details, paths, filenames,
+credentials, or tokens.
+
+Use short generic snake_case labels that describe field or business meaning,
+not document values. Identify business concepts only when explicitly supported
+by the document. The examples unable_to_locate, annual_past_due, no_change,
+renewal, initial, and inbound_authorization are illustrative, not a fixed list.
+Do not infer a concept from document type, sender, filename, or template.
+
+For schema gaps, identify labeled fields or useful structural concepts absent
+from the current modeled field set, but return only a generic semantic label,
+structural type, and evidence status. Do not propose production decisions.
+""".strip()
 
     def _classification_prompt(self) -> str:
         return """

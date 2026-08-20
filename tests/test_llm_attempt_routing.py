@@ -38,6 +38,10 @@ class RecordingProvider:
             "attempt": attempt,
         }
 
+    def analyze_learning_structure(self, text: str) -> dict:
+        self.calls.append({"learning_text": text})
+        return {"structural": True}
+
 
 def build_service_with_recording_provider() -> tuple[
     LLMService,
@@ -101,6 +105,15 @@ def test_second_attempt_is_forwarded() -> None:
     ]
 
 
+def test_learning_analysis_is_forwarded_without_interpretation() -> None:
+    service, provider = build_service_with_recording_provider()
+
+    result = service.analyze_learning_structure("synthetic OCR text")
+
+    assert result == {"structural": True}
+    assert provider.calls == [{"learning_text": "synthetic OCR text"}]
+
+
 def run_test(
     test_name: str,
     test_function,
@@ -142,6 +155,10 @@ def main() -> None:
         (
             "second extraction attempt is forwarded",
             test_second_attempt_is_forwarded,
+        ),
+        (
+            "learning analysis is forwarded",
+            test_learning_analysis_is_forwarded_without_interpretation,
         ),
     ]
 

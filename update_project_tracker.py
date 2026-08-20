@@ -6977,6 +6977,76 @@ local review. Do not fetch mailbox content, rerun OCR, write Smartsheet,
 rename files, enable production filename wiring, or use external AI. Return
 aggregate PHI-safe results only.
 
+
+------------------------------------------------------------
+REUSABLE PHI-SAFE SINGLE-DOCUMENT LEARNING REPORT - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Extended the existing local evaluator with explicit --learning-report mode;
+  the positive numeric selector, Run Type, cache/protected-data authorization,
+  and local-Ollama authorization remain mandatory.
+- Kept cache-only OCR and the existing classification, extraction, independent
+  candidate validation, business rules, and review path unchanged.
+- Added one local-only structured Ollama learning request over the complete OCR
+  text and a separate sanitizer/report builder. No newest-file heuristic or
+  duplicate processing architecture was added.
+- Added value-free report sections for document/form structure and page count,
+  modeled-field inventory, date roles, authorization/service structure,
+  supported business concepts, schema gaps, review/attempt state, unresolved
+  ambiguity names, and development implications marked as observed evidence or
+  proposed interpretation.
+- Added a conservative safe-label gate. Unsafe or unknown model-proposed labels
+  become generic unmodeled field/concept categories instead of being exposed.
+  Novel concept/schema-gap observations are explicitly marked as not
+  deterministically validated and cannot change production rules automatically.
+
+Files changed:
+
+- scripts/evaluate_local_document.py
+- src/ai/llm/llm_provider.py
+- src/ai/llm/llm_service.py
+- src/ai/llm/providers/ollama_provider.py
+- src/services/local_document_evaluation_service.py
+- src/services/local_document_learning_report_service.py
+- tests/test_local_document_evaluation_service.py
+- tests/test_local_document_learning_report_service.py
+- tests/test_llm_attempt_routing.py
+- tests/test_ollama_service_lines.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Focused learning-report, evaluator, routing, and Ollama schema/prompt tests:
+  46 passed, 0 failed.
+- Affected cache-only OCR, protected-review, DocumentProcessor, and processor
+  classification regressions: 46 passed, 0 failed.
+- Combined synthetic deterministic/mock: 92 passed, 0 failed.
+- All eleven changed Python files compiled successfully.
+
+PHI, compatibility, and limitations:
+
+- Tests used synthetic values and mocked providers only. Protected markers,
+  source paths, values, evidence text, and narrative text were excluded from
+  serialized reports.
+- No protected document or cached PHI was accessed. No real Paddle, OCR,
+  Ollama, Graph/mailbox, Smartsheet, rename, filename wiring, or external AI
+  operation occurred.
+- The mode is explicit opt-in and has not yet been run against a protected real
+  document. Unknown semantic labels remain withheld until added to the safe
+  structural vocabulary through reviewed evidence.
+
+Exact next starting point:
+
+Run the reusable analyzer once against an explicit operator-selected numeric
+document index using --learning-report, cached OCR only, and approved local
+Ollama. Verify comprehensive PHI-safe output before using observed evidence and
+proposed interpretations for planning. Do not select by newest-file heuristic,
+fetch mailbox content, rerun OCR, write Smartsheet, rename files, enable
+production filename wiring, or use external AI.
+
 """
 
 
@@ -7296,7 +7366,11 @@ updates = [
             "Run Type and local execution authorization, enforces cache-only "
             "OCR without fallback or Paddle initialization, suppresses nested "
             "output, and returns only "
-            "aggregate metadata. The opt-in local Tkinter protected-review "
+            "aggregate metadata. Its opt-in learning mode reuses the numeric "
+            "selection and processed document for one additional local-only "
+            "value-free structural request, then returns sanitized field status, "
+            "date roles, business concepts, schema gaps, and non-automatic "
+            "development implications. The opt-in local Tkinter protected-review "
             "consumer now provides an in-memory source-document, field/evidence, "
             "service-line, and validation/review comparison surface while "
             "aggregate external results remain PHI-safe. Production Graph "

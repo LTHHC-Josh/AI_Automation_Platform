@@ -123,6 +123,24 @@ def test_schema_requires_service_lines() -> None:
     assert "service_lines" in required_fields
 
 
+def test_learning_schema_and_prompt_are_value_free_and_open_ended() -> None:
+    provider = build_provider_without_connection()
+    schema = OllamaProvider.LEARNING_ANALYSIS_SCHEMA
+    prompt = " ".join(provider._learning_analysis_prompt().lower().split())
+
+    assert set(schema["required"]) == {
+        "document_structure",
+        "date_fields",
+        "authorization_service_structure",
+        "business_concepts",
+        "schema_gaps",
+    }
+    assert "never return" in prompt
+    assert "actual dates" in prompt
+    assert "not a fixed list" in prompt
+    assert "do not infer" in prompt
+
+
 def test_empty_service_lines_are_preserved() -> None:
     provider = build_provider_without_connection()
 
@@ -485,6 +503,10 @@ def main() -> None:
         (
             "schema requires service lines",
             test_schema_requires_service_lines,
+        ),
+        (
+            "learning schema and prompt are value free",
+            test_learning_schema_and_prompt_are_value_free_and_open_ended,
         ),
         (
             "empty service lines are preserved",

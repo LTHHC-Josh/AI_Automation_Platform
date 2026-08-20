@@ -103,6 +103,15 @@ def build_argument_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    parser.add_argument(
+        "--learning-report",
+        action="store_true",
+        help=(
+            "Run one additional local Ollama structural-learning analysis and "
+            "return a PHI-safe value-free report."
+        ),
+    )
+
     return parser
 
 
@@ -124,6 +133,7 @@ def main() -> None:
             args.authorize_cached_ocr_access
         ),
         authorize_local_ollama=args.authorize_local_ollama,
+        include_learning_report=args.learning_report,
     )
 
     print(

@@ -19,6 +19,9 @@ from src.services.review_decision_service import (
 from src.services.local_protected_review_errors import (
     ProtectedReviewUnavailableError,
 )
+from src.services.local_document_learning_report_service import (
+    LocalDocumentLearningReportService,
+)
 
 
 class LocalEvaluationExecutionClassification(Enum):
@@ -96,6 +99,9 @@ class LocalDocumentEvaluationResult:
     protected_review_requested: bool = False
     protected_review_handoff_completed: bool = False
     protected_review_status: str = "not_requested"
+    learning_report_requested: bool = False
+    learning_report_status: str = "not_requested"
+    learning_report: dict[str, Any] | None = None
 
     def to_safe_dict(
         self,
@@ -167,6 +173,13 @@ class LocalDocumentEvaluationResult:
             "protected_review_status": (
                 self.protected_review_status
             ),
+            "learning_report_requested": self.learning_report_requested,
+            "learning_report_status": self.learning_report_status,
+            "learning_report": (
+                dict(self.learning_report)
+                if isinstance(self.learning_report, dict)
+                else None
+            ),
         }
 
 
@@ -223,6 +236,9 @@ class LocalDocumentEvaluationService:
         protected_review_consumer: (
             LocalProtectedReviewConsumer | None
         ) = None,
+        learning_analysis_factory: (
+            Callable[[Document, Any], Any] | None
+        ) = None,
     ) -> None:
         self._document_directory = Path(
             document_directory
@@ -246,6 +262,7 @@ class LocalDocumentEvaluationService:
         self._protected_review_consumer = (
             protected_review_consumer
         )
+        self._learning_analysis_factory = learning_analysis_factory
 
     def evaluate(
         self,
@@ -255,6 +272,7 @@ class LocalDocumentEvaluationService:
         authorize_cached_ocr_access: bool,
         authorize_local_ollama: bool,
         known_contract_pass: bool | None = None,
+        include_learning_report: bool = False,
     ) -> LocalDocumentEvaluationResult:
         normalized_run_type = self.normalize_run_type(
             run_type
@@ -343,6 +361,39 @@ class LocalDocumentEvaluationService:
                 category="local_processing_failed",
             )
 
+        learning_report = None
+        learning_report_status = "not_requested"
+        if include_learning_report is True:
+            try:
+                with redirect_stdout(discard_stdout), redirect_stderr(discard_stderr):
+                    if self._learning_analysis_factory is not None:
+                        structural_analysis = self._learning_analysis_factory(
+                            document,
+                            processor,
+                        )
+                    else:
+                        structural_analysis = processor.llm.analyze_learning_structure(
+                            document.raw_text
+                        )
+                    modeled_fields = getattr(
+                        getattr(getattr(processor, "llm", None), "provider", None),
+                        "FIELD_NAMES",
+                        (),
+                    )
+                    learning_report = LocalDocumentLearningReportService().build(
+                        document,
+                        structural_analysis,
+                        modeled_field_names=modeled_fields,
+                    )
+                learning_report_status = "completed"
+            except Exception:
+                return self._failure(
+                    run_type=normalized_run_type,
+                    category="learning_analysis_failed",
+                    learning_report_requested=True,
+                    learning_report_status="failed",
+                )
+
         protected_review_requested = (
             self._protected_review_consumer is not None
         )
@@ -388,6 +439,9 @@ class LocalDocumentEvaluationService:
                 protected_review_requested
             ),
             protected_review_status=protected_review_status,
+            learning_report=learning_report,
+            learning_report_requested=include_learning_report is True,
+            learning_report_status=learning_report_status,
         )
 
     def _select_document(
@@ -425,6 +479,9 @@ class LocalDocumentEvaluationService:
         protected_review_handoff_completed: bool,
         protected_review_requested: bool,
         protected_review_status: str,
+        learning_report: dict[str, Any] | None,
+        learning_report_requested: bool,
+        learning_report_status: str,
     ) -> LocalDocumentEvaluationResult:
         extracted_data = (
             document.extracted_data
@@ -588,6 +645,9 @@ class LocalDocumentEvaluationService:
                 protected_review_requested
             ),
             protected_review_status=protected_review_status,
+            learning_report=learning_report,
+            learning_report_requested=learning_report_requested,
+            learning_report_status=learning_report_status,
         )
 
     def _failure(
@@ -597,6 +657,8 @@ class LocalDocumentEvaluationService:
         category: str,
         protected_review_requested: bool = False,
         protected_review_status: str = "not_requested",
+        learning_report_requested: bool = False,
+        learning_report_status: str = "not_requested",
     ) -> LocalDocumentEvaluationResult:
         return LocalDocumentEvaluationResult(
             run_type=run_type,
@@ -611,6 +673,8 @@ class LocalDocumentEvaluationService:
                 protected_review_requested
             ),
             protected_review_status=protected_review_status,
+            learning_report_requested=learning_report_requested,
+            learning_report_status=learning_report_status,
         )
 
     @classmethod

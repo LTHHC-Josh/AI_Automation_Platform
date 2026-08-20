@@ -39,3 +39,13 @@ class LLMService:
             prompt,
             attempt=attempt,
         )
+
+    def analyze_learning_structure(
+        self,
+        text: str,
+    ) -> dict:
+        """Analyze one document's structure without returning field values."""
+
+        return self.provider.analyze_learning_structure(
+            text
+        )

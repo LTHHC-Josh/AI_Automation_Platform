@@ -125,6 +125,9 @@ row. Human review is a downstream exception workflow, not a write gate.
 - Generic PHI-safe local document evaluation with explicit numeric selection,
   Run Type, protected-document/cache authorization, local-Ollama
   authorization, aggregate-only results, and sanitized failures.
+- Opt-in comprehensive single-document learning reports that reuse the same
+  numeric selector and processed `Document`, add one local-only value-free
+  structural Ollama request, and serialize only sanitized structural metadata.
 - Opt-in cache-only OCR enforcement that cannot silently fall through to
   PaddleOCR while normal production OCR behavior remains unchanged.
 - Lazy PaddleOCR engine initialization after validation, fingerprinting, and
@@ -165,6 +168,29 @@ row. Human review is a downstream exception workflow, not a write gate.
   inferring an unsupported discriminator.
 
 ## Recent Tested Baseline
+
+Latest reusable single-document learning-report checkpoint:
+
+- Extended the existing local evaluator with explicit `--learning-report`
+  opt-in; numeric selection remains mandatory and no newest-file heuristic is
+  used.
+- The selected document still follows cache-only OCR, classification,
+  extraction, deterministic validation, business rules, and review. The same
+  local Ollama provider performs one additional complete-document structural
+  request without returning document values or narrative text.
+- The sanitized report contains document/form structure and page count, a
+  complete modeled-field inventory, labeled date roles, authorization/service
+  structure, supported business concepts, schema gaps, review/attempt state,
+  and evidence-versus-proposal development implications.
+- Model-proposed labels pass through a conservative structural-label gate.
+  Labels outside the safe vocabulary are withheld as generic unmodeled
+  field/concept categories rather than exposed. Novel concept/schema-gap
+  observations are explicitly marked as not deterministically validated.
+- Focused and affected synthetic deterministic/mock tests: 92 passed, 0
+  failed. All eleven changed Python files compiled successfully.
+- No protected document, cached PHI, real OCR, Paddle initialization, real
+  Ollama request, Graph/mailbox, Smartsheet, rename, production filename
+  wiring, or external AI operation occurred.
 
 Latest cache-only evaluator lazy-Paddle checkpoint:
 
@@ -784,9 +810,10 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Run the explicitly authorized single-item cache-only local evaluator against
-the already selected protected document. Confirm it reaches cached OCR without
-Paddle initialization, then permit only the approved local Ollama and local
-protected-review path. Do not fetch mailbox content, rerun OCR, write
-Smartsheet, rename files, enable production filename wiring, or use external
-AI. Return aggregate PHI-safe results only.
+Run the reusable analyzer once against an explicitly operator-selected numeric
+document index using `--learning-report`, cached OCR only, and approved local
+Ollama. Verify the returned report is structurally comprehensive and PHI-safe
+before using its observed evidence and proposed interpretations for platform
+planning. Do not select by newest-file heuristics, fetch mailbox content,
+rerun OCR, write Smartsheet, rename files, enable production filename wiring,
+or use external AI.

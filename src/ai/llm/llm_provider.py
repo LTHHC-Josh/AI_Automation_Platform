@@ -43,3 +43,11 @@ class LLMProvider(ABC):
         """
 
         raise NotImplementedError
+
+    def analyze_learning_structure(
+        self,
+        text: str,
+    ) -> dict:
+        """Return value-free structural observations for local learning."""
+
+        raise NotImplementedError

@@ -576,3 +576,20 @@ def test_cli_accepts_only_explicit_safe_preflight_values():
     assert args.run_type == SAFE_RUN_TYPE
     assert args.authorize_cached_ocr_access is True
     assert args.authorize_local_ollama is True
+
+
+def test_cli_learning_report_is_explicit_opt_in():
+    from scripts.evaluate_local_document import build_argument_parser
+
+    parser = build_argument_parser()
+    base_arguments = [
+        "--document-index",
+        "1",
+        "--run-type",
+        SAFE_RUN_TYPE,
+        "--authorize-cached-ocr-access",
+        "--authorize-local-ollama",
+    ]
+
+    assert parser.parse_args(base_arguments).learning_report is False
+    assert parser.parse_args([*base_arguments, "--learning-report"]).learning_report is True
