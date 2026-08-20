@@ -70,6 +70,23 @@ After deterministic validation and business rules, the normal production
 flow automatically creates or populates the intentionally mapped Smartsheet
 row. Human review is a downstream exception workflow, not a write gate.
 
+## Knowledge Architecture
+
+Do not adopt Obsidian as the project knowledge layer. The LTHHC platform
+itself should become the reusable company AI brain.
+
+Keep knowledge native to the project through `AGENTS.md` durable rules,
+`PROJECT_MEMORY.md` tested state and `CURRENT NEXT START`, authoritative
+reference tables, executable registries/models for document types, workflows,
+qualifiers, and date semantics, PHI-safe learning reports from real examples,
+deterministic rule logic, review outputs for unresolved or ambiguous cases,
+and tracker/history.
+
+Over time, link these concepts explicitly so rules carry source/authority,
+support status, dependencies, unresolved questions, and tests. PHI-safe
+learning reports are evidence inputs to this native knowledge structure; they
+do not automatically become production rules.
+
 ## Important Safety Invariants
 
 - Requested visits are not approved visits.
@@ -168,6 +185,25 @@ row. Human review is a downstream exception workflow, not a write gate.
   inferring an unsupported discriminator.
 
 ## Recent Tested Baseline
+
+Latest PHI-safe local document listing checkpoint:
+
+- Added `--list-documents` to the existing local evaluator. It requires no
+  document index, Run Type, protected-cache authorization, or Ollama
+  authorization and returns only candidate count, numeric index, relative
+  recency order, file type, and cached-OCR availability.
+- Listing and evaluation use the same stable candidate enumeration. Listing
+  writes an internal fingerprint/order snapshot only inside the already-
+  ignored protected OCR-cache boundary; no fingerprint, filename, path, date,
+  identifier, or protected value is serialized.
+- If the candidate sequence changes after listing, evaluation fails with the
+  sanitized `document_selection_changed` category before processor
+  construction. Relisting is required; no automatic newest selection exists.
+- Focused and affected synthetic deterministic/mock tests: 46 passed, 0
+  failed. Modified Python compiled successfully.
+- No protected document content, OCR cache text, Paddle prediction, Ollama,
+  Graph/mailbox, Smartsheet, rename, production filename wiring, or external
+  AI operation occurred.
 
 Latest reusable single-document learning-report checkpoint:
 
@@ -810,10 +846,10 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Run the reusable analyzer once against an explicitly operator-selected numeric
-document index using `--learning-report`, cached OCR only, and approved local
-Ollama. Verify the returned report is structurally comprehensive and PHI-safe
-before using its observed evidence and proposed interpretations for platform
-planning. Do not select by newest-file heuristics, fetch mailbox content,
-rerun OCR, write Smartsheet, rename files, enable production filename wiring,
-or use external AI.
+Run the PHI-safe `--list-documents` mode, explicitly choose one returned
+numeric index, then run the reusable analyzer once with `--learning-report`,
+cached OCR only, and approved local Ollama. If the candidate sequence changed,
+relist instead of evaluating. Verify the report is structurally comprehensive
+and PHI-safe before using observed evidence or proposed interpretations for
+planning. Do not fetch mailbox content, rerun OCR, write Smartsheet, rename
+files, enable production filename wiring, or use external AI.

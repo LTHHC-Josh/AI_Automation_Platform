@@ -60,27 +60,35 @@ def build_argument_parser() -> argparse.ArgumentParser:
         )
     )
 
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group(required=True)
+
+    mode.add_argument(
         "--document-index",
         type=parse_document_index,
-        required=True,
         help=(
             "Positive local selector. The selected filename and path "
             "are never displayed."
         ),
     )
 
+    mode.add_argument(
+        "--list-documents",
+        action="store_true",
+        help=(
+            "List PHI-safe numeric candidate metadata without evaluating "
+            "a document."
+        ),
+    )
+
     parser.add_argument(
         "--run-type",
         type=parse_run_type,
-        required=True,
         help="Explicit nonblank PHI-safe operator metadata.",
     )
 
     parser.add_argument(
         "--authorize-cached-ocr-access",
         action="store_true",
-        required=True,
         help=(
             "Authorize local protected-document access in cache-only "
             "OCR mode."
@@ -90,7 +98,6 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--authorize-local-ollama",
         action="store_true",
-        required=True,
         help="Authorize local Ollama for this evaluation.",
     )
 
@@ -116,7 +123,25 @@ def build_argument_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    args = build_argument_parser().parse_args()
+    parser = build_argument_parser()
+    args = parser.parse_args()
+
+    if args.list_documents:
+        result = LocalDocumentEvaluationService().list_documents()
+        print(json.dumps(result.to_safe_dict(), sort_keys=True))
+        if not result.success:
+            raise SystemExit(1)
+        return
+
+    if (
+        args.run_type is None
+        or not args.authorize_cached_ocr_access
+        or not args.authorize_local_ollama
+    ):
+        parser.error(
+            "Evaluation requires --run-type, "
+            "--authorize-cached-ocr-access, and --authorize-local-ollama."
+        )
 
     protected_review_consumer = (
         LocalProtectedReviewConsumer()

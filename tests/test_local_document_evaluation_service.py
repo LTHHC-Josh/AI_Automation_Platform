@@ -593,3 +593,188 @@ def test_cli_learning_report_is_explicit_opt_in():
 
     assert parser.parse_args(base_arguments).learning_report is False
     assert parser.parse_args([*base_arguments, "--learning-report"]).learning_report is True
+
+
+def test_list_documents_is_phi_safe_and_matches_evaluation_selector_order():
+    from src.services.local_document_evaluation_service import (
+        LocalDocumentEvaluationService,
+        LocalEvaluationExecutionClassification,
+    )
+
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        incoming = root / "incoming"
+        cache = root / "cache"
+        incoming.mkdir()
+        cache.mkdir()
+        later_name = incoming / f"z_{PROTECTED_MARKER}.png"
+        earlier_name = incoming / f"a_{PROTECTED_MARKER}.pdf"
+        earlier_name.write_bytes(b"first synthetic document")
+        later_name.write_bytes(b"second synthetic document")
+        earlier_name.touch()
+        later_name.touch()
+
+        processor = RecordingProcessor(document=build_document(earlier_name))
+        service = LocalDocumentEvaluationService(
+            document_directory=incoming,
+            processor_factory=lambda: processor,
+            execution_classification=(
+                LocalEvaluationExecutionClassification.SYNTHETIC_MOCK
+            ),
+            selection_snapshot_path=root / "selection.json",
+            ocr_cache_directory=cache,
+        )
+
+        listed = service.list_documents()
+        rendered = repr(listed.to_safe_dict())
+        assert listed.success is True
+        assert listed.candidate_count == 2
+        assert [item.index for item in listed.documents] == [1, 2]
+        assert [item.file_type for item in listed.documents] == ["pdf", "png"]
+        assert all(not item.cached_ocr_available for item in listed.documents)
+        assert PROTECTED_MARKER not in rendered
+        assert str(root) not in rendered
+        assert earlier_name.name not in rendered
+        assert later_name.name not in rendered
+        assert "fingerprint" not in rendered
+
+        evaluated = service.evaluate(
+            document_index=1,
+            run_type=SAFE_RUN_TYPE,
+            authorize_cached_ocr_access=True,
+            authorize_local_ollama=True,
+        )
+        assert evaluated.success is True
+        assert processor.calls[0]["file_path"] == earlier_name
+
+
+def test_list_documents_reports_cache_metadata_without_processing():
+    import hashlib
+
+    from src.services.local_document_evaluation_service import (
+        LocalDocumentEvaluationService,
+    )
+
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        incoming = root / "incoming"
+        cache = root / "cache"
+        incoming.mkdir()
+        cache.mkdir()
+        protected_path = incoming / f"{PROTECTED_MARKER}.pdf"
+        content = b"synthetic cache candidate"
+        protected_path.write_bytes(content)
+        fingerprint = hashlib.sha256(content).hexdigest()
+        (cache / f"{fingerprint}.txt").write_text(
+            "synthetic cached text",
+            encoding="utf-8",
+        )
+        processor_calls = []
+        service = LocalDocumentEvaluationService(
+            document_directory=incoming,
+            processor_factory=lambda: processor_calls.append(True),
+            selection_snapshot_path=root / "selection.json",
+            ocr_cache_directory=cache,
+        )
+
+        result = service.list_documents()
+
+        assert result.success is True
+        assert result.documents[0].cached_ocr_available is True
+        assert result.documents[0].relative_order == "newest"
+        assert processor_calls == []
+
+
+def test_changed_candidate_order_fails_before_evaluation():
+    from src.services.local_document_evaluation_service import (
+        LocalDocumentEvaluationService,
+    )
+
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        incoming = root / "incoming"
+        incoming.mkdir()
+        selected = incoming / "b.pdf"
+        selected.write_bytes(b"selected")
+        processor_calls = []
+        service = LocalDocumentEvaluationService(
+            document_directory=incoming,
+            processor_factory=lambda: processor_calls.append(True),
+            selection_snapshot_path=root / "selection.json",
+            ocr_cache_directory=root / "cache",
+        )
+        assert service.list_documents().success is True
+
+        (incoming / "a.pdf").write_bytes(b"new candidate")
+        result = service.evaluate(
+            document_index=1,
+            run_type=SAFE_RUN_TYPE,
+            authorize_cached_ocr_access=True,
+            authorize_local_ollama=True,
+        )
+
+        assert result.success is False
+        assert result.failure_category == "document_selection_changed"
+        assert processor_calls == []
+
+
+def test_cli_list_mode_requires_no_evaluation_arguments_or_processor():
+    from unittest.mock import patch
+
+    from scripts import evaluate_local_document
+
+    calls = []
+
+    class SafeListResult:
+        success = True
+
+        @staticmethod
+        def to_safe_dict():
+            return {
+                "success": True,
+                "failure_category": None,
+                "candidate_count": 1,
+                "documents": [
+                    {
+                        "index": 1,
+                        "relative_order": "newest",
+                        "file_type": "pdf",
+                        "cached_ocr_available": True,
+                    }
+                ],
+            }
+
+    class FakeService:
+        normalize_run_type = staticmethod(
+            evaluate_local_document.LocalDocumentEvaluationService
+            .normalize_run_type
+        )
+
+        def __init__(self, **arguments):
+            calls.append(("constructed", arguments))
+
+        def list_documents(self):
+            calls.append(("listed", None))
+            return SafeListResult()
+
+        def evaluate(self, **arguments):
+            raise AssertionError("Evaluation must not run in list mode.")
+
+    stdout = io.StringIO()
+    with patch.object(
+        evaluate_local_document,
+        "LocalDocumentEvaluationService",
+        FakeService,
+    ), patch(
+        "sys.argv",
+        ["evaluate_local_document.py", "--list-documents"],
+    ), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(
+        io.StringIO()
+    ):
+        evaluate_local_document.main()
+
+    rendered = stdout.getvalue()
+    assert calls == [("constructed", {}), ("listed", None)]
+    assert PROTECTED_MARKER not in rendered
+    assert "index" in rendered
+    assert "cached_ocr_available" in rendered

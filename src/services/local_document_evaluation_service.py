@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+import json
 from math import isfinite
+import os
 from pathlib import Path
 from re import fullmatch
 from typing import Any, Callable, Protocol, TextIO
@@ -21,6 +23,9 @@ from src.services.local_protected_review_errors import (
 )
 from src.services.local_document_learning_report_service import (
     LocalDocumentLearningReportService,
+)
+from src.services.document_fingerprint_service import (
+    DocumentFingerprintService,
 )
 
 
@@ -61,6 +66,38 @@ class _DiscardingTextStream(TextIO):
 
     def flush(self) -> None:
         return None
+
+
+@dataclass(frozen=True)
+class LocalDocumentListItem:
+    index: int
+    relative_order: str
+    file_type: str
+    cached_ocr_available: bool
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {
+            "index": self.index,
+            "relative_order": self.relative_order,
+            "file_type": self.file_type,
+            "cached_ocr_available": self.cached_ocr_available,
+        }
+
+
+@dataclass(frozen=True)
+class LocalDocumentListResult:
+    success: bool
+    failure_category: str | None
+    candidate_count: int
+    documents: tuple[LocalDocumentListItem, ...] = ()
+
+    def to_safe_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "failure_category": self.failure_category,
+            "candidate_count": self.candidate_count,
+            "documents": [item.to_safe_dict() for item in self.documents],
+        }
 
 
 @dataclass(frozen=True)
@@ -205,6 +242,11 @@ class LocalDocumentEvaluationService:
 
     RUN_TYPE_PATTERN = r"[A-Za-z0-9][A-Za-z0-9 _-]{0,79}"
 
+    DEFAULT_SELECTION_SNAPSHOT_PATH = Path(
+        "data/ocr_cache/.local_document_selection_snapshot.json"
+    )
+    DEFAULT_OCR_CACHE_DIRECTORY = Path("data/ocr_cache")
+
     STAGE_TIMING_KEYS = {
         "ocr": "ocr_wall_seconds",
         "classification": "classification_wall_seconds",
@@ -239,6 +281,11 @@ class LocalDocumentEvaluationService:
         learning_analysis_factory: (
             Callable[[Document, Any], Any] | None
         ) = None,
+        selection_snapshot_path: str | Path | None = (
+            DEFAULT_SELECTION_SNAPSHOT_PATH
+        ),
+        ocr_cache_directory: str | Path = DEFAULT_OCR_CACHE_DIRECTORY,
+        fingerprint_service: Any | None = None,
     ) -> None:
         self._document_directory = Path(
             document_directory
@@ -263,6 +310,72 @@ class LocalDocumentEvaluationService:
             protected_review_consumer
         )
         self._learning_analysis_factory = learning_analysis_factory
+        self._selection_snapshot_path = (
+            Path(selection_snapshot_path)
+            if selection_snapshot_path is not None
+            else None
+        )
+        self._ocr_cache_directory = Path(ocr_cache_directory)
+        self._fingerprint_service = (
+            fingerprint_service
+            if fingerprint_service is not None
+            else DocumentFingerprintService()
+        )
+
+    def list_documents(self) -> LocalDocumentListResult:
+        candidates = self._document_candidates()
+        if candidates is None:
+            return LocalDocumentListResult(
+                success=False,
+                failure_category="document_listing_unavailable",
+                candidate_count=0,
+            )
+
+        snapshot_entries = self._snapshot_entries(candidates)
+        if snapshot_entries is None or not self._write_selection_snapshot(
+            snapshot_entries
+        ):
+            return LocalDocumentListResult(
+                success=False,
+                failure_category="document_listing_unavailable",
+                candidate_count=0,
+            )
+
+        newest_order = {
+            candidate_index: relative_index
+            for relative_index, candidate_index in enumerate(
+                sorted(
+                    range(len(candidates)),
+                    key=lambda index: (
+                        -self._safe_modified_time(candidates[index]),
+                        index,
+                    ),
+                ),
+                start=1,
+            )
+        }
+
+        items = tuple(
+            LocalDocumentListItem(
+                index=index,
+                relative_order=self._relative_order_label(
+                    newest_order[index - 1]
+                ),
+                file_type=path.suffix.lower().lstrip("."),
+                cached_ocr_available=self._cache_exists(
+                    path,
+                    snapshot_entries[index - 1]["fingerprint"],
+                ),
+            )
+            for index, path in enumerate(candidates, start=1)
+        )
+
+        return LocalDocumentListResult(
+            success=True,
+            failure_category=None,
+            candidate_count=len(items),
+            documents=items,
+        )
 
     def evaluate(
         self,
@@ -320,9 +433,15 @@ class LocalDocumentEvaluationService:
                 category="local_configuration_unavailable",
             )
 
-        selected_path = self._select_document(
+        selected_path, selection_changed = self._select_document(
             document_index
         )
+
+        if selection_changed:
+            return self._failure(
+                run_type=normalized_run_type,
+                category="document_selection_changed",
+            )
 
         if selected_path is None:
             return self._failure(
@@ -447,28 +566,137 @@ class LocalDocumentEvaluationService:
     def _select_document(
         self,
         document_index: int,
-    ) -> Path | None:
+    ) -> tuple[Path | None, bool]:
+        candidates = self._document_candidates()
+        if candidates is None:
+            return None, False
+
+        if not self._selection_snapshot_matches(candidates):
+            return None, True
+
+        if document_index > len(
+            candidates
+        ):
+            return None, False
+
+        return candidates[document_index - 1], False
+
+    def _document_candidates(self) -> list[Path] | None:
         try:
-            candidates = sorted(
+            return sorted(
                 path
                 for path in self._document_directory.iterdir()
                 if (
                     path.is_file()
-                    and path.suffix.lower()
-                    in self.SUPPORTED_EXTENSIONS
+                    and path.suffix.lower() in self.SUPPORTED_EXTENSIONS
                 )
             )
         except OSError:
             return None
 
-        if document_index > len(
-            candidates
-        ):
-            return None
+    def _snapshot_entries(
+        self,
+        candidates: list[Path],
+    ) -> list[dict[str, str]] | None:
+        entries: list[dict[str, str]] = []
+        for path in candidates:
+            result = self._fingerprint_service.calculate(path)
+            if not result.success or result.fingerprint is None:
+                return None
+            entries.append(
+                {
+                    "fingerprint": result.fingerprint,
+                    "file_type": path.suffix.lower().lstrip("."),
+                }
+            )
+        return entries
 
-        return candidates[
-            document_index - 1
-        ]
+    def _selection_snapshot_matches(self, candidates: list[Path]) -> bool:
+        if self._selection_snapshot_path is None:
+            return True
+        try:
+            if not self._selection_snapshot_path.exists():
+                return True
+            stored = json.loads(
+                self._selection_snapshot_path.read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError, TypeError):
+            return False
+        current = self._snapshot_entries(candidates)
+        return current is not None and stored == {
+            "version": 1,
+            "candidates": current,
+        }
+
+    def _write_selection_snapshot(
+        self,
+        entries: list[dict[str, str]],
+    ) -> bool:
+        if self._selection_snapshot_path is None:
+            return True
+        temporary_path = self._selection_snapshot_path.with_suffix(".tmp")
+        try:
+            self._selection_snapshot_path.parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+            temporary_path.write_text(
+                json.dumps(
+                    {"version": 1, "candidates": entries},
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+                newline="\n",
+            )
+            os.replace(temporary_path, self._selection_snapshot_path)
+        except OSError:
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return False
+        return True
+
+    def _cache_exists(self, path: Path, fingerprint: str) -> bool:
+        current = self._ocr_cache_directory / f"{fingerprint}.txt"
+        legacy = self._ocr_cache_directory / (
+            f"{self._legacy_safe_stem(path.stem)}_{fingerprint[:16]}.txt"
+        )
+        try:
+            return any(
+                cache_path.is_file() and cache_path.stat().st_size > 0
+                for cache_path in (current, legacy)
+            )
+        except OSError:
+            return False
+
+    @staticmethod
+    def _legacy_safe_stem(value: str) -> str:
+        normalized = "".join(
+            character if character.isalnum() or character in "-_" else "_"
+            for character in value
+        ).strip("_")
+        return normalized or "document"
+
+    @staticmethod
+    def _safe_modified_time(path: Path) -> int:
+        try:
+            return path.stat().st_mtime_ns
+        except OSError:
+            return 0
+
+    @staticmethod
+    def _relative_order_label(position: int) -> str:
+        if position == 1:
+            return "newest"
+        if 10 <= position % 100 <= 20:
+            suffix = "th"
+        else:
+            suffix = {1: "st", 2: "nd", 3: "rd"}.get(
+                position % 10,
+                "th",
+            )
+        return f"{position}{suffix} newest"
 
     def _build_success(
         self,

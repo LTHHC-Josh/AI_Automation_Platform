@@ -7047,6 +7047,64 @@ proposed interpretations for planning. Do not select by newest-file heuristic,
 fetch mailbox content, rerun OCR, write Smartsheet, rename files, enable
 production filename wiring, or use external AI.
 
+
+------------------------------------------------------------
+PHI-SAFE LOCAL DOCUMENT NUMERIC LISTING - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Extended the existing local evaluator and selector with --list-documents.
+- Listing returns only numeric index, relative recency order, file type, and
+  cached-OCR availability and requires none of the evaluation-only arguments.
+- Listing and evaluation share one stable candidate enumeration. An internal
+  ignored selection snapshot detects candidate additions, removals, content
+  changes, or ordering changes and blocks evaluation before processor
+  construction with a sanitized category until the operator relists.
+- Normal evaluation still requires an explicit positive document index; no
+  newest-document heuristic or automatic selection was introduced.
+- Recorded the durable knowledge-architecture decision to keep the reusable
+  company AI brain native to project rules, tested continuity, authoritative
+  references, executable semantics, PHI-safe evidence reports, deterministic
+  rules, review outputs, and tracker history rather than adopting Obsidian.
+  Learning-report evidence cannot automatically become a production rule.
+
+Files changed:
+
+- scripts/evaluate_local_document.py
+- src/services/local_document_evaluation_service.py
+- tests/test_local_document_evaluation_service.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Modified Python compiled successfully.
+- Focused local evaluator/listing tests: 23 passed, 0 failed.
+- Affected protected-review, learning-report, and fingerprint regressions: 23
+  passed, 0 failed.
+- Combined synthetic deterministic/mock: 46 passed, 0 failed.
+
+PHI, compatibility, and limitations:
+
+- Synthetic files and mocked processors only were used. Forbidden filenames,
+  paths, fingerprints, protected markers, and content were absent from safe
+  listing output.
+- Listing performs local fingerprinting and cache-file existence checks only;
+  it does not construct the processor, read OCR cache text, invoke Paddle or
+  Ollama, classify/extract/validate a document, or call Graph, mailbox,
+  Smartsheet, rename, filename wiring, or external AI.
+- The internal selection snapshot remains inside the already-ignored
+  protected OCR-cache boundary and is never emitted or committed.
+
+Exact next starting point:
+
+Run --list-documents, explicitly choose one numeric index, and then run the
+reusable analyzer once with --learning-report, cached OCR only, and approved
+local Ollama. If selection state changed, relist. Do not fetch mailbox content,
+rerun OCR, write Smartsheet, rename files, enable production filename wiring,
+or use external AI.
+
 """
 
 
