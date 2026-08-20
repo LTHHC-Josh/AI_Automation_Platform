@@ -137,6 +137,26 @@ def test_mailbox_listing_uses_allowlisted_operation_category():
     assert client.calls[0]["operation_category"] == "mailbox_enumeration"
 
 
+def test_recent_attachment_listing_requests_only_internal_required_fields():
+    client = RecordingGraphClient()
+    service = EmailService.__new__(EmailService)
+    service.client = client
+    service.config = SimpleNamespace(
+        mailbox="synthetic-mailbox@example.invalid"
+    )
+
+    result = service.get_recent_attachment_messages(top=3)
+
+    assert result == []
+    assert len(client.calls) == 1
+    assert client.calls[0]["operation_category"] == "mailbox_enumeration"
+    assert client.calls[0]["params"] == {
+        "$orderby": "receivedDateTime desc",
+        "$top": 3,
+        "$select": "id,hasAttachments",
+    }
+
+
 def test_http_failure_retains_only_safe_attachment_diagnostics():
     response = SyntheticResponse(status_code=400)
     client = build_client()

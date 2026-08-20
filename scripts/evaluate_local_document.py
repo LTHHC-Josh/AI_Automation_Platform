@@ -1,9 +1,13 @@
 import argparse
+from contextlib import redirect_stderr, redirect_stdout
 import json
 from typing import Any
 
 from src.services.local_document_evaluation_service import (
     LocalDocumentEvaluationService,
+)
+from src.services.local_document_inbox_refresh_service import (
+    LocalDocumentInboxRefreshService,
 )
 from src.ui.local_protected_review import (
     LocalProtectedDocumentSelector,
@@ -52,6 +56,28 @@ def parse_run_type(
         )
 
     return normalized
+
+
+def parse_refresh_top(value: str) -> int:
+    try:
+        normalized = int(value)
+    except (TypeError, ValueError):
+        raise argparse.ArgumentTypeError(
+            "Refresh limit must be a positive integer no greater than 25."
+        ) from None
+    if normalized < 1 or normalized > LocalDocumentInboxRefreshService.MAX_TOP:
+        raise argparse.ArgumentTypeError(
+            "Refresh limit must be a positive integer no greater than 25."
+        )
+    return normalized
+
+
+class _DiscardingTextStream:
+    def write(self, value: str) -> int:
+        return len(value)
+
+    def flush(self) -> None:
+        return None
 
 
 def _display_label(value: str) -> str:
@@ -185,6 +211,13 @@ def render_learning_report(safe_result: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_inbox_refresh(safe_result: dict[str, Any]) -> str:
+    lines = ["Inbox Refresh", "-------------"]
+    for key, value in safe_result.items():
+        _render_section_value(lines, key, value)
+    return "\n".join(lines)
+
+
 def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
@@ -267,6 +300,15 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help="Return the existing PHI-safe machine-readable JSON output.",
     )
 
+    parser.add_argument(
+        "--refresh-top",
+        type=parse_refresh_top,
+        help=(
+            "Read and download supported attachments from only the newest "
+            "N inbox messages before protected selection."
+        ),
+    )
+
     return parser
 
 
@@ -296,6 +338,9 @@ def main() -> None:
             "--authorize-cached-ocr-access, and --authorize-local-ollama."
         )
 
+    if args.refresh_top is not None and not args.select_document:
+        parser.error("--refresh-top requires --select-document.")
+
     protected_review_consumer = (
         LocalProtectedReviewConsumer()
         if args.protected_review
@@ -306,6 +351,24 @@ def main() -> None:
         protected_review_consumer=protected_review_consumer,
     )
 
+    refresh_safe = None
+    if args.refresh_top is not None:
+        discard_stdout = _DiscardingTextStream()
+        discard_stderr = _DiscardingTextStream()
+        with redirect_stdout(discard_stdout), redirect_stderr(discard_stderr):
+            refresh = LocalDocumentInboxRefreshService().refresh(
+                top=args.refresh_top,
+                supported_extensions=set(service.SUPPORTED_EXTENSIONS),
+            )
+        refresh_safe = refresh.to_safe_dict()
+        if not refresh.success:
+            print(
+                json.dumps(refresh_safe, sort_keys=True)
+                if args.json
+                else render_inbox_refresh(refresh_safe)
+            )
+            raise SystemExit(1)
+
     document_index = args.document_index
     if args.select_document:
         selection = service.select_document(
@@ -313,11 +376,21 @@ def main() -> None:
         )
         if not selection.success:
             safe_selection = selection.to_safe_dict()
+            if refresh_safe is not None:
+                safe_selection = {
+                    "inbox_refresh": refresh_safe,
+                    "document_selection": safe_selection,
+                }
             print(
                 json.dumps(safe_selection, sort_keys=True)
                 if args.json
                 else (
-                    "Document selection status: "
+                    (
+                        render_inbox_refresh(refresh_safe) + "\n\n"
+                        if refresh_safe is not None
+                        else ""
+                    )
+                    + "Document selection status: "
                     + selection.selection_status
                 )
             )
@@ -335,6 +408,11 @@ def main() -> None:
     )
 
     safe_result = result.to_safe_dict()
+    if refresh_safe is not None:
+        safe_result = {
+            "inbox_refresh": refresh_safe,
+            **safe_result,
+        }
     if args.learning_report and not args.json:
         print(render_learning_report(safe_result))
     else:

@@ -7160,6 +7160,64 @@ filename inside the protected UI and verify only sanitized structural output
 is returned. Do not fetch mailbox content, rerun OCR, write Smartsheet, rename
 files, enable production filename wiring, or use external AI.
 
+
+------------------------------------------------------------
+READ-ONLY LEARNING INBOX REFRESH - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Added explicit --refresh-top N for the local learning workflow, restricted
+  to 1-25 newest inbox messages and valid only with --select-document.
+- Added a dedicated read-only EmailService query selecting only internal
+  message ID and attachment-presence fields, ordered newest-first.
+- Added a narrow refresh adapter around existing Graph attachment enumeration.
+  It downloads only supported, non-inline attachments into the existing
+  protected candidate area and returns only sanitized counts/status.
+- Existing local filenames are skipped without overwrite or rename. After a
+  successful refresh, the unchanged protected selector records its snapshot
+  and returns only the chosen numeric index.
+- The adapter has no mark-read, handled/idempotency-state, DocumentProcessor,
+  OCR, Ollama, Smartsheet, or production filename dependency.
+
+Files changed:
+
+- scripts/evaluate_local_document.py
+- src/graph/email_service.py
+- src/graph/attachment_service.py
+- src/services/local_document_inbox_refresh_service.py
+- tests/test_local_document_inbox_refresh_service.py
+- tests/test_graph_attachment_enumeration.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Six changed Python files compiled successfully.
+- Focused synthetic/mock refresh tests: 5 passed, 0 failed.
+- Affected Graph, evaluator, and protected-selector regressions: 46 passed, 0
+  failed.
+- Combined synthetic deterministic/mock: 51 passed, 0 failed.
+
+PHI, compatibility, and limitations:
+
+- Tests used synthetic message/attachment metadata and local temporary files.
+  Protected markers were absent from stdout, stderr, repr, and safe mappings.
+- No live Graph/inbox call, protected attachment, real filename, mailbox
+  mutation, durable mailbox state, OCR, Paddle, Ollama, Smartsheet, rename,
+  production filename wiring, or external AI operation occurred.
+- The first operator-controlled live refresh and protected selection have not
+  run. A filename collision is intentionally skipped and requires operator
+  review rather than overwrite or automatic rename.
+
+Exact next starting point:
+
+Run one explicitly limited read-only refresh followed by --select-document and
+--learning-report using cached OCR and approved local Ollama. Verify counts-only
+refresh output and confirm the source message remains unread/unhandled. Do not
+rerun OCR, write Smartsheet, rename files, enable production filename wiring,
+or use external AI.
+
 """
 
 

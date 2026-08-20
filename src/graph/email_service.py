@@ -67,6 +67,25 @@ class EmailService:
 
         return response.get("value", [])
 
+    def get_recent_attachment_messages(
+        self,
+        top: int,
+    ) -> list[dict]:
+        endpoint = (
+            f"/users/{self.config.mailbox}"
+            "/mailFolders/inbox/messages"
+        )
+        response = self.client.get(
+            endpoint,
+            params={
+                "$orderby": "receivedDateTime desc",
+                "$top": top,
+                "$select": "id,hasAttachments",
+            },
+            operation_category="mailbox_enumeration",
+        )
+        return response.get("value", [])
+
     def get_message(
         self,
         message_id: str,

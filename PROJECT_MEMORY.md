@@ -186,6 +186,26 @@ do not automatically become production rules.
 
 ## Recent Tested Baseline
 
+Latest read-only learning-inbox refresh checkpoint:
+
+- Added optional `--refresh-top N` before `--select-document`. The explicit
+  limit is restricted to 1-25 newest inbox messages and uses a dedicated
+  read-only `EmailService` query requesting only internal message ID and
+  attachment-presence fields.
+- A narrow refresh adapter reuses Graph attachment enumeration and downloads
+  only supported, non-inline attachments into the existing ignored protected
+  candidate directory. Existing filenames are skipped without overwrite or
+  rename; output contains counts and sanitized status only.
+- Refresh has no dependency on mark-read, handled/idempotency state,
+  DocumentProcessor, OCR, Ollama, Smartsheet, or filename production. After a
+  successful refresh, the existing protected selector records its normal
+  snapshot and returns only the chosen numeric index.
+- Focused and affected synthetic deterministic/mock tests: 51 passed, 0
+  failed. Six changed Python files compiled successfully.
+- No live inbox, protected attachment, real filename, OCR, Paddle, Ollama,
+  mailbox mutation, Smartsheet, rename, production filename wiring, or
+  external AI operation occurred.
+
 Latest local protected document-selector checkpoint:
 
 - Added explicit `--select-document` evaluation mode using the existing
@@ -865,11 +885,11 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Run the reusable analyzer once through the local protected
-`--select-document` UI with `--learning-report`, cached OCR only, and approved
-local Ollama. Verify the report is structurally comprehensive and PHI-safe
-before using observed evidence or proposed interpretations for planning. If
-selection state changes, select again rather than evaluating. Do not expose
-the protected filename outside the local UI, fetch mailbox content, rerun OCR,
+Run one explicitly limited read-only inbox refresh followed by the local
+protected `--select-document` UI and `--learning-report`, cached OCR only, and
+approved local Ollama. Verify the refresh returns counts only, the report is
+structurally comprehensive and PHI-safe, and the inbox message remains
+unread/unhandled. If selection state changes, select again rather than
+evaluating. Do not expose protected filenames outside the local UI, rerun OCR,
 write Smartsheet, rename files, enable production filename wiring, or use
 external AI.
