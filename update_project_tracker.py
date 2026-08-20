@@ -6683,6 +6683,52 @@ workbook and verify ambiguous service lookups, unchanged-version cache reuse,
 and last-known-good protection. Keep production filename wiring disabled while
 the source-document priority rule remains unresolved.
 
+
+------------------------------------------------------------
+LIVE SHAREPOINT REFERENCE REFRESH VERIFIED - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Ran only the configured authoritative SharePoint reference refresh through
+  the existing read-only Microsoft Graph boundary.
+- Verified source configuration, metadata lookup, version availability, and
+  workbook download without recording protected identifiers or source details.
+- Validated PAYOR LISTING and SERVICES LISTING. Optional DOCUMENT TYPES was not
+  present.
+- Verified that legitimate conflicting service mappings load and remain
+  unresolved/ambiguous rather than invalidating the workbook.
+- Refreshed the ignored local cache, verified unchanged-version reuse on a
+  second run, and verified malformed refresh preserves last-known-good state.
+- Kept production filename orchestration disabled.
+
+Verification and PHI handling:
+
+- Classification: real external integration for read-only Graph metadata and
+  workbook download; deterministic local workbook/cache validation.
+- Sanitized failure category: none.
+- No mailbox document, OCR, Ollama, Smartsheet write, production rename, or
+  external AI operation occurred.
+- No identifiers, URLs, tokens, credentials, local paths, workbook contents,
+  or protected data are recorded here.
+
+Limitations:
+
+- The official renewal workflow naming token remains unresolved.
+- Deterministic ownership/source evidence for single-date state
+  communication/notice naming remains unresolved.
+- Neither rule may be guessed, and production filename wiring remains disabled.
+
+Exact next starting point:
+
+Resolve the remaining filename business rules before production filename wiring,
+specifically:
+
+- official renewal workflow naming token
+- deterministic ownership/source evidence for single-date state communication/notice naming
+
+Do not guess either rule.
+
 """
 
 
@@ -6697,8 +6743,10 @@ updates = [
         (
             "Core document automation is operating through a tested production "
             "path. Deterministic filename policy and ambiguity-safe service "
-            "references are synthetic-tested, while unresolved business rules "
-            "and production naming remain open."
+            "references are synthetic-tested, and the configured authoritative "
+            "reference workbook passed live read-only refresh and cache safety "
+            "verification. Remaining filename business rules and production "
+            "naming remain open."
         ),
     ),
     (
@@ -6817,8 +6865,9 @@ updates = [
         (
             "The automatic mailbox-to-Smartsheet path completed one controlled "
             "production run. The deterministic filename policy and safe fallback "
-            "boundary are synthetic-tested but remain disabled pending unresolved "
-            "service-discriminator and other business rules."
+            "boundary are synthetic-tested, and the authoritative references passed "
+            "live read-only refresh. Production filename wiring remains disabled "
+            "pending unresolved renewal and state/notice date rules."
         ),
     ),
     (
@@ -6997,7 +7046,9 @@ updates = [
             "deterministic filename policy and guarded attachment fallback now "
             "have synthetic coverage; normal production callers still use the "
             "existing filename behavior. Ambiguous service reference keys now "
-            "remain unresolved without requiring workbook row collapse."
+            "remain unresolved without requiring workbook row collapse. The "
+            "configured authoritative workbook passed live metadata, download, "
+            "required-sheet, cache-reuse, and last-known-good verification."
         ),
     ),
     (

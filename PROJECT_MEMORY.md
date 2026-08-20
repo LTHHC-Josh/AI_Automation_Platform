@@ -153,6 +153,23 @@ row. Human review is a downstream exception workflow, not a write gate.
 
 ## Recent Tested Baseline
 
+Latest live SharePoint reference-workbook checkpoint:
+
+- The authoritative reference source is configured in the ignored local
+  configuration boundary; identifiers and source details remain protected.
+- Read-only Graph metadata lookup passed and returned a version token.
+- Workbook download passed. `PAYOR LISTING` and `SERVICES LISTING` loaded and
+  validated successfully; optional `DOCUMENT TYPES` is not present.
+- Legitimate multiple service naming results under one three-part key were
+  preserved and resolve as `ambiguous` with no selected value rather than
+  invalidating the workbook.
+- The ignored local cache refreshed, a second unchanged-version run reused the
+  cache without another refresh download, and malformed-refresh simulation
+  preserved the last-known-good cache.
+- No sanitized failure occurred. No mailbox document, OCR, Ollama, Smartsheet
+  write, production rename, or external AI operation occurred.
+- Production filename orchestration remains disabled.
+
 Latest ambiguity-safe service-reference checkpoint:
 
 - `SERVICES LISTING` retains its existing schema and three-part normalized key:
@@ -541,8 +558,8 @@ remains true.
 - The official `INBOUND RENEW` renewal token remains unresolved.
 - Single-date ownership for state communications/notices remains unresolved
   when multiple supported document dates exist.
-- The authoritative SharePoint reference drive/item values remain absent from
-  the ignored local configuration boundary.
+- The authoritative SharePoint reference source is configured only in the
+  ignored local configuration boundary and passed its live read-only refresh.
 - Production orchestration intentionally does not construct or pass filename
   policies until reference configuration and remaining business rules resolve.
 - The legitimate service conflicts cannot resolve automatically until the
@@ -644,7 +661,10 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Rerun the PHI-safe live reference refresh against the unchanged authoritative
-workbook and verify ambiguous service lookups, unchanged-version cache reuse,
-and last-known-good protection. Keep production filename wiring disabled while
-the source-document priority rule remains unresolved.
+Resolve the remaining filename business rules before production filename wiring,
+specifically:
+
+- official renewal workflow naming token
+- deterministic ownership/source evidence for single-date state communication/notice naming
+
+Do not guess either rule.
