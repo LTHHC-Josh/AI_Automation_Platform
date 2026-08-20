@@ -146,12 +146,34 @@ row. Human review is a downstream exception workflow, not a write gate.
   workflow dimensions, supported single/range dates, no timestamp, and a
   guarded attachment boundary that remains inactive for normal production
   callers.
+- A clarified 2067 filename boundary where 2067 is only a document/form type;
+  workflow/context is a separate optional supported-reference dimension that
+  may coexist with 2067 without being inferred from it.
 - Ambiguity-safe business service references keyed by HCPCS/bill code,
   modifier, and program. Multiple distinct naming results may coexist under
   one key, but lookup remains unresolved rather than using description or
   inferring an unsupported discriminator.
 
 ## Recent Tested Baseline
+
+Latest 2067 document/workflow separation checkpoint:
+
+- 2067 remains a document/form token and does not imply INIT, INBOUND RENEW,
+  client status, or any other workflow/context.
+- A resolved workflow reference may coexist independently with 2067. The
+  policy accepts future supported values without a fixed two-choice list.
+- A 2067 with no supported workflow omits that dimension. An explicitly
+  unresolved or ambiguous workflow remains blocked with naming review rather
+  than guessed.
+- Existing independently supported authorization-initial naming may coexist
+  with 2067. Authorization-renewal naming remains separate and does not inherit
+  INBOUND RENEW.
+- Production filename orchestration remains disabled.
+- Focused synthetic deterministic tests: 20 passed, 0 failed.
+- Affected synthetic deterministic/mock regressions: 36 passed, 0 failed.
+- Both modified Python services compiled; `git diff --check` passed.
+- No mailbox document, OCR, Ollama, patient data, Smartsheet write, production
+  rename, external AI, or protected-data operation occurred.
 
 Latest live SharePoint reference-workbook checkpoint:
 
@@ -555,7 +577,10 @@ remains true.
   document has not yet run.
 - The first true single-item production-path run completed successfully. No
   additional production item has been authorized for testing.
-- The official `INBOUND RENEW` renewal token remains unresolved.
+- INBOUND RENEW is confirmed only as an explicitly supported 2067
+  workflow/context value; it is not an authorization-renewal naming token.
+- The deterministic filename token/rule for actual authorization-renewal
+  documents remains unresolved. `RENEW AUTH` is not hard-coded.
 - Single-date ownership for state communications/notices remains unresolved
   when multiple supported document dates exist.
 - The authoritative SharePoint reference source is configured only in the
@@ -664,7 +689,7 @@ When the operator says `end of day`:
 Resolve the remaining filename business rules before production filename wiring,
 specifically:
 
-- official renewal workflow naming token
+- official naming token/rule for actual authorization-renewal documents
 - deterministic ownership/source evidence for single-date state communication/notice naming
 
 Do not guess either rule.

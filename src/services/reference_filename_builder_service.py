@@ -10,7 +10,9 @@ class FilenameCompositionPolicy:
         "person_name", "payer_token", "service_token", "form_type_token",
         "workflow_type_token", "date_token",
     )
-    optional_components: tuple[str, ...] = ("service_token", "form_type_token")
+    optional_components: tuple[str, ...] = (
+        "service_token", "form_type_token", "workflow_type_token",
+    )
 
 
 @dataclass(frozen=True)

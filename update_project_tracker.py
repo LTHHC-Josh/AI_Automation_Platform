@@ -6729,6 +6729,65 @@ specifically:
 
 Do not guess either rule.
 
+
+------------------------------------------------------------
+2067 DOCUMENT TYPE / WORKFLOW SEPARATION - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Clarified 2067 as a document/form type only, separate from optional
+  workflow/context.
+- Added an explicit resolved-reference workflow input. A 2067 can coexist with
+  supported INBOUND RENEW, INIT, or a future supported workflow value without
+  a fixed two-choice list.
+- A 2067 with no supported workflow omits workflow without guessing. An
+  explicitly unresolved or ambiguous workflow blocks final naming with review.
+- Preserved the independently supported authorization-initial rule, including
+  coexistence with 2067.
+- Kept actual authorization-renewal naming separate: renewal does not inherit
+  INBOUND RENEW, and RENEW AUTH was not hard-coded.
+- Kept production filename orchestration disabled.
+
+Files changed:
+
+- src/services/filename_policy_service.py
+- src/services/reference_filename_builder_service.py
+- tests/test_filename_policy_service.py
+- tests/test_reference_filename_builder.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Initial focused run: compilation passed; filename policy stopped at 1 failed
+  assertion because the optional-2067 branch preceded the existing independent
+  authorization-initial rule. The smallest ordering correction was applied.
+- Final focused synthetic deterministic: 20 passed, 0 failed.
+- Affected attachment/reference/Smartsheet/mailbox synthetic deterministic and
+  mock regressions: 36 passed, 0 failed.
+- Both modified Python services compiled successfully.
+- git diff --check passed.
+
+PHI and integration safety:
+
+- Synthetic values and local synthetic file bytes only.
+- No protected data, OCR text, source_text, patient value, protected filename or
+  path, payload, external identifier, credential, token, or workbook content
+  was accessed or exposed.
+- No mailbox processing, OCR, Ollama, Graph, Smartsheet external call, real file
+  rename, production filename wiring, or external AI operation occurred.
+
+Limitations and exact next starting point:
+
+- INBOUND RENEW is supported only when supplied as approved 2067
+  workflow/context; it is not an authorization-renewal naming rule.
+- The official naming token/rule for actual authorization-renewal documents and
+  deterministic single-date ownership for state communications/notices remain
+  unresolved.
+- Resolve those two rules without guessing before enabling production filename
+  wiring.
+
 """
 
 
@@ -6745,8 +6804,9 @@ updates = [
             "path. Deterministic filename policy and ambiguity-safe service "
             "references are synthetic-tested, and the configured authoritative "
             "reference workbook passed live read-only refresh and cache safety "
-            "verification. Remaining filename business rules and production "
-            "naming remain open."
+            "verification. The 2067 document type is now separated from optional "
+            "supported workflow context. Remaining filename business rules and "
+            "production naming remain open."
         ),
     ),
     (
@@ -6866,8 +6926,9 @@ updates = [
             "The automatic mailbox-to-Smartsheet path completed one controlled "
             "production run. The deterministic filename policy and safe fallback "
             "boundary are synthetic-tested, and the authoritative references passed "
-            "live read-only refresh. Production filename wiring remains disabled "
-            "pending unresolved renewal and state/notice date rules."
+            "live read-only refresh. The 2067 document/workflow separation is "
+            "synthetic-tested. Production filename wiring remains disabled pending "
+            "actual authorization-renewal naming and state/notice date rules."
         ),
     ),
     (
@@ -7049,6 +7110,9 @@ updates = [
             "remain unresolved without requiring workbook row collapse. The "
             "configured authoritative workbook passed live metadata, download, "
             "required-sheet, cache-reuse, and last-known-good verification."
+            " The filename boundary now treats 2067 as a document/form type and "
+            "accepts only independently supported optional workflow context without "
+            "inferring client status or renewal meaning."
         ),
     ),
     (

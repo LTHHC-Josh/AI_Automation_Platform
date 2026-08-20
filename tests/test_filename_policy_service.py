@@ -77,6 +77,74 @@ def test_2067_form_and_initial_workflow_coexist():
     assert "_2067_AUTH INIT_" in result.filename
 
 
+def test_2067_accepts_explicitly_supported_inbound_renew_workflow():
+    result = FilenamePolicyService().resolve(
+        request(
+            form_type="2067",
+            workflow_lookup=resolved("INBOUND RENEW"),
+            document_category="formal_communication",
+            document_subtype=None,
+        )
+    )
+    assert result.complete is True
+    assert "_2067_INBOUND RENEW_" in result.filename
+
+
+def test_2067_accepts_explicitly_supported_init_workflow():
+    result = FilenamePolicyService().resolve(
+        request(
+            form_type="2067",
+            workflow_lookup=resolved("INIT"),
+            document_category="formal_communication",
+            document_subtype=None,
+        )
+    )
+    assert result.complete is True
+    assert "_2067_INIT_" in result.filename
+
+
+def test_2067_without_supported_workflow_omits_it_without_guessing():
+    result = FilenamePolicyService().resolve(
+        request(
+            form_type="2067",
+            workflow_lookup=None,
+            document_category="formal_communication",
+            document_subtype=None,
+        )
+    )
+    assert result.complete is True
+    assert "_2067_" in result.filename
+    assert "AUTH INIT" not in result.filename
+    assert "INBOUND RENEW" not in result.filename
+
+
+def test_2067_accepts_future_supported_workflow_without_fixed_choice_list():
+    result = FilenamePolicyService().resolve(
+        request(
+            form_type="2067",
+            workflow_lookup=resolved("FUTURE SUPPORTED WORKFLOW"),
+            document_category="formal_communication",
+            document_subtype=None,
+        )
+    )
+    assert result.complete is True
+    assert "_2067_FUTURE SUPPORTED WORKFLOW_" in result.filename
+
+
+def test_2067_rejects_unresolved_workflow_instead_of_guessing():
+    result = FilenamePolicyService().resolve(
+        request(
+            form_type="2067",
+            workflow_lookup=unresolved("ambiguous"),
+            document_category="formal_communication",
+            document_subtype=None,
+        )
+    )
+    assert result.complete is False
+    assert result.filename is None
+    assert result.status == "workflow_token_unresolved"
+
+
 def test_exactly_one_supported_naming_date_uses_single_date():
     result = FilenamePolicyService().resolve(
         request(start_date=None, end_date=None, naming_dates=("2026-04-05",))
@@ -118,6 +186,27 @@ def test_renewal_token_remains_unresolved_and_blocks_final_name():
     assert result.complete is False
     assert result.filename is None
     assert result.status == "workflow_token_unresolved"
+
+
+def test_authorization_renewal_does_not_inherit_2067_workflow():
+    result = FilenamePolicyService().resolve(
+        request(
+            form_type=None,
+            workflow_lookup=None,
+            document_category="authorization",
+            document_subtype="renewal",
+        )
+    )
+    assert result.complete is False
+    assert result.filename is None
+    assert result.status == "workflow_token_unresolved"
+
+
+def test_document_type_and_workflow_are_separate_request_dimensions():
+    policy_fields = FilenamePolicyRequest.__dataclass_fields__
+    assert "form_type" in policy_fields
+    assert "workflow_lookup" in policy_fields
+    assert policy_fields["form_type"] is not policy_fields["workflow_lookup"]
 
 
 def test_only_pdf_source_receives_pdf_extension_without_conversion_claim():

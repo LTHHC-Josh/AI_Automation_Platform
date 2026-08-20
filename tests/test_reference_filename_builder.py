@@ -33,6 +33,32 @@ def test_unresolved_component_or_policy_blocks_final_name():
     assert unresolved_policy.success is False and unresolved_policy.filename is None
 
 
+def test_form_type_and_optional_workflow_are_independent_components():
+    service = ReferenceFilenameBuilderService()
+    without_workflow = service.build(
+        person_name="SYNTHETIC PERSON",
+        payer_token="SP",
+        form_type_token="2067",
+        workflow_type_token=None,
+        date_token="010126",
+        policy=FilenameCompositionPolicy(separator="_", extension=".pdf"),
+    )
+    with_workflow = service.build(
+        person_name="SYNTHETIC PERSON",
+        payer_token="SP",
+        form_type_token="2067",
+        workflow_type_token="SUPPORTED WORKFLOW",
+        date_token="010126",
+        policy=FilenameCompositionPolicy(separator="_", extension=".pdf"),
+    )
+    assert without_workflow.success is True
+    assert without_workflow.filename == "SYNTHETIC PERSON_SP_2067_010126.pdf"
+    assert with_workflow.success is True
+    assert with_workflow.filename == (
+        "SYNTHETIC PERSON_SP_2067_SUPPORTED WORKFLOW_010126.pdf"
+    )
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

@@ -18,6 +18,7 @@ class FilenamePolicyRequest:
     service_applicable: bool = False
     service_lookup: LookupResult | None = None
     form_type: Any = None
+    workflow_lookup: LookupResult | None = None
     document_category: Any = None
     document_subtype: Any = None
     start_date: Any = None
@@ -68,11 +69,14 @@ class FilenamePolicyService:
         form_token = self._form_token(request.form_type)
         if request.form_type is not None and form_token is None:
             return self._failure("form_type_unresolved")
-        workflow_token = self._workflow_token(
-            request.document_category, request.document_subtype
+        workflow_token, workflow_status = self._workflow_token(
+            request.workflow_lookup,
+            form_token=form_token,
+            category=request.document_category,
+            subtype=request.document_subtype,
         )
-        if workflow_token is None:
-            return self._failure("workflow_token_unresolved")
+        if workflow_status != "resolved":
+            return self._failure(workflow_status)
         date_token, date_status = self._date_token(request)
         if date_token is None:
             return self._failure(date_status)
@@ -117,13 +121,27 @@ class FilenamePolicyService:
         return cls.FORM_2067 if normalized == cls.FORM_2067 else None
 
     @classmethod
-    def _workflow_token(cls, category: Any, subtype: Any) -> str | None:
+    def _workflow_token(
+        cls,
+        workflow_lookup: Any,
+        *,
+        form_token: str | None,
+        category: Any,
+        subtype: Any,
+    ) -> tuple[str | None, str]:
+        if workflow_lookup is not None:
+            value = cls._reference_value(workflow_lookup)
+            if value is None:
+                return None, "workflow_token_unresolved"
+            return value, "resolved"
         if (
             str(category or "").strip().lower() == "authorization"
             and str(subtype or "").strip().lower() == "initial"
         ):
-            return cls.INITIAL_WORKFLOW_TOKEN
-        return None
+            return cls.INITIAL_WORKFLOW_TOKEN, "resolved"
+        if form_token == cls.FORM_2067:
+            return None, "resolved"
+        return None, "workflow_token_unresolved"
 
     @classmethod
     def _date_token(cls, request: FilenamePolicyRequest) -> tuple[str | None, str]:
