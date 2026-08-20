@@ -1,5 +1,6 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from src.ai.ocr.providers.paddle_ocr_provider import (
     PaddleOCRProvider,
@@ -83,6 +84,41 @@ def test_cache_only_hit_returns_cached_text_without_ocr():
         assert ocr.call_count == 0
 
 
+def test_provider_constructor_and_cache_only_hit_do_not_initialize_paddle():
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        source_path = root / "synthetic.pdf"
+        source_path.write_bytes(b"synthetic")
+
+        fingerprint = "d" * 64
+        cache_directory = root / "cache"
+        cache_directory.mkdir()
+        (cache_directory / f"{fingerprint}.txt").write_text(
+            "synthetic cached text",
+            encoding="utf-8",
+        )
+
+        with patch(
+            "src.ai.ocr.providers.paddle_ocr_provider.PaddleOCR",
+            side_effect=AssertionError(
+                "Paddle must not initialize for a cache-only hit."
+            ),
+        ) as paddle_constructor:
+            provider = PaddleOCRProvider()
+            provider.CACHE_DIRECTORY = cache_directory
+            provider.fingerprint_service = SuccessfulFingerprintService(
+                fingerprint
+            )
+
+            result = provider.extract_text(
+                source_path,
+                cache_only=True,
+            )
+
+        assert result == "synthetic cached text"
+        assert paddle_constructor.call_count == 0
+
+
 def test_cache_only_miss_never_falls_back_to_ocr():
     from src.ai.ocr.errors import (
         OCRCacheOnlyMissError,
@@ -120,6 +156,47 @@ def test_cache_only_miss_never_falls_back_to_ocr():
         assert ocr.call_count == 0
 
 
+def test_provider_constructor_and_cache_only_miss_do_not_initialize_paddle():
+    from src.ai.ocr.errors import (
+        OCRCacheOnlyMissError,
+    )
+
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        source_path = root / "synthetic.pdf"
+        source_path.write_bytes(b"synthetic")
+
+        fingerprint = "e" * 64
+        cache_directory = root / "cache"
+        cache_directory.mkdir()
+
+        with patch(
+            "src.ai.ocr.providers.paddle_ocr_provider.PaddleOCR",
+            side_effect=AssertionError(
+                "Paddle must not initialize for a cache-only miss."
+            ),
+        ) as paddle_constructor:
+            provider = PaddleOCRProvider()
+            provider.CACHE_DIRECTORY = cache_directory
+            provider.fingerprint_service = SuccessfulFingerprintService(
+                fingerprint
+            )
+
+            try:
+                provider.extract_text(
+                    source_path,
+                    cache_only=True,
+                )
+            except OCRCacheOnlyMissError:
+                pass
+            else:
+                raise AssertionError(
+                    "Expected cache-only miss to stop before Paddle."
+                )
+
+        assert paddle_constructor.call_count == 0
+
+
 def test_normal_mode_retains_existing_ocr_fallback():
     with TemporaryDirectory() as directory:
         root = Path(directory)
@@ -141,6 +218,36 @@ def test_normal_mode_retains_existing_ocr_fallback():
         )
 
         assert result == "synthetic OCR result"
+        assert ocr.call_count == 1
+
+
+def test_normal_cache_miss_initializes_paddle_for_prediction():
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        source_path = root / "synthetic.pdf"
+        source_path.write_bytes(b"synthetic")
+
+        fingerprint = "f" * 64
+        cache_directory = root / "cache"
+        cache_directory.mkdir()
+        ocr = RecordingOCR()
+
+        with patch(
+            "src.ai.ocr.providers.paddle_ocr_provider.PaddleOCR",
+            return_value=ocr,
+        ) as paddle_constructor:
+            provider = PaddleOCRProvider()
+            provider.CACHE_DIRECTORY = cache_directory
+            provider.fingerprint_service = SuccessfulFingerprintService(
+                fingerprint
+            )
+
+            result = provider.extract_text(
+                source_path
+            )
+
+        assert result == "synthetic OCR result"
+        assert paddle_constructor.call_count == 1
         assert ocr.call_count == 1
 
 

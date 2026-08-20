@@ -53,7 +53,12 @@ class PaddleOCRProvider(OCRProvider):
             DocumentFingerprintService()
         )
 
-        self.ocr = PaddleOCR(
+        self.ocr = None
+
+    def _create_ocr(self) -> PaddleOCR:
+        """Create the Paddle engine only when prediction is required."""
+
+        return PaddleOCR(
             lang="en",
             use_doc_orientation_classify=False,
             use_doc_unwarping=False,
@@ -149,6 +154,9 @@ class PaddleOCRProvider(OCRProvider):
             "No OCR cache found. Processing local document "
             "with PaddleOCR."
         )
+
+        if self.ocr is None:
+            self.ocr = self._create_ocr()
 
         try:
             results = self.ocr.predict(

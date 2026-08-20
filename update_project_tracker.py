@@ -186,8 +186,8 @@ OCR cache reuse was tested successfully.
 
 Privacy-safe cache logging was verified with a real local run.
 
-PaddleOCR model initialization still occurs when cached text is used,
-but actual OCR prediction is skipped.
+PaddleOCR model initialization is deferred until fresh prediction is required.
+Cached text reuse and cache-only misses do not initialize the Paddle engine.
 
 ------------------------------------------------------------
 LOCAL OLLAMA STATUS
@@ -6922,6 +6922,61 @@ Limitations and exact next starting point:
   writing files. Identify approved runtime workflow/qualifier context providers
   before any production filename wiring.
 
+
+------------------------------------------------------------
+CACHE-ONLY EVALUATOR LAZY PADDLE INITIALIZATION - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Changed PaddleOCRProvider to defer Paddle engine creation until a validated
+  document has no current or legacy cache result and fresh OCR prediction is
+  permitted.
+- Preserved OCRService, OCRFactory, DocumentProcessor, provider registration,
+  validation, shared fingerprinting, cache lookup/migration, cache-only miss,
+  prediction, cache write, and sanitized evaluator boundaries.
+- Added constructor-level synthetic proof that cache-only hits and misses do
+  not initialize Paddle, plus proof that a normal cache miss initializes
+  Paddle once when prediction is required.
+
+Files changed:
+
+- src/ai/ocr/providers/paddle_ocr_provider.py
+- tests/test_ocr_cache_only.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Modified production provider and focused test compiled successfully.
+- Cache-only OCR focused tests: 9 passed, 0 failed.
+- Paddle fingerprint integration: 3 passed, 0 failed.
+- Local evaluator: 18 passed, 0 failed.
+- DocumentProcessor: 18 passed, 0 failed.
+- Processor classification integration: 10 passed, 0 failed.
+- Combined synthetic deterministic/mock: 58 passed, 0 failed.
+- A PHI-safe synthetic constructor/cache-boundary probe constructed the
+  default DocumentProcessor, returned cached OCR in cache-only mode, observed
+  zero Paddle initializations, and made zero Ollama requests.
+
+PHI, compatibility, and limitations:
+
+- No protected document or cache content was processed or displayed. No real
+  Paddle prediction, Ollama request, Graph/mailbox, Smartsheet, filename
+  operation, production write, or external AI operation occurred.
+- Normal non-cache production callers remain unchanged and still initialize
+  Paddle when prediction is required after a cache miss.
+- The protected single-item evaluator has not yet been rerun.
+
+Exact next starting point:
+
+Run the explicitly authorized single-item cache-only local evaluator against
+the already selected protected document. Verify cached OCR is reached without
+Paddle initialization, then allow only approved local Ollama and protected
+local review. Do not fetch mailbox content, rerun OCR, write Smartsheet,
+rename files, enable production filename wiring, or use external AI. Return
+aggregate PHI-safe results only.
+
 """
 
 
@@ -7124,8 +7179,9 @@ updates = [
         "Completed",
         (
             "Implemented local PaddleOCR with SHA-256 hash-only caching, cache "
-            "reuse, privacy-safe logging, sanitized exceptions, and legacy "
-            "cache migration."
+            "reuse, privacy-safe logging, sanitized exceptions, legacy cache "
+            "migration, and lazy engine initialization only when prediction is "
+            "required after cache lookup."
         ),
     ),
     (
@@ -7141,7 +7197,8 @@ updates = [
         "Completed",
         (
             "Validated direct PaddleOCR, real scanned PDF OCR, cache creation, "
-            "cache reuse, and PHI-safe cache logging."
+            "cache reuse, PHI-safe cache logging, cache-only operation without "
+            "engine initialization, and normal cache-miss engine startup."
         ),
     ),
     (
@@ -7237,7 +7294,8 @@ updates = [
             "resume remains unavailable without safe persisted row state. The "
             "generic local evaluator now requires numeric selection, explicit "
             "Run Type and local execution authorization, enforces cache-only "
-            "OCR without fallback, suppresses nested output, and returns only "
+            "OCR without fallback or Paddle initialization, suppresses nested "
+            "output, and returns only "
             "aggregate metadata. The opt-in local Tkinter protected-review "
             "consumer now provides an in-memory source-document, field/evidence, "
             "service-line, and validation/review comparison surface while "

@@ -127,6 +127,9 @@ row. Human review is a downstream exception workflow, not a write gate.
   authorization, aggregate-only results, and sanitized failures.
 - Opt-in cache-only OCR enforcement that cannot silently fall through to
   PaddleOCR while normal production OCR behavior remains unchanged.
+- Lazy PaddleOCR engine initialization after validation, fingerprinting, and
+  cache lookup so cache hits and cache-only misses do not require the OCR
+  engine while normal cache-miss prediction still initializes it.
 - Opt-in synchronous Tkinter protected-review consumer that displays the
   source-document action, extracted fields and evidence, service lines, and
   validation/review context locally in memory while remaining excluded from
@@ -162,6 +165,26 @@ row. Human review is a downstream exception workflow, not a write gate.
   inferring an unsupported discriminator.
 
 ## Recent Tested Baseline
+
+Latest cache-only evaluator lazy-Paddle checkpoint:
+
+- `PaddleOCRProvider` construction now prepares only the protected cache and
+  fingerprint service. The Paddle engine remains uninitialized until a valid
+  document has no current or legacy cache result and fresh OCR prediction is
+  permitted.
+- Cache-only hits return the validated cached UTF-8 text without initializing
+  Paddle. Cache-only misses raise the existing sanitized cache-only error
+  without initializing Paddle or falling through to prediction.
+- Normal non-cache callers retain validation, shared fingerprinting, current
+  and legacy cache lookup/migration, and cache writes. Paddle initializes once
+  when a real cache miss requires prediction.
+- Focused and affected synthetic deterministic/mock tests: 58 passed, 0
+  failed. The modified production provider and tests compiled successfully.
+- A synthetic constructor/cache-boundary probe constructed the default
+  `DocumentProcessor`, reached cached OCR in cache-only mode, observed zero
+  Paddle initializations, and made zero Ollama requests.
+- No protected document, real OCR prediction, Ollama request, Graph/mailbox,
+  Smartsheet, filename operation, or external AI operation occurred.
 
 Latest validated filename-input boundary checkpoint:
 
@@ -696,6 +719,11 @@ Operator workflow:
 
 - Codex CLI is preferred for longer workspace runs.
 - Local completion and approval sound alerts are configured and verified.
+- Optimize Codex prompts for the smallest safe scope: inspect existing cache
+  and state first, and minimize repeated exploration and reruns.
+- Start a fresh Codex session only when it materially reduces stale context or
+  usage. When recommending one, provide the exact PowerShell `cd` and `codex`
+  commands needed to resume from the authoritative next start.
 - VS Code may remain open for file and diff viewing.
 
 ## Begin Day Procedure
@@ -756,8 +784,9 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Define the non-production filename-request assembly boundary that combines
-validated filename inputs with resolved payer/service references without
-renaming or writing files. Identify approved runtime providers for 2067
-workflow context and qualifier references, preserve future database-backed
-refinement, and keep ambiguous service-reference distinctions review-safe.
+Run the explicitly authorized single-item cache-only local evaluator against
+the already selected protected document. Confirm it reaches cached OCR without
+Paddle initialization, then permit only the approved local Ollama and local
+protected-review path. Do not fetch mailbox content, rerun OCR, write
+Smartsheet, rename files, enable production filename wiring, or use external
+AI. Return aggregate PHI-safe results only.
