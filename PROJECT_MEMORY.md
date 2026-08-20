@@ -149,12 +149,44 @@ row. Human review is a downstream exception workflow, not a write gate.
 - A clarified 2067 filename boundary where 2067 is only a document/form type;
   workflow/context is a separate optional supported-reference dimension that
   may coexist with 2067 without being inferred from it.
+- Confirmed deterministic filename rules for actual authorization renewals and
+  2067 communications: RENEW AUTH for the authorization document itself,
+  optional separately supported qualifiers, independently supported workflow
+  context for 2067, and Posted Date as the sole 2067 naming-date source.
 - Ambiguity-safe business service references keyed by HCPCS/bill code,
   modifier, and program. Multiple distinct naming results may coexist under
   one key, but lookup remains unresolved rather than using description or
   inferring an unsupported discriminator.
 
 ## Recent Tested Baseline
+
+Latest authorization-renewal and 2067 Posted Date checkpoint:
+
+- Actual authorization renewals deterministically use RENEW AUTH and never
+  inherit INBOUND AUTH merely because they are renewals.
+- A separately resolved qualifier such as NO CHANGE follows as its own
+  underscore-separated component. Missing qualifier input is omitted; an
+  explicitly unresolved qualifier blocks naming without inference, and a
+  qualifier cannot create or decorate a non-renewal workflow.
+- Historical local filename inspection found no existing NO CHANGE example,
+  so qualifier formatting follows the established uppercase token and
+  underscore-separated major-component policy rather than an invented legacy
+  exception.
+- 2067 remains only the form/document dimension. Independently supported
+  INBOUND AUTH or future database-backed workflow context may coexist with it;
+  INIT is not inferred from document content or client assumptions.
+- Every 2067 requires exactly one resolved Posted Date for naming. Authorization
+  start/end dates and other naming-date candidates are ignored for 2067.
+  Missing, unsupported, conflicting, or invalid Posted Date blocks naming and
+  requires review.
+- Non-2067 single/range date behavior and ambiguity-safe service-reference
+  behavior remain unchanged. Production filename orchestration remains
+  disabled.
+- Focused synthetic deterministic tests: 27 passed, 0 failed.
+- Affected synthetic deterministic/mock regressions: 61 passed, 0 failed.
+- Both modified Python services compiled successfully.
+- No mailbox document, OCR, Ollama, patient data, Smartsheet write, real rename,
+  Graph call, protected-data processing, or external AI operation occurred.
 
 Latest 2067 document/workflow separation checkpoint:
 
@@ -577,12 +609,13 @@ remains true.
   document has not yet run.
 - The first true single-item production-path run completed successfully. No
   additional production item has been authorized for testing.
-- INBOUND RENEW is confirmed only as an explicitly supported 2067
-  workflow/context value; it is not an authorization-renewal naming token.
-- The deterministic filename token/rule for actual authorization-renewal
-  documents remains unresolved. `RENEW AUTH` is not hard-coded.
-- Single-date ownership for state communications/notices remains unresolved
-  when multiple supported document dates exist.
+- Policy inputs for Posted Date, 2067 workflow context, and renewal qualifiers
+  are not yet constructed by production orchestration. Extraction and
+  deterministic validation do not yet expose a dedicated Posted Date field.
+- NO CHANGE must remain absent unless deterministic source evidence supports
+  it; no extraction or orchestration inference is implemented.
+- INIT versus renewal refinement for inbound 2067 activity requires future
+  internal client-system/database context and must not be inferred from 2067.
 - The authoritative SharePoint reference source is configured only in the
   ignored local configuration boundary and passed its live read-only refresh.
 - Production orchestration intentionally does not construct or pass filename
@@ -627,6 +660,12 @@ capacity expires, but never use Codex merely to consume credits.
 Codex work must preserve uncommitted changes, follow `AGENTS.md`, remain
 PHI-safe, and keep PHI/OCR/Ollama-sensitive data within approved local
 boundaries.
+
+Operator workflow:
+
+- Codex CLI is preferred for longer workspace runs.
+- Local completion and approval sound alerts are configured and verified.
+- VS Code may remain open for file and diff viewing.
 
 ## Begin Day Procedure
 
@@ -686,10 +725,8 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Resolve the remaining filename business rules before production filename wiring,
-specifically:
-
-- official naming token/rule for actual authorization-renewal documents
-- deterministic ownership/source evidence for single-date state communication/notice naming
-
-Do not guess either rule.
+Define the smallest validated source-field boundary for Posted Date, supported
+2067 workflow context, and optional renewal qualifiers before production
+filename wiring. Preserve future database-backed workflow refinement, keep
+ambiguous service-reference distinctions review-safe, and do not enable
+production filename generation until every required input is deterministic.

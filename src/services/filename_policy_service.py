@@ -19,8 +19,10 @@ class FilenamePolicyRequest:
     service_lookup: LookupResult | None = None
     form_type: Any = None
     workflow_lookup: LookupResult | None = None
+    qualifier_lookup: LookupResult | None = None
     document_category: Any = None
     document_subtype: Any = None
+    posted_date_lookup: LookupResult | None = None
     start_date: Any = None
     end_date: Any = None
     naming_dates: tuple[Any, ...] = ()
@@ -39,6 +41,7 @@ class FilenamePolicyService:
     """Resolve only filename rules confirmed by document evidence."""
 
     INITIAL_WORKFLOW_TOKEN = "AUTH INIT"
+    RENEWAL_WORKFLOW_TOKEN = "RENEW AUTH"
     FORM_2067 = "2067"
 
     def __init__(self, *, builder=None) -> None:
@@ -77,6 +80,12 @@ class FilenamePolicyService:
         )
         if workflow_status != "resolved":
             return self._failure(workflow_status)
+        qualifier_token, qualifier_status = self._qualifier_token(
+            request.qualifier_lookup,
+            workflow_token=workflow_token,
+        )
+        if qualifier_status != "resolved":
+            return self._failure(qualifier_status)
         date_token, date_status = self._date_token(request)
         if date_token is None:
             return self._failure(date_status)
@@ -87,6 +96,7 @@ class FilenamePolicyService:
             service_token=service_token,
             form_type_token=form_token,
             workflow_type_token=workflow_token,
+            qualifier_token=qualifier_token,
             date_token=date_token,
             policy=FilenameCompositionPolicy(),
         )
@@ -129,22 +139,49 @@ class FilenamePolicyService:
         category: Any,
         subtype: Any,
     ) -> tuple[str | None, str]:
+        normalized_category = str(category or "").strip().lower()
+        normalized_subtype = str(subtype or "").strip().lower()
+        if normalized_category == "authorization":
+            if normalized_subtype == "initial":
+                return cls.INITIAL_WORKFLOW_TOKEN, "resolved"
+            if normalized_subtype == "renewal":
+                return cls.RENEWAL_WORKFLOW_TOKEN, "resolved"
         if workflow_lookup is not None:
             value = cls._reference_value(workflow_lookup)
             if value is None:
                 return None, "workflow_token_unresolved"
             return value, "resolved"
-        if (
-            str(category or "").strip().lower() == "authorization"
-            and str(subtype or "").strip().lower() == "initial"
-        ):
-            return cls.INITIAL_WORKFLOW_TOKEN, "resolved"
         if form_token == cls.FORM_2067:
             return None, "resolved"
         return None, "workflow_token_unresolved"
 
     @classmethod
+    def _qualifier_token(
+        cls,
+        qualifier_lookup: Any,
+        *,
+        workflow_token: str | None,
+    ) -> tuple[str | None, str]:
+        if qualifier_lookup is None:
+            return None, "resolved"
+        if workflow_token != cls.RENEWAL_WORKFLOW_TOKEN:
+            return None, "qualifier_not_applicable"
+        value = cls._reference_value(qualifier_lookup)
+        if value is None:
+            return None, "qualifier_token_unresolved"
+        return value, "resolved"
+
+    @classmethod
     def _date_token(cls, request: FilenamePolicyRequest) -> tuple[str | None, str]:
+        if cls._form_token(request.form_type) == cls.FORM_2067:
+            posted_date = cls._reference_value(request.posted_date_lookup)
+            if posted_date is None:
+                return None, "posted_date_unresolved"
+            formatted = cls._format_date(posted_date)
+            if formatted is None:
+                return None, "posted_date_invalid"
+            return formatted, "resolved"
+
         start_present = bool(str(request.start_date or "").strip())
         end_present = bool(str(request.end_date or "").strip())
         if start_present and end_present:

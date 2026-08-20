@@ -59,6 +59,22 @@ def test_form_type_and_optional_workflow_are_independent_components():
     )
 
 
+def test_supported_qualifier_is_a_separate_optional_component():
+    service = ReferenceFilenameBuilderService()
+    result = service.build(
+        person_name="SYNTHETIC PERSON",
+        payer_token="SP",
+        workflow_type_token="RENEW AUTH",
+        qualifier_token="NO CHANGE",
+        date_token="010126-020126",
+        policy=FilenameCompositionPolicy(separator="_", extension=".pdf"),
+    )
+    assert result.success is True
+    assert result.filename == (
+        "SYNTHETIC PERSON_SP_RENEW AUTH_NO CHANGE_010126-020126.pdf"
+    )
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

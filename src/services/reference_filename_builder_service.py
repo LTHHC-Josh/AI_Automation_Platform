@@ -8,10 +8,11 @@ class FilenameCompositionPolicy:
     extension: str = ".pdf"
     component_order: tuple[str, ...] = (
         "person_name", "payer_token", "service_token", "form_type_token",
-        "workflow_type_token", "date_token",
+        "workflow_type_token", "qualifier_token", "date_token",
     )
     optional_components: tuple[str, ...] = (
         "service_token", "form_type_token", "workflow_type_token",
+        "qualifier_token",
     )
 
 
@@ -27,13 +28,14 @@ class ReferenceFilenameBuilderService:
     """Compose resolved filename components without logging their values."""
     COMPONENTS = {
         "person_name", "payer_token", "service_token", "form_type_token",
-        "workflow_type_token", "date_token",
+        "workflow_type_token", "qualifier_token", "date_token",
     }
 
     def build(
         self, *, person_name: Any, payer_token: Any, service_token: Any = None,
         form_type_token: Any = None, workflow_type_token: Any = None,
-        date_token: Any, policy: FilenameCompositionPolicy | None = None,
+        qualifier_token: Any = None, date_token: Any,
+        policy: FilenameCompositionPolicy | None = None,
         document_type_token: Any = None,
     ) -> ReferenceFilenameResult:
         if not isinstance(policy, FilenameCompositionPolicy):
@@ -49,7 +51,7 @@ class ReferenceFilenameBuilderService:
         values = {name: str(value or "").strip() for name, value in {
             "person_name": person_name, "payer_token": payer_token, "service_token": service_token,
             "form_type_token": form_type_token, "workflow_type_token": workflow_value,
-            "date_token": date_token,
+            "qualifier_token": qualifier_token, "date_token": date_token,
         }.items()}
         if any(not values[name] for name in self.COMPONENTS - optional):
             return self._failure("component_unresolved")

@@ -6788,6 +6788,74 @@ Limitations and exact next starting point:
 - Resolve those two rules without guessing before enabling production filename
   wiring.
 
+
+------------------------------------------------------------
+AUTHORIZATION RENEWAL / 2067 POSTED DATE POLICY - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Encoded the owner-confirmed RENEW AUTH token for actual authorization
+  renewals without reusing 2067 workflow context.
+- Added a separate optional supported qualifier dimension. NO CHANGE may
+  follow RENEW AUTH only when supplied as a resolved input; it is never used
+  to infer renewal, cannot decorate a non-renewal workflow, and is never
+  guessed when missing or unresolved.
+- Inspected historical local filename structure without displaying filenames.
+  No existing NO CHANGE filename example was available. Qualifier formatting
+  therefore follows the established uppercase token and underscore-separated
+  major-component grammar.
+- Preserved 2067 as a form/document dimension separate from workflow.
+  Independently supported INBOUND AUTH and future database-backed workflow
+  values may coexist with it. INIT is not inferred from the 2067 or client
+  assumptions.
+- Added a dedicated resolved Posted Date policy input. A 2067 uses only that
+  value for its single naming date; authorization start/end dates and other
+  candidates cannot override it. Missing, unsupported, conflicting, or invalid
+  Posted Date blocks deterministic naming with review.
+- Kept non-2067 date handling, ambiguous service-reference behavior, guarded
+  attachment fallback, and disabled production filename orchestration
+  unchanged.
+
+Files changed:
+
+- src/services/filename_policy_service.py
+- src/services/reference_filename_builder_service.py
+- tests/test_filename_policy_service.py
+- tests/test_reference_filename_builder.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Both modified Python services compiled successfully.
+- Focused synthetic deterministic: 27 passed, 0 failed.
+- Affected synthetic deterministic/mock regressions: 61 passed, 0 failed.
+- Combined: 88 passed, 0 failed.
+
+PHI and integration safety:
+
+- Tests used synthetic values, mocked integrations, and synthetic local bytes.
+- Historical filename inspection returned aggregate token-pattern counts only;
+  no protected filename, path, patient value, OCR text, source_text, document
+  content, payload, identifier, credential, or token was displayed or stored.
+- No mailbox processing, OCR, Ollama, Graph, Smartsheet external call, real
+  file rename, production filename wiring, protected-data processing, or
+  external AI operation occurred.
+
+Limitations and exact next starting point:
+
+- Production orchestration does not yet construct Posted Date, 2067 workflow,
+  or renewal qualifier policy inputs. Extraction and deterministic validation
+  do not expose a dedicated Posted Date field.
+- INIT versus renewal refinement for inbound 2067 activity requires future
+  internal client-system/database context.
+- Define the smallest validated source-field boundary for Posted Date,
+  supported 2067 workflow context, and optional renewal qualifiers before
+  production filename wiring. Keep ambiguous service-reference distinctions
+  review-safe and do not enable production filename generation until all
+  required inputs are deterministic.
+
 """
 
 
@@ -6926,9 +6994,10 @@ updates = [
             "The automatic mailbox-to-Smartsheet path completed one controlled "
             "production run. The deterministic filename policy and safe fallback "
             "boundary are synthetic-tested, and the authoritative references passed "
-            "live read-only refresh. The 2067 document/workflow separation is "
+            "live read-only refresh. RENEW AUTH, optional supported qualifiers, 2067 "
+            "INBOUND AUTH context, and Posted Date-only 2067 naming are now "
             "synthetic-tested. Production filename wiring remains disabled pending "
-            "actual authorization-renewal naming and state/notice date rules."
+            "validated source-field and orchestration inputs."
         ),
     ),
     (
@@ -7112,7 +7181,10 @@ updates = [
             "required-sheet, cache-reuse, and last-known-good verification."
             " The filename boundary now treats 2067 as a document/form type and "
             "accepts only independently supported optional workflow context without "
-            "inferring client status or renewal meaning."
+            "inferring client status or renewal meaning. Actual authorization "
+            "renewals use RENEW AUTH, supported qualifiers remain separate, and "
+            "2067 naming requires a resolved Posted Date while production filename "
+            "wiring remains disabled."
         ),
     ),
     (
