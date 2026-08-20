@@ -198,6 +198,7 @@ def test_existing_evaluator_opt_in_reuses_selected_processed_document():
         service = LocalDocumentEvaluationService(
             document_directory=root,
             processor_factory=lambda: processor,
+            selection_snapshot_path=root / "selection.json",
             execution_classification=LocalEvaluationExecutionClassification.SYNTHETIC_MOCK,
             learning_analysis_factory=lambda supplied, _: (
                 structural_analysis() if supplied is document else None
@@ -244,6 +245,7 @@ def test_learning_failure_is_sanitized():
         service = LocalDocumentEvaluationService(
             document_directory=root,
             processor_factory=lambda: Processor(build_document(path)),
+            selection_snapshot_path=root / "selection.json",
             learning_analysis_factory=lambda *_: (_ for _ in ()).throw(
                 RuntimeError(PROTECTED_MARKER)
             ),

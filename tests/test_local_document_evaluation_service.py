@@ -149,6 +149,7 @@ def evaluate_with_synthetic_document(
     service = LocalDocumentEvaluationService(
         document_directory=root,
         processor_factory=lambda: processor,
+        selection_snapshot_path=root / "selection.json",
         execution_classification=(
             LocalEvaluationExecutionClassification.SYNTHETIC_MOCK
         ),
@@ -386,6 +387,7 @@ def test_raw_provider_exception_is_sanitized_without_context():
         service = LocalDocumentEvaluationService(
             document_directory=root,
             processor_factory=lambda: processor,
+            selection_snapshot_path=root / "selection.json",
             execution_classification=(
                 LocalEvaluationExecutionClassification.SYNTHETIC_MOCK
             ),
@@ -776,5 +778,156 @@ def test_cli_list_mode_requires_no_evaluation_arguments_or_processor():
     rendered = stdout.getvalue()
     assert calls == [("constructed", {}), ("listed", None)]
     assert PROTECTED_MARKER not in rendered
-    assert "index" in rendered
-    assert "cached_ocr_available" in rendered
+    assert "Available Documents" in rendered
+    assert "Index" in rendered
+    assert "Relative Order" in rendered
+    assert "Cached OCR" in rendered
+    assert "newest" in rendered
+    assert "PDF" in rendered
+    assert "Yes" in rendered
+    assert not rendered.lstrip().startswith("{")
+
+
+def test_cli_list_json_preserves_structured_safe_output():
+    from unittest.mock import patch
+
+    from scripts import evaluate_local_document
+
+    class SafeListResult:
+        success = True
+
+        @staticmethod
+        def to_safe_dict():
+            return {
+                "success": True,
+                "failure_category": None,
+                "candidate_count": 1,
+                "documents": [
+                    {
+                        "index": 1,
+                        "relative_order": "newest",
+                        "file_type": "pdf",
+                        "cached_ocr_available": True,
+                    }
+                ],
+            }
+
+    class FakeService:
+        normalize_run_type = staticmethod(
+            evaluate_local_document.LocalDocumentEvaluationService
+            .normalize_run_type
+        )
+
+        def __init__(self, **arguments):
+            pass
+
+        def list_documents(self):
+            return SafeListResult()
+
+        def evaluate(self, **arguments):
+            raise AssertionError("Evaluation must not run in list mode.")
+
+    stdout = io.StringIO()
+    with patch.object(
+        evaluate_local_document,
+        "LocalDocumentEvaluationService",
+        FakeService,
+    ), patch(
+        "sys.argv",
+        ["evaluate_local_document.py", "--list-documents", "--json"],
+    ), contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(
+        io.StringIO()
+    ):
+        evaluate_local_document.main()
+
+    parsed = __import__("json").loads(stdout.getvalue())
+    assert parsed == SafeListResult.to_safe_dict()
+    assert PROTECTED_MARKER not in stdout.getvalue()
+
+
+def test_cli_learning_report_defaults_to_safe_sectioned_text_and_json_is_exact():
+    from unittest.mock import patch
+
+    from scripts import evaluate_local_document
+
+    safe_mapping = {
+        "run_type": "Synthetic Learning",
+        "success": True,
+        "learning_report_status": "completed",
+        "learning_report": {
+            "document_structure": {
+                "document_form_type": "communication_form",
+                "page_count": 2,
+            },
+            "field_inventory": [
+                {
+                    "field_name": "posted_date",
+                    "support_status": "supported",
+                    "evidence_available": True,
+                }
+            ],
+            "review_quality": {
+                "review_required": True,
+                "selected_attempt": 1,
+            },
+            "protected_values_suppressed": True,
+        },
+    }
+
+    class SafeEvaluationResult:
+        success = True
+
+        @staticmethod
+        def to_safe_dict():
+            return safe_mapping
+
+    class FakeService:
+        normalize_run_type = staticmethod(
+            evaluate_local_document.LocalDocumentEvaluationService
+            .normalize_run_type
+        )
+
+        def __init__(self, **arguments):
+            pass
+
+        def evaluate(self, **arguments):
+            return SafeEvaluationResult()
+
+    base_arguments = [
+        "evaluate_local_document.py",
+        "--document-index",
+        "1",
+        "--run-type",
+        "Synthetic Learning",
+        "--authorize-cached-ocr-access",
+        "--authorize-local-ollama",
+        "--learning-report",
+    ]
+
+    def run(arguments):
+        stdout = io.StringIO()
+        with patch.object(
+            evaluate_local_document,
+            "LocalDocumentEvaluationService",
+            FakeService,
+        ), patch("sys.argv", arguments), contextlib.redirect_stdout(
+            stdout
+        ), contextlib.redirect_stderr(io.StringIO()):
+            evaluate_local_document.main()
+        return stdout.getvalue()
+
+    text_output = run(base_arguments)
+    assert "Document Learning Analysis" in text_output
+    assert "Evaluation Summary" in text_output
+    assert "Learning Report" in text_output
+    assert "Document Structure" in text_output
+    assert "Field Inventory" in text_output
+    assert "Review Quality" in text_output
+    assert "posted_date" in text_output
+    assert "Support Status: supported" in text_output
+    assert PROTECTED_MARKER not in text_output
+    assert not text_output.lstrip().startswith("{")
+
+    json_output = run([*base_arguments, "--json"])
+    assert __import__("json").loads(json_output) == safe_mapping
+    assert PROTECTED_MARKER not in json_output
