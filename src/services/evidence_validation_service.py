@@ -33,6 +33,7 @@ class EvidenceValidationService:
     DATE_FIELDS = {
         "start_date",
         "end_date",
+        "posted_date",
         "member_dob",
     }
 
@@ -52,6 +53,8 @@ class EvidenceValidationService:
         "approved_visits",
         "start_date",
         "end_date",
+        "posted_date",
+        "renewal_qualifier",
         "member_dob",
         "provider_npi",
         "diagnosis_code",
@@ -145,6 +148,16 @@ class EvidenceValidationService:
                 field_name=field_name,
                 actions=actions,
             )
+
+        self._validate_posted_date_ownership(
+            document=document,
+            actions=actions,
+        )
+
+        self._validate_renewal_qualifier(
+            document=document,
+            actions=actions,
+        )
 
         for field_name in self.LIST_FIELDS:
             self._deduplicate_list_field(
@@ -370,6 +383,76 @@ class EvidenceValidationService:
             return
 
         evidence["value"] = normalized_date
+
+    def _validate_posted_date_ownership(
+        self,
+        document: Document,
+        actions: list[str],
+    ) -> None:
+        evidence = document.field_evidence.get("posted_date")
+        if not isinstance(evidence, dict) or evidence.get("value") is None:
+            return
+
+        normalized_date = str(evidence.get("value") or "").strip()
+        source_text = str(evidence.get("source_text") or "")
+        supported = False
+        pattern = re.compile(
+            r"\bposted\s+date\b\s*[:#-]?\s*"
+            r"(\d{1,2}[/-]\d{1,2}[/-]\d{4}|\d{4}-\d{2}-\d{2})",
+            re.IGNORECASE,
+        )
+        for match in pattern.finditer(source_text):
+            if self._parse_date(match.group(1)) == normalized_date:
+                supported = True
+                break
+
+        if not supported:
+            self._invalidate_field(
+                document=document,
+                field_name="posted_date",
+                reason="posted_date lacks explicit Posted Date evidence",
+                actions=actions,
+            )
+
+    def _validate_renewal_qualifier(
+        self,
+        document: Document,
+        actions: list[str],
+    ) -> None:
+        evidence = document.field_evidence.get("renewal_qualifier")
+        if not isinstance(evidence, dict):
+            return
+        value = evidence.get("value")
+        if value is None:
+            return
+        if isinstance(value, list):
+            self._invalidate_field(
+                document=document,
+                field_name="renewal_qualifier",
+                reason="renewal_qualifier contains multiple values",
+                actions=actions,
+            )
+            return
+
+        normalized = " ".join(str(value).strip().upper().split())
+        source_text = str(evidence.get("source_text") or "")
+        if not normalized or re.search(
+            r"\brenewal\s+qualifier\b\s*[:#-]?\s*"
+            + re.escape(normalized)
+            + r"(?=\s|$|[.,;])",
+            source_text,
+            re.IGNORECASE,
+        ) is None:
+            self._invalidate_field(
+                document=document,
+                field_name="renewal_qualifier",
+                reason=(
+                    "renewal_qualifier lacks explicit qualifier evidence"
+                ),
+                actions=actions,
+            )
+            return
+        evidence["value"] = normalized
 
     def _validate_structured_source_support(
         self,

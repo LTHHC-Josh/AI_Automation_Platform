@@ -6856,6 +6856,72 @@ Limitations and exact next starting point:
   review-safe and do not enable production filename generation until all
   required inputs are deterministic.
 
+
+------------------------------------------------------------
+VALIDATED FILENAME INPUT BOUNDARY - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Added dedicated posted_date and renewal_qualifier fields to the existing
+  value/confidence/source_text extraction contract instead of overloading
+  authorization start/end dates.
+- Added prompt constraints prohibiting Posted Date inference from other dates,
+  document position, or filename and prohibiting qualifier inference from
+  quantities, unchanged-looking hours, filenames, or generic wording.
+- Extended deterministic evidence validation so Posted Date requires an
+  explicit matching Posted Date label and renewal qualifiers require explicit
+  matching qualifier evidence. Invalidated values become null with zero
+  confidence while source_text remains preserved for authorized local review.
+- Added a separate validated filename-input service. It preserves field
+  confidence and source evidence internally but exposes only resolved lookup
+  values to filename policy.
+- Accepted 2067 workflow context only as an explicit resolved business-context
+  lookup. The service never derives workflow from 2067, classification subtype,
+  document content, filename, or client-existence assumptions and remains open
+  to future approved database-backed values.
+- Required an independently approved matching qualifier reference in addition
+  to deterministic source evidence. A qualifier cannot infer renewal, and
+  missing, unsupported, ambiguous, conflicting, mismatched, or non-applicable
+  claims remain unresolved/review-safe.
+- Kept production filename construction, attachment naming, file renaming,
+  mailbox processing, and external writes disconnected and unchanged.
+
+Files changed:
+
+- src/ai/llm/providers/ollama_provider.py
+- src/services/evidence_validation_service.py
+- src/services/filename_validated_input_service.py
+- tests/test_filename_validated_input_service.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Three production Python modules and the focused test compiled successfully.
+- Focused synthetic deterministic: 80 passed, 0 failed.
+- Affected synthetic deterministic/mock regressions: 164 passed, 0 failed.
+
+PHI and integration safety:
+
+- Tests used synthetic evidence and mocked/local-only boundaries. Evidence
+  values and source_text were not printed.
+- No mailbox document, OCR, Ollama request, Graph call, Smartsheet external
+  write, real file rename, protected-data processing, production filename
+  generation, or external AI operation occurred.
+
+Limitations and exact next starting point:
+
+- Production orchestration does not construct or consume validated filename
+  inputs. No approved runtime provider yet supplies 2067 workflow context or
+  supported qualifier reference values.
+- Ambiguous service-reference distinctions still lack an approved source-
+  document discriminator and remain unresolved.
+- Define a non-production filename-request assembly boundary combining
+  validated inputs with resolved payer/service references without renaming or
+  writing files. Identify approved runtime workflow/qualifier context providers
+  before any production filename wiring.
+
 """
 
 
@@ -6996,8 +7062,9 @@ updates = [
             "boundary are synthetic-tested, and the authoritative references passed "
             "live read-only refresh. RENEW AUTH, optional supported qualifiers, 2067 "
             "INBOUND AUTH context, and Posted Date-only 2067 naming are now "
-            "synthetic-tested. Production filename wiring remains disabled pending "
-            "validated source-field and orchestration inputs."
+            "synthetic-tested. A separate validated-input boundary now requires "
+            "dedicated evidence and approved context. Production filename wiring "
+            "remains disabled pending assembly and runtime context providers."
         ),
     ),
     (
@@ -7106,7 +7173,10 @@ updates = [
             "routing, and one controlled retry with a generic verification "
             "prompt. A controlled real authorization run triggered validated "
             "retry, selected attempt 2, and recovered supported service-line "
-            "structure while unsupported values remained cleared."
+            "structure while unsupported values remained cleared. Dedicated Posted "
+            "Date and renewal-qualifier evidence fields now use the same preserved "
+            "value/confidence/source_text contract with strict no-inference prompt "
+            "guidance."
         ),
     ),
     (
@@ -7118,7 +7188,9 @@ updates = [
             "supported candidate is selected and ambiguity remains routed to "
             "human review. Quantity reconciliation was verified to remain "
             "within one independently validated candidate without inference "
-            "or attempt merging."
+            "or attempt merging. Filename-specific validation now requires explicit "
+            "Posted Date and qualifier ownership evidence and rejects ambiguity or "
+            "unsupported claims without changing existing authorization validation."
         ),
     ),
     (
@@ -7184,7 +7256,9 @@ updates = [
             "inferring client status or renewal meaning. Actual authorization "
             "renewals use RENEW AUTH, supported qualifiers remain separate, and "
             "2067 naming requires a resolved Posted Date while production filename "
-            "wiring remains disabled."
+            "wiring remains disabled. A separate validated-input boundary now "
+            "preserves dedicated evidence and accepts only explicit approved 2067 "
+            "workflow context; it is not connected to production callers."
         ),
     ),
     (

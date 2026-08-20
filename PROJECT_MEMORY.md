@@ -153,12 +153,42 @@ row. Human review is a downstream exception workflow, not a write gate.
   2067 communications: RENEW AUTH for the authorization document itself,
   optional separately supported qualifiers, independently supported workflow
   context for 2067, and Posted Date as the sole 2067 naming-date source.
+- A validated filename-input boundary that preserves dedicated Posted Date and
+  renewal-qualifier evidence while exposing only resolved values plus explicit
+  approved 2067 business context to filename policy.
 - Ambiguity-safe business service references keyed by HCPCS/bill code,
   modifier, and program. Multiple distinct naming results may coexist under
   one key, but lookup remains unresolved rather than using description or
   inferring an unsupported discriminator.
 
 ## Recent Tested Baseline
+
+Latest validated filename-input boundary checkpoint:
+
+- Added dedicated `posted_date` and `renewal_qualifier` fields to the existing
+  value/confidence/source-text extraction contract. Authorization start/end
+  dates remain separate and are not overloaded.
+- Deterministic validation accepts Posted Date only when the same evidence
+  explicitly labels and supports that exact date. Missing, conflicting,
+  invalid, unlabeled, or unsupported values remain null/unknown with a
+  filename-boundary review reason.
+- Renewal qualifiers require separately validated, explicitly labeled source
+  evidence and an independently approved matching reference value. Qualifiers
+  cannot establish renewal classification; ambiguity, unsupported wording,
+  mismatch, or non-renewal use remains unresolved and review-safe.
+- 2067 workflow context is accepted only through an explicit resolved business-
+  context lookup. It is never inferred from form type, document content,
+  classification subtype, filename, or client-existence assumptions. The
+  boundary remains open to future approved database-backed context values.
+- The boundary preserves evidence internally but exposes only resolved lookup
+  values to filename policy. Evidence-bearing fields are hidden from result
+  representations, and production filename callers remain disconnected.
+- Focused synthetic deterministic tests: 80 passed, 0 failed.
+- Affected synthetic deterministic/mock regressions: 164 passed, 0 failed.
+- Three production Python modules and the focused test compiled successfully.
+- No mailbox document, OCR, Ollama, Graph, Smartsheet external write, real
+  rename, protected-data processing, production filename generation, or
+  external AI operation occurred.
 
 Latest authorization-renewal and 2067 Posted Date checkpoint:
 
@@ -609,11 +639,12 @@ remains true.
   document has not yet run.
 - The first true single-item production-path run completed successfully. No
   additional production item has been authorized for testing.
-- Policy inputs for Posted Date, 2067 workflow context, and renewal qualifiers
-  are not yet constructed by production orchestration. Extraction and
-  deterministic validation do not yet expose a dedicated Posted Date field.
-- NO CHANGE must remain absent unless deterministic source evidence supports
-  it; no extraction or orchestration inference is implemented.
+- Dedicated Posted Date and renewal-qualifier extraction/validation fields and
+  a validated filename-input boundary now exist, but production orchestration
+  does not construct or consume the boundary.
+- No approved runtime provider currently supplies 2067 workflow context or
+  supported qualifier reference values. NO CHANGE remains absent unless both
+  deterministic source evidence and an approved matching reference support it.
 - INIT versus renewal refinement for inbound 2067 activity requires future
   internal client-system/database context and must not be inferred from 2067.
 - The authoritative SharePoint reference source is configured only in the
@@ -725,8 +756,8 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Define the smallest validated source-field boundary for Posted Date, supported
-2067 workflow context, and optional renewal qualifiers before production
-filename wiring. Preserve future database-backed workflow refinement, keep
-ambiguous service-reference distinctions review-safe, and do not enable
-production filename generation until every required input is deterministic.
+Define the non-production filename-request assembly boundary that combines
+validated filename inputs with resolved payer/service references without
+renaming or writing files. Identify approved runtime providers for 2067
+workflow context and qualifier references, preserve future database-backed
+refinement, and keep ambiguous service-reference distinctions review-safe.

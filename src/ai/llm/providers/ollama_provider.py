@@ -82,6 +82,8 @@ class OllamaProvider(LLMProvider):
         "approved_visits",
         "start_date",
         "end_date",
+        "posted_date",
+        "renewal_qualifier",
         "member_dob",
         "provider_name",
         "provider_npi",
@@ -816,6 +818,17 @@ Do not use fax dates, submission dates, review dates, printed dates, or
 request dates as authorization start or end dates unless the document
 clearly identifies them as the authorized service period.
 
+POSTED DATE AND RENEWAL QUALIFIER
+
+Return posted_date only when the source explicitly labels that exact value
+as Posted Date. Do not infer it from received, signed, generated,
+authorization start/end, or other dates, document position, or filename.
+
+Return renewal_qualifier only when the source explicitly labels a renewal
+qualifier and directly supports the returned value. Do not infer NO CHANGE
+from matching quantities, unchanged-looking hours, filenames, or generic
+wording. A qualifier does not establish that the document is a renewal.
+
 HOURS AND DAYS PER WEEK
 
 Extract hours only when the document directly states an hours value in a
@@ -1244,6 +1257,8 @@ Return only JSON matching the required schema.
             "modifier",
             "start_date",
             "end_date",
+            "posted_date",
+            "renewal_qualifier",
             "member_dob",
             "request_type",
             "approved_visits",
