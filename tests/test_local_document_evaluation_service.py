@@ -578,6 +578,7 @@ def test_cli_accepts_only_explicit_safe_preflight_values():
     assert args.run_type == SAFE_RUN_TYPE
     assert args.authorize_cached_ocr_access is True
     assert args.authorize_local_ollama is True
+    assert args.authorize_local_ocr is False
 
 
 def test_cli_learning_report_is_explicit_opt_in():

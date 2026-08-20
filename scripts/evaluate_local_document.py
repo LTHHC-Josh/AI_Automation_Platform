@@ -277,6 +277,15 @@ def build_argument_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--authorize-local-ocr",
+        action="store_true",
+        help=(
+            "Authorize local PaddleOCR only if the selected document has no "
+            "usable protected OCR cache."
+        ),
+    )
+
+    parser.add_argument(
         "--protected-review",
         action="store_true",
         help=(
@@ -404,6 +413,7 @@ def main() -> None:
             args.authorize_cached_ocr_access
         ),
         authorize_local_ollama=args.authorize_local_ollama,
+        authorize_local_ocr=args.authorize_local_ocr,
         include_learning_report=args.learning_report,
     )
 

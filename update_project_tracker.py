@@ -7218,6 +7218,60 @@ refresh output and confirm the source message remains unread/unhandled. Do not
 rerun OCR, write Smartsheet, rename files, enable production filename wiring,
 or use external AI.
 
+
+------------------------------------------------------------
+EXPLICIT LOCAL OCR FOR DOCUMENT LEARNING - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Added explicit --authorize-local-ocr to the existing learning evaluator.
+  Without it, the existing cache-only boundary remains enforced.
+- Authorization changes only the existing DocumentProcessor cache-only
+  argument. The selected document is still protected by explicit numeric/UI
+  selection and the unchanged selection snapshot.
+- The existing Paddle provider checks validated fingerprint-based current and
+  legacy caches before lazy initialization. An authorized cache miss may run
+  local Paddle once and write through the existing protected cache mechanism;
+  a cache hit never initializes Paddle.
+- Early processing failures now truthfully preserve a requested learning
+  report with sanitized blocked status.
+
+Files changed:
+
+- scripts/evaluate_local_document.py
+- src/services/local_document_evaluation_service.py
+- tests/test_local_document_evaluation_service.py
+- tests/test_local_document_fresh_ocr_authorization.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Five changed Python files compiled successfully.
+- Focused synthetic deterministic/mock tests: 38 passed, 0 failed.
+- Affected synthetic deterministic/mock regressions: 52 passed, 0 failed.
+- Combined: 90 passed, 0 failed.
+
+PHI, compatibility, and limitations:
+
+- Tests used synthetic protected markers, temporary candidates, mocked Paddle
+  prediction, and mocked learning analysis. Protected filenames, paths, OCR
+  text, and values were absent from evaluator stdout, stderr, repr, and safe
+  mappings.
+- No real protected document, Paddle prediction, Ollama request, live inbox,
+  mailbox mutation, Smartsheet write, rename, production filename wiring, or
+  external AI operation occurred.
+
+Exact next starting point:
+
+Run one explicitly limited read-only refresh followed by protected selection
+and learning analysis with explicit local OCR authorization. Verify only the
+selected document is processed, protected cache creation/reuse is correct,
+output remains PHI-safe, and the source message remains unread/unhandled. Do
+not write Smartsheet, rename files, enable production filename wiring, or use
+external AI.
+
 """
 
 

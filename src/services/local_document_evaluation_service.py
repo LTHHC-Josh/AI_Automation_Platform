@@ -469,9 +469,16 @@ class LocalDocumentEvaluationService:
         run_type: str,
         authorize_cached_ocr_access: bool,
         authorize_local_ollama: bool,
+        authorize_local_ocr: bool = False,
         known_contract_pass: bool | None = None,
         include_learning_report: bool = False,
     ) -> LocalDocumentEvaluationResult:
+        learning_report_requested = include_learning_report is True
+        blocked_learning_status = (
+            "blocked" if learning_report_requested else "not_requested"
+        )
+        cache_only_enforced = authorize_local_ocr is not True
+
         normalized_run_type = self.normalize_run_type(
             run_type
         )
@@ -480,6 +487,9 @@ class LocalDocumentEvaluationService:
             return self._failure(
                 run_type="",
                 category="invalid_run_type",
+                cache_only_enforced=cache_only_enforced,
+                learning_report_requested=learning_report_requested,
+                learning_report_status=blocked_learning_status,
             )
 
         if (
@@ -490,6 +500,9 @@ class LocalDocumentEvaluationService:
             return self._failure(
                 run_type=normalized_run_type,
                 category="invalid_document_selector",
+                cache_only_enforced=cache_only_enforced,
+                learning_report_requested=learning_report_requested,
+                learning_report_status=blocked_learning_status,
             )
 
         if authorize_cached_ocr_access is not True:
@@ -498,12 +511,18 @@ class LocalDocumentEvaluationService:
                 category=(
                     "protected_document_access_not_authorized"
                 ),
+                cache_only_enforced=cache_only_enforced,
+                learning_report_requested=learning_report_requested,
+                learning_report_status=blocked_learning_status,
             )
 
         if authorize_local_ollama is not True:
             return self._failure(
                 run_type=normalized_run_type,
                 category="local_ollama_not_authorized",
+                cache_only_enforced=cache_only_enforced,
+                learning_report_requested=learning_report_requested,
+                learning_report_status=blocked_learning_status,
             )
 
         if (
@@ -516,6 +535,9 @@ class LocalDocumentEvaluationService:
             return self._failure(
                 run_type=normalized_run_type,
                 category="local_configuration_unavailable",
+                cache_only_enforced=cache_only_enforced,
+                learning_report_requested=learning_report_requested,
+                learning_report_status=blocked_learning_status,
             )
 
         selected_path, selection_changed = self._select_document(
@@ -526,12 +548,18 @@ class LocalDocumentEvaluationService:
             return self._failure(
                 run_type=normalized_run_type,
                 category="document_selection_changed",
+                cache_only_enforced=cache_only_enforced,
+                learning_report_requested=learning_report_requested,
+                learning_report_status=blocked_learning_status,
             )
 
         if selected_path is None:
             return self._failure(
                 run_type=normalized_run_type,
                 category="document_selection_unavailable",
+                cache_only_enforced=cache_only_enforced,
+                learning_report_requested=learning_report_requested,
+                learning_report_status=blocked_learning_status,
             )
 
         discard_stdout = _DiscardingTextStream()
@@ -551,18 +579,24 @@ class LocalDocumentEvaluationService:
                 processor = self._processor_factory()
                 document = processor.process(
                     selected_path,
-                    ocr_cache_only=True,
+                    ocr_cache_only=cache_only_enforced,
                 )
 
         except OCRCacheOnlyMissError:
             return self._failure(
                 run_type=normalized_run_type,
                 category="ocr_cache_unavailable",
+                cache_only_enforced=cache_only_enforced,
+                learning_report_requested=learning_report_requested,
+                learning_report_status=blocked_learning_status,
             )
         except Exception:
             return self._failure(
                 run_type=normalized_run_type,
                 category="local_processing_failed",
+                cache_only_enforced=cache_only_enforced,
+                learning_report_requested=learning_report_requested,
+                learning_report_status=blocked_learning_status,
             )
 
         learning_report = None
@@ -594,6 +628,7 @@ class LocalDocumentEvaluationService:
                 return self._failure(
                     run_type=normalized_run_type,
                     category="learning_analysis_failed",
+                    cache_only_enforced=cache_only_enforced,
                     learning_report_requested=True,
                     learning_report_status="failed",
                 )
@@ -618,6 +653,7 @@ class LocalDocumentEvaluationService:
                 return self._failure(
                     run_type=normalized_run_type,
                     category="protected_review_unavailable",
+                    cache_only_enforced=cache_only_enforced,
                     protected_review_requested=True,
                     protected_review_status="unavailable",
                 )
@@ -625,6 +661,7 @@ class LocalDocumentEvaluationService:
                 return self._failure(
                     run_type=normalized_run_type,
                     category="protected_review_failed",
+                    cache_only_enforced=cache_only_enforced,
                     protected_review_requested=True,
                     protected_review_status="failed",
                 )
@@ -646,6 +683,7 @@ class LocalDocumentEvaluationService:
             learning_report=learning_report,
             learning_report_requested=include_learning_report is True,
             learning_report_status=learning_report_status,
+            cache_only_enforced=cache_only_enforced,
         )
 
     def _select_document(
@@ -795,6 +833,7 @@ class LocalDocumentEvaluationService:
         learning_report: dict[str, Any] | None,
         learning_report_requested: bool,
         learning_report_status: str,
+        cache_only_enforced: bool,
     ) -> LocalDocumentEvaluationResult:
         extracted_data = (
             document.extracted_data
@@ -951,6 +990,7 @@ class LocalDocumentEvaluationService:
                 )
                 else None
             ),
+            cache_only_enforced=cache_only_enforced,
             protected_review_handoff_completed=(
                 protected_review_handoff_completed
             ),
@@ -972,6 +1012,7 @@ class LocalDocumentEvaluationService:
         protected_review_status: str = "not_requested",
         learning_report_requested: bool = False,
         learning_report_status: str = "not_requested",
+        cache_only_enforced: bool = True,
     ) -> LocalDocumentEvaluationResult:
         return LocalDocumentEvaluationResult(
             run_type=run_type,
@@ -988,6 +1029,7 @@ class LocalDocumentEvaluationService:
             protected_review_status=protected_review_status,
             learning_report_requested=learning_report_requested,
             learning_report_status=learning_report_status,
+            cache_only_enforced=cache_only_enforced,
         )
 
     @classmethod

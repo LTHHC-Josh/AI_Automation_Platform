@@ -186,6 +186,26 @@ do not automatically become production rules.
 
 ## Recent Tested Baseline
 
+Latest explicitly authorized local-OCR learning checkpoint:
+
+- Added opt-in `--authorize-local-ocr` to the existing single-document
+  evaluator. The default remains cache-only; authorization changes only the
+  existing `DocumentProcessor.process(ocr_cache_only=...)` argument.
+- The existing Paddle provider still validates and fingerprints the selected
+  document and checks current and legacy protected caches before lazy engine
+  creation. A hit never initializes Paddle. An authorized miss predicts once
+  for only the snapshot-protected selection and writes through the existing
+  protected cache mechanism; a later run uses that cache without Paddle.
+- Early failures now preserve an explicit learning request as
+  `learning_report_requested=True` with sanitized `blocked` status rather
+  than reporting `not_requested`.
+- Focused synthetic deterministic/mock tests: 38 passed, 0 failed. Affected
+  synthetic deterministic/mock regressions: 52 passed, 0 failed. Five changed
+  Python files compiled successfully.
+- No real protected document, Paddle prediction, Ollama request, inbox,
+  mailbox mutation, Smartsheet, rename, production filename wiring, or
+  external AI operation occurred.
+
 Latest read-only learning-inbox refresh checkpoint:
 
 - Added optional `--refresh-top N` before `--select-document`. The explicit
@@ -886,10 +906,11 @@ When the operator says `end of day`:
 ## CURRENT NEXT START
 
 Run one explicitly limited read-only inbox refresh followed by the local
-protected `--select-document` UI and `--learning-report`, cached OCR only, and
-approved local Ollama. Verify the refresh returns counts only, the report is
-structurally comprehensive and PHI-safe, and the inbox message remains
-unread/unhandled. If selection state changes, select again rather than
-evaluating. Do not expose protected filenames outside the local UI, rerun OCR,
-write Smartsheet, rename files, enable production filename wiring, or use
-external AI.
+protected `--select-document` UI and `--learning-report`, with approved local
+Ollama and explicit local OCR authorization for a cache miss. Verify refresh
+output remains counts-only, only the selected document is processed, the
+protected OCR cache is created or reused, the report is structurally
+comprehensive and PHI-safe, and the inbox message remains unread/unhandled.
+If selection state changes, select again rather than evaluating. Do not expose
+protected filenames outside the local UI, write Smartsheet, rename files,
+enable production filename wiring, or use external AI.
