@@ -6641,6 +6641,48 @@ read-only Microsoft Graph/SharePoint metadata discovery path, store values only
 in the ignored local configuration boundary, and run a PHI-safe read-only
 reference refresh/validation. Do not enable production filename wiring.
 
+
+------------------------------------------------------------
+AMBIGUITY-SAFE SERVICE REFERENCE LOOKUP - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Confirmed three live SERVICES LISTING conflicts are legitimate business
+  distinctions, not duplicate mappings to collapse.
+- Preserved the existing three-part HCPCS/BILL CODE + MODIFIERS + PROGRAM key
+  and existing workbook schema without requiring PRIORITY.
+- Allowed multiple naming results under one key to load while returning
+  unresolved/ambiguous at lookup instead of choosing one.
+- Kept unique mappings deterministic and kept DESCRIPTION informational only;
+  no priority or other discriminator is inferred from free text or key fields.
+- Kept production filename orchestration disabled and unchanged.
+
+Verification:
+
+- Initial corrected-rule red: the loader still required the rejected PRIORITY
+  schema and could not load existing unique service mappings.
+- Focused reference/filename boundary: 46 passed, 0 failed.
+- Affected Smartsheet/mailbox regressions: 67 passed, 0 failed.
+- Classification: synthetic deterministic and mock.
+- No mailbox document, OCR, Ollama, patient data, Smartsheet write, production
+  rename, or external AI operation occurred.
+
+Limitations and operator action:
+
+- The authoritative workbook can retain its legitimate conflicting rows.
+- Those keys intentionally remain unresolved until the owner defines how a
+  supported discriminator is determined from source documents.
+- No production caller currently performs service lookup for filename
+  generation, and production filename wiring remains disabled.
+
+Exact next starting point:
+
+Rerun the PHI-safe live reference refresh against the unchanged authoritative
+workbook and verify ambiguous service lookups, unchanged-version cache reuse,
+and last-known-good protection. Keep production filename wiring disabled while
+the source-document priority rule remains unresolved.
+
 """
 
 
@@ -6654,9 +6696,9 @@ updates = [
         "In Progress",
         (
             "Core document automation is operating through a tested production "
-            "path. A deterministic guarded filename policy is synthetic-tested, "
-            "while live reference-source configuration, unresolved renewal and "
-            "state-date rules, and production naming remain in progress."
+            "path. Deterministic filename policy and ambiguity-safe service "
+            "references are synthetic-tested, while unresolved business rules "
+            "and production naming remain open."
         ),
     ),
     (
@@ -6775,8 +6817,8 @@ updates = [
         (
             "The automatic mailbox-to-Smartsheet path completed one controlled "
             "production run. The deterministic filename policy and safe fallback "
-            "boundary are synthetic-tested but remain disabled pending live "
-            "reference configuration and unresolved business rules."
+            "boundary are synthetic-tested but remain disabled pending unresolved "
+            "service-discriminator and other business rules."
         ),
     ),
     (
@@ -6954,7 +6996,8 @@ updates = [
             "candidate with one processable attachment without mutation. A "
             "deterministic filename policy and guarded attachment fallback now "
             "have synthetic coverage; normal production callers still use the "
-            "existing filename behavior."
+            "existing filename behavior. Ambiguous service reference keys now "
+            "remain unresolved without requiring workbook row collapse."
         ),
     ),
     (

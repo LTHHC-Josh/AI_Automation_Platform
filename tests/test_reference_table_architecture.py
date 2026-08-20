@@ -170,6 +170,52 @@ def test_missing_and_ambiguous_lookups_never_guess():
     assert tables.services.lookup("T0000", "", "SYNTHETIC PROGRAM").resolved is False
 
 
+def test_conflicting_three_part_service_mappings_load_but_lookup_is_ambiguous():
+    sheets = valid_sheets()
+    sheets["SERVICES LISTING"] = [
+        SERVICE_COLUMNS,
+        ["T1000", "U1", "PROGRAM", "Priority description one", "Group", "", "", "FIRST TOKEN"],
+        ["T1000", "U1", "PROGRAM", "Priority description two", "Group", "", "", "SECOND TOKEN"],
+    ]
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "ambiguous.xlsx"; write_workbook(path, sheets)
+        loaded = ReferenceTableLoader().load(path)
+
+    lookup = loaded.tables.services.lookup("T1000", "U1", "PROGRAM")
+    assert loaded.success is True
+    assert lookup.resolved is False
+    assert lookup.value is None
+    assert lookup.status == "ambiguous"
+
+
+def test_unique_three_part_service_mapping_still_resolves():
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "legacy.xlsx"; write_workbook(path, valid_sheets())
+        services = ReferenceTableLoader().load(path).tables.services
+
+    result = services.lookup("T0000", "U1", "SYNTHETIC PROGRAM")
+    assert result.resolved is True
+    assert result.value == "T0000U1"
+    assert result.status == "resolved"
+
+
+def test_description_is_not_a_hidden_service_lookup_discriminator():
+    sheets = valid_sheets()
+    sheets["SERVICES LISTING"] = [
+        SERVICE_COLUMNS,
+        ["T1000", "U1", "PROGRAM", "Different description one", "Group", "", "", "SAME TOKEN"],
+        ["T1000", "U1", "PROGRAM", "Different description two", "Group", "", "", "SAME TOKEN"],
+    ]
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "ambiguous.xlsx"; write_workbook(path, sheets)
+        loaded = ReferenceTableLoader().load(path)
+
+    lookup = loaded.tables.services.lookup("T1000", "U1", "PROGRAM")
+    assert loaded.success is True
+    assert lookup.resolved is True
+    assert lookup.value == "SAME TOKEN"
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

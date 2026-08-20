@@ -68,6 +68,7 @@ def test_service_is_included_only_when_relevant_and_resolved():
     assert "SERVICE TOKEN" not in omitted.filename
     assert unresolved_service.complete is False
     assert unresolved_service.status == "service_reference_unresolved"
+    assert unresolved_service.review_required is True
 
 
 def test_2067_form_and_initial_workflow_coexist():

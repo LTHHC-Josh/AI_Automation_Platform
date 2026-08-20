@@ -146,8 +146,30 @@ row. Human review is a downstream exception workflow, not a write gate.
   workflow dimensions, supported single/range dates, no timestamp, and a
   guarded attachment boundary that remains inactive for normal production
   callers.
+- Ambiguity-safe business service references keyed by HCPCS/bill code,
+  modifier, and program. Multiple distinct naming results may coexist under
+  one key, but lookup remains unresolved rather than using description or
+  inferring an unsupported discriminator.
 
 ## Recent Tested Baseline
+
+Latest ambiguity-safe service-reference checkpoint:
+
+- `SERVICES LISTING` retains its existing schema and three-part normalized key:
+  HCPCS/BILL CODE + MODIFIERS + PROGRAM. No PRIORITY column is required.
+- Multiple rows and naming results under one key are accepted by the loader.
+  One distinct naming result resolves; multiple distinct results return
+  `ambiguous` with no selected value.
+- `DESCRIPTION` remains informational free text and is never a discriminator.
+  Priority is not inferred from description, code, modifier, program, or any
+  other field.
+- Focused synthetic deterministic/mock tests: 46 passed, 0 failed.
+- Affected Smartsheet/mailbox regressions: 67 passed, 0 failed.
+- Production filename orchestration remains disabled and unchanged.
+- The configured live workbook can retain its legitimate conflicting rows and
+  does not require structural correction for those distinctions.
+- No mailbox document, OCR, Ollama, patient data, Smartsheet write, production
+  rename, or external AI operation occurred.
 
 Latest deterministic filename-policy checkpoint:
 
@@ -523,6 +545,9 @@ remains true.
   the ignored local configuration boundary.
 - Production orchestration intentionally does not construct or pass filename
   policies until reference configuration and remaining business rules resolve.
+- The legitimate service conflicts cannot resolve automatically until the
+  owner defines a supported source-document discriminator. Description and
+  other existing fields must not be used to infer priority.
 
 ## Weekly Codex / Work Capacity
 
@@ -619,7 +644,7 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Resolve the authoritative reference workbook drive/item identity through a
-read-only Microsoft Graph/SharePoint metadata discovery path, store values only
-in the ignored local configuration boundary, and run a PHI-safe read-only
-reference refresh/validation. Do not enable production filename wiring.
+Rerun the PHI-safe live reference refresh against the unchanged authoritative
+workbook and verify ambiguous service lookups, unchanged-version cache reuse,
+and last-known-good protection. Keep production filename wiring disabled while
+the source-document priority rule remains unresolved.

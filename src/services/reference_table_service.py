@@ -32,10 +32,19 @@ class PayorReferenceTable:
 
 
 class ServiceReferenceTable:
-    def __init__(self, values: dict[tuple[str, str, str], str]): self._values = dict(values)
+    def __init__(self, values: dict[tuple[str, str, str], set[str]]):
+        self._values = {
+            key: frozenset(results)
+            for key, results in values.items()
+        }
+
     def lookup(self, code: Any, modifier: Any, program: Any) -> LookupResult:
-        value = self._values.get(_key(code, modifier, program))
-        return LookupResult(value is not None, value, "resolved" if value is not None else "not_resolved")
+        values = self._values.get(_key(code, modifier, program))
+        if not values:
+            return LookupResult(False, None, "not_resolved")
+        if len(values) != 1:
+            return LookupResult(False, None, "ambiguous")
+        return LookupResult(True, next(iter(values)), "resolved")
 
 
 class DocumentTypeReferenceTable:
@@ -75,13 +84,14 @@ class ReferenceTableLoader:
             if any(name not in sheets for name in self.REQUIRED):
                 return self._failure("required_sheet_missing")
             payors = self._build(sheets["PAYOR LISTING"], self.REQUIRED["PAYOR LISTING"], ("PAYOR NAME", "KEY FIELD"), "RESULTS")
-            services = self._build(sheets["SERVICES LISTING"], self.REQUIRED["SERVICES LISTING"], ("HCPCS/BILL CODE", "MODIFIERS", "PROGRAM"), "NAMING CONVENTION")
+            services = self._build_services(sheets["SERVICES LISTING"])
             document_types = None
             document_values = {}
             if "DOCUMENT TYPES" in sheets:
                 document_values = self._build(sheets["DOCUMENT TYPES"], self.DOCUMENT_COLUMNS, ("DOCUMENT TYPE",), "NAMING CONVENTION")
                 document_types = DocumentTypeReferenceTable(document_values)
-            return ReferenceLoadResult(True, ReferenceTables(PayorReferenceTable(payors), ServiceReferenceTable(services), document_types), "valid", len(payors), len(services), len(document_values))
+            service_mapping_count = sum(len(values) for values in services.values())
+            return ReferenceLoadResult(True, ReferenceTables(PayorReferenceTable(payors), ServiceReferenceTable(services), document_types), "valid", len(payors), service_mapping_count, len(document_values))
         except (OSError, ValueError, KeyError, BadZipFile, ElementTree.ParseError):
             return self._failure("reference_invalid")
 
@@ -106,6 +116,29 @@ class ReferenceTableLoader:
             if not lookup_key[0] or not result or lookup_key in values:
                 raise ValueError("malformed or ambiguous mapping")
             values[lookup_key] = result
+        return values
+
+    def _build_services(self, rows):
+        required_columns = self.REQUIRED["SERVICES LISTING"]
+        if not rows:
+            raise ValueError("missing header")
+        headers = [_key(value)[0] for value in rows[0]]
+        if any(column not in headers for column in required_columns):
+            raise ValueError("missing column")
+        positions = {header: position for position, header in enumerate(headers)}
+        values: dict[tuple[str, str, str], set[str]] = {}
+        for row in rows[1:]:
+            padded = list(row) + [""] * (len(headers) - len(row))
+            if not any(str(value or "").strip() for value in padded):
+                continue
+            lookup_key = _key(*(
+                padded[positions[column]]
+                for column in ("HCPCS/BILL CODE", "MODIFIERS", "PROGRAM")
+            ))
+            result = str(padded[positions["NAMING CONVENTION"]] or "").strip()
+            if not lookup_key[0] or not result:
+                raise ValueError("malformed mapping")
+            values.setdefault(lookup_key, set()).add(result)
         return values
 
     def _read_xlsx(self, path: Path) -> dict[str, list[list[str]]]:
