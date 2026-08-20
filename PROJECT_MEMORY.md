@@ -141,10 +141,41 @@ row. Human review is a downstream exception workflow, not a write gate.
   service naming data, with optional future document-type data, exact lookups,
   an injectable Graph/SharePoint source boundary, and an ignored version-aware
   last-known-good cache.
-- An explicit-policy filename-component builder that is not connected to the
-  production attachment naming path.
+- A deterministic filename policy for confirmed initial-authorization naming,
+  with reference-derived payer/service tokens, separate optional form and
+  workflow dimensions, supported single/range dates, no timestamp, and a
+  guarded attachment boundary that remains inactive for normal production
+  callers.
 
 ## Recent Tested Baseline
+
+Latest deterministic filename-policy checkpoint:
+
+- Encoded LAST FIRST MIDDLE/INITIAL order, underscore-separated major
+  components, optional service/form components, AUTH INIT, 2067 plus workflow
+  coexistence, MMDDYY single dates, MMDDYY-MMDDYY supported ranges, no
+  timestamp, and PDF extension preservation.
+- Payer and applicable service tokens require unambiguous reference lookup.
+  Unsupported/non-relevant service is omitted; relevant unresolved service,
+  missing mandatory components, unresolved workflow tokens, and ambiguous date
+  ownership block naming without guessing.
+- Normal production orchestration does not construct or pass a policy and
+  therefore retains the existing fingerprint attachment filename. An explicit
+  incomplete policy uses the safe fallback with a naming-review status.
+- Generated filenames and temporary paths are excluded from result
+  representations and diagnostic output.
+- The SharePoint configuration contract requires ignored local
+  GRAPH_REFERENCE_DRIVE_ID and GRAPH_REFERENCE_ITEM_ID values. Version refresh
+  prefers eTag and falls back to lastModifiedDateTime while protecting the
+  last-known-good cache.
+- Focused synthetic deterministic/mock tests: 43 passed, 0 failed.
+- Affected Smartsheet/mailbox regressions: 67 passed, 0 failed.
+- All 9 changed Python files compiled; git diff --check passed.
+- No live Graph, mailbox, patient document, OCR, Ollama, Smartsheet, or external
+  AI operation occurred during implementation verification.
+- No PHI, protected filename/path, configured identifier, URL, credential,
+  token, workbook content, payload, row identifier, cache, model, or patient
+  file is included in this checkpoint.
 
 Latest project-tracker WBS reconciliation checkpoint:
 
@@ -485,11 +516,13 @@ remains true.
   document has not yet run.
 - The first true single-item production-path run completed successfully. No
   additional production item has been authorized for testing.
-- Final production filename rules remain unresolved, including person-name
-  ordering, service-token requirement, separators, date source, timestamp
-  rules, and the definitive `INBOUND RENEW` business definition/token.
-- The authoritative SharePoint reference drive/item configuration and the
-  production attachment-naming integration point remain unresolved.
+- The official `INBOUND RENEW` renewal token remains unresolved.
+- Single-date ownership for state communications/notices remains unresolved
+  when multiple supported document dates exist.
+- The authoritative SharePoint reference drive/item values remain absent from
+  the ignored local configuration boundary.
+- Production orchestration intentionally does not construct or pass filename
+  policies until reference configuration and remaining business rules resolve.
 
 ## Weekly Codex / Work Capacity
 
@@ -586,8 +619,7 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Resolve the remaining filename business rules and establish the authoritative
-SharePoint reference-workbook drive/item configuration before wiring
-reference-driven filename generation into production. Confirm person-name
-ordering, service-token requirements, separators, date source, timestamp
-rules, and the definitive `INBOUND RENEW` definition/token without guessing.
+Resolve the authoritative reference workbook drive/item identity through a
+read-only Microsoft Graph/SharePoint metadata discovery path, store values only
+in the ignored local configuration boundary, and run a PHI-safe read-only
+reference refresh/validation. Do not enable production filename wiring.

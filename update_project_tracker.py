@@ -6577,6 +6577,70 @@ reference-driven filename generation into production. Confirm person-name
 ordering, service-token requirements, separators, date source, timestamp
 rules, and the definitive INBOUND RENEW definition/token without guessing.
 
+
+------------------------------------------------------------
+DETERMINISTIC FILENAME POLICY CHECKPOINT - 2026-08-20
+------------------------------------------------------------
+
+Work completed:
+
+- Added a deterministic filename policy using confirmed LAST FIRST
+  MIDDLE/INITIAL person order, underscore-separated major components, optional
+  service and form dimensions, AUTH INIT for supported initial authorization,
+  2067 form/workflow coexistence, MMDDYY single dates, MMDDYY-MMDDYY supported
+  ranges, no timestamp, and PDF extension preservation.
+- Required reference-derived, unambiguous payer and applicable service tokens.
+  Unsupported or non-naming-relevant service components are omitted; relevant
+  unresolved lookups block naming without guessing.
+- Kept renewal naming blocked because the final INBOUND RENEW token remains
+  unresolved, and kept ambiguous state/notice date ownership blocked.
+- Added an explicit guarded attachment boundary. Normal production callers do
+  not supply a filename policy and retain the existing fingerprint filename.
+  An explicitly supplied incomplete policy falls back safely and returns a
+  PHI-safe naming-review status.
+- Hid generated filenames and temporary paths from policy, builder, and
+  attachment-preparation result representations.
+- Established the local Graph reference configuration contract using
+  GRAPH_REFERENCE_DRIVE_ID and GRAPH_REFERENCE_ITEM_ID, with eTag-preferred
+  versioning, lastModifiedDateTime fallback, and protected last-known-good
+  cache behavior.
+
+Verification:
+
+- Initial policy red: 1 failed because the policy module did not exist.
+- Attachment-boundary red: 3 failed because guarded policy arguments were not
+  implemented.
+- Configuration red: 1 failed because configured identifiers appeared in the
+  configuration representation.
+- Final representation-safety red: 1 failed because a generated temporary
+  filename appeared in the preparation-result representation.
+- Focused final: 43 passed, 0 failed.
+- Affected Smartsheet/mailbox regressions: 67 passed, 0 failed.
+- Compilation: all 9 changed Python files passed.
+- git diff --check passed.
+- Classification: synthetic deterministic and mock.
+- No live Graph, mailbox, OCR, Ollama, patient-document, Smartsheet, or external
+  AI operation occurred during implementation verification.
+
+Safety and limitations:
+
+- Production orchestration does not construct or pass filename policies, so
+  production naming remains disabled.
+- The authoritative SharePoint drive/item values are not configured in the
+  local protected environment boundary.
+- The official renewal workflow token and single-date ownership rule for
+  state communications/notices remain unresolved.
+- No PHI, protected filename/path, workbook content, configured identifier,
+  URL, credential, token, payload, row identifier, cache, or patient file is
+  recorded in this checkpoint.
+
+Exact next starting point:
+
+Resolve the authoritative reference workbook drive/item identity through a
+read-only Microsoft Graph/SharePoint metadata discovery path, store values only
+in the ignored local configuration boundary, and run a PHI-safe read-only
+reference refresh/validation. Do not enable production filename wiring.
+
 """
 
 
@@ -6590,8 +6654,9 @@ updates = [
         "In Progress",
         (
             "Core document automation is operating through a tested production "
-            "path, while broader platform capabilities, reference-source "
-            "configuration, and production naming remain in progress."
+            "path. A deterministic guarded filename policy is synthetic-tested, "
+            "while live reference-source configuration, unresolved renewal and "
+            "state-date rules, and production naming remain in progress."
         ),
     ),
     (
@@ -6709,8 +6774,9 @@ updates = [
         "In Progress",
         (
             "The automatic mailbox-to-Smartsheet path completed one controlled "
-            "production run; final reference configuration, naming, and broader "
-            "deployment work remain open."
+            "production run. The deterministic filename policy and safe fallback "
+            "boundary are synthetic-tested but remain disabled pending live "
+            "reference configuration and unresolved business rules."
         ),
     ),
     (
@@ -6885,7 +6951,10 @@ updates = [
             "aggregate external results remain PHI-safe. Production Graph "
             "attachment enumeration now retains only allowlisted diagnostic "
             "metadata, and a live read-only preflight verified one unread "
-            "candidate with one processable attachment without mutation."
+            "candidate with one processable attachment without mutation. A "
+            "deterministic filename policy and guarded attachment fallback now "
+            "have synthetic coverage; normal production callers still use the "
+            "existing filename behavior."
         ),
     ),
     (

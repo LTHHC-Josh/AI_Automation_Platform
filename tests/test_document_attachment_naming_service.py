@@ -4,6 +4,7 @@ import tempfile
 from src.services.document_attachment_naming_service import (
     DocumentAttachmentNamingService,
 )
+from src.services.filename_policy_service import FilenamePolicyResult
 
 
 passed = 0
@@ -72,6 +73,44 @@ def test_missing_source_is_blocked():
     assert result.temporary_path is None
 
 
+def test_complete_policy_name_is_used_only_for_temporary_copy():
+    service = DocumentAttachmentNamingService()
+    with tempfile.TemporaryDirectory() as directory:
+        source = Path(directory) / "synthetic-original.pdf"
+        source.write_bytes(b"SYNTHETIC-DOCUMENT")
+        policy = FilenamePolicyResult(
+            complete=True,
+            filename="EXAMPLE SYNTHETIC_PLAN_AUTH INIT_010126.pdf",
+            review_required=False,
+            status="resolved",
+        )
+        result = service.prepare(source_path=source, filename_policy_result=policy)
+        assert result.success is True
+        assert result.status == "prepared_reference_filename"
+        assert result.temporary_path.name == policy.filename
+        assert "EXAMPLE SYNTHETIC" not in repr(result)
+        assert source.exists()
+        assert service.cleanup(result.temporary_path) is True
+
+
+def test_unresolved_policy_preserves_safe_fallback_and_flags_review():
+    service = DocumentAttachmentNamingService()
+    with tempfile.TemporaryDirectory() as directory:
+        source = Path(directory) / "synthetic-original.pdf"
+        source.write_bytes(b"SYNTHETIC-DOCUMENT")
+        policy = FilenamePolicyResult(
+            complete=False,
+            filename=None,
+            review_required=True,
+            status="workflow_token_unresolved",
+        )
+        result = service.prepare(source_path=source, filename_policy_result=policy)
+        assert result.success is True
+        assert result.status == "prepared_naming_fallback_review"
+        assert result.temporary_path.name.startswith("LTHHC_AUTH_TEST_")
+        assert service.cleanup(result.temporary_path) is True
+
+
 print("=" * 60)
 print("Testing Document Attachment Naming")
 print("=" * 60)
@@ -84,6 +123,14 @@ run_test(
 run_test(
     "missing source is blocked",
     test_missing_source_is_blocked,
+)
+run_test(
+    "complete policy names only temporary copy",
+    test_complete_policy_name_is_used_only_for_temporary_copy,
+)
+run_test(
+    "unresolved policy preserves fallback and flags review",
+    test_unresolved_policy_preserves_safe_fallback_and_flags_review,
 )
 
 print()

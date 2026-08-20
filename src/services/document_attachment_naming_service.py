@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import shutil
 import tempfile
@@ -6,12 +6,13 @@ import tempfile
 from src.services.document_fingerprint_service import (
     DocumentFingerprintService,
 )
+from src.services.filename_policy_service import FilenamePolicyResult
 
 
 @dataclass(frozen=True)
 class DocumentAttachmentPreparationResult:
     prepared: bool
-    temporary_path: Path | None
+    temporary_path: Path | None = field(repr=False)
     success: bool
     status: str
 
@@ -43,6 +44,7 @@ class DocumentAttachmentNamingService:
         self,
         *,
         source_path,
+        filename_policy_result=None,
     ) -> DocumentAttachmentPreparationResult:
         try:
             path = Path(source_path)
@@ -81,11 +83,23 @@ class DocumentAttachmentNamingService:
             else ".bin"
         )
 
-        safe_name = (
+        fallback_name = (
             f"{self.PREFIX}_"
             f"{fingerprint_result.fingerprint[:self.FINGERPRINT_LENGTH]}"
             f"{extension}"
         )
+
+        safe_name = fallback_name
+        preparation_status = "prepared"
+        if filename_policy_result is not None:
+            if self._is_safe_complete_policy_result(
+                filename_policy_result,
+                source_extension=extension,
+            ):
+                safe_name = filename_policy_result.filename
+                preparation_status = "prepared_reference_filename"
+            else:
+                preparation_status = "prepared_naming_fallback_review"
 
         try:
             temporary_directory = Path(
@@ -112,7 +126,20 @@ class DocumentAttachmentNamingService:
             prepared=True,
             temporary_path=temporary_path,
             success=True,
-            status="prepared",
+            status=preparation_status,
+        )
+
+    @staticmethod
+    def _is_safe_complete_policy_result(result, *, source_extension: str) -> bool:
+        if not isinstance(result, FilenamePolicyResult):
+            return False
+        if not result.complete or result.review_required or not result.filename:
+            return False
+        filename = str(result.filename)
+        return (
+            filename == Path(filename).name
+            and not any(character in filename for character in "\\/\r\n")
+            and Path(filename).suffix.lower() == source_extension.lower()
         )
 
     @staticmethod

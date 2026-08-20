@@ -30,8 +30,10 @@ class RecordingAttachmentNamingService:
         self,
         *,
         cleanup_result=True,
+        preparation_status="prepared",
     ):
         self.cleanup_result = cleanup_result
+        self.preparation_status = preparation_status
         self.prepare_calls = []
         self.cleanup_calls = []
 
@@ -39,14 +41,13 @@ class RecordingAttachmentNamingService:
         self,
         *,
         source_path,
+        filename_policy_result=None,
     ):
         from src.services.document_attachment_naming_service import (
             DocumentAttachmentPreparationResult,
         )
 
-        self.prepare_calls.append(
-            source_path
-        )
+        self.prepare_calls.append((source_path, filename_policy_result))
 
         return DocumentAttachmentPreparationResult(
             prepared=True,
@@ -54,7 +55,7 @@ class RecordingAttachmentNamingService:
                 "SYNTHETIC_TEMP.pdf"
             ),
             success=True,
-            status="prepared",
+            status=self.preparation_status,
         )
 
     def cleanup(
@@ -261,9 +262,7 @@ def test_attachment_uses_created_row_and_cleans_temp():
         == "written_with_attachment"
     )
 
-    assert naming.prepare_calls == [
-        source_path
-    ]
+    assert naming.prepare_calls == [(source_path, None)]
 
     assert client.attachment_calls == [
         {
@@ -382,6 +381,35 @@ def test_no_attachment_preserves_legacy_write():
     assert client.attachment_calls == []
     assert naming.prepare_calls == []
     assert naming.cleanup_calls == []
+
+
+def test_unresolved_filename_policy_uses_attachment_fallback_and_safe_review_status():
+    from src.services.filename_policy_service import FilenamePolicyResult
+
+    client = RecordingSmartsheetClient()
+    naming = RecordingAttachmentNamingService(
+        preparation_status="prepared_naming_fallback_review"
+    )
+    policy = FilenamePolicyResult(
+        complete=False,
+        filename=None,
+        review_required=True,
+        status="workflow_token_unresolved",
+    )
+    result = SmartsheetReviewedWriteService(
+        client=client,
+        attachment_naming_service=naming,
+    ).write(
+        mapping=build_mapping(),
+        destination_validation=build_validation(),
+        attachment_source_path=Path("PRIVATE-SYNTHETIC-SOURCE.pdf"),
+        filename_policy_result=policy,
+    )
+    assert result.success is True
+    assert result.status == "written_with_attachment_naming_review"
+    assert naming.prepare_calls == [
+        (Path("PRIVATE-SYNTHETIC-SOURCE.pdf"), policy)
+    ]
 
 
 def test_mapping_not_ready_blocks_write():
@@ -668,6 +696,10 @@ run_test(
 run_test(
     "no attachment preserves legacy write",
     test_no_attachment_preserves_legacy_write,
+)
+run_test(
+    "unresolved filename policy preserves fallback",
+    test_unresolved_filename_policy_uses_attachment_fallback_and_safe_review_status,
 )
 
 run_test(

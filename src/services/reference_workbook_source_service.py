@@ -1,23 +1,30 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
 from urllib.parse import quote
 
 from src.graph.client import GraphClient
 
 
+REFERENCE_DRIVE_ENV = "GRAPH_REFERENCE_DRIVE_ID"
+REFERENCE_ITEM_ENV = "GRAPH_REFERENCE_ITEM_ID"
+
+
 @dataclass(frozen=True)
 class ReferenceWorkbookSourceConfig:
-    drive_id: str
-    item_id: str
+    drive_id: str = field(repr=False)
+    item_id: str = field(repr=False)
 
 
 def load_reference_workbook_source_config() -> ReferenceWorkbookSourceConfig:
     config = ReferenceWorkbookSourceConfig(
-        drive_id=os.getenv("GRAPH_REFERENCE_DRIVE_ID", "").strip(),
-        item_id=os.getenv("GRAPH_REFERENCE_ITEM_ID", "").strip(),
+        drive_id=os.getenv(REFERENCE_DRIVE_ENV, "").strip(),
+        item_id=os.getenv(REFERENCE_ITEM_ENV, "").strip(),
     )
     if not config.drive_id or not config.item_id:
-        raise ValueError("Reference workbook source configuration is unavailable.")
+        raise ValueError(
+            "Reference workbook source configuration requires "
+            f"{REFERENCE_DRIVE_ENV} and {REFERENCE_ITEM_ENV}."
+        )
     return config
 
 

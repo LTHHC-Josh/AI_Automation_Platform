@@ -74,6 +74,7 @@ class SmartsheetReviewedWriteService:
             SmartsheetDestinationValidationResult
         ),
         attachment_source_path: str | Path | None = None,
+        filename_policy_result: Any = None,
     ) -> SmartsheetReviewedWriteResult:
         """
         Add one Smartsheet row only after all write boundaries pass.
@@ -184,10 +185,15 @@ class SmartsheetReviewedWriteService:
         attachment_written = False
 
         if attachment_source_path is not None:
-            preparation = (
-                self.attachment_naming_service.prepare(
-                    source_path=attachment_source_path
+            preparation_arguments = {
+                "source_path": attachment_source_path,
+            }
+            if filename_policy_result is not None:
+                preparation_arguments["filename_policy_result"] = (
+                    filename_policy_result
                 )
+            preparation = self.attachment_naming_service.prepare(
+                **preparation_arguments
             )
 
             if not preparation.success:
@@ -265,7 +271,9 @@ class SmartsheetReviewedWriteService:
             attachment_written=attachment_written,
             success=True,
             status=(
-                "written_with_attachment"
+                "written_with_attachment_naming_review"
+                if attachment_written and preparation.status == "prepared_naming_fallback_review"
+                else "written_with_attachment"
                 if attachment_written
                 else "written"
             ),
