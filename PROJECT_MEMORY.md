@@ -186,8 +186,36 @@ do not automatically become production rules.
 - A deterministic, source-agnostic contact-failure normalization boundary that
   preserves supplied confidence and source evidence, returns unknown plus
   review for unsupported wording, and has no UTL mapping or production caller.
+- A versioned whole-document learning boundary that preserves protected OCR
+  page/block relationships when available, reuses legacy text-only caches
+  without OCR, sends one complete evidence envelope only to the opt-in local
+  analyzer, and emits PHI-safe referenced observations, conflicts, coverage,
+  and generalized novel-concept signals without changing production rules.
 
 ## Recent Tested Baseline
+
+Latest whole-document learning-analyzer checkpoint:
+
+- Added protected structured OCR document/page/block models while preserving
+  `Document.raw_text` and all existing classification, extraction, validation,
+  business-rule, review, and Smartsheet interfaces.
+- Paddle and searchable-PDF providers preserve page/block reading order when
+  available. Paddle writes a versioned protected hash-named structured sidecar;
+  existing text-only cache hits remain usable without Paddle and explicitly
+  report page/layout relationships unavailable.
+- The opt-in learning request receives one complete local evidence envelope
+  with modeled-field context and opaque page/block references. Layout and
+  coordinates are hints only; complete analyzed-reference coverage is checked.
+- Report schema version 2 separates protected literal evidence, normalized
+  concepts, and unmapped production rules. Invalid evidence references are
+  downgraded, conflicts remain unresolved with review, confidence is nullable,
+  and novel unsafe labels retain generalized ordinal observations without
+  exposing proposed text.
+- Modified Python compiled successfully. Focused synthetic deterministic/mock
+  checks: 58 passed, 0 failed. Affected synthetic deterministic/mock
+  regressions: 149 passed, 0 failed.
+- No protected data was accessed. No real OCR, Paddle prediction, Ollama,
+  Graph, mailbox mutation, Smartsheet, rename, or external AI operation ran.
 
 Latest contact-failure normalization checkpoint:
 
@@ -801,6 +829,14 @@ remains true.
 
 ## Known Limitations / Open Questions
 
+- Existing text-only OCR caches contain the complete flattened text but cannot
+  recover historical page/block relationships without rerunning OCR; they are
+  intentionally labeled `unavailable_legacy_flat` and are not regenerated.
+- The whole-document learning schema and sanitizer are synthetic/mock verified;
+  an explicitly authorized protected cache/local-Ollama acceptance run remains
+  pending. Model coverage references prove contract coverage, not semantic
+  correctness, so all model-only observations remain non-deterministic.
+
 - Authorization quantity meaning remains conservative where deterministic
   evidence is insufficient.
 - Quantity business meaning and final approval remain human-review decisions.
@@ -952,7 +988,8 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-After this synthetic contact-failure normalization boundary is committed, keep
-it unwired until an explicit consumer and any contact-failure-to-workflow
-mapping are approved. Do not infer or implement UTL from contact failure,
-annual/past-due wording, 2067, or Posted Date.
+Review the uncommitted whole-document learning-analyzer diff and synthetic/mock
+test evidence. If approved, complete Git safety staging, commit, push, and sync.
+After that checkpoint, any protected cache/local-Ollama acceptance run requires
+separate explicit authorization; do not rerun OCR, infer UTL or approval, infer
+visits from units, or wire learning observations into production rules.

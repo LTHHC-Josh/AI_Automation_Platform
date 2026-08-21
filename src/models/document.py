@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from src.models.ocr_document import OCRDocument
+
 
 @dataclass
 class AuthorizationServiceLine:
@@ -69,6 +71,7 @@ class Document:
 
     # OCR output
     raw_text: str = ""
+    ocr_document: OCRDocument | None = field(default=None, repr=False)
 
     # Extracted structured values
     extracted_data: dict[str, Any] = field(

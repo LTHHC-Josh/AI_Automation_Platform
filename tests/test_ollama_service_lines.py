@@ -134,11 +134,17 @@ def test_learning_schema_and_prompt_are_value_free_and_open_ended() -> None:
         "authorization_service_structure",
         "business_concepts",
         "schema_gaps",
+        "coverage",
+        "observations",
+        "contradictions",
     }
     assert "never return" in prompt
     assert "actual dates" in prompt
     assert "not a fixed list" in prompt
     assert "do not infer" in prompt
+    assert "every page and block" in prompt
+    assert "optional hints" in prompt
+    assert "contact failure does not mean utl" in prompt
 
 
 def test_empty_service_lines_are_preserved() -> None:

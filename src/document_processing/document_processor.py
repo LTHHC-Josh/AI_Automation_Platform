@@ -9,6 +9,7 @@ from src.models.document import (
     AuthorizationServiceLine,
     Document,
 )
+from src.models.ocr_document import OCRDocument
 from src.services.evidence_validation_service import (
     EvidenceValidationService,
 )
@@ -118,15 +119,24 @@ class DocumentProcessor:
 
         ocr_started_at = perf_counter()
 
-        if ocr_cache_only:
+        extract_document = getattr(self.ocr, "extract_document", None)
+        if callable(extract_document):
+            document.ocr_document = extract_document(
+                normalized_path,
+                cache_only=ocr_cache_only,
+            )
+            document.raw_text = document.ocr_document.raw_text
+        elif ocr_cache_only:
             document.raw_text = self.ocr.extract_text(
                 normalized_path,
                 cache_only=True,
             )
+            document.ocr_document = OCRDocument.from_flat_text(document.raw_text)
         else:
             document.raw_text = self.ocr.extract_text(
                 normalized_path
             )
+            document.ocr_document = OCRDocument.from_flat_text(document.raw_text)
 
         document.processing_metrics[
             "ocr_wall_seconds"
@@ -796,6 +806,7 @@ class DocumentProcessor:
             document_type=template_document.document_type,
             confidence=template_document.confidence,
             raw_text=template_document.raw_text,
+            ocr_document=template_document.ocr_document,
         )
 
         candidate.field_evidence = self._get_field_evidence(

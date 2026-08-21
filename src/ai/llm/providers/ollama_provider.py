@@ -384,11 +384,69 @@ class OllamaProvider(LLMProvider):
                     "additionalProperties": False,
                 },
             },
+            "coverage": {
+                "type": "object",
+                "properties": {
+                    "analyzed_evidence_refs": {"type": "array", "items": {"type": "string"}},
+                    "complete_document_analyzed": {"type": "boolean"},
+                },
+                "required": ["analyzed_evidence_refs", "complete_document_analyzed"],
+                "additionalProperties": False,
+            },
+            "observations": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "observation_id": {"type": "string"},
+                        "observation_kind": {"type": "string", "enum": [
+                            "document_family", "form_identifier", "modeled_field",
+                            "date_role", "service_structure", "business_concept",
+                            "free_text_concept", "schema_gap", "review_reason",
+                        ]},
+                        "normalized_label": {"type": "string"},
+                        "proposed_category": {"type": "string", "enum": [
+                            "business", "date", "document", "field", "form",
+                            "service", "workflow", "free_text", "other",
+                        ]},
+                        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+                        "evidence_status": {"type": "string", "enum": [
+                            "supported", "unsupported", "conflicting", "ambiguous",
+                            "tentative", "missing", "unknown",
+                        ]},
+                        "confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+                        "repetition_count": {"type": "integer", "minimum": 0},
+                        "current_modeled_field": {"type": ["string", "null"]},
+                        "production_rule_status": {"type": "string", "enum": ["not_applicable", "not_mapped"]},
+                        "deterministically_validated": {"type": "boolean"},
+                    },
+                    "required": [
+                        "observation_id", "observation_kind", "normalized_label",
+                        "proposed_category", "evidence_refs", "evidence_status",
+                        "confidence", "repetition_count", "current_modeled_field",
+                        "production_rule_status", "deterministically_validated",
+                    ],
+                    "additionalProperties": False,
+                },
+            },
+            "contradictions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "contradiction_type": {"type": "string"},
+                        "evidence_refs": {"type": "array", "items": {"type": "string"}},
+                        "evidence_status": {"type": "string", "enum": ["conflicting", "ambiguous"]},
+                    },
+                    "required": ["contradiction_type", "evidence_refs", "evidence_status"],
+                    "additionalProperties": False,
+                },
+            },
         },
         "required": [
             "document_structure", "date_fields",
             "authorization_service_structure", "business_concepts",
-            "schema_gaps",
+            "schema_gaps", "coverage", "observations", "contradictions",
         ],
         "additionalProperties": False,
     }
@@ -548,18 +606,22 @@ class OllamaProvider(LLMProvider):
             self._last_request_metrics
         )
 
-    def analyze_learning_structure(
-        self,
-        text: str,
-    ) -> dict:
+    def analyze_learning_structure(self, evidence) -> dict:
         """Return structured concepts without returning document values."""
 
-        cleaned_text = self._validate_text(text)
+        from src.models.learning_document_evidence import LearningDocumentEvidence
+
+        prompt_text = (
+            evidence.to_local_prompt()
+            if isinstance(evidence, LearningDocumentEvidence)
+            else str(evidence or "")
+        )
+        cleaned_text = self._validate_text(prompt_text)
         result = self._chat(
             system_prompt=self._learning_analysis_prompt(),
             user_prompt=(
-                "Analyze the complete document structure. Do not reproduce "
-                "any document value or narrative text.\n\nDOCUMENT TEXT\n"
+                "Analyze the complete document evidence envelope. Do not reproduce "
+                "any document value or narrative text.\n\nDOCUMENT EVIDENCE\n"
                 "=============\n" + cleaned_text
             ),
             schema=self.LEARNING_ANALYSIS_SCHEMA,
@@ -635,6 +697,12 @@ You are a local structural document-learning service for a healthcare
 automation platform. Analyze the entire OCR text, including labeled fields,
 tables, checkboxes, headings, comments, and narrative business concepts.
 
+Inspect every page and block and return every analyzed block id in coverage.
+Layout, page, region, coordinates, and header/footer status are optional hints,
+never fixed requirements. Use labels, nearby values, reading order, repetition,
+and cross-page relationships. Preserve repeated agreement; conflicting or
+ambiguous candidates remain unresolved and must not be guessed.
+
 Return structural metadata only. Never return, quote, paraphrase, summarize,
 or embed patient/member/provider names, identifiers, codes, actual dates,
 field values, comments, narrative phrases, sender details, paths, filenames,
@@ -649,6 +717,15 @@ Do not infer a concept from document type, sender, filename, or template.
 For schema gaps, identify labeled fields or useful structural concepts absent
 from the current modeled field set, but return only a generic semantic label,
 structural type, and evidence status. Do not propose production decisions.
+
+Every observation and contradiction must reference block ids from the supplied
+envelope. Literal evidence stays in the envelope; return generic semantic labels
+and references only. Keep literal evidence, normalized meaning, and production
+fields or rules separate. Confidence is nullable and never correctness proof.
+Set deterministically_validated false for every observation. Learning cannot
+change production rules. Contact failure does not mean UTL. Requested services
+are not approved services, units are not visits, and quantity, codes, dates, or
+generic status do not establish approval.
 """.strip()
 
     def _classification_prompt(self) -> str:

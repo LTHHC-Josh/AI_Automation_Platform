@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from math import isfinite
 import re
 from typing import Any, Iterable
 
 from src.models.document import Document
+from src.models.ocr_document import OCRDocument
+from src.services.learning_label_sanitizer import LearningLabelSanitizer
 
 
 class LocalDocumentLearningReportService:
@@ -66,8 +69,55 @@ class LocalDocumentLearningReportService:
         review = self._review_structure(document, field_inventory, concepts)
         structure = safe_analysis.get("document_structure")
         structure = structure if isinstance(structure, dict) else {}
+        ocr_document = (
+            document.ocr_document
+            if isinstance(document.ocr_document, OCRDocument)
+            else OCRDocument.from_flat_text(document.raw_text)
+        )
+        evidence_index = self._evidence_index(ocr_document)
+        observations = self._safe_observations(
+            safe_analysis.get("observations"), evidence_index, set(modeled)
+        )
+        contradictions = self._safe_contradictions(
+            safe_analysis.get("contradictions"), evidence_index
+        )
+        coverage = self._coverage(
+            safe_analysis.get("coverage"), ocr_document, evidence_index
+        )
+        novel_observations = [
+            item for item in observations
+            if item["current_modeled_field"] is None
+        ]
+        for field_item in field_inventory:
+            candidates = [
+                item for item in observations
+                if item["current_modeled_field"] == field_item["field_name"]
+            ]
+            field_item["learning_candidate_count"] = len(candidates)
+            field_item["learning_discovery_status"] = self._candidate_status(candidates)
+            field_item["alternate_label_evidence_present"] = any(
+                item["proposed_label"] != field_item["field_name"]
+                for item in candidates
+            )
+        review["learning_review_reason_count"] = sum(
+            item["observation_kind"] == "review_reason" for item in observations
+        )
+        review["learning_conflict_count"] = sum(
+            item["evidence_status"] in {"conflicting", "ambiguous"}
+            for item in observations
+        ) + len(contradictions)
+        review["whole_document_coverage_incomplete"] = (
+            coverage["coverage_status"] != "complete"
+        )
+        review["learning_review_recommended"] = (
+            review["learning_conflict_count"] > 0
+            or review["whole_document_coverage_incomplete"]
+            or any(item["requires_review"] for item in observations)
+        )
 
         return {
+            "report_schema_version": 2,
+            "whole_document_coverage": coverage,
             "document_structure": {
                 "document_form_type": self._safe_label(
                     structure.get("document_form_type"), "unknown"
@@ -82,7 +132,7 @@ class LocalDocumentLearningReportService:
                 "direction_context": self._safe_label_list(
                     structure.get("direction_context")
                 ),
-                "page_count": self._page_count(document.file_path),
+                "page_count": ocr_document.page_count or self._page_count(document.file_path),
                 "analysis_basis": "local_model_structural_analysis",
             },
             "field_inventory": field_inventory,
@@ -90,6 +140,9 @@ class LocalDocumentLearningReportService:
             "authorization_service_structure": service_structure,
             "business_concepts": concepts,
             "schema_gaps": schema_gaps,
+            "observations": observations,
+            "novel_observations": novel_observations,
+            "contradictions": contradictions,
             "review_quality": review,
             "development_implications": self._development_implications(
                 structure=structure,
@@ -99,6 +152,147 @@ class LocalDocumentLearningReportService:
             ),
             "protected_values_suppressed": True,
         }
+
+    @staticmethod
+    def _candidate_status(candidates: list[dict[str, Any]]) -> str:
+        statuses = {item["evidence_status"] for item in candidates}
+        if "conflicting" in statuses:
+            return "conflicting"
+        if "ambiguous" in statuses:
+            return "ambiguous"
+        if "supported" in statuses:
+            return "supported_repeated" if sum(
+                max(item["repetition_count"], 1) for item in candidates
+            ) > 1 else "supported"
+        return "missing" if not candidates else "unsupported"
+
+    @staticmethod
+    def _evidence_index(ocr_document: OCRDocument) -> dict[str, dict[str, Any]]:
+        index = {}
+        for page in ocr_document.pages:
+            for block in page.blocks:
+                index[block.block_id] = {
+                    "page_reference": page.page_number,
+                    "evidence_kind": block.block_type
+                    if block.block_type in {
+                        "text", "table", "checkbox", "header", "footer", "unknown"
+                    } else "unknown",
+                }
+        return index
+
+    def _coverage(self, value, ocr_document, evidence_index):
+        details = value if isinstance(value, dict) else {}
+        supplied = details.get("analyzed_evidence_refs")
+        supplied = supplied if isinstance(supplied, list) else []
+        valid = list(dict.fromkeys(
+            str(item) for item in supplied if str(item) in evidence_index
+        ))
+        all_ids = set(evidence_index)
+        complete = (
+            details.get("complete_document_analyzed") is True
+            and set(valid) == all_ids
+            and len(valid) == len(all_ids)
+        )
+        return {
+            "complete_document_analyzed": complete,
+            "coverage_status": "complete" if complete else "incomplete",
+            "page_relationship_status": ocr_document.relationship_status,
+            "page_count": ocr_document.page_count,
+            "evidence_block_count": len(all_ids),
+            "analyzed_evidence_block_count": len(valid),
+            "layout_used_as_hint_only": True,
+        }
+
+    def _safe_observations(self, value, evidence_index, modeled):
+        results = []
+        sanitizer = LearningLabelSanitizer()
+        allowed_kinds = {
+            "document_family", "form_identifier", "modeled_field", "date_role",
+            "service_structure", "business_concept", "free_text_concept",
+            "schema_gap", "review_reason",
+        }
+        allowed_categories = {
+            "business", "date", "document", "field", "form", "service",
+            "workflow", "free_text", "other",
+        }
+        for ordinal, item in enumerate(value if isinstance(value, list) else [], start=1):
+            if not isinstance(item, dict):
+                continue
+            kind = str(item.get("observation_kind") or "")
+            if kind not in allowed_kinds:
+                continue
+            category = str(item.get("proposed_category") or "other")
+            if category not in allowed_categories:
+                category = "other"
+            safe_label = sanitizer.sanitize(
+                item.get("normalized_label"), category=category, ordinal=ordinal
+            )
+            refs = item.get("evidence_refs")
+            refs = refs if isinstance(refs, list) else []
+            refs = list(dict.fromkeys(str(ref) for ref in refs if str(ref) in evidence_index))
+            requested_status = self._evidence_status(item.get("evidence_status"))
+            supported = requested_status == "supported" and bool(refs)
+            status = requested_status if refs else "unsupported"
+            if requested_status in {"conflicting", "ambiguous"}:
+                semantic_concept = None
+            else:
+                semantic_concept = safe_label.label if supported else None
+            current = self._safe_modeled_field(item.get("current_modeled_field"))
+            if current not in modeled:
+                current = None
+            results.append({
+                "observation_id": f"observation_{ordinal}",
+                "observation_kind": kind,
+                "proposed_label": safe_label.label,
+                "label_disposition": safe_label.disposition,
+                "proposed_category": category,
+                "normalized_concept": semantic_concept,
+                "current_modeled_field": current,
+                "evidence_status": status,
+                "confidence": self._nullable_confidence(item.get("confidence")),
+                "evidence_references": [
+                    {
+                        "block_reference": ref,
+                        "page_reference": evidence_index[ref]["page_reference"],
+                        "evidence_kind": evidence_index[ref]["evidence_kind"],
+                    }
+                    for ref in refs
+                ],
+                "repetition_count": self._integer(item.get("repetition_count")),
+                "requires_review": status in {
+                    "unsupported", "conflicting", "ambiguous", "tentative", "unknown"
+                },
+                "deterministically_validated": False,
+                "automatic_rule_change": False,
+                "production_rule_status": "not_mapped",
+            })
+        return results
+
+    def _safe_contradictions(self, value, evidence_index):
+        results = []
+        sanitizer = LearningLabelSanitizer()
+        for ordinal, item in enumerate(value if isinstance(value, list) else [], start=1):
+            if not isinstance(item, dict):
+                continue
+            refs = item.get("evidence_refs")
+            refs = refs if isinstance(refs, list) else []
+            refs = list(dict.fromkeys(str(ref) for ref in refs if str(ref) in evidence_index))
+            label = sanitizer.sanitize(
+                item.get("contradiction_type"), category="other", ordinal=ordinal
+            )
+            status = str(item.get("evidence_status") or "unknown")
+            if status not in {"conflicting", "ambiguous"} or not refs:
+                status = "unknown"
+            results.append({
+                "contradiction_id": f"contradiction_{ordinal}",
+                "contradiction_type": label.label,
+                "label_disposition": label.disposition,
+                "evidence_status": status,
+                "evidence_reference_count": len(refs),
+                "requires_review": True,
+                "deterministically_validated": False,
+            })
+        return results
 
     def _field_entry(self, document: Document, name: str) -> dict[str, Any]:
         evidence = document.field_evidence.get(name)
@@ -350,6 +544,18 @@ class LocalDocumentLearningReportService:
             return max(0.0, min(float(value), 1.0))
         except (TypeError, ValueError):
             return 0.0
+
+    @staticmethod
+    def _nullable_confidence(value: Any) -> float | None:
+        if value is None or isinstance(value, bool):
+            return None
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            return None
+        if normalized < 0 or normalized > 1:
+            return None
+        return normalized if isfinite(normalized) else None
 
     @staticmethod
     def _integer(value: Any) -> int:

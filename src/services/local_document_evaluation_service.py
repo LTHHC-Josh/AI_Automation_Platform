@@ -15,6 +15,8 @@ from src.document_processing.document_processor import (
     DocumentProcessor,
 )
 from src.models.document import Document
+from src.models.learning_document_evidence import LearningDocumentEvidence
+from src.models.ocr_document import OCRDocument
 from src.services.review_decision_service import (
     ReviewDecisionService,
 )
@@ -609,20 +611,29 @@ class LocalDocumentEvaluationService:
         if include_learning_report is True:
             try:
                 with redirect_stdout(discard_stdout), redirect_stderr(discard_stderr):
+                    modeled_fields = getattr(
+                        getattr(getattr(processor, "llm", None), "provider", None),
+                        "FIELD_NAMES",
+                        (),
+                    )
                     if self._learning_analysis_factory is not None:
                         structural_analysis = self._learning_analysis_factory(
                             document,
                             processor,
                         )
                     else:
-                        structural_analysis = processor.llm.analyze_learning_structure(
-                            document.raw_text
+                        ocr_document = (
+                            document.ocr_document
+                            if isinstance(document.ocr_document, OCRDocument)
+                            else OCRDocument.from_flat_text(document.raw_text)
                         )
-                    modeled_fields = getattr(
-                        getattr(getattr(processor, "llm", None), "provider", None),
-                        "FIELD_NAMES",
-                        (),
-                    )
+                        learning_evidence = LearningDocumentEvidence.build(
+                            ocr_document,
+                            modeled_fields,
+                        )
+                        structural_analysis = processor.llm.analyze_learning_structure(
+                            learning_evidence
+                        )
                     learning_report = LocalDocumentLearningReportService().build(
                         document,
                         structural_analysis,

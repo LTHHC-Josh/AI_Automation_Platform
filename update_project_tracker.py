@@ -7429,6 +7429,53 @@ Exact next starting point:
 After commit, leave the normalization boundary unwired until a consumer and any
 workflow mapping are explicitly approved. Do not infer UTL automatically.
 
+
+------------------------------------------------------------
+WHOLE-DOCUMENT LEARNING ANALYZER ARCHITECTURE - 2026-08-21
+------------------------------------------------------------
+
+Work completed:
+
+- Added protected structured OCR document/page/block models while preserving
+  raw_text and the existing production processing contracts.
+- Paddle and searchable-PDF providers preserve ordered pages and blocks when
+  available. Paddle adds a protected hash-named structured cache sidecar;
+  legacy text-only cache hits remain cache-only and explicitly report that
+  page/layout relationships are unavailable.
+- The opt-in local learning request now receives one complete evidence envelope
+  with opaque page/block references and modeled-field context. Layout and
+  coordinates are optional hints and never fixed requirements.
+- Added strict referenced observations, coverage, contradictions, nullable
+  confidence, repeated/conflicting candidate status, and schema-version-2
+  synthesis. Invalid references are downgraded to unsupported/review.
+- Added generalized PHI-safe novel observations. Unsafe proposed labels never
+  enter the report; a safe category and report-local ordinal preserve the gap.
+- Literal evidence, normalized concepts, and production rules remain separate.
+  Learning output cannot infer UTL, approval, or visits or change production.
+
+Files changed:
+
+- Structured OCR/evidence models, OCR provider/service implementations,
+  DocumentProcessor attachment, Ollama learning schema/prompt, local evaluator,
+  learning report/sanitizer, and focused synthetic tests.
+- PROJECT_MEMORY.md and update_project_tracker.py.
+
+Verification:
+
+- Modified Python files compiled successfully.
+- Focused synthetic deterministic/mock checks: 58 passed, 0 failed.
+- Affected synthetic deterministic/mock regressions: 149 passed, 0 failed.
+- No protected data was accessed. No real OCR, Paddle prediction, Ollama,
+  Graph, mailbox mutation, Smartsheet, rename, or external AI operation ran.
+
+Limitations and exact next starting point:
+
+- Legacy text-only cache content cannot recover page/block relationships without
+  OCR and remains explicitly unavailable rather than triggering OCR.
+- Review this uncommitted diff and evidence. If approved, stage only reviewed
+  safe files, commit, push, and verify sync. A protected cache/local-Ollama
+  acceptance run requires separate explicit authorization afterward.
+
 """
 
 
@@ -7750,9 +7797,12 @@ updates = [
             "output, and returns only "
             "aggregate metadata. Its opt-in learning mode reuses the numeric "
             "selection and processed document for one additional local-only "
-            "value-free structural request, then returns sanitized field status, "
-            "date roles, business concepts, schema gaps, and non-automatic "
-            "development implications. The opt-in local Tkinter protected-review "
+            "whole-document evidence request. It preserves page/block relations "
+            "when available, checks referenced coverage, and returns versioned "
+            "sanitized field status, conflicts, nullable confidence, novel "
+            "schema gaps, and non-automatic development implications. Legacy "
+            "text-only caches remain usable with layout explicitly unavailable. "
+            "The opt-in local Tkinter protected-review "
             "consumer now provides an in-memory source-document, field/evidence, "
             "service-line, and validation/review comparison surface while "
             "aggregate external results remain PHI-safe. "

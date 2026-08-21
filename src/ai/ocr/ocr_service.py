@@ -38,3 +38,6 @@ class OCRService:
         return self.provider.extract_text(
             file_path
         )
+
+    def extract_document(self, file_path, *, cache_only: bool = False):
+        return self.provider.extract_document(file_path, cache_only=cache_only)

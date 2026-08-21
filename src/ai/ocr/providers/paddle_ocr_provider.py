@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 from typing import Any
 
 from paddleocr import PaddleOCR
@@ -6,6 +7,7 @@ from paddleocr import PaddleOCR
 from src.ai.ocr.errors import OCRCacheOnlyMissError
 from src.ai.ocr.ocr_provider import OCRProvider
 from src.ai.ocr.provider_registration import register_ocr_provider
+from src.models.ocr_document import OCRBlock, OCRDocument, OCRPage
 from src.services.document_fingerprint_service import (
     DocumentFingerprintService,
 )
@@ -72,6 +74,17 @@ class PaddleOCRProvider(OCRProvider):
         *,
         cache_only: bool = False,
     ) -> str:
+        return self.extract_document(
+            file_path,
+            cache_only=cache_only,
+        ).raw_text
+
+    def extract_document(
+        self,
+        file_path: str | Path,
+        *,
+        cache_only: bool = False,
+    ) -> OCRDocument:
         """
         Extract OCR text from a supported local document.
 
@@ -108,6 +121,12 @@ class PaddleOCRProvider(OCRProvider):
             document_hash
         )
 
+        structured_cache_path = self._get_structured_cache_path(document_hash)
+        structured_document = self._read_structured_cache(structured_cache_path)
+        if structured_document is not None:
+            print("Using cached OCR text for local document.")
+            return structured_document
+
         cached_text = self._read_cache(
             cache_path
         )
@@ -117,7 +136,7 @@ class PaddleOCRProvider(OCRProvider):
                 "Using cached OCR text for local document."
             )
 
-            return cached_text
+            return OCRDocument.from_flat_text(cached_text)
 
         legacy_cache_path = self._get_legacy_cache_path(
             document_path=document_path,
@@ -143,7 +162,7 @@ class PaddleOCRProvider(OCRProvider):
                 "Using cached OCR text for local document."
             )
 
-            return legacy_cached_text
+            return OCRDocument.from_flat_text(legacy_cached_text)
 
         if cache_only:
             raise OCRCacheOnlyMissError(
@@ -170,9 +189,10 @@ class PaddleOCRProvider(OCRProvider):
                 f"Error type: {type(ex).__name__}."
             ) from ex
 
-        extracted_lines: list[str] = []
+        extracted_pages: list[OCRPage] = []
+        global_order = 0
 
-        for result in results:
+        for page_number, result in enumerate(results, start=1):
             result_data = self._result_to_dict(
                 result
             )
@@ -183,19 +203,30 @@ class PaddleOCRProvider(OCRProvider):
                 )
             )
 
+            page_blocks: list[OCRBlock] = []
             for text in recognized_texts:
                 cleaned_text = str(
                     text
                 ).strip()
 
                 if cleaned_text:
-                    extracted_lines.append(
-                        cleaned_text
-                    )
+                    global_order += 1
+                    page_blocks.append(OCRBlock(
+                        block_id=f"page_{page_number}_block_{len(page_blocks) + 1}",
+                        text=cleaned_text,
+                        reading_order=global_order,
+                    ))
 
-        full_text = "\n".join(
-            extracted_lines
-        ).strip()
+            extracted_pages.append(OCRPage(
+                page_number=page_number,
+                blocks=tuple(page_blocks),
+            ))
+
+        ocr_document = OCRDocument(
+            pages=tuple(extracted_pages),
+            relationship_status="preserved",
+        )
+        full_text = ocr_document.raw_text
 
         if not full_text:
             raise RuntimeError(
@@ -213,7 +244,12 @@ class PaddleOCRProvider(OCRProvider):
                 "Saved OCR text to the secured local cache."
             )
 
-        return full_text
+        self._write_structured_cache(
+            cache_path=structured_cache_path,
+            document=ocr_document,
+        )
+
+        return ocr_document
 
     def _validate_document_path(
         self,
@@ -259,6 +295,33 @@ class PaddleOCRProvider(OCRProvider):
             self.CACHE_DIRECTORY
             / cache_filename
         )
+
+    def _get_structured_cache_path(self, document_hash: str) -> Path:
+        return self.CACHE_DIRECTORY / f"{document_hash}.ocr.json"
+
+    def _read_structured_cache(self, cache_path: Path) -> OCRDocument | None:
+        if not cache_path.exists():
+            return None
+        try:
+            payload = json.loads(cache_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return OCRDocument.from_protected_cache_dict(payload)
+
+    def _write_structured_cache(
+        self,
+        *,
+        cache_path: Path,
+        document: OCRDocument,
+    ) -> bool:
+        try:
+            cache_path.write_text(
+                json.dumps(document.to_protected_cache_dict(), separators=(",", ":")),
+                encoding="utf-8",
+            )
+        except OSError:
+            return False
+        return True
 
     def _get_legacy_cache_path(
         self,

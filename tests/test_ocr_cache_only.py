@@ -8,6 +8,7 @@ from src.ai.ocr.providers.paddle_ocr_provider import (
 from src.services.document_fingerprint_service import (
     DocumentFingerprintResult,
 )
+from src.models.ocr_document import OCRBlock, OCRDocument, OCRPage
 
 
 class SuccessfulFingerprintService:
@@ -81,6 +82,58 @@ def test_cache_only_hit_returns_cached_text_without_ocr():
         )
 
         assert result == "synthetic cached text"
+        assert ocr.call_count == 0
+
+
+def test_legacy_text_cache_reports_relationships_unavailable_without_ocr():
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        source_path = root / "synthetic.pdf"
+        source_path.write_bytes(b"synthetic")
+        fingerprint = "1" * 64
+        cache_directory = root / "cache"
+        cache_directory.mkdir()
+        (cache_directory / f"{fingerprint}.txt").write_text(
+            "synthetic cached text", encoding="utf-8"
+        )
+        ocr = RecordingOCR()
+        provider = build_provider(cache_directory, fingerprint, ocr)
+
+        result = provider.extract_document(source_path, cache_only=True)
+
+        assert result.raw_text == "synthetic cached text"
+        assert result.relationship_status == "unavailable_legacy_flat"
+        assert result.page_count is None
+        assert ocr.call_count == 0
+
+
+def test_structured_cache_preserves_pages_and_blocks_without_ocr():
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        source_path = root / "synthetic.pdf"
+        source_path.write_bytes(b"synthetic")
+        fingerprint = "2" * 64
+        cache_directory = root / "cache"
+        cache_directory.mkdir()
+        cached = OCRDocument(
+            pages=(
+                OCRPage(1, (OCRBlock("page_1_block_1", "first", 1),)),
+                OCRPage(2, (OCRBlock("page_2_block_1", "second", 2),)),
+            ),
+            relationship_status="preserved",
+        )
+        import json
+        (cache_directory / f"{fingerprint}.ocr.json").write_text(
+            json.dumps(cached.to_protected_cache_dict()), encoding="utf-8"
+        )
+        ocr = RecordingOCR()
+        provider = build_provider(cache_directory, fingerprint, ocr)
+
+        result = provider.extract_document(source_path, cache_only=True)
+
+        assert result.relationship_status == "preserved"
+        assert result.page_count == 2
+        assert result.raw_text == "first\n\nsecond"
         assert ocr.call_count == 0
 
 

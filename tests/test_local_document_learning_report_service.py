@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from src.models.document import AuthorizationServiceLine, Document
+from src.models.ocr_document import OCRBlock, OCRDocument, OCRPage
 
 
 PROTECTED_MARKER = "PROTECTED_SYNTHETIC_LEARNING_MARKER"
@@ -16,6 +17,27 @@ def build_document(path: Path) -> Document:
         document_subtype="unknown",
         confidence=0.72,
         raw_text=PROTECTED_MARKER,
+    )
+    document.ocr_document = OCRDocument(
+        pages=(
+            OCRPage(page_number=1, blocks=(
+                OCRBlock(
+                    block_id="page_1_block_1",
+                    text=PROTECTED_MARKER,
+                    reading_order=1,
+                    block_type="header",
+                ),
+            )),
+            OCRPage(page_number=2, blocks=(
+                OCRBlock(
+                    block_id="page_2_block_1",
+                    text=PROTECTED_MARKER,
+                    reading_order=2,
+                    block_type="text",
+                ),
+            )),
+        ),
+        relationship_status="preserved",
     )
     document.field_evidence = {
         "posted_date": {
@@ -113,6 +135,58 @@ def structural_analysis():
                 "evidence_status": "supported",
             },
         ],
+        "coverage": {
+            "analyzed_evidence_refs": ["page_1_block_1", "page_2_block_1"],
+            "complete_document_analyzed": True,
+        },
+        "observations": [
+            {
+                "observation_id": "modeled",
+                "observation_kind": "modeled_field",
+                "normalized_label": "posted_date",
+                "proposed_category": "date",
+                "evidence_refs": ["page_1_block_1", "page_2_block_1"],
+                "evidence_status": "conflicting",
+                "confidence": 0.61,
+                "repetition_count": 2,
+                "current_modeled_field": "posted_date",
+                "production_rule_status": "not_mapped",
+                "deterministically_validated": False,
+            },
+            {
+                "observation_id": PROTECTED_MARKER,
+                "observation_kind": "business_concept",
+                "normalized_label": "contact_failure",
+                "proposed_category": "business",
+                "evidence_refs": ["page_1_block_1", "page_2_block_1"],
+                "evidence_status": "supported",
+                "confidence": 0.74,
+                "repetition_count": 2,
+                "current_modeled_field": None,
+                "production_rule_status": "not_mapped",
+                "deterministically_validated": False,
+            },
+            {
+                "observation_id": "unsafe",
+                "observation_kind": "schema_gap",
+                "normalized_label": PROTECTED_MARKER,
+                "proposed_category": "field",
+                "evidence_refs": ["missing_block"],
+                "evidence_status": "supported",
+                "confidence": None,
+                "repetition_count": 1,
+                "current_modeled_field": None,
+                "production_rule_status": "not_mapped",
+                "deterministically_validated": False,
+            },
+        ],
+        "contradictions": [
+            {
+                "contradiction_type": "service_status",
+                "evidence_refs": ["page_1_block_1", "page_2_block_1"],
+                "evidence_status": "conflicting",
+            },
+        ],
     }
 
 
@@ -131,9 +205,11 @@ def test_report_is_comprehensive_and_contains_no_protected_values():
         )
 
     assert set(report) == {
+        "report_schema_version", "whole_document_coverage",
         "document_structure", "field_inventory", "date_structure",
         "authorization_service_structure", "business_concepts",
-        "schema_gaps", "review_quality", "development_implications",
+        "schema_gaps", "observations", "novel_observations",
+        "contradictions", "review_quality", "development_implications",
         "protected_values_suppressed",
     }
     rendered = repr(report)
@@ -146,6 +222,15 @@ def test_report_is_comprehensive_and_contains_no_protected_values():
     assert report["field_inventory"][0]["support_status"] == "unsupported"
     assert report["authorization_service_structure"]["service_line_count"] == 1
     assert report["review_quality"]["selected_attempt"] == 2
+    assert report["whole_document_coverage"]["coverage_status"] == "complete"
+    assert report["whole_document_coverage"]["page_count"] == 2
+    assert report["field_inventory"][0]["learning_discovery_status"] == "conflicting"
+    assert report["observations"][0]["normalized_concept"] is None
+    assert report["observations"][1]["normalized_concept"] == "contact_failure"
+    assert report["observations"][1]["production_rule_status"] == "not_mapped"
+    assert report["observations"][2]["normalized_concept"] is None
+    assert report["observations"][2]["evidence_status"] == "unsupported"
+    assert report["observations"][2]["confidence"] is None
 
 
 def test_unknown_model_labels_are_withheld_without_losing_gap_signal():
@@ -262,3 +347,52 @@ def test_learning_failure_is_sanitized():
     assert result.failure_category == "learning_analysis_failed"
     assert result.learning_report_status == "failed"
     assert PROTECTED_MARKER not in repr(result)
+
+
+def test_default_learning_path_receives_structured_complete_document_envelope():
+    from src.models.learning_document_evidence import LearningDocumentEvidence
+    from src.services.local_document_evaluation_service import (
+        LocalDocumentEvaluationService,
+    )
+
+    captured = []
+
+    class LearningLLM:
+        provider = type("Provider", (), {"FIELD_NAMES": ("posted_date",)})()
+
+        def analyze_learning_structure(self, evidence):
+            captured.append(evidence)
+            return structural_analysis()
+
+    class Processor:
+        llm = LearningLLM()
+
+        def __init__(self, document):
+            self.document = document
+
+        def process(self, path, *, ocr_cache_only=False):
+            return self.document
+
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        path = root / "synthetic.pdf"
+        path.write_bytes(b"synthetic")
+        service = LocalDocumentEvaluationService(
+            document_directory=root,
+            processor_factory=lambda: Processor(build_document(path)),
+            selection_snapshot_path=root / "selection.json",
+        )
+        result = service.evaluate(
+            document_index=1,
+            run_type="Synthetic Learning",
+            authorize_cached_ocr_access=True,
+            authorize_local_ollama=True,
+            include_learning_report=True,
+        )
+
+    assert result.success is True
+    assert len(captured) == 1
+    assert isinstance(captured[0], LearningDocumentEvidence)
+    assert captured[0].evidence_ids == {
+        "page_1_block_1", "page_2_block_1"
+    }

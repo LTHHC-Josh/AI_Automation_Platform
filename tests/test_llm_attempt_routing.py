@@ -1,6 +1,8 @@
 from typing import Any
 
 from src.ai.llm.llm_service import LLMService
+from src.models.learning_document_evidence import LearningDocumentEvidence
+from src.models.ocr_document import OCRBlock, OCRDocument, OCRPage
 
 
 class RecordingProvider:
@@ -114,6 +116,27 @@ def test_learning_analysis_is_forwarded_without_interpretation() -> None:
     assert provider.calls == [{"learning_text": "synthetic OCR text"}]
 
 
+def test_learning_envelope_contains_every_page_and_block_once() -> None:
+    evidence = LearningDocumentEvidence.build(
+        OCRDocument(
+            pages=(
+                OCRPage(1, (OCRBlock("page_1_block_1", "first marker", 1),)),
+                OCRPage(2, (OCRBlock("page_2_block_1", "second marker", 2),)),
+            ),
+            relationship_status="preserved",
+        ),
+        ("posted_date", "service_code"),
+    )
+
+    prompt = evidence.to_local_prompt()
+
+    assert prompt.count("first marker") == 1
+    assert prompt.count("second marker") == 1
+    assert "<PAGE ref=1>" in prompt
+    assert "<PAGE ref=2>" in prompt
+    assert "posted_date, service_code" in prompt
+
+
 def run_test(
     test_name: str,
     test_function,
@@ -159,6 +182,10 @@ def main() -> None:
         (
             "learning analysis is forwarded",
             test_learning_analysis_is_forwarded_without_interpretation,
+        ),
+        (
+            "learning envelope includes every page and block",
+            test_learning_envelope_contains_every_page_and_block_once,
         ),
     ]
 

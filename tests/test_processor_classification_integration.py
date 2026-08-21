@@ -178,6 +178,8 @@ def test_referral_survives_processor():
             document_type="referral",
         )
     )
+    assert document.ocr_document is not None
+    assert document.ocr_document.relationship_status == "unavailable_legacy_flat"
 
     assert document.document_category == "referral"
     assert document.document_subtype == "unknown"
