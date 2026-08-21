@@ -183,8 +183,23 @@ do not automatically become production rules.
   modifier, and program. Multiple distinct naming results may coexist under
   one key, but lookup remains unresolved rather than using description or
   inferring an unsupported discriminator.
+- A deterministic, source-agnostic contact-failure normalization boundary that
+  preserves supplied confidence and source evidence, returns unknown plus
+  review for unsupported wording, and has no UTL mapping or production caller.
 
 ## Recent Tested Baseline
+
+Latest contact-failure normalization checkpoint:
+
+- Clear member contact-failure evidence normalizes to `contact_failure` while
+  literal text, normalized concept, and workflow-purpose UTL remain separate.
+- A supported contact request requires explicit failure evidence. Conditional
+  service consequences may strengthen the same concept only when independent
+  contact-failure evidence is present.
+- Annual/past-due wording, 2067, Posted Date, literal UTL, and general
+  communication do not imply contact failure or UTL.
+- Focused and affected synthetic deterministic/mock tests: 48 passed, 0
+  failed. No protected data or external/local model integration ran.
 
 Latest protected-document candidate-ordering correction:
 
@@ -937,8 +952,7 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-After this verified candidate-aware Graph-recency correction is committed, use
-the current snapshot-protected selection for the explicitly authorized PHI-safe
-cached-OCR marker check. Do not rerun OCR or Ollama, refresh the inbox, mutate
-the mailbox, write Smartsheet, rename files, enable production filename wiring,
-or use external AI.
+After this synthetic contact-failure normalization boundary is committed, keep
+it unwired until an explicit consumer and any contact-failure-to-workflow
+mapping are approved. Do not infer or implement UTL from contact failure,
+annual/past-due wording, 2067, or Posted Date.

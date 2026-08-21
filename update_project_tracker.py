@@ -7400,6 +7400,35 @@ Exact next starting point:
 After commit, use the current snapshot-protected selection for the authorized
 PHI-safe cached-OCR marker check. Do not rerun OCR or Ollama or refresh inbox.
 
+
+------------------------------------------------------------
+SYNTHETIC CONTACT-FAILURE NORMALIZATION - 2026-08-21
+------------------------------------------------------------
+
+Work completed:
+
+- Added a reusable deterministic contact-failure normalization boundary that
+  preserves supplied confidence and source evidence.
+- Clear inability or failed attempts to reach a member support
+  contact_failure. Conditional service consequences strengthen the result only
+  when contact-failure evidence is independently present.
+- Unsupported and ambiguous wording remains null/unknown with review required.
+- Contact failure remains separate from literal document text and workflow UTL;
+  no UTL mapping or production caller was added.
+
+Verification:
+
+- Focused synthetic deterministic tests: 7 passed, 0 failed.
+- Focused plus affected learning-report, evidence-validation, and review-output
+  regressions: 48 passed, 0 failed.
+- No protected data, OCR, Paddle, Ollama, Graph, Smartsheet, rename, or external
+  AI operation occurred.
+
+Exact next starting point:
+
+After commit, leave the normalization boundary unwired until a consumer and any
+workflow mapping are explicitly approved. Do not infer UTL automatically.
+
 """
 
 
