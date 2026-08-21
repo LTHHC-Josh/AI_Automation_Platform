@@ -5,6 +5,10 @@ import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from src.services.local_document_source_recency_service import (
+    LocalDocumentSourceRecencyService,
+)
+
 
 PROTECTED_MARKER = "PROTECTED_SYNTHETIC_REFRESH_MARKER"
 
@@ -139,6 +143,7 @@ def test_refreshed_candidate_reaches_selector_without_processing():
             return [
                 {
                     "id": "synthetic",
+                    "receivedDateTime": "2026-01-03T00:00:00Z",
                     "hasAttachments": True,
                 }
             ]
@@ -171,6 +176,9 @@ def test_refreshed_candidate_reaches_selector_without_processing():
         refresh_service = LocalDocumentInboxRefreshService(
             email_service_factory=Email,
             attachment_service_factory=lambda: attachment,
+            source_recency_service=LocalDocumentSourceRecencyService(
+                root / "recency.json"
+            ),
         )
         refreshed = refresh_service.refresh(
             top=1,
@@ -187,6 +195,7 @@ def test_refreshed_candidate_reaches_selector_without_processing():
             processor_factory=lambda: processor_calls.append(True),
             selection_snapshot_path=root / "selection.json",
             ocr_cache_directory=root / "cache",
+            source_recency_service=refresh_service._source_recency_service,
         ).select_document(selector)
 
         assert refreshed.attachments_downloaded == 1

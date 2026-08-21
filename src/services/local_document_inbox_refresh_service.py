@@ -6,6 +6,9 @@ from typing import Any, Callable
 from src.graph.attachment_service import AttachmentService
 from src.graph.email_service import EmailService
 from src.graph.errors import GraphBoundaryError
+from src.services.local_document_source_recency_service import (
+    LocalDocumentSourceRecencyService,
+)
 
 
 @dataclass(frozen=True)
@@ -42,9 +45,15 @@ class LocalDocumentInboxRefreshService:
         *,
         email_service_factory: Callable[[], Any] = EmailService,
         attachment_service_factory: Callable[[], Any] = AttachmentService,
+        source_recency_service: Any | None = None,
     ) -> None:
         self._email_service_factory = email_service_factory
         self._attachment_service_factory = attachment_service_factory
+        self._source_recency_service = (
+            source_recency_service
+            if source_recency_service is not None
+            else LocalDocumentSourceRecencyService()
+        )
 
     def refresh(
         self,
@@ -107,6 +116,11 @@ class LocalDocumentInboxRefreshService:
             if not isinstance(message_id, str) or not message_id:
                 attachments_skipped += 1
                 continue
+            received_datetime = (
+                self._source_recency_service.normalize_received_datetime(
+                    message.get("receivedDateTime")
+                )
+            )
             try:
                 download = attachment_service.download_supported_file_attachments(
                     message_id,
@@ -139,6 +153,29 @@ class LocalDocumentInboxRefreshService:
             attachments_downloaded += len(download.downloaded_files)
             attachments_skipped += int(download.skipped_count)
             filename_collisions += int(download.collision_count)
+            if received_datetime is None:
+                continue
+            for outcome in download.candidate_outcomes:
+                if outcome.status not in {"downloaded", "identical_collision"}:
+                    continue
+                if not self._source_recency_service.record(
+                    local_path=outcome.local_path,
+                    document_fingerprint=outcome.document_fingerprint,
+                    received_datetime=received_datetime,
+                    message_id=message_id,
+                    attachment_order_key=outcome.attachment_order_key,
+                    status=outcome.status,
+                ):
+                    return LocalDocumentInboxRefreshResult(
+                        success=False,
+                        status="source_recency_storage_failed",
+                        messages_checked=messages_checked,
+                        messages_with_attachments=messages_with_attachments,
+                        attachments_examined=attachments_examined,
+                        attachments_downloaded=attachments_downloaded,
+                        attachments_skipped=attachments_skipped,
+                        filename_collisions=filename_collisions,
+                    )
 
         return LocalDocumentInboxRefreshResult(
             success=True,

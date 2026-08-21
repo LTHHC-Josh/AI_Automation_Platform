@@ -635,7 +635,10 @@ def test_list_documents_is_phi_safe_and_matches_evaluation_selector_order():
         assert listed.success is True
         assert listed.candidate_count == 2
         assert [item.index for item in listed.documents] == [1, 2]
-        assert [item.file_type for item in listed.documents] == ["png", "pdf"]
+        expected = service._document_candidates()
+        assert [item.file_type for item in listed.documents] == [
+            path.suffix.lstrip(".") for path in expected
+        ]
         assert [item.relative_order for item in listed.documents] == [
             "newest", "2nd newest"
         ]
@@ -653,10 +656,10 @@ def test_list_documents_is_phi_safe_and_matches_evaluation_selector_order():
             authorize_local_ollama=True,
         )
         assert evaluated.success is True
-        assert processor.calls[0]["file_path"] == later_name
+        assert processor.calls[0]["file_path"] == expected[0]
 
 
-def test_shared_candidate_order_is_newest_first_with_deterministic_ties():
+def test_legacy_candidate_order_uses_fingerprint_not_filesystem_metadata():
     from src.services.local_document_evaluation_service import (
         LocalDocumentEvaluationService,
     )
@@ -682,12 +685,10 @@ def test_shared_candidate_order_is_newest_first_with_deterministic_ties():
             ocr_cache_directory=root / "cache",
         )
 
-        assert service._document_candidates() == [
-            newest,
-            tied_second,
-            tied_third,
-            oldest,
-        ]
+        first_order = service._document_candidates()
+        os.utime(oldest, ns=(9_000_000_000, 9_000_000_000))
+        os.utime(newest, ns=(1, 1))
+        assert service._document_candidates() == first_order
         listed = service.list_documents()
         assert [item.relative_order for item in listed.documents] == [
             "newest", "2nd newest", "3rd newest", "4th newest"
@@ -740,12 +741,13 @@ def test_list_selector_evaluation_and_selected_snapshot_share_one_order():
         )
 
         assert listed.documents[0].relative_order == "newest"
-        assert selector.candidates == ((1, newer), (2, older))
+        expected = tuple(enumerate(service._document_candidates(), start=1))
+        assert selector.candidates == expected
         assert selected.selected_index == 2
         assert evaluated.success is True
-        assert processor.calls[0]["file_path"] == older
+        assert processor.calls[0]["file_path"] == expected[1][1]
         stored = json.loads(snapshot.read_text(encoding="utf-8"))
-        assert stored["version"] == 2
+        assert stored["version"] == 4
         assert stored["selected_index"] == 2
         assert "selected_fingerprint" not in stored
         assert PROTECTED_MARKER not in repr(selected.to_safe_dict())
@@ -867,7 +869,9 @@ def test_protected_selector_uses_stable_index_without_processing_or_safe_output(
         assert result.success is True
         assert result.selection_status == "selected"
         assert result.selected_index == 2
-        assert selector.candidates == ((1, first), (2, second))
+        assert selector.candidates == tuple(
+            enumerate(service._document_candidates(), start=1)
+        )
         assert processor_calls == []
         assert PROTECTED_MARKER not in repr(result)
         assert PROTECTED_MARKER not in repr(result.to_safe_dict())

@@ -188,11 +188,19 @@ do not automatically become production rules.
 
 Latest protected-document candidate-ordering correction:
 
-- Corrected the shared local evaluator candidate boundary so supported files
-  are ordered by local modification time in nanoseconds, newest first, with a
-  deterministic internal filename tie-breaker. The same ordered list now
-  drives PHI-safe listing, protected Tkinter selection, snapshot construction,
-  and numeric-index evaluation.
+- Corrected the shared local evaluator candidate boundary so valid private
+  Graph `receivedDateTime` metadata controls newest-first order. Deterministic
+  non-reversible message and attachment digests resolve ties. Filesystem mtime,
+  names, paths, cache times, and enumeration order are not mailbox recency.
+  The same ordered list drives PHI-safe listing, protected Tkinter selection,
+  snapshot construction, and numeric-index evaluation.
+- Refresh stores strictly validated, opaque local-candidate-keyed recency
+  records bound to the current source fingerprint only in the ignored local
+  mailbox-state boundary. Distinct local files with identical bytes remain
+  independently selectable. Byte-identical filename collisions may update only
+  the exact local target without overwriting it; different-content collisions
+  receive no recency claim. Legacy candidates follow authoritative candidates
+  in deterministic fingerprint and opaque-candidate order.
 - A successful protected selection records only its numeric index alongside
   the existing ignored candidate snapshot. Evaluation rejects a different
   index while that selection is current; no selected fingerprint, filename,
@@ -200,8 +208,12 @@ Latest protected-document candidate-ordering correction:
 - The earlier deterministic OCR-cache marker diagnostic using inferred
   selector 1 is invalidated because the intended protected document was later
   confirmed as selector 9 and the two source fingerprints did not match.
-- Focused and affected synthetic deterministic/mock tests: 52 passed, 0
-  failed. Four modified Python files compiled successfully.
+- Focused and affected synthetic deterministic/mock tests: 69 passed, 0
+  failed. Modified Python files compiled successfully.
+- Live read-only acceptance succeeded: schema-v2 recency was populated, the
+  protected selector opened with duplicate-byte candidates independently
+  selectable, and the operator confirmed the actual newest inbox document was
+  index 1. No document was processed.
 - No protected document, OCR cache text, Paddle prediction, Ollama request,
   Graph/mailbox operation, Smartsheet write, rename, production filename
   wiring, or external AI operation occurred.
@@ -925,10 +937,8 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-After this candidate-ordering correction is committed, list and reselect the
-intended protected document so newest is index 1 and the selected numeric
-identity is recorded in the ignored snapshot. Then, only with explicit
-authorization, repeat the cache-only deterministic marker-presence check
-against that confirmed selection. Do not rerun Paddle or Ollama, fetch inbox
-content, write Smartsheet, rename files, enable production filename wiring, or
-use external AI.
+After this verified candidate-aware Graph-recency correction is committed, use
+the current snapshot-protected selection for the explicitly authorized PHI-safe
+cached-OCR marker check. Do not rerun OCR or Ollama, refresh the inbox, mutate
+the mailbox, write Smartsheet, rename files, enable production filename wiring,
+or use external AI.

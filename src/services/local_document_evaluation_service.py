@@ -27,6 +27,9 @@ from src.services.local_document_learning_report_service import (
 from src.services.document_fingerprint_service import (
     DocumentFingerprintService,
 )
+from src.services.local_document_source_recency_service import (
+    LocalDocumentSourceRecencyService,
+)
 
 
 class LocalEvaluationExecutionClassification(Enum):
@@ -310,6 +313,7 @@ class LocalDocumentEvaluationService:
         ),
         ocr_cache_directory: str | Path = DEFAULT_OCR_CACHE_DIRECTORY,
         fingerprint_service: Any | None = None,
+        source_recency_service: Any | None = None,
     ) -> None:
         self._document_directory = Path(
             document_directory
@@ -344,6 +348,11 @@ class LocalDocumentEvaluationService:
             fingerprint_service
             if fingerprint_service is not None
             else DocumentFingerprintService()
+        )
+        self._source_recency_service = (
+            source_recency_service
+            if source_recency_service is not None
+            else LocalDocumentSourceRecencyService()
         )
 
     def list_documents(self) -> LocalDocumentListResult:
@@ -705,23 +714,39 @@ class LocalDocumentEvaluationService:
 
     def _document_candidates(self) -> list[Path] | None:
         try:
-            return sorted(
-                (
-                    path
-                    for path in self._document_directory.iterdir()
-                    if (
-                        path.is_file()
-                        and path.suffix.lower() in self.SUPPORTED_EXTENSIONS
-                    )
-                ),
-                key=lambda path: (
-                    -self._safe_modified_time(path),
-                    path.name.casefold(),
-                    path.name,
-                ),
-            )
+            paths = [
+                path
+                for path in self._document_directory.iterdir()
+                if (
+                    path.is_file()
+                    and path.suffix.lower() in self.SUPPORTED_EXTENSIONS
+                )
+            ]
         except OSError:
             return None
+        ordered: list[tuple[tuple[Any, ...], Path]] = []
+        for path in paths:
+            result = self._fingerprint_service.calculate(path)
+            if not result.success or result.fingerprint is None:
+                return None
+            fingerprint = result.fingerprint
+            candidate_identity = (
+                self._source_recency_service.candidate_identity(path)
+            )
+            if candidate_identity is None:
+                return None
+            recency_key = self._source_recency_service.ordering_key(
+                path,
+                fingerprint
+            )
+            key = (
+                (0, *recency_key, candidate_identity)
+                if recency_key is not None
+                else (1, fingerprint, candidate_identity)
+            )
+            ordered.append((key, path))
+        ordered.sort(key=lambda item: item[0])
+        return [path for _, path in ordered]
 
     def _snapshot_entries(
         self,
@@ -732,8 +757,14 @@ class LocalDocumentEvaluationService:
             result = self._fingerprint_service.calculate(path)
             if not result.success or result.fingerprint is None:
                 return None
+            candidate_identity = (
+                self._source_recency_service.candidate_identity(path)
+            )
+            if candidate_identity is None:
+                return None
             entries.append(
                 {
+                    "candidate_identity": candidate_identity,
                     "fingerprint": result.fingerprint,
                     "file_type": path.suffix.lower().lstrip("."),
                 }
@@ -759,7 +790,7 @@ class LocalDocumentEvaluationService:
         current = self._snapshot_entries(candidates)
         if current is None or not isinstance(stored, dict):
             return False
-        if stored.get("version") != 2 or stored.get("candidates") != current:
+        if stored.get("version") != 4 or stored.get("candidates") != current:
             return False
         selected_index = stored.get("selected_index")
         return selected_index is None or selected_index == document_index
@@ -781,7 +812,7 @@ class LocalDocumentEvaluationService:
             temporary_path.write_text(
                 json.dumps(
                     {
-                        "version": 2,
+                        "version": 4,
                         "candidates": entries,
                         "selected_index": selected_index,
                     },
@@ -819,13 +850,6 @@ class LocalDocumentEvaluationService:
             for character in value
         ).strip("_")
         return normalized or "document"
-
-    @staticmethod
-    def _safe_modified_time(path: Path) -> int:
-        try:
-            return path.stat().st_mtime_ns
-        except OSError:
-            return 0
 
     @staticmethod
     def _relative_order_label(position: int) -> str:

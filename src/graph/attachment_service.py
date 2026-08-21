@@ -1,14 +1,27 @@
 import base64
 from dataclasses import dataclass, field
+import hashlib
 from pathlib import Path
 
 from .client import GraphClient
 from .config import load_graph_config
 
 
+@dataclass(frozen=True, repr=False)
+class SupportedAttachmentCandidateOutcome:
+    local_path: Path = field(repr=False)
+    document_fingerprint: str = field(repr=False)
+    attachment_order_key: str = field(repr=False)
+    status: str
+
+
 @dataclass(repr=False)
 class SupportedAttachmentDownloadResult:
     downloaded_files: list[Path] = field(default_factory=list, repr=False)
+    candidate_outcomes: list[SupportedAttachmentCandidateOutcome] = field(
+        default_factory=list,
+        repr=False,
+    )
     examined_count: int = 0
     skipped_count: int = 0
     collision_count: int = 0
@@ -99,14 +112,44 @@ class AttachmentService:
                 continue
 
             output_path = self.download_dir / safe_filename
+            try:
+                content = base64.b64decode(content_bytes, validate=True)
+            except Exception:
+                result.skipped_count += 1
+                continue
+            document_fingerprint = hashlib.sha256(content).hexdigest()
+            attachment_identity = attachment.get("id")
+            if not isinstance(attachment_identity, str) or not attachment_identity:
+                attachment_identity = document_fingerprint
+            attachment_order_key = hashlib.sha256(
+                attachment_identity.encode("utf-8")
+            ).hexdigest()
             if output_path.exists():
                 result.collision_count += 1
                 result.skipped_count += 1
+                try:
+                    existing_fingerprint = hashlib.sha256(
+                        output_path.read_bytes()
+                    ).hexdigest()
+                except OSError:
+                    existing_fingerprint = None
+                status = (
+                    "identical_collision"
+                    if existing_fingerprint == document_fingerprint
+                    else "different_content_collision"
+                )
+                result.candidate_outcomes.append(
+                    SupportedAttachmentCandidateOutcome(
+                        local_path=output_path,
+                        document_fingerprint=document_fingerprint,
+                        attachment_order_key=attachment_order_key,
+                        status=status,
+                    )
+                )
                 continue
 
             created_output = False
             try:
-                content = base64.b64decode(content_bytes, validate=True)
                 with output_path.open("xb") as output_file:
                     created_output = True
                     output_file.write(content)
@@ -124,5 +167,13 @@ class AttachmentService:
                 continue
 
             result.downloaded_files.append(output_path)
+            result.candidate_outcomes.append(
+                SupportedAttachmentCandidateOutcome(
+                    local_path=output_path,
+                    document_fingerprint=document_fingerprint,
+                    attachment_order_key=attachment_order_key,
+                    status="downloaded",
+                )
+            )
 
         return result

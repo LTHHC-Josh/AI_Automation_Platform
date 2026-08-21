@@ -80,7 +80,7 @@ class EmailService:
             params={
                 "$orderby": "receivedDateTime desc",
                 "$top": top,
-                "$select": "id,hasAttachments",
+                "$select": "id,receivedDateTime,hasAttachments",
             },
             operation_category="mailbox_enumeration",
         )

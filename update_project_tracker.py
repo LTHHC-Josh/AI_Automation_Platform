@@ -7332,6 +7332,74 @@ only the cache-only deterministic marker-presence check against that confirmed
 selection. Do not rerun Paddle or Ollama, refresh the inbox, write Smartsheet,
 rename files, enable production filename wiring, or use external AI.
 
+
+------------------------------------------------------------
+AUTHORITATIVE GRAPH RECENCY DOCUMENT ORDERING - 2026-08-21
+------------------------------------------------------------
+
+Work completed:
+
+- Replaced filesystem-mtime candidate ordering with validated Microsoft Graph
+  received recency at the shared listing/selector/snapshot/evaluation boundary.
+- Added an ignored, fingerprint-keyed local recency registry with atomic writes,
+  schema validation, and non-reversible message and attachment tie-break keys.
+- Byte-identical filename collisions can promote an existing local candidate
+  without overwrite; different-content collisions receive no recency claim.
+- Authoritative candidates sort first by newest Graph receipt, then deterministic
+  message and attachment keys. Legacy candidates follow in fingerprint order.
+- Advanced the selection snapshot contract so an ordering change invalidates a
+  stale protected selection before processing.
+
+Verification:
+
+- Modified Python files compiled successfully.
+- Focused and affected synthetic deterministic/mock tests: 64 passed, 0 failed.
+- No live Graph call, protected document access, OCR, Ollama, mailbox mutation,
+  Smartsheet write, rename, production filename wiring, or external AI occurred.
+- Safe results exposed no message identifiers, received timestamps, filenames,
+  paths, fingerprints, registry contents, OCR text, or protected values.
+
+Exact next starting point:
+
+After commit, perform one explicitly authorized limited read-only refresh to
+populate authoritative recency metadata, then list and reselect locally. Do not
+run OCR or Ollama or process a protected document.
+
+
+------------------------------------------------------------
+DUPLICATE-BYTE PROTECTED CANDIDATE IDENTITY - 2026-08-21
+------------------------------------------------------------
+
+Work completed:
+
+- Separated local candidate identity from source-byte fingerprint identity so
+  distinct local files with identical bytes remain independently selectable.
+- Advanced the private recency registry to candidate-keyed schema v2, binding
+  each recency claim to the opaque local candidate and current source bytes.
+- Preserved Graph received recency authority and deterministic opaque-candidate
+  tie-breaking for authoritative and legacy duplicates.
+- Advanced snapshots to version 4 so path, bytes, membership, ordering, or
+  selected-index changes stop stale selection before processing.
+- Existing fingerprint-only schema-v1 recency is ignored rather than assigned
+  ambiguously; a later authorized refresh will repopulate candidate metadata.
+
+Verification:
+
+- Modified Python files compiled successfully.
+- Focused and affected synthetic deterministic/mock tests: 69 passed, 0 failed.
+- Duplicate bytes, independent recency, legacy ordering, exact selection,
+  snapshot invalidation, collision safety, and safe output were covered.
+- Live read-only acceptance populated schema-v2 recency, opened the protected
+  selector, preserved duplicate-byte entries, and operator-confirmed the actual
+  newest inbox document at index 1 without processing it.
+- No live Graph refresh, protected document processing, OCR, Ollama, mailbox
+  mutation, Smartsheet write, rename, or external AI occurred.
+
+Exact next starting point:
+
+After commit, use the current snapshot-protected selection for the authorized
+PHI-safe cached-OCR marker check. Do not rerun OCR or Ollama or refresh inbox.
+
 """
 
 
@@ -7659,7 +7727,8 @@ updates = [
             "consumer now provides an in-memory source-document, field/evidence, "
             "service-line, and validation/review comparison surface while "
             "aggregate external results remain PHI-safe. "
-            "Local document candidates are now ordered newest-first at the "
+            "Local document candidates are now ordered by authoritative Graph "
+            "received recency at the "
             "shared listing/selector/snapshot/evaluation boundary, and a current "
             "protected selection records its numeric identity internally. "
             "Snapshot mismatches stop before processing without exposing source "

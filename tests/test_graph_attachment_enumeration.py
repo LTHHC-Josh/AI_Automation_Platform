@@ -153,7 +153,7 @@ def test_recent_attachment_listing_requests_only_internal_required_fields():
     assert client.calls[0]["params"] == {
         "$orderby": "receivedDateTime desc",
         "$top": 3,
-        "$select": "id,hasAttachments",
+        "$select": "id,receivedDateTime,hasAttachments",
     }
 
 
