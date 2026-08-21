@@ -365,25 +365,11 @@ class LocalDocumentEvaluationService:
                 candidate_count=0,
             )
 
-        newest_order = {
-            candidate_index: relative_index
-            for relative_index, candidate_index in enumerate(
-                sorted(
-                    range(len(candidates)),
-                    key=lambda index: (
-                        -self._safe_modified_time(candidates[index]),
-                        index,
-                    ),
-                ),
-                start=1,
-            )
-        }
-
         items = tuple(
             LocalDocumentListItem(
                 index=index,
                 relative_order=self._relative_order_label(
-                    newest_order[index - 1]
+                    index
                 ),
                 file_type=path.suffix.lower().lstrip("."),
                 cached_ocr_available=self._cache_exists(
@@ -453,6 +439,16 @@ class LocalDocumentEvaluationService:
             return LocalDocumentSelectionResult(
                 success=False,
                 selection_status="invalid_selection",
+                selected_index=None,
+            )
+
+        if not self._write_selection_snapshot(
+            snapshot_entries,
+            selected_index=selected_index,
+        ):
+            return LocalDocumentSelectionResult(
+                success=False,
+                selection_status="unavailable",
                 selected_index=None,
             )
 
@@ -694,7 +690,10 @@ class LocalDocumentEvaluationService:
         if candidates is None:
             return None, False
 
-        if not self._selection_snapshot_matches(candidates):
+        if not self._selection_snapshot_matches(
+            candidates,
+            document_index=document_index,
+        ):
             return None, True
 
         if document_index > len(
@@ -707,12 +706,19 @@ class LocalDocumentEvaluationService:
     def _document_candidates(self) -> list[Path] | None:
         try:
             return sorted(
-                path
-                for path in self._document_directory.iterdir()
-                if (
-                    path.is_file()
-                    and path.suffix.lower() in self.SUPPORTED_EXTENSIONS
-                )
+                (
+                    path
+                    for path in self._document_directory.iterdir()
+                    if (
+                        path.is_file()
+                        and path.suffix.lower() in self.SUPPORTED_EXTENSIONS
+                    )
+                ),
+                key=lambda path: (
+                    -self._safe_modified_time(path),
+                    path.name.casefold(),
+                    path.name,
+                ),
             )
         except OSError:
             return None
@@ -734,7 +740,12 @@ class LocalDocumentEvaluationService:
             )
         return entries
 
-    def _selection_snapshot_matches(self, candidates: list[Path]) -> bool:
+    def _selection_snapshot_matches(
+        self,
+        candidates: list[Path],
+        *,
+        document_index: int,
+    ) -> bool:
         if self._selection_snapshot_path is None:
             return True
         try:
@@ -746,14 +757,18 @@ class LocalDocumentEvaluationService:
         except (OSError, ValueError, TypeError):
             return False
         current = self._snapshot_entries(candidates)
-        return current is not None and stored == {
-            "version": 1,
-            "candidates": current,
-        }
+        if current is None or not isinstance(stored, dict):
+            return False
+        if stored.get("version") != 2 or stored.get("candidates") != current:
+            return False
+        selected_index = stored.get("selected_index")
+        return selected_index is None or selected_index == document_index
 
     def _write_selection_snapshot(
         self,
         entries: list[dict[str, str]],
+        *,
+        selected_index: int | None = None,
     ) -> bool:
         if self._selection_snapshot_path is None:
             return True
@@ -765,7 +780,11 @@ class LocalDocumentEvaluationService:
             )
             temporary_path.write_text(
                 json.dumps(
-                    {"version": 1, "candidates": entries},
+                    {
+                        "version": 2,
+                        "candidates": entries,
+                        "selected_index": selected_index,
+                    },
                     sort_keys=True,
                 ),
                 encoding="utf-8",

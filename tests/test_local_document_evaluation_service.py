@@ -1,5 +1,7 @@
 import contextlib
 import io
+import json
+import os
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -614,10 +616,10 @@ def test_list_documents_is_phi_safe_and_matches_evaluation_selector_order():
         earlier_name = incoming / f"a_{PROTECTED_MARKER}.pdf"
         earlier_name.write_bytes(b"first synthetic document")
         later_name.write_bytes(b"second synthetic document")
-        earlier_name.touch()
-        later_name.touch()
+        os.utime(earlier_name, ns=(1_000_000_000, 1_000_000_000))
+        os.utime(later_name, ns=(2_000_000_000, 2_000_000_000))
 
-        processor = RecordingProcessor(document=build_document(earlier_name))
+        processor = RecordingProcessor(document=build_document(later_name))
         service = LocalDocumentEvaluationService(
             document_directory=incoming,
             processor_factory=lambda: processor,
@@ -633,7 +635,10 @@ def test_list_documents_is_phi_safe_and_matches_evaluation_selector_order():
         assert listed.success is True
         assert listed.candidate_count == 2
         assert [item.index for item in listed.documents] == [1, 2]
-        assert [item.file_type for item in listed.documents] == ["pdf", "png"]
+        assert [item.file_type for item in listed.documents] == ["png", "pdf"]
+        assert [item.relative_order for item in listed.documents] == [
+            "newest", "2nd newest"
+        ]
         assert all(not item.cached_ocr_available for item in listed.documents)
         assert PROTECTED_MARKER not in rendered
         assert str(root) not in rendered
@@ -648,7 +653,111 @@ def test_list_documents_is_phi_safe_and_matches_evaluation_selector_order():
             authorize_local_ollama=True,
         )
         assert evaluated.success is True
-        assert processor.calls[0]["file_path"] == earlier_name
+        assert processor.calls[0]["file_path"] == later_name
+
+
+def test_shared_candidate_order_is_newest_first_with_deterministic_ties():
+    from src.services.local_document_evaluation_service import (
+        LocalDocumentEvaluationService,
+    )
+
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        incoming = root / "incoming"
+        incoming.mkdir()
+        oldest = incoming / "a_oldest.pdf"
+        tied_second = incoming / "a_tied.pdf"
+        tied_third = incoming / "z_tied.pdf"
+        newest = incoming / "z_newest.pdf"
+        for path in (oldest, tied_second, tied_third, newest):
+            path.write_bytes(path.name.encode("utf-8"))
+        os.utime(oldest, ns=(1_000_000_000, 1_000_000_000))
+        os.utime(tied_second, ns=(2_000_000_000, 2_000_000_000))
+        os.utime(tied_third, ns=(2_000_000_000, 2_000_000_000))
+        os.utime(newest, ns=(3_000_000_000, 3_000_000_000))
+        service = LocalDocumentEvaluationService(
+            document_directory=incoming,
+            processor_factory=lambda: None,
+            selection_snapshot_path=root / "selection.json",
+            ocr_cache_directory=root / "cache",
+        )
+
+        assert service._document_candidates() == [
+            newest,
+            tied_second,
+            tied_third,
+            oldest,
+        ]
+        listed = service.list_documents()
+        assert [item.relative_order for item in listed.documents] == [
+            "newest", "2nd newest", "3rd newest", "4th newest"
+        ]
+
+
+def test_list_selector_evaluation_and_selected_snapshot_share_one_order():
+    from src.services.local_document_evaluation_service import (
+        LocalDocumentEvaluationService,
+        LocalEvaluationExecutionClassification,
+    )
+
+    class Selector:
+        candidates = None
+
+        def select(self, candidates):
+            self.candidates = candidates
+            return 2
+
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        incoming = root / "incoming"
+        incoming.mkdir()
+        older = incoming / f"z_{PROTECTED_MARKER}.pdf"
+        newer = incoming / f"a_{PROTECTED_MARKER}.pdf"
+        older.write_bytes(b"older")
+        newer.write_bytes(b"newer")
+        os.utime(older, ns=(1_000_000_000, 1_000_000_000))
+        os.utime(newer, ns=(2_000_000_000, 2_000_000_000))
+        processor = RecordingProcessor(document=build_document(older))
+        selector = Selector()
+        snapshot = root / "selection.json"
+        service = LocalDocumentEvaluationService(
+            document_directory=incoming,
+            processor_factory=lambda: processor,
+            execution_classification=(
+                LocalEvaluationExecutionClassification.SYNTHETIC_MOCK
+            ),
+            selection_snapshot_path=snapshot,
+            ocr_cache_directory=root / "cache",
+        )
+
+        listed = service.list_documents()
+        selected = service.select_document(selector)
+        evaluated = service.evaluate(
+            document_index=2,
+            run_type=SAFE_RUN_TYPE,
+            authorize_cached_ocr_access=True,
+            authorize_local_ollama=True,
+        )
+
+        assert listed.documents[0].relative_order == "newest"
+        assert selector.candidates == ((1, newer), (2, older))
+        assert selected.selected_index == 2
+        assert evaluated.success is True
+        assert processor.calls[0]["file_path"] == older
+        stored = json.loads(snapshot.read_text(encoding="utf-8"))
+        assert stored["version"] == 2
+        assert stored["selected_index"] == 2
+        assert "selected_fingerprint" not in stored
+        assert PROTECTED_MARKER not in repr(selected.to_safe_dict())
+
+        mismatched = service.evaluate(
+            document_index=1,
+            run_type=SAFE_RUN_TYPE,
+            authorize_cached_ocr_access=True,
+            authorize_local_ollama=True,
+        )
+        assert mismatched.success is False
+        assert mismatched.failure_category == "document_selection_changed"
 
 
 def test_list_documents_reports_cache_metadata_without_processing():
@@ -742,6 +851,8 @@ def test_protected_selector_uses_stable_index_without_processing_or_safe_output(
         second = incoming / f"b_{PROTECTED_MARKER}.pdf"
         first.write_bytes(b"first")
         second.write_bytes(b"second")
+        os.utime(first, ns=(2_000_000_000, 2_000_000_000))
+        os.utime(second, ns=(1_000_000_000, 1_000_000_000))
         processor_calls = []
         selector = Selector()
         service = LocalDocumentEvaluationService(

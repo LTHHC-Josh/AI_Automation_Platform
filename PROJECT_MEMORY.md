@@ -186,6 +186,26 @@ do not automatically become production rules.
 
 ## Recent Tested Baseline
 
+Latest protected-document candidate-ordering correction:
+
+- Corrected the shared local evaluator candidate boundary so supported files
+  are ordered by local modification time in nanoseconds, newest first, with a
+  deterministic internal filename tie-breaker. The same ordered list now
+  drives PHI-safe listing, protected Tkinter selection, snapshot construction,
+  and numeric-index evaluation.
+- A successful protected selection records only its numeric index alongside
+  the existing ignored candidate snapshot. Evaluation rejects a different
+  index while that selection is current; no selected fingerprint, filename,
+  path, modification time, or other protected identity is exposed.
+- The earlier deterministic OCR-cache marker diagnostic using inferred
+  selector 1 is invalidated because the intended protected document was later
+  confirmed as selector 9 and the two source fingerprints did not match.
+- Focused and affected synthetic deterministic/mock tests: 52 passed, 0
+  failed. Four modified Python files compiled successfully.
+- No protected document, OCR cache text, Paddle prediction, Ollama request,
+  Graph/mailbox operation, Smartsheet write, rename, production filename
+  wiring, or external AI operation occurred.
+
 Latest explicitly authorized local-OCR learning checkpoint:
 
 - Added opt-in `--authorize-local-ocr` to the existing single-document
@@ -905,12 +925,10 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Run one explicitly limited read-only inbox refresh followed by the local
-protected `--select-document` UI and `--learning-report`, with approved local
-Ollama and explicit local OCR authorization for a cache miss. Verify refresh
-output remains counts-only, only the selected document is processed, the
-protected OCR cache is created or reused, the report is structurally
-comprehensive and PHI-safe, and the inbox message remains unread/unhandled.
-If selection state changes, select again rather than evaluating. Do not expose
-protected filenames outside the local UI, write Smartsheet, rename files,
-enable production filename wiring, or use external AI.
+After this candidate-ordering correction is committed, list and reselect the
+intended protected document so newest is index 1 and the selected numeric
+identity is recorded in the ignored snapshot. Then, only with explicit
+authorization, repeat the cache-only deterministic marker-presence check
+against that confirmed selection. Do not rerun Paddle or Ollama, fetch inbox
+content, write Smartsheet, rename files, enable production filename wiring, or
+use external AI.

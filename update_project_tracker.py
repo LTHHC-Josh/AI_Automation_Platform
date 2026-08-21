@@ -7272,6 +7272,66 @@ output remains PHI-safe, and the source message remains unread/unhandled. Do
 not write Smartsheet, rename files, enable production filename wiring, or use
 external AI.
 
+
+------------------------------------------------------------
+PROTECTED CANDIDATE ORDERING AND SELECTED IDENTITY - 2026-08-21
+------------------------------------------------------------
+
+Work completed:
+
+- Corrected the shared local-document candidate boundary to order supported
+  files by local modification time in nanoseconds, newest first, with a
+  deterministic internal filename tie-breaker.
+- The same ordered list now feeds PHI-safe --list-documents output, the local
+  protected Tkinter selector, candidate snapshots, and --document-index
+  evaluation. Individual UIs do not perform separate ordering.
+- A successful protected selection now records only the selected numeric index
+  alongside the existing ignored candidate snapshot. Evaluation rejects a
+  different numeric index while that selection is current; no selected hash,
+  filename, path, or modification timestamp is exposed.
+- Confirmed that the earlier cache diagnostic used selector 1 while the
+  intended protected example was selector 9 and their fingerprints differed.
+  The earlier selector-1 OCR-cache conclusion is therefore invalidated.
+
+Files changed:
+
+- src/services/local_document_evaluation_service.py
+- tests/test_local_document_evaluation_service.py
+- tests/test_local_document_inbox_refresh_service.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Four modified Python files compiled successfully.
+- Focused evaluator/selector tests: 29 passed, 0 failed.
+- Affected refresh tests: 5 passed, 0 failed.
+- Affected protected-review UI tests: 12 passed, 0 failed.
+- Affected fresh-OCR authorization tests: 2 passed, 0 failed.
+- Affected learning-report tests: 4 passed, 0 failed.
+- Combined synthetic deterministic/mock: 52 passed, 0 failed.
+
+PHI, compatibility, and limitations:
+
+- Tests used only synthetic temporary files, mock processors, synthetic
+  protected markers, and local timestamp metadata. Safe outputs contained no
+  filenames, paths, fingerprints, modification timestamps, OCR text, values,
+  source evidence, credentials, tokens, or destination identifiers.
+- No protected document, OCR cache content, Paddle prediction, Ollama request,
+  live Graph/inbox operation, mailbox mutation, Smartsheet write, rename,
+  production filename wiring, or external AI operation occurred.
+- Candidate recency uses local filesystem modification time as the existing
+  authoritative local source. Equal timestamps use an internal deterministic
+  filename ordering without exposing that value.
+
+Exact next starting point:
+
+After commit, list and reselect the intended protected document under the
+corrected newest-first order. With separate explicit authorization, repeat
+only the cache-only deterministic marker-presence check against that confirmed
+selection. Do not rerun Paddle or Ollama, refresh the inbox, write Smartsheet,
+rename files, enable production filename wiring, or use external AI.
+
 """
 
 
@@ -7598,7 +7658,12 @@ updates = [
             "development implications. The opt-in local Tkinter protected-review "
             "consumer now provides an in-memory source-document, field/evidence, "
             "service-line, and validation/review comparison surface while "
-            "aggregate external results remain PHI-safe. Production Graph "
+            "aggregate external results remain PHI-safe. "
+            "Local document candidates are now ordered newest-first at the "
+            "shared listing/selector/snapshot/evaluation boundary, and a current "
+            "protected selection records its numeric identity internally. "
+            "Snapshot mismatches stop before processing without exposing source "
+            "identity. Production Graph "
             "attachment enumeration now retains only allowlisted diagnostic "
             "metadata, and a live read-only preflight verified one unread "
             "candidate with one processable attachment without mutation. A "

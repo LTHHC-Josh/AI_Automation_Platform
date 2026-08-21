@@ -1,6 +1,7 @@
 import base64
 import contextlib
 import io
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -153,6 +154,9 @@ def test_refreshed_candidate_reaches_selector_without_processing():
         root = Path(directory)
         incoming = root / "incoming"
         incoming.mkdir()
+        older = incoming / "z_older.pdf"
+        older.write_bytes(b"older")
+        os.utime(older, ns=(1_000_000_000, 1_000_000_000))
         attachment = build_attachment_service(
             incoming,
             [
@@ -164,10 +168,18 @@ def test_refreshed_candidate_reaches_selector_without_processing():
                 }
             ],
         )
-        refreshed = LocalDocumentInboxRefreshService(
+        refresh_service = LocalDocumentInboxRefreshService(
             email_service_factory=Email,
             attachment_service_factory=lambda: attachment,
-        ).refresh(top=1, supported_extensions={".pdf"})
+        )
+        refreshed = refresh_service.refresh(
+            top=1,
+            supported_extensions={".pdf"},
+        )
+        repeated = refresh_service.refresh(
+            top=1,
+            supported_extensions={".pdf"},
+        )
         processor_calls = []
         selector = Selector()
         selected = LocalDocumentEvaluationService(
@@ -178,9 +190,13 @@ def test_refreshed_candidate_reaches_selector_without_processing():
         ).select_document(selector)
 
         assert refreshed.attachments_downloaded == 1
+        assert repeated.attachments_downloaded == 0
+        assert repeated.filename_collisions == 1
         assert selected.success is True
         assert selected.selected_index == 1
-        assert len(selector.candidates) == 1
+        assert len(selector.candidates) == 2
+        assert selector.candidates[0][1].read_bytes() == b"new"
+        assert selector.candidates[1][1] == older
         assert processor_calls == []
         assert PROTECTED_MARKER not in repr(selected)
 
