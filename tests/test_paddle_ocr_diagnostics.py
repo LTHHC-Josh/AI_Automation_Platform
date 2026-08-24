@@ -40,9 +40,11 @@ class LazyResults:
 
 
 class RecordingPaddle:
-    def __init__(self, results):
+    def __init__(self, results, common_args=None):
         self.results = results
         self.predict_count = 0
+        if common_args is not None:
+            self._common_args = common_args
 
     def predict(self, _source_path):
         self.predict_count += 1
@@ -172,3 +174,68 @@ def test_repeated_prediction_and_conversion_are_detected_deterministically():
 
     assert diagnostics.repeated_prediction_detected is True
     assert diagnostics.repeated_conversion_detected is True
+
+
+def test_global_flag_and_effective_paddleocr_settings_are_separate():
+    diagnostics = OCRRunDiagnostics()
+    paddle = RecordingPaddle([], common_args={
+        "enable_mkldnn": True,
+        "cpu_threads": 10,
+        "mkldnn_cache_capacity": 10,
+        "engine": "paddle",
+    })
+    provider = PaddleOCRProvider.__new__(PaddleOCRProvider)
+    provider.ocr = paddle
+    provider._read_global_paddle_flag = lambda: False
+
+    provider._capture_runtime_metadata(diagnostics)
+    safe = diagnostics.to_safe_dict()
+
+    assert safe["global_flags_use_mkldnn"] is False
+    assert safe["effective_paddleocr_enable_mkldnn"] is True
+    assert safe["effective_cpu_threads"] == 10
+    assert safe["effective_mkldnn_cache_capacity"] == 10
+    assert safe["effective_inference_engine"] == "paddle"
+
+
+def test_unavailable_effective_settings_remain_unknown():
+    diagnostics = OCRRunDiagnostics()
+    provider = PaddleOCRProvider.__new__(PaddleOCRProvider)
+    provider.ocr = RecordingPaddle([])
+    provider._read_global_paddle_flag = lambda: None
+
+    provider._capture_runtime_metadata(diagnostics)
+    safe = diagnostics.to_safe_dict()
+
+    assert safe["global_flags_use_mkldnn"] is None
+    assert safe["effective_paddleocr_enable_mkldnn"] is None
+    assert safe["effective_cpu_threads"] is None
+    assert safe["effective_mkldnn_cache_capacity"] is None
+    assert safe["effective_inference_engine"] == "unknown"
+
+
+def test_effective_setting_instrumentation_preserves_ocr_result_and_call_count():
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        cache = root / "cache"
+        cache.mkdir()
+        source = root / "synthetic.pdf"
+        source.write_bytes(b"synthetic")
+        paddle = RecordingPaddle(
+            [{"rec_texts": ["unchanged synthetic result"]}],
+            common_args={
+                "enable_mkldnn": True,
+                "cpu_threads": 10,
+                "mkldnn_cache_capacity": 10,
+                "engine": "paddle",
+            },
+        )
+        provider = _provider(cache, paddle)
+        provider._read_global_paddle_flag = lambda: False
+
+        document = provider.extract_document(source)
+
+        assert document.raw_text == "unchanged synthetic result"
+        assert paddle.predict_count == 1
+        assert provider.last_run_diagnostics.predict_call_count == 1
+        assert provider.last_run_diagnostics.result_conversion_count == 1

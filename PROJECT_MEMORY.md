@@ -861,8 +861,11 @@ Latest verified protected OCR performance boundary:
   No repeated prediction, repeated conversion, or cache-write source reread
   occurred.
 - The verified runtime was Paddle 3.2.0 and PaddleOCR 3.7.0 on CPU with
-  oneDNN reported disabled and no explicit OMP or MKL thread setting. Package
-  versions and the default English model family remain unpinned.
+  no explicit OMP or MKL environment thread setting. The original diagnostic
+  reported the global `FLAGS_use_mkldnn` value as false; it did not measure
+  PaddleOCR's effective inference configuration and must not be interpreted as
+  proof that effective oneDNN was disabled. Package versions and the default
+  English model family remain unpinned.
 - The 7-minute to 45-minute regression boundary is inside eager Paddle
   prediction, not structured OCR representation or cache-sidecar generation.
 - Committed history cannot establish the former Paddle/PaddleOCR versions,
@@ -870,6 +873,22 @@ Latest verified protected OCR performance boundary:
   the same English/orientation/unwarping flags and one document-level
   `predict()` shape since its introduction; committed requirements have never
   pinned Paddle packages.
+
+Latest OCR effective-configuration diagnostic correction:
+
+- PHI-safe diagnostics now report the global Paddle `FLAGS_use_mkldnn` value
+  separately from PaddleOCR's effective parsed inference settings.
+- Effective `enable_mkldnn`, CPU threads, MKLDNN cache capacity, and inference
+  engine are read only from the initialized PaddleOCR provider configuration;
+  unavailable or invalid values remain unknown.
+- Current installed PaddleOCR 3.7.0 source defaults are effective oneDNN true,
+  10 CPU threads, MKLDNN cache capacity 10, while the production provider
+  explicitly selects the `paddle` engine. No OCR behavior or constructor and
+  prediction arguments changed.
+- Focused synthetic/mock diagnostics passed 8 with 0 failures. Affected
+  cache/provider/authorization/fingerprint regressions passed 16 with 0
+  failures. No real OCR, protected document, Ollama, Graph, or production
+  Smartsheet processing ran.
 
 ## Known Limitations / Open Questions
 
@@ -1037,10 +1056,9 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Review and commit the PROJECT_MEMORY-only verified OCR performance checkpoint.
-Then prepare, but do not automatically run, one separately authorized
-PowerShell-controlled comparison using the same selected document, versions,
-model defaults, provider path, and PHI-safe diagnostics with only oneDNN state
-changed. Require exactly one fresh OCR attempt and compare prediction time and
-structural output counts; do not change structured-cache code or infer a
-package/model correction without controlled evidence.
+Review and commit the corrected effective PaddleOCR configuration diagnostics,
+tests, tracker, and PROJECT_MEMORY checkpoint. Do not run another protected OCR
+automatically. If a controlled comparison is later authorized, prepare it for
+direct PowerShell execution with the same document, versions, models, provider
+path, and diagnostics while changing exactly one effective inference setting;
+the prior global flag must not be used as a proxy for effective oneDNN state.

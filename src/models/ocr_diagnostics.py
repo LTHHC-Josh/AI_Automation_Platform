@@ -22,7 +22,11 @@ class OCRRunDiagnostics:
     configuration: dict[str, Any] = field(default_factory=dict)
     device_type: str = "unknown"
     thread_counts: dict[str, int | None] = field(default_factory=dict)
-    onednn_enabled: bool | None = None
+    global_flags_use_mkldnn: bool | None = None
+    effective_paddleocr_enable_mkldnn: bool | None = None
+    effective_cpu_threads: int | None = None
+    effective_mkldnn_cache_capacity: int | None = None
+    effective_inference_engine: str = "unknown"
     predict_call_count: int = 0
     document_submission_count: int = 0
     predict_return_seconds: float | None = None
@@ -67,7 +71,15 @@ class OCRRunDiagnostics:
             "configuration": dict(self.configuration),
             "device_type": self.device_type,
             "thread_counts": dict(self.thread_counts),
-            "onednn_enabled": self.onednn_enabled,
+            "global_flags_use_mkldnn": self.global_flags_use_mkldnn,
+            "effective_paddleocr_enable_mkldnn": (
+                self.effective_paddleocr_enable_mkldnn
+            ),
+            "effective_cpu_threads": self.effective_cpu_threads,
+            "effective_mkldnn_cache_capacity": (
+                self.effective_mkldnn_cache_capacity
+            ),
+            "effective_inference_engine": self.effective_inference_engine,
             "predict_call_count": self.predict_call_count,
             "document_submission_count": self.document_submission_count,
             "predict_return_seconds": self.predict_return_seconds,

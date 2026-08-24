@@ -741,6 +741,7 @@ class PaddleOCRProvider(OCRProvider):
     def _capture_runtime_metadata(self, diagnostics: OCRRunDiagnostics) -> None:
         diagnostics.paddle_version = self._package_version("paddlepaddle")
         diagnostics.paddleocr_version = self._package_version("paddleocr")
+        self._capture_effective_paddleocr_settings(diagnostics)
         try:
             import paddle
 
@@ -749,14 +750,58 @@ class PaddleOCRProvider(OCRProvider):
                 (item for item in ("cpu", "gpu", "xpu") if raw_device.startswith(item)),
                 "unknown",
             )
+        except (AttributeError, RuntimeError, TypeError, ValueError):
+            diagnostics.device_type = "unknown"
+        diagnostics.global_flags_use_mkldnn = self._read_global_paddle_flag()
+
+    def _capture_effective_paddleocr_settings(
+        self,
+        diagnostics: OCRRunDiagnostics,
+    ) -> None:
+        common_args = getattr(self.ocr, "_common_args", None)
+        if not isinstance(common_args, dict):
+            return
+
+        enable_mkldnn = common_args.get("enable_mkldnn")
+        if isinstance(enable_mkldnn, bool):
+            diagnostics.effective_paddleocr_enable_mkldnn = enable_mkldnn
+
+        cpu_threads = common_args.get("cpu_threads")
+        if (
+            isinstance(cpu_threads, int)
+            and not isinstance(cpu_threads, bool)
+            and 0 < cpu_threads <= 4096
+        ):
+            diagnostics.effective_cpu_threads = cpu_threads
+
+        cache_capacity = common_args.get("mkldnn_cache_capacity")
+        if (
+            isinstance(cache_capacity, int)
+            and not isinstance(cache_capacity, bool)
+            and 0 <= cache_capacity <= 1_000_000
+        ):
+            diagnostics.effective_mkldnn_cache_capacity = cache_capacity
+
+        engine = common_args.get("engine")
+        if engine in {
+            "paddle",
+            "paddle_static",
+            "paddle_dynamic",
+            "transformers",
+            "onnxruntime",
+        }:
+            diagnostics.effective_inference_engine = engine
+
+    @staticmethod
+    def _read_global_paddle_flag() -> bool | None:
+        try:
+            import paddle
+
             flags = paddle.get_flags(["FLAGS_use_mkldnn"])
             flag_value = flags.get("FLAGS_use_mkldnn")
-            diagnostics.onednn_enabled = (
-                flag_value if isinstance(flag_value, bool) else None
-            )
+            return flag_value if isinstance(flag_value, bool) else None
         except (AttributeError, KeyError, RuntimeError, TypeError, ValueError):
-            diagnostics.device_type = "unknown"
-            diagnostics.onednn_enabled = None
+            return None
 
     @staticmethod
     def _update_execution_invariants(diagnostics: OCRRunDiagnostics) -> None:

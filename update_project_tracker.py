@@ -7518,6 +7518,41 @@ Limitations and exact next starting point:
   phase report to select the smallest evidence-backed correction, and do not
   rerun OCR if downstream processing fails.
 
+
+------------------------------------------------------------
+EFFECTIVE PADDLEOCR CONFIGURATION DIAGNOSTICS - 2026-08-24
+------------------------------------------------------------
+
+Work completed:
+
+- Corrected the misleading oneDNN diagnostic boundary without changing OCR
+  behavior, constructor arguments, prediction calls, packages, or runtime
+  configuration.
+- The global Paddle `FLAGS_use_mkldnn` value is now reported separately from
+  PaddleOCR's effective parsed `enable_mkldnn` setting.
+- Effective CPU threads, MKLDNN cache capacity, and inference engine are read
+  from the initialized PaddleOCR configuration. Missing or invalid values stay
+  unknown and are not inferred from the global flag.
+- Existing safe package versions and fixed model/config identifiers remain.
+
+Verification:
+
+- Modified Python files compiled successfully.
+- Focused synthetic deterministic/mock diagnostics: 8 passed, 0 failed.
+- Affected cache/provider/authorization/fingerprint regressions: 16 passed,
+  0 failed.
+- Tests prove global and effective oneDNN values may differ, unknown values
+  remain unknown, and instrumentation preserves OCR results and call counts.
+- No real OCR, protected document, Ollama, Graph, production Smartsheet,
+  package change, or external AI operation ran.
+
+Exact next starting point:
+
+Review and commit this diagnostic correction. Do not run protected OCR
+automatically. Any later controlled performance comparison must change one
+effective inference setting only and must not treat the global Paddle flag as
+PaddleOCR's effective oneDNN state.
+
 """
 
 
