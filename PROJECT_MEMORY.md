@@ -890,6 +890,28 @@ Latest OCR effective-configuration diagnostic correction:
   failures. No real OCR, protected document, Ollama, Graph, or production
   Smartsheet processing ran.
 
+Latest controlled effective-setting and model-resolution evidence:
+
+- A direct PowerShell-controlled fresh run confirmed effective PaddleOCR
+  oneDNN true, 10 CPU threads, MKLDNN cache capacity 10, and the `paddle`
+  inference engine while the separate global `FLAGS_use_mkldnn` value remained
+  false. Effective oneDNN was already enabled and disabled oneDNN is not a
+  supported explanation for the regression.
+- The run created one engine and made one eager document-level prediction.
+  Prediction took approximately 2670 seconds and total OCR approximately 2675
+  seconds for four page results and 144 blocks, with no repeated work.
+- The committed provider passes `lang="en"` without an OCR version or explicit
+  detection/recognition model. PaddleOCR 3.7.0 therefore resolves exactly
+  `PP-OCRv6_medium_det` and `PP-OCRv6_medium_rec`.
+- Installed PaddleX OCR configuration independently confirms both PP-OCRv6
+  medium models and a recognition batch size of 6. These are medium variants,
+  not server or mobile variants. Orientation, unwarping, and text-line
+  orientation remain disabled by the provider.
+- Medium detection and recognition on CPU plausibly contribute to the slow
+  prediction path, particularly because prior unpinned environments may have
+  resolved older mobile defaults. This is not yet causal proof: former package
+  versions/models and detection-versus-recognition phase time remain unknown.
+
 ## Known Limitations / Open Questions
 
 - Existing text-only OCR caches contain the complete flattened text but cannot
@@ -1056,9 +1078,10 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Review and commit the corrected effective PaddleOCR configuration diagnostics,
-tests, tracker, and PROJECT_MEMORY checkpoint. Do not run another protected OCR
-automatically. If a controlled comparison is later authorized, prepare it for
-direct PowerShell execution with the same document, versions, models, provider
-path, and diagnostics while changing exactly one effective inference setting;
-the prior global flag must not be used as a proxy for effective oneDNN state.
+Review and commit the PROJECT_MEMORY-only effective-setting/model-resolution
+checkpoint. Do not run another protected OCR automatically. If separately
+authorized, the smallest next controlled comparison is direct PowerShell
+execution on the same document and runtime with only detection changed from
+`PP-OCRv6_medium_det` to `PP-OCRv6_small_det`, retaining medium recognition and
+all other settings. Compare prediction time, page/block structure, and safe
+accuracy/review indicators before considering any production model change.
