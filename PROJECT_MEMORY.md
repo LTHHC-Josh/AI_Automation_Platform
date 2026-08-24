@@ -113,6 +113,36 @@ Queues, EHR integration, eligibility automation, resource scheduling, and the
 other future capabilities described here are not currently implemented unless
 separately identified as implemented and tested elsewhere in this file.
 
+## Zero-Assumption Platform Development
+
+This rule applies to the entire LTHHC AI Automation Platform, not only OCR
+testing.
+
+- Between ChatGPT and locally running Codex, use the actual repository,
+  current local state, callers, tests, installed package/runtime interfaces,
+  configuration, and committed history to establish facts before designing,
+  editing, testing, or giving operator commands.
+- Never guess paths, symbols, signatures, defaults, callers, tests,
+  configuration shape, dependency or model behavior, current Git or local
+  state, runtime prerequisites, workflow ownership, or existing abstractions.
+- Inspect first, reconcile evidence, and then make the smallest safe change.
+- If Codex can determine a fact locally, Codex must determine it rather than
+  asking the operator to discover it manually.
+- Operator feedback is for business meaning, protected local selection,
+  approvals, and facts that cannot be derived from code or runtime, not for
+  discovering preventable technical setup errors.
+- Before multi-file edits, architecture changes, or new integrations, inspect
+  existing shared services and callers so the platform is extended rather
+  than duplicated.
+- Before long-running or expensive work, complete all inexpensive
+  deterministic preflight first.
+- If sources disagree, reconcile them explicitly; never discard confirmed
+  uncommitted truth or silently prefer an assumption.
+- Claims about behavior require code, test, or runtime evidence.
+- Apply this rule to OCR, LLMs, document processing, eligibility, EHR
+  integrations, Microsoft 365, Smartsheet, queues and jobs, batch workloads,
+  reporting, resource management, and all future platform subsystems.
+
 ## Current Architecture
 
 Classification, extraction, deterministic validation, business rules,
@@ -992,6 +1022,16 @@ Latest verified OCR performance baseline:
   settings matching the verified baseline. `predict_call_count` remained zero;
   no protected document was processed. No small-versus-medium OCR performance
   conclusion exists yet.
+- The complete zero-prediction comparison preflight passed all 21 allowlisted
+  phases in the real local runtime. It verified baseline and clean-tree state,
+  package imports and versions, model initialization and identity, effective
+  runtime configuration, application imports, selector infrastructure,
+  synthetic snapshot/fingerprint/cache targeting, provider initial state,
+  synthetic backup/restoration behavior, single-variable model selection,
+  static one-call execution guards, runner compilation, and harness checks.
+  `predict_call_count` remained zero and no protected document was selected or
+  processed. The preventable prior setup failure was the ignored script not
+  adding the repository root to its process-local Python import path.
 
 ## Known Limitations / Open Questions
 
@@ -1103,6 +1143,28 @@ Operator workflow:
   commands needed to resume from the authoritative next start.
 - VS Code may remain open for file and diff viewing.
 
+Operator time is not the test harness:
+
+- Codex must complete all inexpensive local preflight, interface and caller
+  inspection, dependency and model validation, setup validation, harness
+  compilation and testing, and deterministic readiness checks before handing
+  the operator a long-running command.
+- Codex must inspect actual local code, runtime, interfaces, configuration,
+  and state rather than guessing paths, arguments, signatures, defaults,
+  prerequisites, callers, or ownership.
+- The operator should not discover preventable setup or harness failures.
+- Hand long-running local compute to PowerShell only after cheap preflight
+  proves `READY_FOR_EXECUTION` or `READY_FOR_PREDICTION`.
+- Reserve operator involvement for protected local selection, required
+  business judgment or approval, genuinely sensitive or destructive actions,
+  and unavoidable long-running local execution.
+- Apply this principle to OCR and future EHR, eligibility, batch, integration,
+  and other expensive platform workloads.
+- Long-running local compute should normally run directly in PowerShell so
+  Codex does not sit idle consuming shared usage while local compute runs.
+- Optimize for total cost to a correct tested result without sacrificing
+  safety, code quality, or accuracy.
+
 ## Begin Day Procedure
 
 When the operator says `begin day`:
@@ -1161,9 +1223,9 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-If separately authorized, prepare the corrected ignored runner for one
-protected comparison with the current committed baseline and verify its safe
-preflight and cache-restoration controls without prediction. Only then run one
-normal DocumentProcessor/Paddle comparison in which detection changes to
-`PP-OCRv6_small_det` while medium recognition and all verified runtime settings
-remain constant; do not infer performance or accuracy before that run.
+Run the single controlled `PP-OCRv6_small_det` protected comparison directly
+in PowerShell using the corrected ignored runner after confirming the tracked
+tree is clean. The complete zero-prediction preflight is passed. Keep
+`PP-OCRv6_medium_rec` and all verified runtime settings unchanged, permit one
+engine initialization, one document submission, and at most one `predict()`
+call, and return only the runner's PHI-safe aggregate result.
