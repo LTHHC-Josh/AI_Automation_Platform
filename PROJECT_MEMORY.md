@@ -208,6 +208,81 @@ do not automatically become production rules.
 - Payer, sender, filename, and template must not imply document meaning or
   authorization conclusions.
 
+## Phase 1 - Automated Document Processor Completion Criteria
+
+The automated document processor is the current implementation priority. It
+is not complete merely because individual components or tests work. Phase 1 is
+complete only when the document-processing subsystem is deployed live in the
+approved LT Home Healthcare environment and operates automatically with safe
+continuous-improvement feedback.
+
+The required end state is:
+
+- Approved document sources feed the processor automatically.
+- Supported and validated document patterns process end to end without
+  routine human intervention.
+- The system reasons over the whole document and generalizes across layouts
+  and wording rather than depending on fixed positions.
+- Fields and concepts preserve evidence, confidence, and provenance.
+- Missing, unsupported, conflicting, invalid, ambiguous, guessed, or
+  insufficiently supported results route to review rather than being
+  invented.
+- Normal validated documents proceed automatically through approved
+  production actions, including intentionally mapped Smartsheet actions.
+- Review remains downstream exception handling rather than a prerequisite for
+  every document.
+- Operators can flag incorrect outputs even when the system did not request
+  review.
+- Flagged incorrect results become PHI-safe development and learning inputs.
+- The team can reproduce failures locally without exposing PHI to ChatGPT or
+  Codex.
+- Corrections are made at the appropriate supported layer: OCR, structured
+  evidence, normalization, classification, extraction, prompt or schema,
+  deterministic validation, business rules, reference data, configuration or
+  model selection, or another supported platform layer.
+- Every corrected behavior receives synthetic and regression coverage where
+  feasible before production promotion.
+- A single flagged case never automatically retrains or changes model
+  behavior.
+- No production rule is learned automatically from model observations or user
+  correction without deterministic validation and business approval.
+- Model, package, and configuration changes are explicit, versioned or
+  controlled, tested, and reversible.
+- Performance is suitable for unattended continuous operation.
+- Retries and restarts are safe and do not lose documents or duplicate
+  business actions.
+- PHI-safe operational diagnostics expose health, failures, timing,
+  retry/review categories, and configuration/model state without exposing
+  patient data.
+- Real-document acceptance coverage is sufficient to trust unattended
+  operation while uncertainty is escalated appropriately.
+
+### Required Feedback Loops
+
+Maintain two distinct feedback paths:
+
+1. Review / uncertain cases: the platform identifies insufficient support,
+   conflict, or ambiguity and routes the case for human review.
+2. Confident-but-incorrect cases: an operator can flag an automatically
+   processed result as wrong after processing. The flag preserves enough
+   protected local evidence and provenance to investigate the exact failure
+   while exposing only PHI-safe diagnostics to ChatGPT and Codex.
+
+A flagged result is evidence for investigation, not an automatic production
+rule or model update.
+
+### Continuous Improvement Principle
+
+"Training the platform" means improving the correct layer based on evidence.
+It may involve deterministic rules, normalization, prompts and schemas,
+reference data, OCR or model configuration, tests, or eventually model tuning.
+Do not assume every correction requires LLM retraining.
+
+Keep future EHR, eligibility, and other company-AI subsystems out of active
+implementation scope until these document-processing completion criteria are
+met. Their future architectural direction remains recorded, but Phase 1
+implementation stays focused on the automated document processor.
+
 ## Current Implemented Capabilities
 
 - Microsoft Graph mailbox access and attachment handling.
