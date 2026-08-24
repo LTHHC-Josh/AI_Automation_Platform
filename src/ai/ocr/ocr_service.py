@@ -41,3 +41,8 @@ class OCRService:
 
     def extract_document(self, file_path, *, cache_only: bool = False):
         return self.provider.extract_document(file_path, cache_only=cache_only)
+
+    def get_last_diagnostics(self) -> dict:
+        diagnostics = getattr(self.provider, "last_run_diagnostics", None)
+        to_safe_dict = getattr(diagnostics, "to_safe_dict", None)
+        return to_safe_dict() if callable(to_safe_dict) else {}

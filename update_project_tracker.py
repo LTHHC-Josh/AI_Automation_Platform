@@ -7476,6 +7476,48 @@ Limitations and exact next starting point:
   safe files, commit, push, and verify sync. A protected cache/local-Ollama
   acceptance run requires separate explicit authorization afterward.
 
+
+------------------------------------------------------------
+PHI-SAFE OCR PERFORMANCE DIAGNOSTICS - 2026-08-24
+------------------------------------------------------------
+
+Work completed:
+
+- Added per-request PHI-safe phase diagnostics to the normal Paddle provider
+  path without changing OCR inputs, cache formats, or production return types.
+- Cache lookup, Paddle initialization, eager/lazy prediction, ordinal result
+  consumption, conversion/traversal, block construction, and both cache writes
+  now have separate counts and timings.
+- Safe runtime metadata includes package versions, sanitized device class,
+  allowlisted thread settings, nullable oneDNN status, fixed configuration
+  identifiers, and safe input/size buckets.
+- Deterministic invariants flag repeated prediction/submission or result
+  conversion and confirm cache serialization causes no extra provider call or
+  application source reread.
+- Diagnostics flow through OCRService and DocumentProcessor processing metrics
+  to the PHI-safe local evaluation result.
+
+Verification:
+
+- Modified Python files compiled successfully.
+- Focused synthetic deterministic/mock checks: 21 passed, 0 failed.
+- Affected processor, evaluator, learning-report, and classification
+  regressions: 62 passed, 0 failed.
+- No wall-clock thresholds were used.
+- No protected data, real OCR, Paddle prediction, Ollama, Graph, Smartsheet,
+  rename, or external integration ran.
+
+Limitations and exact next starting point:
+
+- Paddle's effective internal PDF render DPI, scale, and batch size remain
+  `unknown` when the installed public API does not expose them.
+- The diagnostics identify a boundary but intentionally apply no performance
+  correction.
+- After review and commit, perform exactly one separately authorized protected
+  fresh OCR run through the normal selector/provider path. Use only the safe
+  phase report to select the smallest evidence-backed correction, and do not
+  rerun OCR if downstream processing fails.
+
 """
 
 

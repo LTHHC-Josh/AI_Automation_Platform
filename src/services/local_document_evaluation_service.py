@@ -156,6 +156,7 @@ class LocalDocumentEvaluationResult:
         default_factory=dict
     )
     total_timing: float = 0.0
+    ocr_diagnostics: dict[str, Any] = field(default_factory=dict)
     known_contract_pass: bool | None = None
     cache_only_enforced: bool = True
     processing_stdout_suppressed: bool = True
@@ -216,6 +217,7 @@ class LocalDocumentEvaluationResult:
                 self.stage_timings
             ),
             "total_timing": self.total_timing,
+            "ocr_diagnostics": dict(self.ocr_diagnostics),
             "known_contract_pass": self.known_contract_pass,
             "cache_only_enforced": self.cache_only_enforced,
             "processing_stdout_suppressed": (
@@ -1035,6 +1037,11 @@ class LocalDocumentEvaluationService:
                     "total_wall_seconds",
                     0.0,
                 )
+            ),
+            ocr_diagnostics=(
+                dict(processing_metrics.get("ocr_diagnostics", {}))
+                if isinstance(processing_metrics.get("ocr_diagnostics"), dict)
+                else {}
             ),
             known_contract_pass=(
                 known_contract_pass

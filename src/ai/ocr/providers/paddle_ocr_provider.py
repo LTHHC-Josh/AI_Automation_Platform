@@ -1,5 +1,10 @@
 from pathlib import Path
 import json
+from collections.abc import Iterator
+from importlib.metadata import PackageNotFoundError, version
+import os
+import re
+from time import perf_counter
 from typing import Any
 
 from paddleocr import PaddleOCR
@@ -8,6 +13,7 @@ from src.ai.ocr.errors import OCRCacheOnlyMissError
 from src.ai.ocr.ocr_provider import OCRProvider
 from src.ai.ocr.provider_registration import register_ocr_provider
 from src.models.ocr_document import OCRBlock, OCRDocument, OCRPage
+from src.models.ocr_diagnostics import OCRRunDiagnostics
 from src.services.document_fingerprint_service import (
     DocumentFingerprintService,
 )
@@ -56,6 +62,7 @@ class PaddleOCRProvider(OCRProvider):
         )
 
         self.ocr = None
+        self.last_run_diagnostics = OCRRunDiagnostics()
 
     def _create_ocr(self) -> PaddleOCR:
         """Create the Paddle engine only when prediction is required."""
@@ -96,14 +103,37 @@ class PaddleOCRProvider(OCRProvider):
             file_path
         )
 
+        diagnostics = OCRRunDiagnostics(
+            input_type=("pdf" if document_path.suffix.lower() == ".pdf" else "raster"),
+            configuration={
+                "language": "en",
+                "doc_orientation_classification": False,
+                "document_unwarping": False,
+                "textline_orientation": False,
+                "engine": "paddle",
+            },
+            thread_counts={
+                "omp": self._safe_thread_count("OMP_NUM_THREADS"),
+                "mkl": self._safe_thread_count("MKL_NUM_THREADS"),
+            },
+            batch_metadata={"batch_size": "unknown"},
+            render_metadata={"dpi": "unknown", "scale": "unknown"},
+        )
+        self.last_run_diagnostics = diagnostics
+
         self._validate_document_path(
             document_path
         )
 
+        fingerprint_started_at = perf_counter()
         fingerprint_result = (
             self.fingerprint_service.calculate(
                 document_path
             )
+        )
+        diagnostics.fingerprint_seconds = perf_counter() - fingerprint_started_at
+        diagnostics.file_size_bucket = self._file_size_bucket(
+            fingerprint_result.byte_count
         )
 
         if (
@@ -122,16 +152,24 @@ class PaddleOCRProvider(OCRProvider):
         )
 
         structured_cache_path = self._get_structured_cache_path(document_hash)
+        cache_started_at = perf_counter()
         structured_document = self._read_structured_cache(structured_cache_path)
+        diagnostics.cache_lookup_seconds["structured"] = (
+            perf_counter() - cache_started_at
+        )
         if structured_document is not None:
+            diagnostics.cache_category = "structured_hit"
             print("Using cached OCR text for local document.")
             return structured_document
 
+        cache_started_at = perf_counter()
         cached_text = self._read_cache(
             cache_path
         )
+        diagnostics.cache_lookup_seconds["flat"] = perf_counter() - cache_started_at
 
         if cached_text:
+            diagnostics.cache_category = "flat_hit"
             print(
                 "Using cached OCR text for local document."
             )
@@ -143,11 +181,14 @@ class PaddleOCRProvider(OCRProvider):
             document_hash=document_hash,
         )
 
+        cache_started_at = perf_counter()
         legacy_cached_text = self._read_cache(
             legacy_cache_path
         )
+        diagnostics.cache_lookup_seconds["legacy"] = perf_counter() - cache_started_at
 
         if legacy_cached_text:
+            diagnostics.cache_category = "legacy_hit"
             migration_succeeded = self._write_cache(
                 cache_path=cache_path,
                 text=legacy_cached_text,
@@ -165,6 +206,7 @@ class PaddleOCRProvider(OCRProvider):
             return OCRDocument.from_flat_text(legacy_cached_text)
 
         if cache_only:
+            diagnostics.cache_category = "miss"
             raise OCRCacheOnlyMissError(
                 "OCR cache is unavailable."
             ) from None
@@ -173,16 +215,25 @@ class PaddleOCRProvider(OCRProvider):
             "No OCR cache found. Processing local document "
             "with PaddleOCR."
         )
+        diagnostics.cache_category = "miss"
 
         if self.ocr is None:
+            init_started_at = perf_counter()
+            diagnostics.engine_creation_count += 1
             self.ocr = self._create_ocr()
+            diagnostics.engine_init_seconds = perf_counter() - init_started_at
+        self._capture_runtime_metadata(diagnostics)
 
         try:
+            predict_started_at = perf_counter()
+            diagnostics.predict_call_count += 1
+            diagnostics.document_submission_count += 1
             results = self.ocr.predict(
                 str(
                     document_path
                 )
             )
+            diagnostics.predict_return_seconds = perf_counter() - predict_started_at
         except Exception as ex:
             raise RuntimeError(
                 "PaddleOCR failed to process the local document. "
@@ -191,18 +242,47 @@ class PaddleOCRProvider(OCRProvider):
 
         extracted_pages: list[OCRPage] = []
         global_order = 0
+        result_iterator = iter(results)
+        diagnostics.result_behavior = (
+            "lazy" if isinstance(results, Iterator) else "eager"
+        )
+        consumption_started_at = perf_counter()
+        page_number = 0
+        seen_page_ordinals: set[int] = set()
 
-        for page_number, result in enumerate(results, start=1):
+        while True:
+            yield_started_at = perf_counter()
+            try:
+                result = next(result_iterator)
+            except StopIteration:
+                break
+            yield_seconds = perf_counter() - yield_started_at
+            page_number += 1
+            diagnostics.result_count += 1
+            if page_number in seen_page_ordinals:
+                diagnostics.page_ordinals_unique = False
+            seen_page_ordinals.add(page_number)
+
+            conversion_started_at = perf_counter()
             result_data = self._result_to_dict(
                 result
             )
+            conversion_seconds = perf_counter() - conversion_started_at
+            diagnostics.result_conversion_count += 1
+            diagnostics.result_conversion_seconds += conversion_seconds
 
+            traversal_started_at = perf_counter()
+            diagnostics.recognized_text_traversal_count += 1
             recognized_texts = (
                 self._find_recognized_texts(
-                    result_data
+                    result_data,
+                    diagnostics=diagnostics,
                 )
             )
+            traversal_seconds = perf_counter() - traversal_started_at
+            diagnostics.recognized_text_traversal_seconds += traversal_seconds
 
+            construction_started_at = perf_counter()
             page_blocks: list[OCRBlock] = []
             for text in recognized_texts:
                 cleaned_text = str(
@@ -221,12 +301,27 @@ class PaddleOCRProvider(OCRProvider):
                 page_number=page_number,
                 blocks=tuple(page_blocks),
             ))
+            construction_seconds = perf_counter() - construction_started_at
+            diagnostics.page_block_construction_seconds += construction_seconds
+            diagnostics.recognized_block_count += len(page_blocks)
+            diagnostics.page_timings.append({
+                "page_ordinal": page_number,
+                "result_yield_seconds": yield_seconds,
+                "conversion_seconds": conversion_seconds,
+                "traversal_seconds": traversal_seconds,
+                "construction_seconds": construction_seconds,
+            })
 
+        diagnostics.result_consumption_seconds = perf_counter() - consumption_started_at
+        self._update_execution_invariants(diagnostics)
+
+        assembly_started_at = perf_counter()
         ocr_document = OCRDocument(
             pages=tuple(extracted_pages),
             relationship_status="preserved",
         )
         full_text = ocr_document.raw_text
+        diagnostics.flat_text_assembly_seconds = perf_counter() - assembly_started_at
 
         if not full_text:
             raise RuntimeError(
@@ -234,9 +329,15 @@ class PaddleOCRProvider(OCRProvider):
                 "in the local document."
             )
 
+        calls_before_writes = diagnostics.predict_call_count
+        flat_write_started_at = perf_counter()
         cache_written = self._write_cache(
             cache_path=cache_path,
             text=full_text,
+        )
+        diagnostics.flat_cache_write_seconds = perf_counter() - flat_write_started_at
+        diagnostics.flat_serialized_size_bucket = self._serialized_size_bucket(
+            len(full_text.encode("utf-8"))
         )
 
         if cache_written:
@@ -244,10 +345,29 @@ class PaddleOCRProvider(OCRProvider):
                 "Saved OCR text to the secured local cache."
             )
 
-        self._write_structured_cache(
-            cache_path=structured_cache_path,
-            document=ocr_document,
+        serialization_started_at = perf_counter()
+        structured_payload = json.dumps(
+            ocr_document.to_protected_cache_dict(), separators=(",", ":")
         )
+        diagnostics.structured_serialization_seconds = (
+            perf_counter() - serialization_started_at
+        )
+        diagnostics.structured_serialized_size_bucket = self._serialized_size_bucket(
+            len(structured_payload.encode("utf-8"))
+        )
+        structured_write_started_at = perf_counter()
+        self._write_structured_cache_payload(
+            cache_path=structured_cache_path,
+            payload=structured_payload,
+        )
+        diagnostics.structured_cache_write_seconds = (
+            perf_counter() - structured_write_started_at
+        )
+        diagnostics.extra_predict_calls_during_cache_writes = (
+            diagnostics.predict_call_count - calls_before_writes
+        )
+        diagnostics.application_source_rereads_during_cache_writes = 0
+        self._update_execution_invariants(diagnostics)
 
         return ocr_document
 
@@ -314,9 +434,23 @@ class PaddleOCRProvider(OCRProvider):
         cache_path: Path,
         document: OCRDocument,
     ) -> bool:
+        payload = json.dumps(
+            document.to_protected_cache_dict(), separators=(",", ":")
+        )
+        return self._write_structured_cache_payload(
+            cache_path=cache_path,
+            payload=payload,
+        )
+
+    def _write_structured_cache_payload(
+        self,
+        *,
+        cache_path: Path,
+        payload: str,
+    ) -> bool:
         try:
             cache_path.write_text(
-                json.dumps(document.to_protected_cache_dict(), separators=(",", ":")),
+                payload,
                 encoding="utf-8",
             )
         except OSError:
@@ -504,6 +638,8 @@ class PaddleOCRProvider(OCRProvider):
     def _find_recognized_texts(
         self,
         value: Any,
+        *,
+        diagnostics: OCRRunDiagnostics | None = None,
     ) -> list[str]:
         """
         Recursively locate PaddleOCR recognized-text arrays.
@@ -515,6 +651,8 @@ class PaddleOCRProvider(OCRProvider):
             value,
             dict,
         ):
+            if diagnostics is not None:
+                diagnostics.visited_container_count += 1
             rec_texts = value.get(
                 "rec_texts"
             )
@@ -534,7 +672,8 @@ class PaddleOCRProvider(OCRProvider):
             for nested_value in value.values():
                 recognized_texts.extend(
                     self._find_recognized_texts(
-                        nested_value
+                        nested_value,
+                        diagnostics=diagnostics,
                     )
                 )
 
@@ -542,11 +681,89 @@ class PaddleOCRProvider(OCRProvider):
             value,
             list,
         ):
+            if diagnostics is not None:
+                diagnostics.visited_container_count += 1
             for nested_value in value:
                 recognized_texts.extend(
                     self._find_recognized_texts(
-                        nested_value
+                        nested_value,
+                        diagnostics=diagnostics,
                     )
                 )
 
         return recognized_texts
+
+    @staticmethod
+    def _safe_thread_count(name: str) -> int | None:
+        value = os.environ.get(name)
+        try:
+            count = int(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+        return count if count is not None and 0 < count <= 4096 else None
+
+    @staticmethod
+    def _file_size_bucket(byte_count: int) -> str:
+        if byte_count < 1024 * 1024:
+            return "under_1_mib"
+        if byte_count < 10 * 1024 * 1024:
+            return "1_to_10_mib"
+        if byte_count < 50 * 1024 * 1024:
+            return "10_to_50_mib"
+        if byte_count < 200 * 1024 * 1024:
+            return "50_to_200_mib"
+        return "200_mib_or_more"
+
+    @staticmethod
+    def _serialized_size_bucket(byte_count: int) -> str:
+        if byte_count < 64 * 1024:
+            return "under_64_kib"
+        if byte_count < 256 * 1024:
+            return "64_to_256_kib"
+        if byte_count < 1024 * 1024:
+            return "256_kib_to_1_mib"
+        if byte_count < 10 * 1024 * 1024:
+            return "1_to_10_mib"
+        return "10_mib_or_more"
+
+    @staticmethod
+    def _package_version(package_name: str) -> str:
+        try:
+            package_version = version(package_name)
+        except PackageNotFoundError:
+            return "unknown"
+        return (
+            package_version
+            if re.fullmatch(r"[0-9A-Za-z.+-]{1,40}", package_version)
+            else "unknown"
+        )
+
+    def _capture_runtime_metadata(self, diagnostics: OCRRunDiagnostics) -> None:
+        diagnostics.paddle_version = self._package_version("paddlepaddle")
+        diagnostics.paddleocr_version = self._package_version("paddleocr")
+        try:
+            import paddle
+
+            raw_device = str(paddle.device.get_device()).lower()
+            diagnostics.device_type = next(
+                (item for item in ("cpu", "gpu", "xpu") if raw_device.startswith(item)),
+                "unknown",
+            )
+            flags = paddle.get_flags(["FLAGS_use_mkldnn"])
+            flag_value = flags.get("FLAGS_use_mkldnn")
+            diagnostics.onednn_enabled = (
+                flag_value if isinstance(flag_value, bool) else None
+            )
+        except (AttributeError, KeyError, RuntimeError, TypeError, ValueError):
+            diagnostics.device_type = "unknown"
+            diagnostics.onednn_enabled = None
+
+    @staticmethod
+    def _update_execution_invariants(diagnostics: OCRRunDiagnostics) -> None:
+        diagnostics.repeated_conversion_detected = (
+            diagnostics.result_conversion_count != diagnostics.result_count
+        )
+        diagnostics.repeated_prediction_detected = (
+            diagnostics.predict_call_count != 1
+            or diagnostics.document_submission_count != 1
+        )

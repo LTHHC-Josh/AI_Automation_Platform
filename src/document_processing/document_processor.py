@@ -145,6 +145,14 @@ class DocumentProcessor:
             - ocr_started_at
         )
 
+        get_ocr_diagnostics = getattr(self.ocr, "get_last_diagnostics", None)
+        if callable(get_ocr_diagnostics):
+            safe_ocr_diagnostics = get_ocr_diagnostics()
+            if isinstance(safe_ocr_diagnostics, dict):
+                document.processing_metrics["ocr_diagnostics"] = (
+                    safe_ocr_diagnostics
+                )
+
         classification_started_at = perf_counter()
 
         classification = self.llm.classify(

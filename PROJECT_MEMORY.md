@@ -827,6 +827,25 @@ Latest completed end-of-day state:
 Begin Day must verify current Git state again rather than assuming this
 remains true.
 
+Latest OCR performance-diagnostic instrumentation checkpoint:
+
+- The normal Paddle provider path now records PHI-safe cache/routing,
+  initialization, prediction, result-consumption, conversion, and cache-write
+  measurements for one request.
+- Diagnostics expose only allowlisted counts, booleans, durations, ordinal
+  page timings, safe buckets, package/config identifiers, and sanitized
+  runtime categories. Paths, filenames, hashes, OCR text, values,
+  source_text, IDs, and raw exceptions are excluded.
+- Eager prediction return time is separated from lazy result-consumption time.
+  Result streams remain single-pass, and deterministic invariants flag
+  repeated prediction/submission or conversion.
+- Structured and flat cache writes reuse the in-memory OCR result and record
+  zero additional provider prediction calls or application source rereads.
+- Modified Python compiled successfully. Focused synthetic/mock checks passed
+  21 with 0 failures; affected processor/evaluator/learning regressions passed
+  62 with 0 failures. No real OCR, Paddle prediction, Ollama, Graph,
+  Smartsheet, or protected-document processing ran.
+
 ## Known Limitations / Open Questions
 
 - Existing text-only OCR caches contain the complete flattened text but cannot
@@ -988,8 +1007,8 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Review the uncommitted whole-document learning-analyzer diff and synthetic/mock
-test evidence. If approved, complete Git safety staging, commit, push, and sync.
-After that checkpoint, any protected cache/local-Ollama acceptance run requires
-separate explicit authorization; do not rerun OCR, infer UTL or approval, infer
-visits from units, or wire learning observations into production rules.
+Review the uncommitted PHI-safe OCR performance-diagnostic instrumentation and
+synthetic/mock evidence. After approval and commit, run exactly one separately
+authorized protected fresh OCR verification through the normal selector and
+provider path. Use its safe phase breakdown to identify the regression boundary
+before designing any correction. Do not rerun OCR if downstream work fails.
