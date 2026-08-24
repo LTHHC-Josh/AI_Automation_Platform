@@ -846,6 +846,31 @@ Latest OCR performance-diagnostic instrumentation checkpoint:
   62 with 0 failures. No real OCR, Paddle prediction, Ollama, Graph,
   Smartsheet, or protected-document processing ran.
 
+Latest verified protected OCR performance boundary:
+
+- One separately authorized fresh run used the normal protected selector,
+  current snapshot identity, DocumentProcessor, OCRService, and Paddle provider
+  path. No preinitialized provider wrapper or retry was used.
+- Exactly one Paddle engine was created and exactly one document-level
+  `predict()` call was made. Four eager page results produced 144 blocks.
+- Total OCR time was approximately 2698 seconds. Engine initialization was
+  approximately 6 seconds, while eager `PaddleOCR.predict()` consumed
+  approximately 2692 seconds, or 99.8 percent of OCR runtime.
+- Result consumption, conversion, recursive traversal, flat-text assembly,
+  structured serialization, and both cache writes took only milliseconds.
+  No repeated prediction, repeated conversion, or cache-write source reread
+  occurred.
+- The verified runtime was Paddle 3.2.0 and PaddleOCR 3.7.0 on CPU with
+  oneDNN reported disabled and no explicit OMP or MKL thread setting. Package
+  versions and the default English model family remain unpinned.
+- The 7-minute to 45-minute regression boundary is inside eager Paddle
+  prediction, not structured OCR representation or cache-sidecar generation.
+- Committed history cannot establish the former Paddle/PaddleOCR versions,
+  resolved default model family, or oneDNN/thread state. The provider has used
+  the same English/orientation/unwarping flags and one document-level
+  `predict()` shape since its introduction; committed requirements have never
+  pinned Paddle packages.
+
 ## Known Limitations / Open Questions
 
 - Existing text-only OCR caches contain the complete flattened text but cannot
@@ -944,6 +969,11 @@ Operator workflow:
 - Local completion and approval sound alerts are configured and verified.
 - Optimize Codex prompts for the smallest safe scope: inspect existing cache
   and state first, and minimize repeated exploration and reruns.
+- Long-running local compute such as Paddle OCR should normally run directly
+  in PowerShell rather than with Codex sitting idle waiting. Codex should
+  inspect and prepare the command, then later interpret only PHI-safe results.
+  Use Codex for the waiting process only when it materially improves safety or
+  debugging. Optimize for total cost to a correct tested result.
 - Start a fresh Codex session only when it materially reduces stale context or
   usage. When recommending one, provide the exact PowerShell `cd` and `codex`
   commands needed to resume from the authoritative next start.
@@ -1007,8 +1037,10 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Review the uncommitted PHI-safe OCR performance-diagnostic instrumentation and
-synthetic/mock evidence. After approval and commit, run exactly one separately
-authorized protected fresh OCR verification through the normal selector and
-provider path. Use its safe phase breakdown to identify the regression boundary
-before designing any correction. Do not rerun OCR if downstream work fails.
+Review and commit the PROJECT_MEMORY-only verified OCR performance checkpoint.
+Then prepare, but do not automatically run, one separately authorized
+PowerShell-controlled comparison using the same selected document, versions,
+model defaults, provider path, and PHI-safe diagnostics with only oneDNN state
+changed. Require exactly one fresh OCR attempt and compare prediction time and
+structural output counts; do not change structured-cache code or infer a
+package/model correction without controlled evidence.
