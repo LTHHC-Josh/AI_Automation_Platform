@@ -47,6 +47,64 @@ The architecture must remain reusable for future document types,
 healthcare sources, EHR/API integrations, cross-source validation,
 workflow automation, and internal AI task completion.
 
+## Future Platform Direction
+
+LT Home Healthcare is building this repository as a reusable company-wide
+AI and automation platform intended eventually for continuous 24/7 operation
+on the internal network. This is future direction, not a claim that continuous
+operation or the capabilities below are implemented today.
+
+The current inbox document processor is one consumer and subsystem of that
+platform; it is not the architecture of the platform itself. Future consumers
+may include scanner and other document-ingestion sources, EHR integration that
+associates and attaches documents to the correct clients, high-volume
+eligibility-document processing, analysis of hundreds of eligibility records
+to identify renewal and action needs, additional MCO/provider/HHS/EHR/internal-
+system workflows, and other company AI and automation use cases.
+
+Do not optimize the platform architecture around the current inbox workflow.
+Build reusable company AI platform capabilities, with the inbox document
+processor as one consumer.
+
+## Enterprise Healthcare AI Architecture Standard
+
+Future implementation must:
+
+- Design every subsystem for eventual unattended regulated healthcare
+  operation while preserving HIPAA and PHI boundaries at every scale.
+- Use least-privilege integration boundaries and deterministic validation and
+  business-rule gates around AI outputs.
+- Preserve evidence provenance and traceability for important AI conclusions,
+  separate model observations from deterministic production truth, and use
+  controlled promotion of learned or new rules into production.
+- Fail safely on missing, unsupported, conflicting, invalid, guessed, or
+  ambiguous evidence.
+- Use explicit model, dependency, and configuration control once validated to
+  avoid silent model drift, with reproducible deployments, rollback capability,
+  and clear auditability of the code, model, and configuration used.
+- Provide PHI-safe operational observability.
+- Use queue/job-oriented architecture for long-running and batch work, with
+  idempotency, safe retries, resumability, restart recovery, controlled
+  concurrency, and backpressure.
+- Isolate workloads so OCR, LLM, EHR, eligibility, and other jobs do not
+  saturate the AI PC, with configurable CPU, RAM, GPU, thread, and other
+  resource budgets.
+- Reuse OCR caches and initialized resources safely, avoid duplicate OCR and
+  model calls or unnecessary pipeline stages, and keep expensive stages
+  independently composable and skippable.
+- Support both interactive single-document and high-volume batch workloads.
+- Reuse shared OCR, structured-evidence, classification, extraction,
+  validation, business-rule, review, integration, diagnostic, and
+  orchestration services rather than duplicating them per workflow.
+- Treat health, performance, and scalability as architecture requirements,
+  not later polish.
+- Tolerate temporary dependency outages without document loss or duplicate
+  business actions.
+
+Queues, EHR integration, eligibility automation, resource scheduling, and the
+other future capabilities described here are not currently implemented unless
+separately identified as implemented and tested elsewhere in this file.
+
 ## Current Architecture
 
 Classification, extraction, deterministic validation, business rules,
@@ -890,27 +948,34 @@ Latest OCR effective-configuration diagnostic correction:
   failures. No real OCR, protected document, Ollama, Graph, or production
   Smartsheet processing ran.
 
-Latest controlled effective-setting and model-resolution evidence:
+Latest verified OCR performance baseline:
 
-- A direct PowerShell-controlled fresh run confirmed effective PaddleOCR
-  oneDNN true, 10 CPU threads, MKLDNN cache capacity 10, and the `paddle`
-  inference engine while the separate global `FLAGS_use_mkldnn` value remained
-  false. Effective oneDNN was already enabled and disabled oneDNN is not a
-  supported explanation for the regression.
-- The run created one engine and made one eager document-level prediction.
-  Prediction took approximately 2670 seconds and total OCR approximately 2675
-  seconds for four page results and 144 blocks, with no repeated work.
-- The committed provider passes `lang="en"` without an OCR version or explicit
-  detection/recognition model. PaddleOCR 3.7.0 therefore resolves exactly
-  `PP-OCRv6_medium_det` and `PP-OCRv6_medium_rec`.
-- Installed PaddleX OCR configuration independently confirms both PP-OCRv6
-  medium models and a recognition batch size of 6. These are medium variants,
-  not server or mobile variants. Orientation, unwarping, and text-line
-  orientation remain disabled by the provider.
-- Medium detection and recognition on CPU plausibly contribute to the slow
-  prediction path, particularly because prior unpinned environments may have
-  resolved older mobile defaults. This is not yet causal proof: former package
-  versions/models and detection-versus-recognition phase time remain unknown.
+- A controlled PowerShell run completed successfully on a PDF under 1 MiB
+  using Paddle 3.2.0 and PaddleOCR 3.7.0 on CPU.
+- Effective PaddleOCR MKLDNN was enabled with 10 CPU threads, MKLDNN cache
+  capacity 10, and the `paddle` inference engine.
+- The normal path created one engine, submitted the document once, and made
+  exactly one `predict()` call. Engine initialization took approximately 5
+  seconds, eager `PaddleOCR.predict()` approximately 2670 seconds (44.5
+  minutes), and total OCR approximately 2675 seconds (44.6 minutes).
+- Four page results produced 144 recognized blocks. Result conversion,
+  traversal, page/block construction, flat-text assembly, serialization, and
+  flat and structured cache writes were negligible. There was no repeated
+  prediction, repeated conversion, extra prediction, or extra source reread
+  during cache writes.
+- Approximately 99.8 percent of OCR runtime is therefore inside eager
+  `PaddleOCR.predict()`. Structured OCR representation, page/block
+  construction, and structured-cache generation are not supported causes of
+  the prior approximately 7-minute to current approximately 45-minute
+  regression.
+- The current constructor resolves `PP-OCRv6_medium_det` and
+  `PP-OCRv6_medium_rec`. Project dependency configuration currently leaves
+  this default behavior unpinned.
+- The attempted controlled `PP-OCRv6_small_det` comparison returned
+  `controlled_run_failed` before producing a valid comparison result. No
+  small-versus-medium performance conclusion is supported. Do not rerun OCR
+  until the preflight or setup failure is deterministically resolved without
+  prediction.
 
 ## Known Limitations / Open Questions
 
@@ -1012,9 +1077,11 @@ Operator workflow:
   and state first, and minimize repeated exploration and reruns.
 - Long-running local compute such as Paddle OCR should normally run directly
   in PowerShell rather than with Codex sitting idle waiting. Codex should
-  inspect and prepare the command, then later interpret only PHI-safe results.
-  Use Codex for the waiting process only when it materially improves safety or
-  debugging. Optimize for total cost to a correct tested result.
+  inspect code, prepare and verify commands, make edits, run short tests, and
+  later interpret only PHI-safe results. Do not keep Codex idle for 20-45+
+  minute local compute unless doing so materially improves safety or
+  debugging. Optimize for total cost to a correct tested result rather than
+  merely minimizing individual model calls.
 - Start a fresh Codex session only when it materially reduces stale context or
   usage. When recommending one, provide the exact PowerShell `cd` and `codex`
   commands needed to resume from the authoritative next start.
@@ -1078,10 +1145,9 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Review and commit the PROJECT_MEMORY-only effective-setting/model-resolution
-checkpoint. Do not run another protected OCR automatically. If separately
-authorized, the smallest next controlled comparison is direct PowerShell
-execution on the same document and runtime with only detection changed from
-`PP-OCRv6_medium_det` to `PP-OCRv6_small_det`, retaining medium recognition and
-all other settings. Compare prediction time, page/block structure, and safe
-accuracy/review indicators before considering any production model change.
+Deterministically diagnose why the temporary `PP-OCRv6_small_det` controlled
+comparison failed before prediction, without rerunning OCR. Prepare a corrected
+comparison only if inspection and PHI-safe preflight checks can still prove
+that detection model selection is the sole variable while medium recognition,
+runtime configuration, protected selector/snapshot behavior, and the normal
+DocumentProcessor/Paddle path remain unchanged.
