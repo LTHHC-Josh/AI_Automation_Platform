@@ -55,12 +55,20 @@ on the internal network. This is future direction, not a claim that continuous
 operation or the capabilities below are implemented today.
 
 The current inbox document processor is one consumer and subsystem of that
-platform; it is not the architecture of the platform itself. Future consumers
-may include scanner and other document-ingestion sources, EHR integration that
-associates and attaches documents to the correct clients, high-volume
-eligibility-document processing, analysis of hundreds of eligibility records
-to identify renewal and action needs, additional MCO/provider/HHS/EHR/internal-
-system workflows, and other company AI and automation use cases.
+platform; it is not the architecture of the platform itself. Scanned documents
+are expected to be placed in an approved OneDrive or SharePoint folder. The
+platform will monitor and read that connected Microsoft 365 location and feed
+those documents into the same reusable document-processing services used for
+inbox attachments, not a separate OCR or AI pipeline.
+
+Microsoft 365 and Graph, approved OneDrive and SharePoint folders, EHR and
+internal systems, eligibility files, and other approved sources must remain
+source adapters into the shared platform. Future consumers may include EHR
+integration that associates and attaches documents to the correct clients,
+high-volume eligibility-document processing, analysis of hundreds of
+eligibility records to identify renewal and action needs, additional
+MCO/provider/HHS/EHR/internal-system workflows, and other company AI and
+automation use cases.
 
 Do not optimize the platform architecture around the current inbox workflow.
 Build reusable company AI platform capabilities, with the inbox document
