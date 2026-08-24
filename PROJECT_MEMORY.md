@@ -980,10 +980,18 @@ Latest verified OCR performance baseline:
   `PP-OCRv6_medium_rec`. Project dependency configuration currently leaves
   this default behavior unpinned.
 - The attempted controlled `PP-OCRv6_small_det` comparison returned
-  `controlled_run_failed` before producing a valid comparison result. No
-  small-versus-medium performance conclusion is supported. Do not rerun OCR
-  until the preflight or setup failure is deterministically resolved without
-  prediction.
+  `controlled_run_failed` during PaddleOCR engine construction because the
+  valid small detection model was not locally available. Engine initialization
+  did not complete, protected OCR and `predict()` were never reached, and
+  protected-cache preparation was not the supported failure boundary. No
+  small-versus-medium performance conclusion exists.
+- The corrected ignored comparison runner's model-only initialization
+  preflight succeeded with `PP-OCRv6_small_det` and
+  `PP-OCRv6_medium_rec`. The engine initialized on CPU with effective MKLDNN,
+  thread, cache-capacity, inference-engine, Paddle 3.2.0, and PaddleOCR 3.7.0
+  settings matching the verified baseline. `predict_call_count` remained zero;
+  no protected document was processed. No small-versus-medium OCR performance
+  conclusion exists yet.
 
 ## Known Limitations / Open Questions
 
@@ -1153,9 +1161,9 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Deterministically diagnose why the temporary `PP-OCRv6_small_det` controlled
-comparison failed before prediction, without rerunning OCR. Prepare a corrected
-comparison only if inspection and PHI-safe preflight checks can still prove
-that detection model selection is the sole variable while medium recognition,
-runtime configuration, protected selector/snapshot behavior, and the normal
-DocumentProcessor/Paddle path remain unchanged.
+If separately authorized, prepare the corrected ignored runner for one
+protected comparison with the current committed baseline and verify its safe
+preflight and cache-restoration controls without prediction. Only then run one
+normal DocumentProcessor/Paddle comparison in which detection changes to
+`PP-OCRv6_small_det` while medium recognition and all verified runtime settings
+remain constant; do not infer performance or accuracy before that run.
