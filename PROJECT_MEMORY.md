@@ -1032,6 +1032,29 @@ Latest verified OCR performance baseline:
   `predict_call_count` remained zero and no protected document was selected or
   processed. The preventable prior setup failure was the ignored script not
   adding the repository root to its process-local Python import path.
+- A fully preflighted controlled real protected-document A/B comparison changed
+  only detection from `PP-OCRv6_medium_det` to `PP-OCRv6_small_det` while
+  retaining `PP-OCRv6_medium_rec`, Paddle 3.2.0, PaddleOCR 3.7.0, CPU,
+  effective MKLDNN, 10 CPU threads, MKLDNN cache capacity 10, and the `paddle`
+  inference engine. Both runs used one document submission and one prediction.
+- The medium-det baseline prediction took approximately 2670.35 seconds and
+  total OCR approximately 2675.38 seconds. The small-det comparison prediction
+  took approximately 107.44 seconds and total OCR approximately 107.46 seconds:
+  approximately 25 times faster and about a 96 percent prediction-runtime
+  reduction on this controlled document.
+- Both configurations produced four pages and 144 blocks. The small-det result
+  preserved all preselected PHI-safe indicators: 2067, Posted Date, annual,
+  and deterministic `contact_failure`. It had no repeated prediction or page
+  conversion and no extra prediction or source reread during cache writes.
+- The current medium detection default is therefore a verified major
+  performance problem in this CPU environment. Small detection with medium
+  recognition is a strong candidate configuration and justifies broader
+  validation, but one real protected document is not sufficient to establish
+  universal accuracy equivalence across document purposes and layouts.
+- There is no evidence that the historical approximately seven-minute
+  environment used the small detector; its former model configuration remains
+  unknown. No production OCR model configuration change has been approved or
+  implemented.
 
 ## Known Limitations / Open Questions
 
@@ -1223,9 +1246,11 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Run the single controlled `PP-OCRv6_small_det` protected comparison directly
-in PowerShell using the corrected ignored runner after confirming the tracked
-tree is clean. The complete zero-prediction preflight is passed. Keep
-`PP-OCRv6_medium_rec` and all verified runtime settings unchanged, permit one
-engine initialization, one document submission, and at most one `predict()`
-call, and return only the runner's PHI-safe aggregate result.
+Design the smallest tested production extension for explicit validated OCR
+model/runtime configuration and configuration-aware cache provenance while
+preserving `OCRProvider`, `OCRService`, current cache compatibility, and the
+current production default until promotion is approved. Include startup
+model-readiness validation without prediction, dependency/version pinning,
+and representative synthetic coverage; then define and execute separately
+authorized multi-purpose protected validation before considering small-det
+plus medium-rec as the production default.
