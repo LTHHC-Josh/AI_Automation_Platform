@@ -1,1584 +1,598 @@
 # LTHHC A.I. Automation Platform - Project Memory
 
-## Purpose
+## Purpose and Source of Truth
 
 This file is the compact continuity layer for the LTHHC A.I. Automation
-Platform.
+Platform. It records current architecture decisions, implemented capabilities,
+verified baselines, known limitations, and the exact next starting point.
 
-It records current architecture decisions, implemented capabilities,
-tested baselines, known limitations, and the exact next starting point.
-
-It does not replace GitHub as the source of truth for committed code.
-It does not replace `AGENTS.md` as the repository safety/execution rules.
-It does not replace `update_project_tracker.py` as the detailed historical
-project record.
-
-Never store PHI, OCR text, patient/member data, `source_text`, protected
-filenames, local patient-document paths, credentials, secrets, tokens,
-Smartsheet payload values, or Smartsheet row IDs in this file.
-
-## Source of Truth Order
+Source-of-truth order:
 
 1. Git committed state for committed code.
 2. Confirmed local uncommitted state for work not yet committed.
 3. `AGENTS.md` for durable repository safety and execution rules.
-4. `PROJECT_MEMORY.md` for current project continuity.
-5. `update_project_tracker.py` for detailed historical checkpoints and
-   project-task synchronization.
+4. This file for current project continuity.
+5. `update_project_tracker.py` for detailed historical checkpoints and task
+   synchronization.
 
-If these disagree, inspect and reconcile rather than guessing.
+If sources disagree, inspect and reconcile them rather than guessing.
 
-## Platform Goal
+Never store PHI, OCR text, patient/member data, `source_text`, protected
+filenames or paths, credentials, secrets, tokens, Smartsheet payload values,
+Smartsheet row IDs, model files, or protected cache contents in this file.
 
-Build a reusable company AI automation platform for LT Home Healthcare.
+## Current Phase 1 Priority
 
-Current document-processing flow:
+The automated document processor is the current implementation priority. Do
+not implement future EHR, eligibility, or unrelated company-AI subsystems
+until the document processor meets its live completion criteria. Future
+platform needs may influence architecture only to avoid dead ends.
 
-Microsoft 365 / Microsoft Graph
--> local PaddleOCR
--> local Ollama
--> structured extraction
--> deterministic evidence validation
+The long-term direction remains a reusable company-wide AI and automation
+platform for approved Microsoft 365, SharePoint/OneDrive, EHR, eligibility,
+internal-system, and other healthcare sources. Those future sources must be
+adapters into shared platform services rather than separate OCR, AI, review,
+or integration stacks. This future direction is not a claim that those
+subsystems are implemented or current work priorities.
+
+The shared Phase 1 flow is:
+
+approved email/fax/document sources
+-> ingestion
+-> OCR and structured whole-document evidence
+-> family/type classification
+-> subtype/purpose classification
+-> extraction
+-> deterministic validation
 -> business rules
--> automatic population of the intentionally mapped Smartsheet row
--> conditional downstream human-review exception workflow
+-> automatic Smartsheet row creation/population
+-> downstream Smartsheet automations
+-> downstream human review or feedback where needed
 
-The architecture must remain reusable for future document types,
-healthcare sources, EHR/API integrations, cross-source validation,
-workflow automation, and internal AI task completion.
+## Intended Phase 1 Production Runtime
 
-## Future Platform Direction
+Prefect is the intended Phase 1 production orchestration/control-plane
+candidate unless a later repository-level fit assessment finds a material
+blocker. Prefer self-hosted Prefect inside the approved LTHHC environment for
+Phase 1. Do not depend on Prefect Cloud unless it is separately reviewed and
+approved.
 
-LT Home Healthcare is building this repository as a reusable company-wide
-AI and automation platform intended eventually for continuous 24/7 operation
-on the internal network. This is future direction, not a claim that continuous
-operation or the capabilities below are implemented today.
+Target live architecture:
 
-The current inbox document processor is one consumer and subsystem of that
-platform; it is not the architecture of the platform itself. Scanned documents
-are expected to be placed in an approved OneDrive or SharePoint folder. The
-platform will monitor and read that connected Microsoft 365 location and feed
-those documents into the same reusable document-processing services used for
-inbox attachments, not a separate OCR or AI pipeline.
+Windows production AI host
+-> local Ollama runtime ready
+-> self-hosted Prefect server/UI ready
+-> Prefect worker starts automatically
+-> approved Microsoft 365/Outlook/Graph intake runs continuously
+-> eligible document is safely claimed
+-> OCR and whole-document AI processing
+-> family/type and subtype/purpose classification
+-> extraction
+-> deterministic validation
+-> business rules
+-> automatic Smartsheet row and attachment through approved mappings
+-> safe processing/job state persisted
+-> downstream Smartsheet automations
+-> worker continues processing future documents
 
-Microsoft 365 and Graph, approved OneDrive and SharePoint folders, EHR and
-internal systems, eligibility files, and other approved sources must remain
-source adapters into the shared platform. Future consumers may include EHR
-integration that associates and attaches documents to the correct clients,
-high-volume eligibility-document processing, analysis of hundreds of
-eligibility records to identify renewal and action needs, additional
-MCO/provider/HHS/EHR/internal-system workflows, and other company AI and
-automation use cases.
+Prefect's intended responsibilities are orchestration/control plane,
+workflow/run status, retries and scheduling, worker health, queue/backlog
+visibility, PHI-safe timings/status, and appropriate pause, resume, and
+maintenance controls.
 
-Do not optimize the platform architecture around the current inbox workflow.
-Build reusable company AI platform capabilities, with the inbox document
-processor as one consumer.
+Prefect must not become a PHI viewing interface. Its UI, logs, diagnostics,
+run names, task names, parameters, states, and exceptions must not expose
+patient/member names, OCR text, extracted PHI values, `source_text`, protected
+filenames or paths, Smartsheet payload values, row IDs, credentials, or
+tokens.
 
-## Enterprise Healthcare AI Architecture Standard
+Preserve runtime separation:
 
-Future implementation must:
+- Prefect orchestrates existing service boundaries.
+- Existing document-processing services perform processing.
+- Ollama provides the local LLM runtime.
+- PaddleOCR provides OCR.
+- Smartsheet remains the operational and end-user destination.
+- Business rules remain in shared business-rule services, never in
+  Prefect-specific flow or task code.
 
-- Design every subsystem for eventual unattended regulated healthcare
-  operation while preserving HIPAA and PHI boundaries at every scale.
-- Use least-privilege integration boundaries and deterministic validation and
-  business-rule gates around AI outputs.
-- Preserve evidence provenance and traceability for important AI conclusions,
-  separate model observations from deterministic production truth, and use
-  controlled promotion of learned or new rules into production.
-- Fail safely on missing, unsupported, conflicting, invalid, guessed, or
-  ambiguous evidence.
-- Use explicit model, dependency, and configuration control once validated to
-  avoid silent model drift, with reproducible deployments, rollback capability,
-  and clear auditability of the code, model, and configuration used.
-- Provide PHI-safe operational observability.
-- Use queue/job-oriented architecture for long-running and batch work, with
-  idempotency, safe retries, resumability, restart recovery, controlled
-  concurrency, and backpressure.
-- Isolate workloads so OCR, LLM, EHR, eligibility, and other jobs do not
-  saturate the AI PC, with configurable CPU, RAM, GPU, thread, and other
-  resource budgets.
-- Reuse OCR caches and initialized resources safely, avoid duplicate OCR and
-  model calls or unnecessary pipeline stages, and keep expensive stages
-  independently composable and skippable.
-- Support both interactive single-document and high-volume batch workloads.
-- Reuse shared OCR, structured-evidence, classification, extraction,
-  validation, business-rule, review, integration, diagnostic, and
-  orchestration services rather than duplicating them per workflow.
-- Treat health, performance, and scalability as architecture requirements,
-  not later polish.
-- Tolerate temporary dependency outages without document loss or duplicate
-  business actions.
+Before integration, inspect the actual application entry points, callers,
+state boundaries, and Windows runtime requirements. Add the smallest Prefect
+adapter around the existing processor rather than rewriting or duplicating
+the document-processing pipeline.
 
-Queues, EHR integration, eligibility automation, resource scheduling, and the
-other future capabilities described here are not currently implemented unless
-separately identified as implemented and tested elsewhere in this file.
+## Architecture and Safety Invariants
 
-## Zero-Assumption Platform Development
-
-This rule applies to the entire LTHHC AI Automation Platform, not only OCR
-testing.
-
-- Between ChatGPT and locally running Codex, use the actual repository,
-  current local state, callers, tests, installed package/runtime interfaces,
-  configuration, and committed history to establish facts before designing,
-  editing, testing, or giving operator commands.
-- Never guess paths, symbols, signatures, defaults, callers, tests,
-  configuration shape, dependency or model behavior, current Git or local
-  state, runtime prerequisites, workflow ownership, or existing abstractions.
-- Inspect first, reconcile evidence, and then make the smallest safe change.
-- If Codex can determine a fact locally, Codex must determine it rather than
-  asking the operator to discover it manually.
-- Operator feedback is for business meaning, protected local selection,
-  approvals, and facts that cannot be derived from code or runtime, not for
-  discovering preventable technical setup errors.
-- Before multi-file edits, architecture changes, or new integrations, inspect
-  existing shared services and callers so the platform is extended rather
-  than duplicated.
-- Before long-running or expensive work, complete all inexpensive
-  deterministic preflight first.
-- If sources disagree, reconcile them explicitly; never discard confirmed
-  uncommitted truth or silently prefer an assumption.
-- Claims about behavior require code, test, or runtime evidence.
-- Apply this rule to OCR, LLMs, document processing, eligibility, EHR
-  integrations, Microsoft 365, Smartsheet, queues and jobs, batch workloads,
-  reporting, resource management, and all future platform subsystems.
-
-## Current Architecture
-
-Classification, extraction, deterministic validation, business rules,
-external writes, and human review are separate boundaries.
-
-MCO, payer, sender, source, filename, logo, and template are context or
-metadata and must not determine document meaning.
-
-Extraction preserves `value`, `confidence`, and `source_text`.
-
-Separate Ollama attempts are independently validated and are never merged.
-
-The strongest deterministically supported candidate is selected. Ties keep
-attempt 1.
-
-Unsupported, conflicting, ambiguous, guessed, invalid, low-confidence, or
-insufficiently evidenced values remain null/unknown and flag the row for
-review as appropriate.
-
-After deterministic validation and business rules, the normal production
-flow attempts to create the Smartsheet row for every processed document.
-Every sufficiently supported value with an explicit approved mapping is
-populated, including PHI because Smartsheet is an approved production
-destination. Unknown family/subtype and review-required results still produce
-the appropriate row and downstream review metadata; review is not a write
-gate. Actual configuration, destination, or write failures fail safely and
-must not be reported as successful writes.
-
-The current approved Smartsheet mappings are an evolving Phase 1 checkpoint,
-not the final production schema. Newly trained families/subtypes may establish
-additional operational fields for classification, subtype determination,
-downstream automations, review, correction, or business processing. New
-columns are added only with operator approval, followed by explicit mapping,
-validation, and tests. Unknown or unmapped fields remain internal until their
-destination is approved; the platform never creates, renames, or infers sheet
-columns automatically.
-
-## Knowledge Architecture
-
-Do not adopt Obsidian as the project knowledge layer. The LTHHC platform
-itself should become the reusable company AI brain.
-
-Keep knowledge native to the project through `AGENTS.md` durable rules,
-`PROJECT_MEMORY.md` tested state and `CURRENT NEXT START`, authoritative
-reference tables, executable registries/models for document types, workflows,
-qualifiers, and date semantics, PHI-safe learning reports from real examples,
-deterministic rule logic, review outputs for unresolved or ambiguous cases,
-and tracker/history.
-
-Over time, link these concepts explicitly so rules carry source/authority,
-support status, dependencies, unresolved questions, and tests. PHI-safe
-learning reports are evidence inputs to this native knowledge structure; they
-do not automatically become production rules.
-
-## Important Safety Invariants
-
-- Requested visits are not approved visits.
-- Units are not automatically visits, sessions, equipment, or sufficient
-  approval.
-- Approval must not be inferred from quantity, service code, dates,
-  service lines, or generic status.
-- Modifier ownership requires row evidence.
-- Service-line values must be supported by evidence from the same service
-  line.
-- PHI, `source_text`, and full document content may reach Smartsheet only
-  through an explicit, intentionally designed production mapping/write path.
-- Internal diagnostics, credentials, tokens, local paths, cache metadata,
-  and unrelated internal fields are never included merely because an object
-  contains approved destination data.
-- PHI remains within approved LTHHC systems and production integrations and
-  is excluded from console output, logs, Git, continuity files, tests,
-  diagnostics, screenshots, and Codex responses.
+- Classification, extraction, deterministic validation, business rules,
+  external writes, and human review remain separate boundaries.
+- Reuse shared OCR, evidence, classification, extraction, validation, review,
+  integration, diagnostic, and orchestration services. Do not create
+  family- or subtype-specific parser stacks when the generic framework can
+  support the behavior.
+- MCO, payer, sender, source, filename, logo, and template are context or
+  metadata and must not determine document meaning.
+- Extraction preserves `value`, `confidence`, and `source_text` for every
+  field and service line. Confidence is never automatically assigned `1.0`.
+- Missing, unsupported, conflicting, invalid, low-confidence, guessed,
+  ambiguous, or insufficiently evidenced values remain null/unknown and
+  require review where appropriate.
+- Separate Ollama attempts are independently validated and never merged. The
+  strongest deterministically supported candidate is selected; ties keep
+  attempt 1. Model confidence, token count, and response length are not proof
+  of correctness.
+- Requested visits are not approved visits. Units are not automatically
+  visits, sessions, equipment, or sufficient approval. Approval must not be
+  inferred from quantity, code, dates, service lines, or generic status.
+- Modifier ownership requires evidence from the same service line. Unresolved
+  quantity meaning and modifier ownership remain human-review decisions.
+- Review output preserves values, confidence, protected source evidence,
+  actions, status/reasons, retry metadata, selected attempt, and
+  reconciliation without rerunning or reinterpreting extraction.
+- Review status and reasons accompany the automatically populated row when
+  configured reliability rules require downstream review.
 - Run Type is explicit PHI-safe operator text and is never inferred from
   document data.
-- Review status and reasons accompany an automatically populated row when
-  the configured accuracy/reliability rules require downstream review.
-- Original AI-written Smartsheet values must remain immutable for provenance.
-  Human corrections use separate approved fields, and the effective
-  operational value uses an approved human correction when present or the
-  original supported AI value otherwise.
-- Payer, sender, filename, and template must not imply document meaning or
-  authorization conclusions.
+- PHI remains within approved LTHHC systems and intentionally designed
+  production integrations. Diagnostics expose only PHI-safe counts,
+  booleans, timings, confidence/status metadata, evidence-present flags, safe
+  configuration identifiers, and sanitized failure categories.
+- Smartsheet is an approved production destination for explicitly mapped PHI
+  and full document content. Map only intended destination fields; never pass
+  document or review objects wholesale or include internal diagnostics,
+  credentials, tokens, local paths, cache metadata, or unrelated fields.
+- Model, dependency, and configuration choices must become explicit,
+  reproducible, tested, reversible, and observable before unattended
+  operation. Temporary dependency outages must not lose documents or create
+  duplicate business actions.
 
-## Phase 1 - Automated Document Processor Completion Criteria
+## Document Taxonomy and Training
 
-The automated document processor is the current implementation priority. It
-is not complete merely because individual components or tests work. Phase 1 is
-complete only when the document-processing subsystem is deployed live in the
-approved LT Home Healthcare environment and operates automatically with safe
-continuous-improvement feedback.
+One reusable trainable framework supports many document families/types and
+many subtypes/purposes. Family/type and subtype/purpose are separate
+dimensions.
 
-The required end state is:
+Current examples include:
 
-- Approved document sources feed the processor automatically.
-- Supported and validated document patterns process end to end without
-  routine human intervention.
-- The system reasons over the whole document and generalizes across layouts
-  and wording rather than depending on fixed positions.
-- Fields and concepts preserve evidence, confidence, and provenance.
-- Missing, unsupported, conflicting, invalid, ambiguous, guessed, or
-  insufficiently supported results route to review rather than being
-  invented.
-- Normal validated documents proceed automatically through approved
-  production actions, including intentionally mapped Smartsheet actions.
-- Review remains downstream exception handling rather than a prerequisite for
-  every document.
-- Operators can flag incorrect outputs even when the system did not request
-  review.
-- End users perform review and correction in Smartsheet through separate
-  approved correction fields. Original AI values remain unchanged, human
-  overrides are attributable, and correction/readback applies across every
-  processed family/subtype.
-- Flagged incorrect results become PHI-safe development and learning inputs.
-- The team can reproduce failures locally without exposing PHI to ChatGPT or
-  Codex.
-- Corrections are made at the appropriate supported layer: OCR, structured
-  evidence, normalization, classification, extraction, prompt or schema,
-  deterministic validation, business rules, reference data, configuration or
-  model selection, or another supported platform layer.
-- Every corrected behavior receives synthetic and regression coverage where
-  feasible before production promotion.
-- A single flagged case never automatically retrains or changes model
-  behavior.
-- No production rule is learned automatically from model observations or user
-  correction without deterministic validation and business approval.
-- Model, package, and configuration changes are explicit, versioned or
-  controlled, tested, and reversible.
-- Performance is suitable for unattended continuous operation.
-- Retries and restarts are safe and do not lose documents or duplicate
-  business actions.
-- PHI-safe operational diagnostics expose health, failures, timing,
-  retry/review categories, and configuration/model state without exposing
-  patient data.
-- Real-document acceptance coverage is sufficient to trust unattended
-  operation while uncertainty is escalated appropriately.
+- Authorization -> Renewal, Term, Stub, and future approved Authorization
+  subtypes.
+- 2067 -> UTL and future approved 2067 subtypes.
 
-### Required Feedback Loops
+Authorization compatibility remains preserved. Renewal, Term, and Stub are
+recognized taxonomy directions but require their exact trained and approved
+production meanings before new behavior is implemented.
 
-Maintain two distinct feedback paths:
+Training a family or subtype means using representative real documents and
+the protected whole-document tester to establish:
 
-1. Review / uncertain cases: the platform identifies insufficient support,
-   conflict, or ambiguity and routes the case for human review.
-2. Confident-but-incorrect cases: an operator can flag an automatically
-   processed result as wrong after processing. The flag preserves enough
-   protected local evidence and provenance to investigate the exact failure
-   while exposing only PHI-safe diagnostics to ChatGPT and Codex.
+- family and subtype;
+- distinguishing indicators and wording/layout variation;
+- important fields and concepts;
+- strong versus supporting evidence;
+- insufficient, missing, conflicting, or negated evidence;
+- conclusions that must never be inferred;
+- explicit approved Smartsheet mappings; and
+- synthetic and regression coverage.
 
-A flagged result is evidence for investigation, not an automatic production
-rule or model update.
+Training may improve classification, normalization, extraction schemas,
+prompts, deterministic validation, business rules, reference data, OCR/model
+configuration, or tests. It does not automatically mean retraining or
+fine-tuning an LLM. Model observations and end-user feedback never promote a
+production rule without deterministic validation, testing, and business
+approval.
 
-### Continuous Improvement Principle
+The processor reasons over the complete document and generalizes across
+layouts, page locations, wording, formatting, and source organizations.
+Coordinates may be optional evidence but are not required unless an approved
+rule intentionally uses them. Unfamiliar or partially matching documents
+remain unknown/review rather than being forced into a taxonomy.
 
-"Training the platform" means improving the correct layer based on evidence.
-It may involve deterministic rules, normalization, prompts and schemas,
-reference data, OCR or model configuration, tests, or eventually model tuning.
-Do not assume every correction requires LLM retraining.
+### Accepted UTL Behavior
 
-Keep future EHR, eligibility, and other company-AI subsystems out of active
-implementation scope until these document-processing completion criteria are
-met. Their future architectural direction remains recorded, but Phase 1
-implementation stays focused on the automated document processor.
-
-## Document Processor Taxonomy and Training Framework
-
-The automated document processor must support many document families or types
-and many internal subtypes or purposes through one reusable framework.
-Document family/type and subtype/purpose are separate classification
-dimensions. For example, Authorization is a family with Renewal, Term, Stub,
-and future learned subtypes; 2067 is a family with UTL and future learned
-subtypes or purposes. Future document families may define their own learned
-subtypes in the same framework.
-
-Do not collapse family/type and subtype/purpose into one field unless an
-existing production contract explicitly requires a combined representation at
-an output boundary. Reuse the same OCR, structured-evidence, classification,
-extraction, validation, review, and write services for every family and
-subtype. Do not create one-off parsing stacks for UTL, Renewal, Term, Stub, or
-future subtypes.
-
-The generic processing relationship is:
-
-document family/type
--> subtype/purpose
--> expected fields/concepts
--> evidence/confidence/provenance
--> deterministic validation/business rules
--> explicit Smartsheet mappings
--> automatic row creation/population
--> existing downstream Smartsheet automations
-
-### UTL Business Meaning
-
-- 2067 is the document or form family.
-- UTL is an internal LT Home Healthcare subtype or purpose of a 2067 and means
+- 2067 is the document family/type.
+- UTL is an internal LT Home Healthcare subtype/purpose of 2067 and means
   Unable To Locate.
-- A 2067 may be classified internally as UTL only when the complete document
-  contains deterministically supported evidence that the client or member
-  could not be located or contacted.
-- Evidence may occur anywhere in the document, including comments and
-  narrative text. Literal `UTL`, a fixed page, or fixed coordinates are not
-  required.
-- 2067 alone, `annual_due` alone, and Posted Date alone do not imply UTL.
-- Literal UTL text alone is not presently an approved substitute for the
-  required supported business evidence.
-- `contact_failure` is a supporting deterministic concept and remains
-  separate from the final UTL subtype until an approved subtype rule is
-  deterministically satisfied.
-- The approved deterministic promotion rule is supported family 2067 plus
-  supported `contact_failure` with no negated, contradictory, or mixed
-  contact/location evidence. Otherwise the subtype remains unknown and routes
-  to review.
+- Literal `UTL`, a fixed page, and fixed coordinates are not required.
+- Approved deterministic rule:
 
-### Training a Family or Subtype
+  supported 2067 family
+  + deterministically supported `contact_failure`
+  + no negated, contradictory, or mixed contact/location evidence
+  -> subtype UTL
 
-Training the document processor on a family or subtype means using
-representative real documents and the protected whole-document tester to
-establish with evidence:
+- 2067 alone, `annual_due` alone, Posted Date alone, literal UTL alone, or
+  `contact_failure` outside the approved 2067 context does not independently
+  imply UTL.
+- Clear contact-failure evidence remains a deterministic normalized concept
+  separate from the final subtype. Unsupported, conditional-only, negated,
+  contradictory, or mixed evidence keeps the subtype unknown with review.
 
-- The supported family/type and subtype/purpose.
-- Indicators that distinguish the subtype, including alternate wording and
-  layouts expressing the same business meaning.
-- Required fields and concepts, strong versus supporting evidence, and
-  evidence that is insufficient.
-- Conflicts or missing evidence that require review and conclusions that must
-  never be inferred.
-- Required explicit Smartsheet fields and mappings.
-- Synthetic and regression coverage for the learned behavior.
+A real protected cache-only/local-Ollama acceptance passed on one known
+four-page structured document: family 2067, subtype UTL, deterministic
+`form_2067` and `contact_failure` supported, no family/subtype taxonomy review,
+six valid evidence references, zero unsupported references, and zero Paddle
+prediction calls. The prior real zero-valid-reference grounding defect is
+resolved. This accepts the behavior for that known case; it does not prove
+universal coverage across every future 2067 layout or subtype.
 
-Training does not inherently mean retraining an LLM. A training update may
-change classification or subtype definitions, normalization, deterministic
-rules, prompts and schemas, reference data, OCR or model configuration,
-extraction schema, review logic, or regression tests. Model tuning is a later
-option only when evidence supports it.
+## Whole-Document Evidence and Learning
 
-### Generalization Requirement
+- Structured OCR preserves document/page/block reading order and protected
+  provenance when available. Legacy text-only caches remain usable but cannot
+  reconstruct historical page/block relationships without rerunning OCR; they
+  are labeled `unavailable_legacy_flat` and are not regenerated automatically.
+- Deterministic concepts and model-proposed observations remain visibly
+  separate.
+- Model observations must ground to valid request-local evidence aliases.
+  Invalid references remain unsupported and contribute only PHI-safe failure
+  counts and review state.
+- The protected tester is a development and training tool for the full
+  document processor. It reuses the selected processed document and may
+  surface PHI-safe structure, family/subtype, modeled fields, deterministic
+  concepts, model observations, contradictions, schema gaps, review reasons,
+  coverage, and provenance.
+- Protected literal evidence, OCR text, patient values, source filenames and
+  paths, and `source_text` never appear in ChatGPT/Codex output.
+- Cache-only evaluation cannot silently fall through to PaddleOCR. Paddle is
+  initialized lazily only after validation, fingerprinting, and cache lookup
+  establish that fresh prediction is permitted.
+- `analyzed_evidence_block_count` may report zero even when all structured
+  blocks were delivered and page coverage is complete. This is a reporting
+  limitation, not proof of missing evidence.
+- `learning_review_recommended` may remain true for novel or conflicting model
+  observations even when deterministic production taxonomy is supported. It
+  must not be conflated with family/subtype or top-level review state.
 
-The processor reasons over the entire document and must recognize trained
-families and subtypes across different layouts, page locations, wording,
-formatting, source organizations, and email, fax, or scanned-document
-presentation. Layout and coordinates may be optional evidence but are not
-required unless a specific validated rule intentionally uses them.
+## Smartsheet Production Contract
 
-For an unfamiliar or partially matching document, select the most strongly
-supported family and subtype only when evidence is sufficient. Otherwise keep
-family and/or subtype unknown as appropriate, route uncertainty or conflict to
-review, and never guess merely to force classification.
+- Smartsheet is an approved secure production destination for PHI and full
+  explicitly mapped business content.
+- After deterministic validation and business rules, the production flow
+  attempts automatic row creation/population for every processed document,
+  family, and subtype.
+- Human review is downstream exception handling and is not an approval gate or
+  prerequisite for row creation.
+- Populate every explicitly mapped field with every sufficiently supported
+  value, including PHI where intentionally mapped.
+- Unsupported, missing, ambiguous, conflicting, invalid, guessed,
+  low-confidence, or insufficiently supported values remain blank/null/unknown.
+  Never invent a value or destination mapping.
+- Unknown or review-required family/subtype still produces a row containing
+  supported values and review metadata unless a real configuration,
+  destination-validation, or write failure prevents a safe write.
+- Existing downstream Smartsheet automations act on the populated row.
+- The source document follows the approved attachment-upload path. OCR text
+  and `source_text` have no approved Smartsheet destination and remain
+  unmapped.
+- A created row followed by attachment failure remains explicit partial
+  success. Retry is blocked when the available PHI-safe result confirms that a
+  row already exists. Cross-process attachment resumption remains unresolved
+  because no safe persisted row reference exists.
+- Production filename wiring remains disabled unless separately approved.
+  The current normal path retains the existing safe attachment filename.
 
-### Whole-Document Tester Purpose
+The generic family/subtype-aware policy resolver uses the current explicit
+field policies for Authorization, 2067/UTL, unknown taxonomy, and future
+trained families unless an approved exact policy is registered. The current
+nine extracted-value mappings are:
 
-The protected tester is a development and training tool for the entire
-document processor. For a selected real protected document it should
-ultimately provide a PHI-safe comprehensive view of likely family/type and
-subtype/purpose; modeled fields found, missing, or conflicting; dates and
-semantic roles; form identifiers; service and authorization structures;
-narrative and comment concepts; deterministic concepts; model-proposed
-observations; evidence references; repeated evidence; contradictions; schema
-gaps; novel concepts; review reasons; and confidence and provenance.
+- Authorization Status
+- Authorization #
+- Service Codes
+- Diagnosis Codes
+- Start Date
+- End Date
+- Authorized Units
+- Hours
+- Days Per Week
 
-The tester inspects and reasons over the complete document without requiring
-fixed positions. Deterministically supported concepts and model-proposed
-observations remain visibly distinct.
+Their confidence destinations and universal AI review/processing metadata are
+validated before submission. Values below the existing 0.85 field-confidence
+threshold, unavailable confidence, and deterministically unsupported values
+remain blank in mapped value columns while protected review evidence is
+preserved internally.
 
-### Phase 1 Business Goal
+## Smartsheet Schema Evolution
 
-Phase 1 must:
+The live destination schema is a Phase 1 testing scaffold, not the final
+production schema. A separately authorized read-only `get_columns` inspection
+completed successfully and found:
 
-1. Automatically ingest approved document sources.
-2. OCR and understand the entire document.
-3. Identify the supported document family/type.
-4. Identify the supported subtype/purpose.
-5. Extract required fields and concepts.
-6. Preserve evidence, confidence, and provenance.
-7. Validate deterministically.
-8. Apply business rules.
-9. Automatically create or populate the correct Smartsheet row through
-   explicit mappings.
-10. Allow existing Smartsheet automations to perform downstream work.
-11. Route uncertain or problematic fields and cases to review.
-12. Allow confident-but-incorrect outcomes to be flagged and converted into
-    controlled development and regression improvements.
+- 29 columns;
+- no correction columns;
+- no dropdown options;
+- no enforced column validation;
+- no column formulas;
+- no same-sheet formula dependencies; and
+- no cross-sheet formula references visible in column metadata.
 
-Normal sufficiently supported documents process automatically. Review is
-downstream exception handling, not a prerequisite for normal writes.
+The existing integration and installed SDK surface did not expose Smartsheet
+automation definitions, so the inspection did not prove that automations are
+absent or identify their internal dependencies. No rows, cells, row IDs,
+payloads, option values, formula text, or PHI were requested or returned in
+the approved output, and the sheet was not modified.
 
-Future EHR automation, eligibility batch processing, and other company-AI
-subsystems remain outside active implementation scope until this document-
-processing subsystem meets its live Phase 1 completion criteria. Future needs
-may influence architecture only to prevent dead ends. Zero-assumption and
-platform-reuse rules remain mandatory: inspect actual repository state,
-callers, tests, and interfaces before changes, extend shared abstractions, and
-do not create subtype-specific processing stacks when the generic framework
-can support the behavior.
+Current mappings are not the final field set. As representative document
+training reveals operationally useful fields, the operator may approve new
+Smartsheet columns. Each approved field then receives an explicit mapping,
+deterministic validation, and regression coverage. The platform never
+auto-creates, renames, infers, or maps columns. Mapping architecture must
+support new approved fields without redesign.
+
+## Authoritative Phase 1 End-User Feedback Model
+
+End users work entirely in Smartsheet, not in the codebase. The intentionally
+minimal Phase 1 model is:
+
+- one generic checkbox/flag indicating that the AI result on the row is
+  incorrect; and
+- the row's existing Smartsheet comments/conversation for the end user's
+  explanation.
+
+The original AI-written row values remain visible. A flag turns the row into a
+controlled investigation case; it does not directly correct operational
+cells. Phase 1 does not require separate per-field correction columns,
+separate family/subtype correction columns, or effective-value columns. The
+exact checkbox title remains intentionally undecided until implementation is
+authorized.
+
+The platform will later read/process flagged rows through a controlled,
+idempotent feedback boundary for every document family/subtype. Flag and
+comment content must remain within the approved protected local/Smartsheet
+boundary, with only PHI-safe metadata exposed externally. A flag or comment
+never automatically retrains a model, changes prompts, modifies production
+rules, or promotes model observations. The technical owner investigates the
+case locally, identifies the correct layer, implements an evidence-backed
+change, and adds regression coverage before controlled production promotion.
+
+This design may evolve only when later evidence proves that more structure is
+needed and the operator approves it.
 
 ## Current Implemented Capabilities
 
 - Microsoft Graph mailbox access and attachment handling.
-- Durable local mailbox message idempotency.
-- Local PaddleOCR with protected local caching.
-- Local Ollama classification and structured extraction.
-- Field-level value/confidence/source evidence.
-- Authorization service-line extraction.
-- Controlled deterministic Ollama retry.
-- Independent extraction-candidate validation and selection.
-- Deterministic evidence validation.
-- Authorization business-rule boundary.
-- Human classification review and local feedback.
-- Automatic Smartsheet row mapping and submission after deterministic
-  validation and business rules through a generic family/subtype-aware policy
-  resolver. Every processed document receives the current approved value
-  mappings plus universal metadata; unknown and review-required rows remain
-  writeable with downstream review status and reasons.
-- Generic mapping eligibility omits unsupported or low-confidence values from
-  Smartsheet while preserving their value, confidence, and protected source
-  evidence inside the authorized review boundary.
-- Smartsheet document attachment support.
-- Explicit PHI-safe Run Type.
-- Human-confirmed classification propagation.
-- Source-agnostic authorization identifier prompt guidance.
-- Source-agnostic authorization document/timing harness naming.
-- Same-row service-line evidence guidance.
-- Application-owned sanitized Microsoft Graph failure categories.
-- PHI-safe legacy Graph/mailbox diagnostic stdout limited to aggregate
-  counts, booleans, confidence/status metadata, and sanitized categories.
-- PHI-safe Smartsheet partial-success propagation and explicit duplicate-
-  blocking retry when a prior submission result confirms a row exists.
-- Generic PHI-safe local document evaluation with explicit numeric selection,
-  Run Type, protected-document/cache authorization, local-Ollama
-  authorization, aggregate-only results, and sanitized failures.
-- Opt-in comprehensive single-document learning reports that reuse the same
-  numeric selector and processed `Document`, add one local-only value-free
-  structural Ollama request, and serialize only sanitized structural metadata.
-- Opt-in cache-only OCR enforcement that cannot silently fall through to
-  PaddleOCR while normal production OCR behavior remains unchanged.
-- Lazy PaddleOCR engine initialization after validation, fingerprinting, and
-  cache lookup so cache hits and cache-only misses do not require the OCR
-  engine while normal cache-miss prediction still initializes it.
-- Opt-in synchronous Tkinter protected-review consumer that displays the
-  source-document action, extracted fields and evidence, service lines, and
-  validation/review context locally in memory while remaining excluded from
-  evaluator serialization, output, logging, clipboard writes, and
-  persistence.
-- Deterministic staff-friendly Smartsheet review-reason summaries while full
-  technical review reasons remain available in `ReviewOutput`.
-- Confidence mapping that distinguishes unavailable confidence from actual
-  numeric zero and uses missing/cleared text only for confirmed text-capable
-  confidence destinations.
-- Validated deterministic business-reference workbook loading for payer and
-  service naming data, with optional future document-type data, exact lookups,
-  an injectable Graph/SharePoint source boundary, and an ignored version-aware
-  last-known-good cache.
-- A deterministic filename policy for confirmed initial-authorization naming,
-  with reference-derived payer/service tokens, separate optional form and
-  workflow dimensions, supported single/range dates, no timestamp, and a
-  guarded attachment boundary that remains inactive for normal production
-  callers.
-- A clarified 2067 filename boundary where 2067 is only a document/form type;
-  workflow/context is a separate optional supported-reference dimension that
-  may coexist with 2067 without being inferred from it.
-- Confirmed deterministic filename rules for actual authorization renewals and
-  2067 communications: RENEW AUTH for the authorization document itself,
-  optional separately supported qualifiers, independently supported workflow
-  context for 2067, and Posted Date as the sole 2067 naming-date source.
-- A validated filename-input boundary that preserves dedicated Posted Date and
-  renewal-qualifier evidence while exposing only resolved values plus explicit
-  approved 2067 business context to filename policy.
-- Ambiguity-safe business service references keyed by HCPCS/bill code,
-  modifier, and program. Multiple distinct naming results may coexist under
-  one key, but lookup remains unresolved rather than using description or
-  inferring an unsupported discriminator.
-- A deterministic, source-agnostic contact-failure normalization boundary that
-  preserves supplied confidence and source evidence, returns unknown plus
-  review for unsupported wording, and remains separate from the approved
-  family/subtype resolver that applies the UTL rule.
-- A versioned whole-document learning boundary that preserves protected OCR
-  page/block relationships when available, reuses legacy text-only caches
-  without OCR, sends one complete evidence envelope only to the opt-in local
-  analyzer, and emits PHI-safe referenced observations, conflicts, coverage,
-  and generalized novel-concept signals without changing production rules.
-- A centralized document-family/subtype taxonomy that preserves existing
-  Authorization and termination routing while supporting 2067 and UTL as
-  separate family and subtype dimensions.
-- Whole-document deterministic concept analysis that preserves protected
-  block provenance, repeated evidence, conflicts, and nullable confidence.
-  Supported 2067 plus uncontradicted deterministic `contact_failure` resolves
-  subtype UTL; absent, negated, contradictory, or mixed contact evidence keeps
-  the subtype unknown with review.
-- Compact request-local learning evidence aliases with deterministic mapping
-  back to exact protected OCR blocks. Invalid model references remain
-  unsupported and only PHI-safe failure counts survive report construction.
-
-## Recent Tested Baseline
-
-Latest generic production-row checkpoint:
-
-- The automatic Smartsheet policy resolver now accepts authoritative family
-  and subtype plus the backward-compatible routing type. Exact subtype and
-  family policies can be added explicitly, while the current approved field
-  mappings provide the platform-wide default for every processed document.
-- 2067/UTL uses the same mapping, destination-validation, submission, and
-  attachment services as Authorization. No UTL-only writer or destination
-  column was introduced.
-- Unknown family/subtype and downstream-review rows remain writeable.
-  Universal operational metadata is validated with the approved value columns
-  before submission. Actual schema, configuration, or write failures remain
-  explicit failures.
-- Values below the existing 0.85 field-confidence threshold, unavailable
-  confidence, and deterministically unsupported values remain blank in mapped
-  value columns. Review output retains the original value, confidence, and
-  protected evidence; review metadata still reaches Smartsheet.
-- The current nine approved extracted-value mappings are an evolving Phase 1
-  checkpoint, not the final production field set. No new destination or
-  correction columns were invented or created.
-- Modified Python compiled successfully. Focused synthetic deterministic/mock
-  verification passed 59 with 0 failures. Affected Smartsheet, attachment,
-  mailbox-orchestration, processor-taxonomy, family/subtype, review-output,
-  and Authorization regressions passed 144 with 0 failures.
-- No real Smartsheet, Graph, OCR/Paddle, Ollama, protected-document, filename,
-  or other external integration execution occurred.
-
-Latest family/subtype and learning-grounding checkpoint:
-
-- Centralized family/subtype compatibility and legacy routing without
-  changing existing Authorization behavior. Added 2067 as a family and UTL as
-  its approved deterministic subtype; Term and Stub remain unimplemented until
-  their exact production meanings are established.
-- The approved UTL rule is supported 2067 plus deterministically supported,
-  uncontradicted `contact_failure`. Literal UTL, annual evidence, Posted Date,
-  or 2067 alone is insufficient. Conflicting or mixed contact evidence returns
-  subtype unknown plus required review.
-- Fixed the whole-document learning grounding boundary. The model now receives
-  compact request-local block aliases and page ordinals, a request-bound schema
-  restricts references, and a deterministic resolver maps valid aliases back
-  to internal OCR evidence while exposing only safe invalid-reference counts.
-- Report schema version 3 presents family and subtype separately and keeps
-  deterministic concepts distinct from model-proposed observations. Evidence
-  is reported only through page/block ordinals and safe evidence kinds.
-- Modified Python compiled. Final focused synthetic deterministic/mock checks
-  passed 57 with 0 failures; affected classification, processor, review,
-  feedback, rule, filename, Smartsheet-boundary, evidence-validation, and
-  quantity-safety regressions passed 214 with 0 failures.
-- A real protected cache-only/local-Ollama acceptance completed successfully
-  against the known four-page, 144-block document. It used the structured OCR
-  cache with cache-only enforcement, made zero Paddle prediction calls, and
-  invoked no external integration.
-- The real document resolved family 2067 and subtype UTL. Deterministic
-  `form_2067` and `contact_failure` were supported; family and subtype required
-  no taxonomy review; literal UTL text was not required.
-- Real evidence grounding returned six valid references and zero unsupported
-  references. The prior zero-valid-reference grounding defect is resolved on
-  this protected document.
-- UTL identification is accepted for this known case. At that checkpoint,
-  full UTL Smartsheet acceptance remained pending; the later generic
-  production-row checkpoint added shared 2067 mapping without a subtype-
-  specific write action.
-
-Latest whole-document learning-analyzer checkpoint:
-
-- Added protected structured OCR document/page/block models while preserving
-  `Document.raw_text` and all existing classification, extraction, validation,
-  business-rule, review, and Smartsheet interfaces.
-- Paddle and searchable-PDF providers preserve page/block reading order when
-  available. Paddle writes a versioned protected hash-named structured sidecar;
-  existing text-only cache hits remain usable without Paddle and explicitly
-  report page/layout relationships unavailable.
-- The opt-in learning request receives one complete local evidence envelope
-  with modeled-field context and opaque page/block references. Layout and
-  coordinates are hints only; complete analyzed-reference coverage is checked.
-- Report schema version 2 separates protected literal evidence, normalized
-  concepts, and unmapped production rules. Invalid evidence references are
-  downgraded, conflicts remain unresolved with review, confidence is nullable,
-  and novel unsafe labels retain generalized ordinal observations without
-  exposing proposed text.
-- Modified Python compiled successfully. Focused synthetic deterministic/mock
-  checks: 58 passed, 0 failed. Affected synthetic deterministic/mock
-  regressions: 149 passed, 0 failed.
-- No protected data was accessed. No real OCR, Paddle prediction, Ollama,
-  Graph, mailbox mutation, Smartsheet, rename, or external AI operation ran.
-
-Latest contact-failure normalization checkpoint:
-
-- Clear member contact-failure evidence normalizes to `contact_failure` while
-  literal text, normalized concept, and workflow-purpose UTL remain separate.
-- A supported contact request requires explicit failure evidence. Conditional
-  service consequences may strengthen the same concept only when independent
-  contact-failure evidence is present.
-- Annual/past-due wording, 2067, Posted Date, literal UTL, and general
-  communication do not imply contact failure or UTL.
-- Focused and affected synthetic deterministic/mock tests: 48 passed, 0
-  failed. No protected data or external/local model integration ran.
-
-Latest protected-document candidate-ordering correction:
-
-- Corrected the shared local evaluator candidate boundary so valid private
-  Graph `receivedDateTime` metadata controls newest-first order. Deterministic
-  non-reversible message and attachment digests resolve ties. Filesystem mtime,
-  names, paths, cache times, and enumeration order are not mailbox recency.
-  The same ordered list drives PHI-safe listing, protected Tkinter selection,
-  snapshot construction, and numeric-index evaluation.
-- Refresh stores strictly validated, opaque local-candidate-keyed recency
-  records bound to the current source fingerprint only in the ignored local
-  mailbox-state boundary. Distinct local files with identical bytes remain
-  independently selectable. Byte-identical filename collisions may update only
-  the exact local target without overwriting it; different-content collisions
-  receive no recency claim. Legacy candidates follow authoritative candidates
-  in deterministic fingerprint and opaque-candidate order.
-- A successful protected selection records only its numeric index alongside
-  the existing ignored candidate snapshot. Evaluation rejects a different
-  index while that selection is current; no selected fingerprint, filename,
-  path, modification time, or other protected identity is exposed.
-- The earlier deterministic OCR-cache marker diagnostic using inferred
-  selector 1 is invalidated because the intended protected document was later
-  confirmed as selector 9 and the two source fingerprints did not match.
-- Focused and affected synthetic deterministic/mock tests: 69 passed, 0
-  failed. Modified Python files compiled successfully.
-- Live read-only acceptance succeeded: schema-v2 recency was populated, the
-  protected selector opened with duplicate-byte candidates independently
-  selectable, and the operator confirmed the actual newest inbox document was
-  index 1. No document was processed.
-- No protected document, OCR cache text, Paddle prediction, Ollama request,
-  Graph/mailbox operation, Smartsheet write, rename, production filename
-  wiring, or external AI operation occurred.
-
-Latest explicitly authorized local-OCR learning checkpoint:
-
-- Added opt-in `--authorize-local-ocr` to the existing single-document
-  evaluator. The default remains cache-only; authorization changes only the
-  existing `DocumentProcessor.process(ocr_cache_only=...)` argument.
-- The existing Paddle provider still validates and fingerprints the selected
-  document and checks current and legacy protected caches before lazy engine
-  creation. A hit never initializes Paddle. An authorized miss predicts once
-  for only the snapshot-protected selection and writes through the existing
-  protected cache mechanism; a later run uses that cache without Paddle.
-- Early failures now preserve an explicit learning request as
-  `learning_report_requested=True` with sanitized `blocked` status rather
-  than reporting `not_requested`.
-- Focused synthetic deterministic/mock tests: 38 passed, 0 failed. Affected
-  synthetic deterministic/mock regressions: 52 passed, 0 failed. Five changed
-  Python files compiled successfully.
-- No real protected document, Paddle prediction, Ollama request, inbox,
-  mailbox mutation, Smartsheet, rename, production filename wiring, or
-  external AI operation occurred.
-
-Latest read-only learning-inbox refresh checkpoint:
-
-- Added optional `--refresh-top N` before `--select-document`. The explicit
-  limit is restricted to 1-25 newest inbox messages and uses a dedicated
-  read-only `EmailService` query requesting only internal message ID and
-  attachment-presence fields.
-- A narrow refresh adapter reuses Graph attachment enumeration and downloads
-  only supported, non-inline attachments into the existing ignored protected
-  candidate directory. Existing filenames are skipped without overwrite or
-  rename; output contains counts and sanitized status only.
-- Refresh has no dependency on mark-read, handled/idempotency state,
-  DocumentProcessor, OCR, Ollama, Smartsheet, or filename production. After a
-  successful refresh, the existing protected selector records its normal
-  snapshot and returns only the chosen numeric index.
-- Focused and affected synthetic deterministic/mock tests: 51 passed, 0
-  failed. Six changed Python files compiled successfully.
-- No live inbox, protected attachment, real filename, OCR, Paddle, Ollama,
-  mailbox mutation, Smartsheet, rename, production filename wiring, or
-  external AI operation occurred.
-
-Latest local protected document-selector checkpoint:
-
-- Added explicit `--select-document` evaluation mode using the existing
-  synchronous local Tkinter protected-UI architecture. The window may display
-  source filenames locally so the authorized operator can choose exactly one
-  candidate; filenames do not enter CLI output or safe result contracts.
-- The evaluator service retains candidate enumeration and records the same
-  ignored selection snapshot before opening the selector. The UI returns only
-  a numeric index, which flows through the existing selection-change check
-  before cache-only processing.
-- Cancellation and UI unavailability return sanitized local status and cannot
-  construct the processor or invoke OCR/Ollama. Existing `--document-index`
-  and `--list-documents` modes remain available and unchanged.
-- Focused and affected synthetic deterministic/mock tests: 43 passed, 0
-  failed. Modified Python compiled successfully.
-- No protected document, real filename, OCR, Paddle, Ollama, Graph/mailbox,
-  Smartsheet, rename, production filename wiring, or external AI operation
-  occurred.
-
-Latest PHI-safe local document listing checkpoint:
-
-- Added `--list-documents` to the existing local evaluator. It requires no
-  document index, Run Type, protected-cache authorization, or Ollama
-  authorization and returns only candidate count, numeric index, relative
-  recency order, file type, and cached-OCR availability.
-- Listing and evaluation use the same stable candidate enumeration. Listing
-  writes an internal fingerprint/order snapshot only inside the already-
-  ignored protected OCR-cache boundary; no fingerprint, filename, path, date,
-  identifier, or protected value is serialized.
-- If the candidate sequence changes after listing, evaluation fails with the
-  sanitized `document_selection_changed` category before processor
-  construction. Relisting is required; no automatic newest selection exists.
-- Focused and affected synthetic deterministic/mock tests: 46 passed, 0
-  failed. Modified Python compiled successfully.
-- No protected document content, OCR cache text, Paddle prediction, Ollama,
-  Graph/mailbox, Smartsheet, rename, production filename wiring, or external
-  AI operation occurred.
-
-Latest reusable single-document learning-report checkpoint:
-
-- Extended the existing local evaluator with explicit `--learning-report`
-  opt-in; numeric selection remains mandatory and no newest-file heuristic is
-  used.
-- The selected document still follows cache-only OCR, classification,
-  extraction, deterministic validation, business rules, and review. The same
-  local Ollama provider performs one additional complete-document structural
-  request without returning document values or narrative text.
-- The sanitized report contains document/form structure and page count, a
-  complete modeled-field inventory, labeled date roles, authorization/service
-  structure, supported business concepts, schema gaps, review/attempt state,
-  and evidence-versus-proposal development implications.
-- Model-proposed labels pass through a conservative structural-label gate.
-  Labels outside the safe vocabulary are withheld as generic unmodeled
-  field/concept categories rather than exposed. Novel concept/schema-gap
-  observations are explicitly marked as not deterministically validated.
-- Focused and affected synthetic deterministic/mock tests: 92 passed, 0
-  failed. All eleven changed Python files compiled successfully.
-- No protected document, cached PHI, real OCR, Paddle initialization, real
-  Ollama request, Graph/mailbox, Smartsheet, rename, production filename
-  wiring, or external AI operation occurred.
-
-Latest cache-only evaluator lazy-Paddle checkpoint:
-
-- `PaddleOCRProvider` construction now prepares only the protected cache and
-  fingerprint service. The Paddle engine remains uninitialized until a valid
-  document has no current or legacy cache result and fresh OCR prediction is
-  permitted.
-- Cache-only hits return the validated cached UTF-8 text without initializing
-  Paddle. Cache-only misses raise the existing sanitized cache-only error
-  without initializing Paddle or falling through to prediction.
-- Normal non-cache callers retain validation, shared fingerprinting, current
-  and legacy cache lookup/migration, and cache writes. Paddle initializes once
-  when a real cache miss requires prediction.
-- Focused and affected synthetic deterministic/mock tests: 58 passed, 0
-  failed. The modified production provider and tests compiled successfully.
-- A synthetic constructor/cache-boundary probe constructed the default
-  `DocumentProcessor`, reached cached OCR in cache-only mode, observed zero
-  Paddle initializations, and made zero Ollama requests.
-- No protected document, real OCR prediction, Ollama request, Graph/mailbox,
-  Smartsheet, filename operation, or external AI operation occurred.
-
-Latest validated filename-input boundary checkpoint:
-
-- Added dedicated `posted_date` and `renewal_qualifier` fields to the existing
-  value/confidence/source-text extraction contract. Authorization start/end
-  dates remain separate and are not overloaded.
-- Deterministic validation accepts Posted Date only when the same evidence
-  explicitly labels and supports that exact date. Missing, conflicting,
-  invalid, unlabeled, or unsupported values remain null/unknown with a
-  filename-boundary review reason.
-- Renewal qualifiers require separately validated, explicitly labeled source
-  evidence and an independently approved matching reference value. Qualifiers
-  cannot establish renewal classification; ambiguity, unsupported wording,
-  mismatch, or non-renewal use remains unresolved and review-safe.
-- 2067 workflow context is accepted only through an explicit resolved business-
-  context lookup. It is never inferred from form type, document content,
-  classification subtype, filename, or client-existence assumptions. The
-  boundary remains open to future approved database-backed context values.
-- The boundary preserves evidence internally but exposes only resolved lookup
-  values to filename policy. Evidence-bearing fields are hidden from result
-  representations, and production filename callers remain disconnected.
-- Focused synthetic deterministic tests: 80 passed, 0 failed.
-- Affected synthetic deterministic/mock regressions: 164 passed, 0 failed.
-- Three production Python modules and the focused test compiled successfully.
-- No mailbox document, OCR, Ollama, Graph, Smartsheet external write, real
-  rename, protected-data processing, production filename generation, or
-  external AI operation occurred.
-
-Latest authorization-renewal and 2067 Posted Date checkpoint:
-
-- Actual authorization renewals deterministically use RENEW AUTH and never
-  inherit INBOUND AUTH merely because they are renewals.
-- A separately resolved qualifier such as NO CHANGE follows as its own
-  underscore-separated component. Missing qualifier input is omitted; an
-  explicitly unresolved qualifier blocks naming without inference, and a
-  qualifier cannot create or decorate a non-renewal workflow.
-- Historical local filename inspection found no existing NO CHANGE example,
-  so qualifier formatting follows the established uppercase token and
-  underscore-separated major-component policy rather than an invented legacy
-  exception.
-- 2067 remains only the form/document dimension. Independently supported
-  INBOUND AUTH or future database-backed workflow context may coexist with it;
-  INIT is not inferred from document content or client assumptions.
-- Every 2067 requires exactly one resolved Posted Date for naming. Authorization
-  start/end dates and other naming-date candidates are ignored for 2067.
-  Missing, unsupported, conflicting, or invalid Posted Date blocks naming and
-  requires review.
-- Non-2067 single/range date behavior and ambiguity-safe service-reference
-  behavior remain unchanged. Production filename orchestration remains
-  disabled.
-- Focused synthetic deterministic tests: 27 passed, 0 failed.
-- Affected synthetic deterministic/mock regressions: 61 passed, 0 failed.
-- Both modified Python services compiled successfully.
-- No mailbox document, OCR, Ollama, patient data, Smartsheet write, real rename,
-  Graph call, protected-data processing, or external AI operation occurred.
-
-Latest 2067 document/workflow separation checkpoint:
-
-- 2067 remains a document/form token and does not imply INIT, INBOUND RENEW,
-  client status, or any other workflow/context.
-- A resolved workflow reference may coexist independently with 2067. The
-  policy accepts future supported values without a fixed two-choice list.
-- A 2067 with no supported workflow omits that dimension. An explicitly
-  unresolved or ambiguous workflow remains blocked with naming review rather
-  than guessed.
-- Existing independently supported authorization-initial naming may coexist
-  with 2067. Authorization-renewal naming remains separate and does not inherit
-  INBOUND RENEW.
-- Production filename orchestration remains disabled.
-- Focused synthetic deterministic tests: 20 passed, 0 failed.
-- Affected synthetic deterministic/mock regressions: 36 passed, 0 failed.
-- Both modified Python services compiled; `git diff --check` passed.
-- No mailbox document, OCR, Ollama, patient data, Smartsheet write, production
-  rename, external AI, or protected-data operation occurred.
-
-Latest live SharePoint reference-workbook checkpoint:
-
-- The authoritative reference source is configured in the ignored local
-  configuration boundary; identifiers and source details remain protected.
-- Read-only Graph metadata lookup passed and returned a version token.
-- Workbook download passed. `PAYOR LISTING` and `SERVICES LISTING` loaded and
-  validated successfully; optional `DOCUMENT TYPES` is not present.
-- Legitimate multiple service naming results under one three-part key were
-  preserved and resolve as `ambiguous` with no selected value rather than
-  invalidating the workbook.
-- The ignored local cache refreshed, a second unchanged-version run reused the
-  cache without another refresh download, and malformed-refresh simulation
-  preserved the last-known-good cache.
-- No sanitized failure occurred. No mailbox document, OCR, Ollama, Smartsheet
-  write, production rename, or external AI operation occurred.
-- Production filename orchestration remains disabled.
-
-Latest ambiguity-safe service-reference checkpoint:
-
-- `SERVICES LISTING` retains its existing schema and three-part normalized key:
-  HCPCS/BILL CODE + MODIFIERS + PROGRAM. No PRIORITY column is required.
-- Multiple rows and naming results under one key are accepted by the loader.
-  One distinct naming result resolves; multiple distinct results return
-  `ambiguous` with no selected value.
-- `DESCRIPTION` remains informational free text and is never a discriminator.
-  Priority is not inferred from description, code, modifier, program, or any
-  other field.
-- Focused synthetic deterministic/mock tests: 46 passed, 0 failed.
-- Affected Smartsheet/mailbox regressions: 67 passed, 0 failed.
-- Production filename orchestration remains disabled and unchanged.
-- The configured live workbook can retain its legitimate conflicting rows and
-  does not require structural correction for those distinctions.
-- No mailbox document, OCR, Ollama, patient data, Smartsheet write, production
-  rename, or external AI operation occurred.
-
-Latest deterministic filename-policy checkpoint:
-
-- Encoded LAST FIRST MIDDLE/INITIAL order, underscore-separated major
-  components, optional service/form components, AUTH INIT, 2067 plus workflow
-  coexistence, MMDDYY single dates, MMDDYY-MMDDYY supported ranges, no
-  timestamp, and PDF extension preservation.
-- Payer and applicable service tokens require unambiguous reference lookup.
-  Unsupported/non-relevant service is omitted; relevant unresolved service,
-  missing mandatory components, unresolved workflow tokens, and ambiguous date
-  ownership block naming without guessing.
-- Normal production orchestration does not construct or pass a policy and
-  therefore retains the existing fingerprint attachment filename. An explicit
-  incomplete policy uses the safe fallback with a naming-review status.
-- Generated filenames and temporary paths are excluded from result
-  representations and diagnostic output.
-- The SharePoint configuration contract requires ignored local
-  GRAPH_REFERENCE_DRIVE_ID and GRAPH_REFERENCE_ITEM_ID values. Version refresh
-  prefers eTag and falls back to lastModifiedDateTime while protecting the
-  last-known-good cache.
-- Focused synthetic deterministic/mock tests: 43 passed, 0 failed.
-- Affected Smartsheet/mailbox regressions: 67 passed, 0 failed.
-- All 9 changed Python files compiled; git diff --check passed.
-- No live Graph, mailbox, patient document, OCR, Ollama, Smartsheet, or external
-  AI operation occurred during implementation verification.
-- No PHI, protected filename/path, configured identifier, URL, credential,
-  token, workbook content, payload, row identifier, cache, model, or patient
-  file is included in this checkpoint.
-
-Latest project-tracker WBS reconciliation checkpoint:
-
-- Inspected all 75 actual project-tracker tasks and evaluated all 33 tasks
-  currently Not Started or In Progress against committed source, tests,
-  continuity, tracker history, and Git evidence.
-- Advanced 16 evidence-supported statuses and intentionally left 17 unchanged
-  where requirements, approval, accuracy benchmarking, user acceptance,
-  go-live, or hypercare evidence was insufficient.
-- Foundational installed/tested components and deterministic processing
-  boundaries were marked Completed only where committed evidence was direct.
-- Broader platform, security design, benchmarking, system testing, performance
-  testing, and production deployment were marked In Progress where work has
-  demonstrably started but is not complete.
-- Added a durable rule requiring checkpoint history and affected WBS rows to be
-  reconciled after meaningful tested work without inferring completion.
-- Synthetic tracker reconciliation validation: 3 passed, 0 failed.
-- No tracker row identifiers, payload values, credentials, tokens, PHI, or
-  protected data are recorded here.
-
-Latest review-summary, confidence, and reference-architecture checkpoint:
-
-- Smartsheet receives a deterministic concise review summary while the full
-  technical reason list remains unchanged in `ReviewOutput`.
-- Missing and deterministically cleared confidence statuses are written only
-  to confirmed text-capable confidence destinations. Unavailable confidence
-  remains blank, and actual numeric zero remains numeric zero.
-- Reference workbooks require validated PAYOR LISTING and SERVICES LISTING
-  sheets; optional DOCUMENT TYPES support uses a separate schema.
-- Duplicate, ambiguous, missing, malformed, and blank-result mappings fail
-  safely without guessing.
-- Version metadata controls refresh; malformed new data cannot replace the
-  last-known-good ignored local cache.
-- SharePoint/Graph access is behind an injectable metadata/download boundary.
-  No live source configuration or workbook was accessed.
-- The filename-component builder requires an explicit composition policy and
-  all resolved components. It is not wired into production processing.
-- Confidence-focused regression: 5 passed, 0 failed.
-- Focused configuration, policy, review-output, and mapping regressions:
-  61 passed, 0 failed.
-- Affected processing, validation, review, Smartsheet, and mailbox
-  regressions: 223 passed, 0 failed.
-- All 20 modified Python files compiled; `git diff --check` passed.
-- Classification: synthetic deterministic and mock. No live Graph, mailbox,
-  patient document, OCR, Ollama, production Smartsheet write, or external AI
-  operation occurred.
-- No PHI, protected filename, source evidence, workbook content, payload,
-  external identifier, credential, token, cache, model, or patient file is
-  included in this checkpoint.
-
-Latest first production end-to-end checkpoint:
-
-- Exactly one intended mailbox message completed the production path.
-- Microsoft Graph retrieval and attachment download passed.
-- Real local OCR, classification, and local Ollama processing passed.
-- Deterministic validation and business rules completed.
-- Intentional Smartsheet mapping and destination validation passed.
-- The Smartsheet row write and document attachment upload passed with no
-  partial success.
-- Mailbox handled/read state and the durable idempotency marker completed.
-- Total elapsed time was 542.992 seconds.
-- Test classification: real production integration using local AI; external
-  AI was not used.
-- No PHI, protected filename, extracted value, payload content, external row
-  identifier, credential, or token is recorded here.
-
-Latest Graph attachment-enumeration diagnostic checkpoint:
-
-- The production `AttachmentService` attachment-listing GET path, method, and
-  response handling were inspected and remain unchanged.
-- The earlier `graph_request_failed` result was caused by incorrect PowerShell
-  interpolation of the `$select` query key in a custom read-only probe, not by
-  the production Graph endpoint or attachment service.
-- Added allowlisted PHI-safe Graph diagnostic metadata for operation category,
-  HTTP status, response presence, coarse content type, and failure kind without
-  retaining raw provider errors, identifiers, request URLs, tokens, or response
-  bodies.
-- Initial focused synthetic result: 0 passed, 4 failed; expanded red result:
-  2 passed, 2 failed; final focused result: 6 passed, 0 failed.
-- Affected Graph security, attachment, mailbox, idempotency, and diagnostic-
-  output regressions: 52 passed, 0 failed.
-- Combined: 58 passed, 0 failed; all five changed Python files compiled.
-- Test classification: synthetic deterministic/mock; no protected data was
-  accessed by tests and no live processing integration was invoked by tests.
-- The approved live read-only production-service preflight passed with exactly
-  one unread candidate and exactly one processable attachment.
-- The preflight did not download an attachment, process a document, invoke OCR
-  or Ollama, write Smartsheet, mark the message read, or change durable
-  idempotency state.
-
-Latest local protected-review UI checkpoint:
-
-- Initial synthetic red result: 0 passed, 8 failed.
-- Final protected-review UI/evaluator regression: 27 passed, 0 failed.
-- Affected cache-only OCR, document-processor, review-output, automatic-
-  Smartsheet, and mailbox-Smartsheet regressions: 62 passed, 0 failed.
-- Combined: 89 passed, 0 failed.
-- All six modified Python files compiled successfully.
-- Test classification: synthetic deterministic and mock.
-- A real local Tkinter window was opened with synthetic non-PHI values only.
-  The overview, extracted-field/evidence, service-line, and validation/review
-  sections rendered; the injected source-document action, Done action, and
-  normal close action completed successfully.
-- The visual smoke test produced no protected stdout/stderr, clipboard write,
-  persisted review output, screenshot, or extra file.
-- The concrete consumer remains opt-in, synchronous, local-only, and in
-  memory. It opens the existing selected source through the OS-default action
-  without displaying or serializing the path.
-- Aggregate evaluator output adds only protected-review requested/completed/
-  status metadata and uses the sanitized `protected_review_unavailable` and
-  `protected_review_failed` categories.
-- Production DocumentProcessor/OCR behavior, validation, business rules,
-  review decisions, extraction retry/candidate selection, Graph/mailbox,
-  automatic Smartsheet submission, classification feedback, and the
-  fixture-specific authorization harness remain unchanged.
-- No PHI or protected data was accessed.
-- No patient document, real PaddleOCR, local Ollama request, Microsoft Graph,
-  mailbox, production Smartsheet workflow, or external AI ran.
-
-Latest generic local-evaluator checkpoint:
-
-- Initial focused red result: 1 passed, 18 failed.
-- Final evaluator/cache-only regression: 21 passed, 0 failed.
-- Affected processor, OCR, review, classification-feedback, authorization-
-  harness, and automatic-Smartsheet regressions: 108 passed, 0 failed.
-- Combined: 129 passed, 0 failed.
-- All eight modified Python files compiled successfully.
-- Test classification: synthetic deterministic and mock.
-- The evaluator requires a positive numeric selector, explicit validated
-  nonblank Run Type, explicit cached-OCR/protected-document access
-  authorization, and explicit local-Ollama authorization.
-- The evaluator invokes `DocumentProcessor.process()` directly and has no
-  Graph, mailbox, or Smartsheet dependency.
-- Cache-only evaluation stops with the sanitized `ocr_cache_unavailable`
-  category on a cache miss; PaddleOCR prediction cannot run after that miss.
-- Existing callers omit `ocr_cache_only`, so normal production OCR, mailbox
-  processing, validation, retry/candidate selection, business rules, review,
-  and automatic Smartsheet submission remain unchanged.
-- External results contain aggregate allowlisted metadata only and exclude
-  document paths, filenames, fingerprints, OCR/document text, extracted or
-  service-line values, evidence, protected review objects, provider details,
-  credentials, tokens, and destination payload identifiers.
-- Nested protected-processing stdout and stderr are discarded without
-  retaining captured content; raw exceptions become application-owned safe
-  failure categories.
-- `LocalProtectedReviewConsumer` is an optional synchronous local-only
-  in-memory handoff. It is not serialized, logged, or persisted.
-- One large in-process regression run encountered a Windows temporary-
-  directory `PermissionError` in the existing concurrent classification-
-  feedback locking suite. That suite passed 4/0 in isolation, and the other
-  affected suites passed 104/0 separately; no concurrency test was weakened.
-- No PHI or protected data was accessed.
-- No real patient document, PaddleOCR prediction, Ollama request, Microsoft
-  Graph, mailbox, Smartsheet production workflow, or external AI ran.
-
-Latest Smartsheet partial-success/retry checkpoint:
-
-- Initial focused red result: 6 passed, 5 failed.
-- Final focused partial-success/retry regression: 12 passed, 0 failed.
-- Affected Smartsheet/mailbox regressions: 123 passed, 0 failed.
-- Combined: 135 passed, 0 failed.
-- All three modified Python files compiled successfully.
-- Test classification: synthetic deterministic and mock.
-- A created row followed by attachment failure now remains
-  `written=True, success=False` through submission, mailbox aggregation, and
-  full orchestration.
-- Mailbox aggregation reports `completed_with_partial_success` and preserves
-  both the existing-row count and failure count.
-- Explicit retry blocks a duplicate when the prior PHI-safe result confirms
-  that a row exists and allows retry when the prior attempt created no row.
-- No external row identifier is stored in or exposed by the retry contract.
-- Normal first-attempt automatic writes, destination validation,
-  review-required writes, optional attachments, mapping, deterministic
-  validation, business rules, review thresholds, mailbox mark-as-read/
-  idempotency, and no-inference protections remain unchanged.
-- No result representation, status, stdout, or stderr exposed row identifiers,
-  payload values, credentials, tokens, PHI, paths, or provider details.
-- No real Smartsheet, Microsoft Graph, mailbox, PaddleOCR, Ollama,
-  patient-document, or external-AI operation occurred.
-- No protected data was accessed or exposed.
-
-Latest legacy Graph/mailbox diagnostic-output checkpoint:
-
-- Initial focused red result: 2 passed, 16 failed.
-- Final focused stdout regression: 22 passed, 0 failed.
-- Affected Graph/mailbox regressions: 121 passed, 0 failed.
-- Combined: 143 passed, 0 failed.
-- All five modified Python files compiled successfully.
-- Test classification: synthetic deterministic and mock.
-- Subjects, sender addresses, received identifying metadata, message IDs,
-  filenames, paths, raw OCR/document text, extracted values, `source_text`,
-  field-evidence values, raw mailbox errors, provider diagnostics, and
-  credential/token-like values are excluded from covered diagnostic output.
-- Output retains PHI-safe counts, booleans, safe sequence numbers,
-  confidence/status metadata, and sanitized failure categories.
-- No `EmailService`, `AttachmentService`, `MailboxProcessor`, mark-as-read,
-  idempotency, document-processing, validation/business-rule, review, or
-  automatic-Smartsheet behavior changed.
-- No live Microsoft Graph, mailbox, attachment, PaddleOCR, Ollama,
-  patient-document, production-Smartsheet, or external-AI operation occurred.
-- No protected data was accessed or exposed.
-
-Latest automatic-Smartsheet production-write checkpoint:
-
-- Focused red result against the obsolete approval-gated contracts:
-  5 passed, 8 failed.
-- Final affected regression baseline: 286 passed, 0 failed.
-- Test classification: synthetic deterministic and mock.
-- Automatic intentionally mapped Smartsheet row population now follows
-  deterministic validation and business rules without a complete-review
-  approval gate.
-- Review-required rows are written with review status and reasons; human
-  review remains downstream exception handling.
-- The existing configured review thresholds remain unchanged.
-- Missing required destination data and destination-validation failures still
-  block submission before the writer is called.
-- The full document continues through the existing explicit attachment-upload
-  path.
-- OCR text and `source_text` have no explicit Smartsheet destination and are
-  not mapped.
-- No real Smartsheet write, Microsoft Graph, PaddleOCR, Ollama, patient
-  document, or external-AI operation occurred during this checkpoint.
-- No protected data was accessed or exposed.
-
-Latest continuity-system validation:
-
-- Project memory / Begin Day / End of Day validation: 14 passed, 0 failed.
-- Test classification: synthetic deterministic repository-text validation.
-- No Microsoft Graph, PaddleOCR, Ollama, or Smartsheet call occurred.
-
-Latest Graph security checkpoint:
-
-- Initial red security regression: 1 passed, 11 failed.
-- Final Graph security boundary: 17 passed, 0 failed.
-- Ten affected mailbox suites: 108 passed, 0 failed.
-- Combined: 125 passed, 0 failed.
-- Test classification: synthetic deterministic and mock.
-- All five modified Graph/security Python files compiled successfully.
-- Safe failure categories are `configuration_error`,
-  `authentication_failed`, `authorization_failed`, and
-  `graph_request_failed`.
-- Missing configuration reports environment-variable names only.
-- Provider/MSAL descriptions, raw MSAL exceptions, 401/403 details,
-  request details, and response-decoding details are not propagated.
-- Blank or failed token acquisition cannot proceed to a Graph request.
-- Sanitized failures retain no provider exception cause or context.
-- Microsoft Graph and MSAL were mocked; no live request occurred.
-- No real credentials or `.env` values were read.
-- No patient document or protected data was accessed.
-- PaddleOCR, Ollama, Smartsheet, and external AI were not called.
-
-Previous quantity-reconciliation checkpoint:
-
-- Service-line quantity reconciliation: 10 passed, 0 failed.
-- Document-processor regression: 18 passed, 0 failed.
-- Evidence-validation regression: 29 passed, 0 failed.
-- Authorization quantity-rule regression: 8 passed, 0 failed.
-- Ollama service-line regression: 19 passed, 0 failed.
-- Review-output service regression: 8 passed, 0 failed.
-- Smartsheet review-mapping integration: 9 passed, 0 failed.
-- Combined: 101 passed, 0 failed.
-- Test classification: synthetic deterministic and mock.
-- All modified Python files compiled successfully.
-- Quantity reconciliation was verified end to end across validation,
-  candidate selection, business rules, review output, and Smartsheet mapping.
-- Reconciliation remains within one independently validated candidate;
-  extraction attempts are never merged and ties keep attempt 1.
-- Missing or null top-level `authorized_units` is not inferred, unsupported
-  row quantities are excluded, and `approved_visits` remains separate.
-- No production code change was required; only missing synthetic regression
-  coverage was added.
-- Microsoft Graph was not called.
-- PaddleOCR was not called.
-- Real Ollama generation was not called.
-- Smartsheet external API was not called.
-- No real Smartsheet row was written.
-
-Latest controlled real authorization checkpoint:
-
-- Run Type: Controlled Authorization Regression.
-- Real cached OCR and real local Ollama were used locally.
-- Classification remained authorization.
-- Two extraction attempts occurred.
-- Raw retry was not required; validated retry was required.
-- The controlled retry triggered and attempt 2 was selected.
-- The final validated candidate preserved two service lines.
-- Supported row service-code and quantity evidence was preserved.
-- A modifier remained only on the row with supporting row evidence.
-- Unsupported row dates and statuses were cleared.
-- Unsupported authorization status was cleared.
-- Human review remained required.
-- Review output was attached and preserved final review state.
-- Raw OCR text and the local document path were excluded from review output.
-- The corrected semantic harness passed: 1 passed, 0 failed.
-- The retry fix and corrected harness contract are now verified with real
-  cached OCR and real local Ollama.
-- PHI output remained suppressed.
-- Microsoft Graph and Smartsheet were not called.
-
-Latest completed end-of-day state:
-
-- Tracker synchronization returned `Not Found : 0` and `Failed : 0`.
-- Changes were committed and pushed to `main`.
-- Local and remote were synchronized.
-- Working tree was clean.
-
-Begin Day must verify current Git state again rather than assuming this
-remains true.
-
-Latest OCR performance-diagnostic instrumentation checkpoint:
-
-- The normal Paddle provider path now records PHI-safe cache/routing,
-  initialization, prediction, result-consumption, conversion, and cache-write
-  measurements for one request.
-- Diagnostics expose only allowlisted counts, booleans, durations, ordinal
-  page timings, safe buckets, package/config identifiers, and sanitized
-  runtime categories. Paths, filenames, hashes, OCR text, values,
-  source_text, IDs, and raw exceptions are excluded.
-- Eager prediction return time is separated from lazy result-consumption time.
-  Result streams remain single-pass, and deterministic invariants flag
-  repeated prediction/submission or conversion.
-- Structured and flat cache writes reuse the in-memory OCR result and record
-  zero additional provider prediction calls or application source rereads.
-- Modified Python compiled successfully. Focused synthetic/mock checks passed
-  21 with 0 failures; affected processor/evaluator/learning regressions passed
-  62 with 0 failures. No real OCR, Paddle prediction, Ollama, Graph,
-  Smartsheet, or protected-document processing ran.
-
-Latest verified protected OCR performance boundary:
-
-- One separately authorized fresh run used the normal protected selector,
-  current snapshot identity, DocumentProcessor, OCRService, and Paddle provider
-  path. No preinitialized provider wrapper or retry was used.
-- Exactly one Paddle engine was created and exactly one document-level
-  `predict()` call was made. Four eager page results produced 144 blocks.
-- Total OCR time was approximately 2698 seconds. Engine initialization was
-  approximately 6 seconds, while eager `PaddleOCR.predict()` consumed
-  approximately 2692 seconds, or 99.8 percent of OCR runtime.
-- Result consumption, conversion, recursive traversal, flat-text assembly,
-  structured serialization, and both cache writes took only milliseconds.
-  No repeated prediction, repeated conversion, or cache-write source reread
-  occurred.
-- The verified runtime was Paddle 3.2.0 and PaddleOCR 3.7.0 on CPU with
-  no explicit OMP or MKL environment thread setting. The original diagnostic
-  reported the global `FLAGS_use_mkldnn` value as false; it did not measure
-  PaddleOCR's effective inference configuration and must not be interpreted as
-  proof that effective oneDNN was disabled. Package versions and the default
-  English model family remain unpinned.
-- The 7-minute to 45-minute regression boundary is inside eager Paddle
-  prediction, not structured OCR representation or cache-sidecar generation.
-- Committed history cannot establish the former Paddle/PaddleOCR versions,
-  resolved default model family, or oneDNN/thread state. The provider has used
-  the same English/orientation/unwarping flags and one document-level
-  `predict()` shape since its introduction; committed requirements have never
-  pinned Paddle packages.
-
-Latest OCR effective-configuration diagnostic correction:
-
-- PHI-safe diagnostics now report the global Paddle `FLAGS_use_mkldnn` value
-  separately from PaddleOCR's effective parsed inference settings.
-- Effective `enable_mkldnn`, CPU threads, MKLDNN cache capacity, and inference
-  engine are read only from the initialized PaddleOCR provider configuration;
-  unavailable or invalid values remain unknown.
-- Current installed PaddleOCR 3.7.0 source defaults are effective oneDNN true,
-  10 CPU threads, MKLDNN cache capacity 10, while the production provider
-  explicitly selects the `paddle` engine. No OCR behavior or constructor and
-  prediction arguments changed.
-- Focused synthetic/mock diagnostics passed 8 with 0 failures. Affected
-  cache/provider/authorization/fingerprint regressions passed 16 with 0
-  failures. No real OCR, protected document, Ollama, Graph, or production
-  Smartsheet processing ran.
-
-Latest verified OCR performance baseline:
-
-- A controlled PowerShell run completed successfully on a PDF under 1 MiB
-  using Paddle 3.2.0 and PaddleOCR 3.7.0 on CPU.
-- Effective PaddleOCR MKLDNN was enabled with 10 CPU threads, MKLDNN cache
-  capacity 10, and the `paddle` inference engine.
-- The normal path created one engine, submitted the document once, and made
-  exactly one `predict()` call. Engine initialization took approximately 5
-  seconds, eager `PaddleOCR.predict()` approximately 2670 seconds (44.5
-  minutes), and total OCR approximately 2675 seconds (44.6 minutes).
-- Four page results produced 144 recognized blocks. Result conversion,
-  traversal, page/block construction, flat-text assembly, serialization, and
-  flat and structured cache writes were negligible. There was no repeated
-  prediction, repeated conversion, extra prediction, or extra source reread
-  during cache writes.
-- Approximately 99.8 percent of OCR runtime is therefore inside eager
-  `PaddleOCR.predict()`. Structured OCR representation, page/block
-  construction, and structured-cache generation are not supported causes of
-  the prior approximately 7-minute to current approximately 45-minute
-  regression.
-- The current constructor resolves `PP-OCRv6_medium_det` and
-  `PP-OCRv6_medium_rec`. Project dependency configuration currently leaves
-  this default behavior unpinned.
-- The attempted controlled `PP-OCRv6_small_det` comparison returned
-  `controlled_run_failed` during PaddleOCR engine construction because the
-  valid small detection model was not locally available. Engine initialization
-  did not complete, protected OCR and `predict()` were never reached, and
-  protected-cache preparation was not the supported failure boundary. No
-  small-versus-medium performance conclusion exists.
-- The corrected ignored comparison runner's model-only initialization
-  preflight succeeded with `PP-OCRv6_small_det` and
-  `PP-OCRv6_medium_rec`. The engine initialized on CPU with effective MKLDNN,
-  thread, cache-capacity, inference-engine, Paddle 3.2.0, and PaddleOCR 3.7.0
-  settings matching the verified baseline. `predict_call_count` remained zero;
-  no protected document was processed. No small-versus-medium OCR performance
-  conclusion exists yet.
-- The complete zero-prediction comparison preflight passed all 21 allowlisted
-  phases in the real local runtime. It verified baseline and clean-tree state,
-  package imports and versions, model initialization and identity, effective
-  runtime configuration, application imports, selector infrastructure,
-  synthetic snapshot/fingerprint/cache targeting, provider initial state,
-  synthetic backup/restoration behavior, single-variable model selection,
-  static one-call execution guards, runner compilation, and harness checks.
-  `predict_call_count` remained zero and no protected document was selected or
-  processed. The preventable prior setup failure was the ignored script not
-  adding the repository root to its process-local Python import path.
-- A fully preflighted controlled real protected-document A/B comparison changed
-  only detection from `PP-OCRv6_medium_det` to `PP-OCRv6_small_det` while
-  retaining `PP-OCRv6_medium_rec`, Paddle 3.2.0, PaddleOCR 3.7.0, CPU,
-  effective MKLDNN, 10 CPU threads, MKLDNN cache capacity 10, and the `paddle`
-  inference engine. Both runs used one document submission and one prediction.
-- The medium-det baseline prediction took approximately 2670.35 seconds and
-  total OCR approximately 2675.38 seconds. The small-det comparison prediction
-  took approximately 107.44 seconds and total OCR approximately 107.46 seconds:
-  approximately 25 times faster and about a 96 percent prediction-runtime
-  reduction on this controlled document.
-- Both configurations produced four pages and 144 blocks. The small-det result
-  preserved all preselected PHI-safe indicators: 2067, Posted Date, annual,
-  and deterministic `contact_failure`. It had no repeated prediction or page
-  conversion and no extra prediction or source reread during cache writes.
-- The current medium detection default is therefore a verified major
-  performance problem in this CPU environment. Small detection with medium
-  recognition is a strong candidate configuration and justifies broader
-  validation, but one real protected document is not sufficient to establish
-  universal accuracy equivalence across document purposes and layouts.
-- There is no evidence that the historical approximately seven-minute
-  environment used the small detector; its former model configuration remains
-  unknown. No production OCR model configuration change has been approved or
-  implemented.
-
-## Known Limitations / Open Questions
-
-- Existing text-only OCR caches contain the complete flattened text but cannot
-  recover historical page/block relationships without rerunning OCR; they are
-  intentionally labeled `unavailable_legacy_flat` and are not regenerated.
-- The protected whole-document learning path is real cache/local-Ollama
-  accepted for the known 2067/UTL case. Model coverage references prove
-  contract coverage, not semantic correctness, so all model-only observations
-  remain non-deterministic.
-- `analyzed_evidence_block_count` currently reports zero even when all 144
-  structured blocks were delivered and page-level coverage reports complete.
-  This is a learning-report accounting limitation, not missing OCR evidence.
-- `learning_review_recommended` may remain true because model-proposed novel or
-  conflicting learning observations are reviewed independently even when the
-  authoritative deterministic family/subtype classification is supported.
-  Learning-review recommendations must not be conflated with production
-  taxonomy or top-level review state.
-
-- Authorization quantity meaning remains conservative where deterministic
-  evidence is insufficient.
-- Quantity business meaning and final approval remain human-review decisions.
-- Modifier ownership remains unresolved without row evidence.
-- Final production document taxonomy will expand beyond current
-  authorization work.
-- Production hardening and future integrations remain ongoing.
-- Graph authentication and authorization failure verification is mock-only;
-  no live negative authentication request was performed.
-- Legacy Graph/mailbox diagnostic-output verification is mock-only; the
-  hardened scripts have not been run against a live mailbox.
-- Attachment upload cannot resume against an already-created Smartsheet row
-  because no safe persisted row reference exists. Explicit retry is safe only
-  while the prior PHI-safe submission result is available; after process-state
-  loss, manual resubmission cannot be safely deduplicated and must not be
-  attempted blindly.
-- The full document currently reaches Smartsheet only through the existing
-  explicit attachment-upload path.
-- OCR text and `source_text` have no explicitly configured Smartsheet
-  destination and therefore remain unmapped. Any future destination must be
-  intentionally designed without serializing document/review objects
-  wholesale.
-- The live destination schema and existing review/correction workflows have
-  not yet been inspected under the new platform-wide feedback requirement.
-  Exact correction column titles, types, allowed values, formulas, and
-  workflow dependencies remain intentionally undefined until a separately
-  authorized read-only inspection. No sheet mutation is allowed during that
-  inspection.
-- Smartsheet correction/readback is not implemented. Phase 1 still requires
-  immutable original AI cells, separate attributable human corrections,
-  effective-value resolution, controlled feedback cases, and idempotent
-  readback for every processed family/subtype.
-- Review thresholds currently remain the configured values in
-  `ReviewDecisionService`; this clarification does not change them.
-- The protected-review UI has been rendered only with synthetic non-PHI data;
-  the first operator-controlled protected comparison with a real local
-  document has not yet run.
-- The first true single-item production-path run completed successfully. No
-  additional production item has been authorized for testing.
-- Dedicated Posted Date and renewal-qualifier extraction/validation fields and
-  a validated filename-input boundary now exist, but production orchestration
-  does not construct or consume the boundary.
-- No approved runtime provider currently supplies 2067 workflow context or
-  supported qualifier reference values. NO CHANGE remains absent unless both
-  deterministic source evidence and an approved matching reference support it.
-- INIT versus renewal refinement for inbound 2067 activity requires future
-  internal client-system/database context and must not be inferred from 2067.
-- The authoritative SharePoint reference source is configured only in the
-  ignored local configuration boundary and passed its live read-only refresh.
-- Production orchestration intentionally does not construct or pass filename
-  policies until reference configuration and remaining business rules resolve.
-- The legitimate service conflicts cannot resolve automatically until the
-  owner defines a supported source-document discriminator. Description and
-  other existing fields must not be used to infer priority.
-
-## Weekly Codex / Work Capacity
-
-Codex and Work share a weekly usage limit.
-
-When the Codex and Work Analytics page provides an exact reset timestamp,
-that timestamp is authoritative. Do not rely only on an assumed weekday.
-
-Current Analytics observation:
-
-- Weekly usage remaining: 99%.
-- Authoritative reset timestamp: August 20, 2026 at 9:53 AM local time.
-- Source: Codex and Work Analytics.
-- This newer observation supersedes the prior August 18 reset value.
-- The reason the platform changed the reset timestamp is unknown and must
-  not be guessed.
-
-Treat the known timestamp as current-cycle information. After the reset,
-replace it when a new authoritative reset timestamp is observed.
-
-Each week, identify work where VS Code Codex materially improves safety
-or speed, including:
-
-- workspace inspection
-- complex multi-file edits
-- debugging
-- refactoring
-- caller/reference analysis
-- architecture review
-
-On Begin Day, consider both remaining useful capacity and time until the
-known reset. Prefer completing worthwhile Codex-suited work before unused
-capacity expires, but never use Codex merely to consume credits.
-
-Codex work must preserve uncommitted changes, follow `AGENTS.md`, remain
-PHI-safe, and keep PHI/OCR/Ollama-sensitive data within approved local
-boundaries.
-
-Operator workflow:
-
-- Codex CLI is preferred for longer workspace runs.
-- Local completion and approval sound alerts are configured and verified.
-- Optimize Codex prompts for the smallest safe scope: inspect existing cache
-  and state first, and minimize repeated exploration and reruns.
-- Long-running local compute such as Paddle OCR should normally run directly
-  in PowerShell rather than with Codex sitting idle waiting. Codex should
-  inspect code, prepare and verify commands, make edits, run short tests, and
-  later interpret only PHI-safe results. Do not keep Codex idle for 20-45+
-  minute local compute unless doing so materially improves safety or
-  debugging. Optimize for total cost to a correct tested result rather than
-  merely minimizing individual model calls.
-- Start a fresh Codex session only when it materially reduces stale context or
-  usage. When recommending one, provide the exact PowerShell `cd` and `codex`
-  commands needed to resume from the authoritative next start.
-- VS Code may remain open for file and diff viewing.
-
-Operator time is not the test harness:
-
-- Codex must complete all inexpensive local preflight, interface and caller
-  inspection, dependency and model validation, setup validation, harness
-  compilation and testing, and deterministic readiness checks before handing
-  the operator a long-running command.
-- Codex must inspect actual local code, runtime, interfaces, configuration,
-  and state rather than guessing paths, arguments, signatures, defaults,
-  prerequisites, callers, or ownership.
-- The operator should not discover preventable setup or harness failures.
-- Hand long-running local compute to PowerShell only after cheap preflight
-  proves `READY_FOR_EXECUTION` or `READY_FOR_PREDICTION`.
-- Reserve operator involvement for protected local selection, required
-  business judgment or approval, genuinely sensitive or destructive actions,
-  and unavoidable long-running local execution.
-- Apply this principle to OCR and future EHR, eligibility, batch, integration,
-  and other expensive platform workloads.
-- Long-running local compute should normally run directly in PowerShell so
-  Codex does not sit idle consuming shared usage while local compute runs.
-- Optimize for total cost to a correct tested result without sacrificing
-  safety, code quality, or accuracy.
-
-## Begin Day Procedure
-
-When the operator says `begin day`:
-
-1. Read `AGENTS.md`.
-2. Read this entire file.
-3. Inspect the latest relevant checkpoint in
-   `update_project_tracker.py`.
-4. Inspect the current Git branch and status.
-5. Verify local `HEAD` against the remote tracking branch.
-6. Preserve and reconcile any uncommitted work before making changes.
-7. Inspect files, callers, interfaces, and tests relevant to
-   `CURRENT NEXT START`.
-8. Check whether a known Codex/Work reset timestamp is approaching and
-   identify worthwhile current/upcoming Codex-suited work.
-9. Produce a concise Begin Day Brief containing:
-   - repository state
-   - last tested baseline
-   - where work stopped
-   - known limitations or blockers
-   - today's exact objective
-   - smallest safe first step
-10. Continue from `CURRENT NEXT START` unless new evidence requires a
-   different safe path.
-11. Do not automatically run PHI-sensitive patient-document, OCR, Ollama,
-    Graph, or Smartsheet operations.
-
-## End of Day Procedure
-
-When the operator says `end of day`:
-
-1. Reach the smallest safe tested checkpoint.
-2. Compile modified Python where applicable.
-3. Run focused tests and affected regressions.
-4. Update `update_project_tracker.py` with:
-   - work completed
-   - files changed
-   - tests and results
-   - real/mock classification
-   - PHI handling
-   - limitations
-   - exact next starting point
-5. Update this file so current capabilities, tested baseline, limitations,
-   and `CURRENT NEXT START` are accurate.
-6. Keep exactly one authoritative `CURRENT NEXT START`.
-7. Run `update_project_tracker.py`.
-8. Require `Not Found : 0` and `Failed : 0`.
-9. Run Git safety checks.
-10. Review the complete diff for PHI, OCR, protected files, credentials,
-    secrets, tokens, caches, models, and temporary files.
-11. Stage only reviewed safe files.
-12. Commit and push.
-13. Verify local and remote synchronization.
-14. Confirm a clean working tree.
-15. Report the completed checkpoint and next starting point.
+- Durable local mailbox message idempotency and protected candidate ordering.
+- Local PaddleOCR with protected flat and structured cache support.
+- Local Ollama classification, extraction, and opt-in whole-document learning
+  analysis.
+- Field/service-line value, confidence, and source-evidence preservation.
+- Controlled extraction retry with independent candidate validation and
+  deterministic selection.
+- Evidence validation, Authorization business rules, review output, and
+  staff-friendly Smartsheet review summaries.
+- Central family/subtype taxonomy with Authorization compatibility and
+  accepted 2067/UTL deterministic resolution.
+- Generic automatic Smartsheet mapping, destination validation, row writing,
+  review metadata, partial-success propagation, and source attachment.
+- Local classification-review and PHI-safe ignored feedback storage from an
+  earlier operator-driven workflow. This remains a separate development
+  capability and is not the authoritative Smartsheet end-user feedback model.
+- PHI-safe Graph, mailbox, OCR, evaluation, and integration diagnostics.
+- Opt-in local protected document listing/selection/review and cache-only
+  evaluation.
+- Validated business-reference workbook boundary and deterministic filename
+  policy/input services. Production filename orchestration remains disabled.
+
+## Verified Current Baselines
+
+### Generic Production Row
+
+- Generic family/subtype mapping, including shared 2067/UTL routing, passed 59
+  focused synthetic deterministic/mock checks and 144 affected regressions
+  with zero failures.
+- Unknown taxonomy and review-required rows remain writeable with supported
+  values and review metadata.
+- No subtype-specific writer or destination column was introduced.
+
+### Family/Subtype and Grounding
+
+- Family/subtype and grounding changes passed 57 focused synthetic
+  deterministic/mock checks and 214 affected regressions with zero failures.
+- The accepted real 2067/UTL cache-only result is recorded under Accepted UTL
+  Behavior. It used real cached OCR and real local Ollama but no Paddle
+  prediction or external integration.
+
+### Production and Integration Safety
+
+- One explicitly authorized real production item completed Graph retrieval,
+  attachment download, local OCR/AI processing, validation, business rules,
+  Smartsheet row creation, attachment upload, mailbox handled/read state, and
+  durable idempotency. This proves one controlled path, not unattended or
+  universal acceptance.
+- Automatic-write regressions passed 286 synthetic deterministic/mock checks
+  with zero failures after removal of the obsolete human-approval write gate.
+- Partial-success/retry regressions passed 12 focused and 123 affected tests
+  with zero failures.
+- Graph security and mailbox diagnostic regressions remain synthetic/mock for
+  negative authentication and legacy live-output cases.
+
+### Authorization
+
+- A controlled real cached-OCR/local-Ollama Authorization regression selected
+  retry attempt 2, preserved two supported service lines and row-owned
+  modifier evidence, cleared unsupported dates/statuses, required review, and
+  passed its semantic harness with PHI output suppressed.
+- Quantity reconciliation remains within one candidate; top-level units,
+  approved visits, service-line quantities, and modifier ownership are never
+  inferred across unsupported evidence.
+
+### OCR Performance
+
+- Paddle 3.2.0 and PaddleOCR 3.7.0 on the current CPU environment were used in
+  the controlled comparison.
+- `PP-OCRv6_medium_det` with `PP-OCRv6_medium_rec` required about 2670 seconds
+  for eager prediction and about 2675 seconds total.
+- Changing only detection to `PP-OCRv6_small_det` while retaining
+  `PP-OCRv6_medium_rec` reduced prediction to about 107 seconds: approximately
+  25 times faster and about a 96 percent reduction.
+- Both configurations made one document submission and one prediction and
+  produced four pages and 144 blocks. The small-det result preserved the
+  preselected PHI-safe indicators 2067, Posted Date, annual, and deterministic
+  `contact_failure` on that controlled document.
+- About 99.8 percent of the medium-det runtime was inside eager
+  `PaddleOCR.predict()`. Structured evidence construction, conversion,
+  serialization, and cache writes were negligible and are not supported
+  causes of the slowdown.
+- Small detection plus medium recognition is a strong candidate, not an
+  approved universal production default. One document does not prove accuracy
+  equivalence across all layouts and purposes.
+- The historical approximately seven-minute configuration is unknown. There
+  is no evidence that it used the small detector.
+- Package/model defaults remain insufficiently pinned. Production OCR model,
+  package, and effective inference settings must become explicit and
+  controlled rather than relying silently on defaults.
+
+## Phase 1 Finish Line and Remaining Gaps
+
+The document processor is complete only when it is live in the approved
+environment and reliably performs:
+
+automatic ingestion
+-> OCR and whole-document understanding
+-> family/subtype recognition
+-> extraction
+-> deterministic validation
+-> business rules
+-> automatic full Smartsheet row population through explicit mappings
+-> downstream Smartsheet automations
+-> downstream human review where needed
+-> simple incorrect-AI checkbox/comment feedback
+-> controlled technical improvement loop
+
+Completion also requires acceptable performance, explicit model/configuration
+control, safe retries and restarts, no lost documents, no duplicate business
+actions, PHI-safe operational diagnostics, sufficient real-document
+acceptance coverage, hardened durable idempotency/mailbox-state ordering for
+unattended operation, and final separately authorized end-to-end production
+acceptance.
+
+### Live / Unattended Definition
+
+Phase 1 is live only when the document processor:
+
+- starts automatically after a production-host reboot;
+- runs without ChatGPT, Codex, or an interactive PowerShell session;
+- does not require an operator to start each document;
+- continuously monitors approved Outlook/Graph sources;
+- safely claims and processes eligible documents automatically;
+- survives temporary failures and resumes safely after restart;
+- prevents duplicate business actions;
+- exposes PHI-safe operational health information; and
+- writes supported results automatically to Smartsheet.
+
+A manual script successfully processing a document is useful acceptance
+evidence but does not make Phase 1 live.
+
+### Ordered Path to Live Production
+
+1. Reconcile authoritative project truth.
+2. Implement the minimal Smartsheet incorrect-AI checkbox/comment feedback
+   path.
+3. Keep the Smartsheet schema/mapping layer extensible as document training
+   reveals useful fields.
+4. Continue training and validating document families/subtypes with
+   representative real documents.
+5. Finish whole-document tester and learning-report quality.
+6. Productionize OCR model configuration/performance and validate the
+   small-det plus medium-rec candidate.
+7. Harden retries, restart recovery, idempotency, attachment handling, and
+   mailbox handled-state ordering.
+8. Perform a repository-level Prefect integration/fit assessment and add
+   self-hosted Prefect as the production orchestration/control plane if no
+   material blocker is found.
+9. Finish unattended Outlook/Graph ingestion behavior.
+10. Finish PHI-safe operational monitoring and readiness.
+11. Run broad representative real-document acceptance.
+12. Validate the Smartsheet incorrect-AI checkbox/comment feedback loop.
+13. Run Codex Security as a production-readiness security checkpoint.
+14. Configure always-on Windows deployment, startup, and recovery.
+15. Run controlled real Outlook -> processor -> Smartsheet end-to-end
+    acceptance.
+16. Perform a limited live rollout.
+17. Promote to unattended production only after acceptance gates pass.
+
+Current gaps and limitations include:
+
+- The incorrect-AI checkbox does not yet exist in the inspected live schema,
+  and no production flagged-row/comment reader or controlled feedback
+  ingestion path is implemented.
+- Prefect fit/integration, the self-hosted control plane, automatic worker
+  startup, and always-on Windows deployment are intended roadmap work and are
+  not implemented current capabilities.
+- Durable cross-process row/attachment recovery remains unresolved after a
+  row is created but attachment/process state is lost.
+- OCR small-det accuracy needs broader representative-document acceptance
+  before any production-default change.
+- Paddle/PaddleOCR packages, resolved model identities, and effective runtime
+  configuration are not yet fully pinned for reproducible deployment.
+- Existing text-only OCR caches cannot recover historical page/block
+  relationships without new OCR.
+- Final taxonomy and explicit Smartsheet mappings will expand through
+  evidence-backed document training.
+- Quantity meaning, final approval, and modifier ownership remain conservative
+  where deterministic evidence is insufficient.
+- The first protected local review comparison and broader real-document
+  acceptance remain incomplete.
+- Production filename orchestration remains disabled. Posted Date,
+  renewal-qualifier, workflow-context, and ambiguity-safe reference boundaries
+  exist but are not wired into normal production naming.
+- No approved runtime source supplies 2067 workflow context or supported
+  renewal-qualifier reference values. INIT/renewal context must not be inferred
+  from 2067.
+- Legitimate service-reference conflicts remain unresolved until the owner
+  provides a supported discriminator; description and other existing fields
+  must not be used to invent priority.
+- Future EHR, eligibility, queue/resource scheduling, and other company-AI
+  subsystems remain future direction, not active Phase 1 implementation.
+
+## Developer Tool Evaluation Checkpoints
+
+Tool evaluation must not distract from Phase 1 document-processor completion.
+Codex should proactively call out when the project reaches one of these
+evidence-based checkpoints:
+
+- WarpGrep: evaluate only if Codex repository search/inspection becomes a
+  meaningful time, token, or context bottleneck. Complete a security, privacy,
+  and data-flow review first. Never expose protected documents, OCR text,
+  PHI-bearing caches, `.env` values, secrets, credentials, or protected paths.
+- Superpowers: evaluate when a genuinely complex Phase 1 multi-file
+  implementation or refactor could materially benefit from subagents. Test it
+  first on a PHI-safe task and verify that every subagent follows `AGENTS.md`,
+  preserves uncommitted work, and does not broaden scope.
+- Codex Security: use as a production-readiness gate after functional
+  document-processing completion and before unattended go-live.
+- `create-plan`: do not adopt by default. The existing `/plan` workflow is
+  sufficient unless evidence demonstrates a material gap.
+- `gh-fix-ci`: defer until GitHub Actions/CI is a regular validation boundary.
+
+## Memory Maintenance
+
+Every update to this file must reconcile the entire affected current-state
+model. Preserve statements that remain current, rewrite superseded truth,
+remove conflicts, and consolidate duplicates. Do not append new rules beneath
+older conflicting rules. Retain older test observations only when they remain
+useful and are clearly labeled historical. Keep the file concise enough to be
+an authoritative working context and keep exactly one `CURRENT NEXT START`.
+
+Before editing or implementation, inspect actual Git state, callers,
+interfaces, tests, runtime configuration, and relevant tracker checkpoints.
+After meaningful tested work, update the tracker and this file consistently;
+run the tracker and require `Not Found : 0` and `Failed : 0` before commit.
+
+Begin Day and End of Day follow the full procedures in `AGENTS.md`. Begin Day
+must read this entire file and verify Git/local/remote state. End of Day must
+reach a safe tested checkpoint, reconcile tracker and memory, complete the Git
+safety review, commit and push, verify synchronization, and leave one exact
+next start. Neither procedure authorizes PHI-sensitive or external operations
+without the required separate approval.
 
 ## CURRENT NEXT START
 
-After explicit authorization, inspect the live AI destination sheet column
-metadata and workflow dependencies read-only. Reconcile existing review and
-correction fields, exact titles, types, allowed values, formulas, and current
-automations without reading row values or modifying the sheet. Determine the
-minimum platform-wide correction/feedback schema needed to preserve immutable
-AI output, separate attributable human corrections, effective-value
-resolution, and confident-but-incorrect feedback for every document
-family/subtype. Reuse existing columns where sufficient; propose additional
-columns only when the live evidence proves a gap, and require approval before
-any sheet or correction/readback implementation change.
+Design and synthetic/mock-test a reusable, read-only Smartsheet feedback-
+ingestion boundary for the approved generic incorrect-AI flag and row
+comments. Extend the existing integration rather than duplicating it; keep the
+checkbox title configurable until separately approved; use injected/mock row
+and discussion readers; keep row identifiers and comment contents inside the
+approved local boundary; emit only PHI-safe counts and statuses; and guarantee
+that feedback cannot mutate the sheet, retrain a model, change prompts, or
+promote production rules. Do not create the live column or call live
+Smartsheet without separate authorization.
