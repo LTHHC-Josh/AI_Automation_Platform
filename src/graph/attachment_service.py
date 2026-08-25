@@ -1,7 +1,9 @@
 import base64
 from dataclasses import dataclass, field
 import hashlib
+import os
 from pathlib import Path
+import tempfile
 
 from .client import GraphClient
 from .config import load_graph_config
@@ -111,13 +113,14 @@ class AttachmentService:
                 result.skipped_count += 1
                 continue
 
-            output_path = self.download_dir / safe_filename
+            extension = Path(safe_filename).suffix.lower() or ".bin"
             try:
                 content = base64.b64decode(content_bytes, validate=True)
             except Exception:
                 result.skipped_count += 1
                 continue
             document_fingerprint = hashlib.sha256(content).hexdigest()
+            output_path = self.download_dir / f"{document_fingerprint}{extension}"
             attachment_identity = attachment.get("id")
             if not isinstance(attachment_identity, str) or not attachment_identity:
                 attachment_identity = document_fingerprint
@@ -148,19 +151,37 @@ class AttachmentService:
                 )
                 continue
 
-            created_output = False
             try:
-                with output_path.open("xb") as output_file:
-                    created_output = True
+                temporary_path = None
+                with tempfile.NamedTemporaryFile(
+                    "wb", dir=self.download_dir, prefix=f".{document_fingerprint}.",
+                    suffix=".tmp", delete=False,
+                ) as output_file:
+                    temporary_path = Path(output_file.name)
                     output_file.write(content)
-            except FileExistsError:
-                result.collision_count += 1
-                result.skipped_count += 1
-                continue
+                    output_file.flush()
+                    os.fsync(output_file.fileno())
+                if output_path.exists():
+                    existing_fingerprint = hashlib.sha256(output_path.read_bytes()).hexdigest()
+                    if existing_fingerprint != document_fingerprint:
+                        result.collision_count += 1
+                        result.skipped_count += 1
+                        temporary_path.unlink(missing_ok=True)
+                        result.candidate_outcomes.append(SupportedAttachmentCandidateOutcome(
+                            local_path=output_path, document_fingerprint=document_fingerprint,
+                            attachment_order_key=attachment_order_key,
+                            status="different_content_collision",
+                        ))
+                        continue
+                    temporary_path.unlink(missing_ok=True)
+                    status = "reused_identical"
+                else:
+                    os.replace(temporary_path, output_path)
+                    status = "downloaded"
             except Exception:
-                if created_output:
+                if temporary_path is not None:
                     try:
-                        output_path.unlink(missing_ok=True)
+                        temporary_path.unlink(missing_ok=True)
                     except OSError:
                         pass
                 result.skipped_count += 1
@@ -172,7 +193,7 @@ class AttachmentService:
                     local_path=output_path,
                     document_fingerprint=document_fingerprint,
                     attachment_order_key=attachment_order_key,
-                    status="downloaded",
+                    status=status,
                 )
             )
 

@@ -168,6 +168,34 @@ class MailboxFullReviewOrchestrationService:
                 status=complete_result.status,
             )
 
+        for message_result in message_results:
+            if getattr(message_result, "work_items", None):
+                if not getattr(message_result, "business_actions_completed", False):
+                    return MailboxFullReviewOrchestrationResult(
+                        message_count=complete_result.message_count,
+                        document_count=complete_result.document_count,
+                        classification_submitted_count=0,
+                        classification_cancelled_count=0,
+                        approved_count=complete_result.approved_count,
+                        written_count=complete_result.written_count,
+                        rejected_count=complete_result.rejected_count,
+                        complete_review_cancelled_count=complete_result.cancelled_count,
+                        failed_count=max(1, complete_result.failed_count),
+                        success=False, status="business_completion_incomplete",
+                    )
+                if not self.mailbox_processor.complete_message(message_result):
+                    return MailboxFullReviewOrchestrationResult(
+                        message_count=complete_result.message_count,
+                        document_count=complete_result.document_count,
+                        classification_submitted_count=0,
+                        classification_cancelled_count=0,
+                        approved_count=complete_result.approved_count,
+                        written_count=complete_result.written_count,
+                        rejected_count=complete_result.rejected_count,
+                        complete_review_cancelled_count=complete_result.cancelled_count,
+                        failed_count=1, success=False, status="mailbox_completion_failed",
+                    )
+
         if skip_classification_review:
             classification_result = (
                 self._build_skipped_classification_result(

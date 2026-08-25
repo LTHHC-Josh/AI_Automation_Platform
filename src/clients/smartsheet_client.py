@@ -163,3 +163,46 @@ class SmartsheetClient:
                 row_id,
                 file_stream,
             )
+
+    def find_row_ids_by_exact_column_value(self, *, column_id, value):
+        """Return protected row IDs matching one already-resolved technical column."""
+        if isinstance(column_id, bool) or not isinstance(column_id, int) or column_id <= 0:
+            raise ValueError("A valid technical column ID is required.")
+        sheet = self.client.Sheets.get_sheet(
+            self.sheet_id,
+            column_ids=[column_id],
+            include_all=True,
+        )
+        matches = []
+        for row in getattr(sheet, "rows", []) or []:
+            for cell in getattr(row, "cells", []) or []:
+                if getattr(cell, "column_id", None) == column_id and getattr(cell, "value", None) == value:
+                    row_id = getattr(row, "id", None)
+                    if isinstance(row_id, int) and not isinstance(row_id, bool) and row_id > 0:
+                        matches.append(row_id)
+                    break
+        return matches
+
+    def find_row_ids_by_exact_column_title_value(self, *, column_title, value):
+        if not isinstance(column_title, str) or not column_title.strip():
+            raise ValueError("A configured technical column is required.")
+        response = self.client.Sheets.get_columns(self.sheet_id, include_all=True)
+        columns = getattr(response, "data", response)
+        matches = [column.id for column in (columns or [])
+                   if getattr(column, "title", None) == column_title]
+        if len(matches) != 1:
+            raise ValueError("Configured technical column is unavailable or ambiguous.")
+        return self.find_row_ids_by_exact_column_value(column_id=matches[0], value=value)
+
+    def list_row_attachment_names(self, *, row_id):
+        """Return attachment names for one protected known row."""
+        if isinstance(row_id, bool) or not isinstance(row_id, int) or row_id <= 0:
+            raise ValueError("A valid row reference is required.")
+        response = self.client.Attachments.list_row_attachments(
+            self.sheet_id, row_id, include_all=True,
+        )
+        data = getattr(response, "data", response)
+        return [
+            name for item in (data or [])
+            if isinstance((name := getattr(item, "name", None)), str)
+        ]

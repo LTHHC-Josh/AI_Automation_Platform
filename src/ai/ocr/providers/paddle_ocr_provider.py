@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from importlib.metadata import PackageNotFoundError, version
 import os
 import re
+import tempfile
 from time import perf_counter
 from typing import Any
 
@@ -449,10 +450,7 @@ class PaddleOCRProvider(OCRProvider):
         payload: str,
     ) -> bool:
         try:
-            cache_path.write_text(
-                payload,
-                encoding="utf-8",
-            )
+            self._atomic_write_text(cache_path, payload)
         except OSError:
             return False
         return True
@@ -549,10 +547,7 @@ class PaddleOCRProvider(OCRProvider):
         text: str,
     ) -> bool:
         try:
-            cache_path.write_text(
-                text,
-                encoding="utf-8",
-            )
+            self._atomic_write_text(cache_path, text)
         except OSError as ex:
             print(
                 "Warning: OCR succeeded, but the secured local "
@@ -563,6 +558,28 @@ class PaddleOCRProvider(OCRProvider):
             return False
 
         return True
+
+    @staticmethod
+    def _atomic_write_text(path: Path, text: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w", encoding="utf-8", newline="\n", dir=path.parent,
+                prefix=f".{path.name}.", suffix=".tmp", delete=False,
+            ) as handle:
+                temporary_path = Path(handle.name)
+                handle.write(text)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary_path, path)
+        except Exception:
+            if temporary_path is not None:
+                try:
+                    temporary_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            raise
 
     def _remove_legacy_cache(
         self,

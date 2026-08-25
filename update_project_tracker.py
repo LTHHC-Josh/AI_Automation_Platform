@@ -7805,6 +7805,78 @@ define its deterministic normalization into the internal boolean contract,
 and implement/mock-test the least-privilege adapter that reads only flag state
 and row discussions.
 
+
+------------------------------------------------------------
+DURABLE MAILBOX-TO-SMARTSHEET RECOVERY HARDENING - 2026-08-25
+------------------------------------------------------------
+
+Work completed:
+
+- Added protected digest-only per-attachment job identity and exact-schema,
+  atomic JSON state with leases, safe stale-lock recovery, attempt counts,
+  protected row references, and fail-closed corrupt/version handling.
+- Changed supported attachment acquisition to verified document-digest names
+  with same-directory temporary writes, flush/fsync, and atomic replacement.
+- Made flat and structured OCR cache replacement atomic.
+- Delayed message handled/read completion until every processable job reaches
+  durable attachment completion; no-attachment messages retain existing
+  completion behavior.
+- Split row creation and attachment-to-known-row operations while preserving
+  the standalone compatibility wrapper.
+- Added a no-default technical submission-key configuration boundary,
+  least-privilege exact-row and known-row attachment metadata reads, durable
+  row/attachment reconciliation, and fail-closed uncertain states.
+- Added no polling, scheduler, backoff loop, queue, worker, or Prefect runtime.
+
+Files:
+
+- PROJECT_MEMORY.md
+- src/ai/ocr/providers/paddle_ocr_provider.py
+- src/clients/smartsheet_client.py
+- src/graph/attachment_service.py
+- src/graph/mailbox_processor.py
+- src/services/document_attachment_naming_service.py
+- src/services/mailbox_complete_review_smartsheet_service.py
+- src/services/mailbox_document_job_state_service.py
+- src/services/mailbox_document_smartsheet_recovery_service.py
+- src/services/mailbox_full_review_orchestration_service.py
+- src/services/smartsheet_reviewed_write_service.py
+- src/services/smartsheet_submission_key_configuration_service.py
+- tests/test_mailbox_document_job_recovery.py
+- tests/test_mailbox_handling.py
+- update_project_tracker.py
+
+Verification:
+
+- Modified Python files compiled successfully.
+- New recovery/state/order checks: 6 passed, 0 failed.
+- Focused and affected synthetic deterministic/mock mailbox, OCR cache,
+  document processing, Authorization, generic 2067/UTL, unknown taxonomy,
+  configuration, mapping, destination, reviewed-write, partial-success,
+  submission, and orchestration suites passed.
+- No live Graph, Smartsheet, OCR/Paddle, Ollama, protected document, model, or
+  external integration operation occurred.
+- PHI handling: only synthetic values and digest-only local state were used;
+  no protected identifiers, filenames, paths, OCR text, source_text, payload
+  values, row IDs, credentials, tokens, or provider details were exposed.
+
+Limitations:
+
+- The operator-approved technical submission-key column does not yet exist or
+  have a configured title; production durable mailbox submission fails closed.
+- Live read-after-write and attachment-metadata reconciliation have not been
+  acceptance-tested and uncertain outcomes are never retried automatically.
+- Prefect polling, scheduling, retry timing, queues, workers, and operational
+  controls remain a separate later checkpoint.
+
+Exact next starting point:
+
+Obtain the exact operator-approved technical submission-key column title and
+manually create the column outside application code. Then separately authorize
+least-privilege live schema, exact-key, and attachment-metadata acceptance.
+Validate uncertain-outcome behavior before Prefect integration or any policy
+that permits unattended uncertain retries.
+
 """
 
 

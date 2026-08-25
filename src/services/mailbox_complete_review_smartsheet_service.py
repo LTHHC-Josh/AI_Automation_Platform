@@ -13,6 +13,9 @@ from src.services.smartsheet_review_submission_service import (
 from src.services.smartsheet_review_configuration_service import (
     SmartsheetReviewConfigurationService,
 )
+from src.services.mailbox_document_smartsheet_recovery_service import (
+    MailboxDocumentSmartsheetRecoveryService,
+)
 
 
 @dataclass(frozen=True)
@@ -75,6 +78,7 @@ class MailboxCompleteReviewSmartsheetService:
             SmartsheetReviewConfigurationService
             | None
         ) = None,
+        recovery_service: MailboxDocumentSmartsheetRecoveryService | None = None,
     ) -> None:
         self.submission_service = (
             submission_service
@@ -84,6 +88,9 @@ class MailboxCompleteReviewSmartsheetService:
         self.configuration_service = (
             configuration_service
             or SmartsheetReviewConfigurationService()
+        )
+        self.recovery_service = recovery_service or MailboxDocumentSmartsheetRecoveryService(
+            configuration_service=self.configuration_service,
         )
 
     def run(
@@ -127,6 +134,23 @@ class MailboxCompleteReviewSmartsheetService:
         partial_success_count = 0
 
         for message_result in results:
+            work_items = getattr(message_result, "work_items", [])
+            if self.recovery_service is not None and work_items:
+                message_complete = True
+                for work_item in work_items:
+                    document_count += 1
+                    try:
+                        recovery_result = self.recovery_service.run(
+                            work_item=work_item, run_type=run_type)
+                    except Exception:
+                        recovery_result = None
+                    if recovery_result is not None and recovery_result.completed:
+                        written_count += 1
+                    else:
+                        failed_count += 1
+                        message_complete = False
+                message_result.business_actions_completed = message_complete
+                continue
             documents = getattr(
                 message_result,
                 "processed_documents",

@@ -6,6 +6,12 @@ from src.graph.mailbox_processor import (
 from src.services.mailbox_processing_state_service import (
     MailboxProcessingStateResult,
 )
+import hashlib
+from types import SimpleNamespace
+from src.graph.attachment_service import (
+    SupportedAttachmentCandidateOutcome,
+    SupportedAttachmentDownloadResult,
+)
 
 
 passed = 0
@@ -66,6 +72,48 @@ class RecordingAttachmentService:
         return list(
             self.files
         )
+
+    def download_supported_file_attachments(self, message_id, *, supported_extensions):
+        files = self.download_file_attachments(message_id)
+        supported = [path for path in files if path.suffix.lower() in supported_extensions]
+        outcomes = [SupportedAttachmentCandidateOutcome(
+            local_path=path,
+            document_fingerprint=hashlib.sha256(str(path).encode()).hexdigest(),
+            attachment_order_key=hashlib.sha256(("attachment:" + str(path)).encode()).hexdigest(),
+            status="downloaded",
+        ) for path in supported]
+        return SupportedAttachmentDownloadResult(
+            downloaded_files=supported,
+            candidate_outcomes=outcomes,
+            examined_count=len(files),
+            skipped_count=len(files) - len(supported),
+        )
+
+
+class RecordingJobStateService:
+    def __init__(self):
+        self.states = {}
+
+    def message_key(self, message_id):
+        return hashlib.sha256(message_id.encode()).hexdigest()
+
+    def discover(self, *, message_key, attachment_key, document_key, attachment_required):
+        key = hashlib.sha256((message_key + attachment_key + document_key).encode()).hexdigest()
+        state = self.states.setdefault(
+            key, SimpleNamespace(job_key=key, stage="discovered", lease_token=None))
+        return SimpleNamespace(success=True, state=state)
+
+    def acquire_processing_lease(self, job_key):
+        state = self.states[job_key]
+        state.stage = "processing"
+        state.lease_token = "synthetic-lease"
+        return SimpleNamespace(success=True, state=state)
+
+    def transition(self, job_key, **kwargs):
+        state = self.states[job_key]
+        state.stage = kwargs["stage"]
+        state.lease_token = None
+        return SimpleNamespace(success=True, state=state)
 
 
 class RecordingDocumentProcessor:
@@ -207,6 +255,7 @@ def build_processor(
             state
             or RecordingProcessingStateService()
         ),
+        job_state_service=RecordingJobStateService(),
     )
 
 
@@ -276,9 +325,7 @@ def test_unsupported_attachment_is_recorded_and_marked_read():
 
     assert result.processed_documents == []
 
-    assert result.skipped_files == [
-        Path("synthetic.txt")
-    ]
+    assert result.skipped_files == []
 
     assert result.errors == []
     assert result.marked_as_read is True
@@ -319,7 +366,7 @@ def test_empty_download_result_is_recorded_and_marked_read():
     ]
 
 
-def test_supported_document_success_is_recorded_and_marked_read():
+def test_supported_document_success_waits_for_business_completion():
     email = RecordingEmailService()
     state = RecordingProcessingStateService()
 
@@ -349,15 +396,13 @@ def test_supported_document_success_is_recorded_and_marked_read():
     ) == 1
 
     assert result.succeeded is True
-    assert result.marked_as_read is True
+    assert result.marked_as_read is False
 
     assert documents.calls == [
         Path("synthetic.pdf")
     ]
 
-    assert state.store_calls == [
-        "synthetic-message-id"
-    ]
+    assert state.store_calls == []
 
 
 def test_already_handled_skips_processing():
@@ -685,8 +730,8 @@ run_test(
     test_empty_download_result_is_recorded_and_marked_read,
 )
 run_test(
-    "supported document success is recorded and marked read",
-    test_supported_document_success_is_recorded_and_marked_read,
+    "supported document success waits for business completion",
+    test_supported_document_success_waits_for_business_completion,
 )
 run_test(
     "already handled message skips processing",

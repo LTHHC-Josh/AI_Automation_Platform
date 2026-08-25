@@ -263,10 +263,12 @@ universal coverage across every future 2067 layout or subtype.
 - The source document follows the approved attachment-upload path. OCR text
   and `source_text` have no approved Smartsheet destination and remain
   unmapped.
-- A created row followed by attachment failure remains explicit partial
-  success. Retry is blocked when the available PHI-safe result confirms that a
-  row already exists. Cross-process attachment resumption remains unresolved
-  because no safe persisted row reference exists.
+- Mailbox document jobs use protected digest-only atomic state. Confirmed or
+  reconciled row references are persisted locally, attachment work resumes on
+  the known row, and uncertain row/attachment outcomes remain fail-closed.
+- Durable mailbox submission requires an explicitly configured, operator-
+  approved technical submission-key column with no default. The application
+  does not create or rename that column.
 - Production filename wiring remains disabled unless separately approved.
   The current normal path retains the existing safe attachment filename.
 
@@ -358,6 +360,9 @@ needed and the operator approves it.
 
 - Microsoft Graph mailbox access and attachment handling.
 - Durable local mailbox message idempotency and protected candidate ordering.
+- Durable per-attachment mailbox jobs with atomic state, processing leases,
+  exact submission-key row reconciliation, attachment reconciliation, and
+  handled/read completion only after every message job completes.
 - Local PaddleOCR with protected flat and structured cache support.
 - Local Ollama classification, extraction, and opt-in whole-document learning
   analysis.
@@ -531,8 +536,12 @@ Current gaps and limitations include:
 - Prefect fit/integration, the self-hosted control plane, automatic worker
   startup, and always-on Windows deployment are intended roadmap work and are
   not implemented current capabilities.
-- Durable cross-process row/attachment recovery remains unresolved after a
-  row is created but attachment/process state is lost.
+- The technical Smartsheet submission-key column has not been manually
+  created or configured, so durable production mailbox writes intentionally
+  remain blocked before mapping or external writes.
+- Live read-after-write behavior and uncertain-outcome reconciliation require
+  separately authorized acceptance before any unattended uncertain retry
+  policy can be considered.
 - OCR small-det accuracy needs broader representative-document acceptance
   before any production-default change.
 - Paddle/PaddleOCR packages, resolved model identities, and effective runtime
@@ -600,9 +609,9 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-After operator approval of the exact checkbox title and manual column
-creation, inspect the live checkbox metadata/value representation read-only,
-define its deterministic normalization into the internal boolean contract,
-and implement/mock-test the least-privilege adapter that reads only flag state
-and row discussions. Do not create or modify the column, read unrelated row
-cells, or connect a production caller without separate authorization.
+Obtain the exact operator-approved technical submission-key column title and
+manually create that column outside application code. Then, with separate
+authorization, configure it and perform least-privilege read-only schema,
+exact-key, and attachment-metadata acceptance. Validate read-after-write and
+uncertain-outcome behavior before Prefect integration or any unattended
+uncertain retry policy. Do not create or modify the column in code.

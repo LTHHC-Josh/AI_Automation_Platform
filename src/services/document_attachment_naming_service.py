@@ -129,6 +129,22 @@ class DocumentAttachmentNamingService:
             status=preparation_status,
         )
 
+    def prepare_technical(self, *, source_path, technical_name) -> DocumentAttachmentPreparationResult:
+        try:
+            path = Path(source_path)
+            name = str(technical_name)
+        except (TypeError, ValueError):
+            return self._failure("invalid_technical_attachment")
+        if not path.is_file() or name != Path(name).name or any(c in name for c in "\\/\r\n"):
+            return self._failure("invalid_technical_attachment")
+        try:
+            temporary_directory = Path(tempfile.mkdtemp(prefix="lthhc_attachment_"))
+            temporary_path = temporary_directory / name
+            shutil.copy2(path, temporary_path)
+        except OSError:
+            return self._failure("temporary_copy_failed")
+        return DocumentAttachmentPreparationResult(True, temporary_path, True, "prepared_technical")
+
     @staticmethod
     def _is_safe_complete_policy_result(result, *, source_extension: str) -> bool:
         if not isinstance(result, FilenamePolicyResult):
