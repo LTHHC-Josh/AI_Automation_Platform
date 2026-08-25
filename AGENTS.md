@@ -58,6 +58,7 @@ Never commit:
 - `data/incoming/`
 - `data/ocr_cache/`
 - `data/classification_feedback/`
+- `data/smartsheet_feedback/`
 - `data/mailbox_processing_state/`
 - patient documents
 - OCR data

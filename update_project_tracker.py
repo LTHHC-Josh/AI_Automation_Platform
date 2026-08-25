@@ -7741,6 +7741,70 @@ without reading row values or modifying the sheet. Reuse sufficient existing
 columns and propose only the minimum evidence-backed additions, requiring
 approval before any sheet or correction/readback implementation change.
 
+
+------------------------------------------------------------
+MINIMAL SMARTSHEET INCORRECT-AI FEEDBACK INGESTION - 2026-08-25
+------------------------------------------------------------
+
+Work completed:
+
+- Added a standalone read-only feedback-ingestion service with injected row,
+  discussion, and protected case-storage dependencies.
+- Required a nonblank configurable checkbox title and protected source scope;
+  accepted only normalized literal boolean flag states.
+- Read discussions only for valid flagged row references and preserved only
+  nonblank comments inside protected local cases. Comment-free flagged rows
+  still produce valid `comments_missing` cases.
+- Added stable protected row-correlation and comment-snapshot digests.
+  Exclusive digest-named JSON creation detects unchanged repeats, while added
+  or edited comments produce a new case revision.
+- Exposed only PHI-safe counts, success/status, and deduplicated allowlisted
+  categories. Existing Smartsheet writers and production callers were not
+  changed.
+- Added `data/smartsheet_feedback/` to the ignore and never-commit boundaries.
+
+Files:
+
+- .gitignore
+- AGENTS.md
+- PROJECT_MEMORY.md
+- src/services/smartsheet_feedback_case_storage_service.py
+- src/services/smartsheet_feedback_ingestion_service.py
+- tests/test_smartsheet_feedback_ingestion_service.py
+- update_project_tracker.py
+
+Verification:
+
+- New Python modules and focused test compiled successfully.
+- Focused synthetic deterministic/mock suite: 18 passed, 0 failed.
+- Affected Smartsheet configuration, mapping, submission, reviewed writing,
+  partial-success retry, mailbox automatic submission, generic production
+  mapping, and automatic-write regressions: 100 passed, 0 failed.
+- No live Smartsheet, Graph, OCR/Paddle, Ollama, patient document, model,
+  prompt, mapping, rule, write, or external integration operation occurred.
+- PHI handling: synthetic protected values stayed in memory or temporary
+  storage; comments, row identifiers, source scope, payloads, filenames,
+  credentials, tokens, and protected errors were absent from public results,
+  stdout/stderr, tracker content, and Git.
+
+Limitations:
+
+- No live Smartsheet adapter or production caller is connected.
+- The checkbox title remains unapproved and the column was not created.
+- Actual SDK/API checkbox metadata and value representation have not been
+  inspected, so live normalization into the strict internal boolean contract
+  remains unresolved.
+- Feedback cases do not retrain models or modify prompts, mappings, rules,
+  document processing, original AI-written cells, or any Smartsheet content.
+
+Exact next starting point:
+
+After operator approval of the exact checkbox title and manual column
+creation, inspect the live checkbox metadata/value representation read-only,
+define its deterministic normalization into the internal boolean contract,
+and implement/mock-test the least-privilege adapter that reads only flag state
+and row discussions.
+
 """
 
 
@@ -7761,7 +7825,10 @@ updates = [
             "supported workflow context. Generic family/subtype-aware automatic "
             "Smartsheet mapping now covers every processed document with the "
             "current explicit policies; the evolving destination schema and "
-            "platform-wide correction/readback contract remain Phase 1 work."
+            "platform-wide correction/readback contract remain Phase 1 work. "
+            "A read-only injected-reader incorrect-AI feedback boundary now "
+            "has strict boolean handling, protected revisioned storage, and "
+            "synthetic/mock coverage; its live adapter and column remain pending."
         ),
     ),
     (
@@ -8113,7 +8180,10 @@ updates = [
             "one family/subtype-aware mapping boundary using the current explicit "
             "approved fields. Live schema inspection, evolving operational fields, "
             "correction/readback, and end-to-end Smartsheet acceptance remain "
-            "pending."
+            "pending. A separate read-only incorrect-AI feedback boundary now "
+            "stores idempotent protected comment snapshots behind injected "
+            "readers; live checkbox normalization and adapter wiring remain "
+            "pending approval and inspection."
         ),
     ),
     (

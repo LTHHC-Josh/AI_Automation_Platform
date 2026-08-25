@@ -335,14 +335,21 @@ separate family/subtype correction columns, or effective-value columns. The
 exact checkbox title remains intentionally undecided until implementation is
 authorized.
 
-The platform will later read/process flagged rows through a controlled,
-idempotent feedback boundary for every document family/subtype. Flag and
-comment content must remain within the approved protected local/Smartsheet
-boundary, with only PHI-safe metadata exposed externally. A flag or comment
-never automatically retrains a model, changes prompts, modifies production
-rules, or promotes model observations. The technical owner investigates the
-case locally, identifies the correct layer, implements an evidence-backed
-change, and adds regression coverage before controlled production promotion.
+The platform now has a standalone, read-only, mock-tested ingestion boundary
+for normalized flag state and row discussions. It uses injected readers,
+requires a configured checkbox title and protected source scope, accepts only
+literal internal booleans, and stores protected cases under the ignored
+`data/smartsheet_feedback/` boundary. Stable row-correlation and comment-
+snapshot digests make unchanged readback idempotent while allowing a later
+added or edited comment to create a new case revision. Only PHI-safe counts,
+statuses, and allowlisted categories leave the boundary.
+
+No live Smartsheet reader or SDK value normalization is implemented, and the
+checkbox column has not been created. A flag or comment never automatically
+retrains a model, changes prompts, modifies production rules, or promotes
+model observations. The technical owner investigates the case locally,
+identifies the correct layer, implements an evidence-backed change, and adds
+regression coverage before controlled production promotion.
 
 This design may evolve only when later evidence proves that more structure is
 needed and the operator approves it.
@@ -363,6 +370,10 @@ needed and the operator approves it.
   accepted 2067/UTL deterministic resolution.
 - Generic automatic Smartsheet mapping, destination validation, row writing,
   review metadata, partial-success propagation, and source attachment.
+- Read-only Smartsheet feedback-ingestion contracts with injected row and
+  discussion readers, strict normalized booleans, protected revisioned case
+  storage, idempotent snapshots, and PHI-safe public results. No live adapter
+  or production caller is connected.
 - Local classification-review and PHI-safe ignored feedback storage from an
   earlier operator-driven workflow. This remains a separate development
   capability and is not the authoritative Smartsheet end-user feedback model.
@@ -512,9 +523,11 @@ evidence but does not make Phase 1 live.
 
 Current gaps and limitations include:
 
-- The incorrect-AI checkbox does not yet exist in the inspected live schema,
-  and no production flagged-row/comment reader or controlled feedback
-  ingestion path is implemented.
+- The incorrect-AI checkbox does not yet exist in the inspected live schema.
+  Its exact title requires approval, and no live flagged-row/comment adapter,
+  SDK checkbox normalization, or production caller is implemented. The local
+  injected-reader ingestion and protected case-storage boundary is complete
+  only at the synthetic/mock level.
 - Prefect fit/integration, the self-hosted control plane, automatic worker
   startup, and always-on Windows deployment are intended roadmap work and are
   not implemented current capabilities.
@@ -587,12 +600,9 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Design and synthetic/mock-test a reusable, read-only Smartsheet feedback-
-ingestion boundary for the approved generic incorrect-AI flag and row
-comments. Extend the existing integration rather than duplicating it; keep the
-checkbox title configurable until separately approved; use injected/mock row
-and discussion readers; keep row identifiers and comment contents inside the
-approved local boundary; emit only PHI-safe counts and statuses; and guarantee
-that feedback cannot mutate the sheet, retrain a model, change prompts, or
-promote production rules. Do not create the live column or call live
-Smartsheet without separate authorization.
+After operator approval of the exact checkbox title and manual column
+creation, inspect the live checkbox metadata/value representation read-only,
+define its deterministic normalization into the internal boolean contract,
+and implement/mock-test the least-privilege adapter that reads only flag state
+and row discussions. Do not create or modify the column, read unrelated row
+cells, or connect a production caller without separate authorization.

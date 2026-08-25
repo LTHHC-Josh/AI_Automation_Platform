@@ -22,6 +22,7 @@ data/incoming/
 
 # Local Classification Feedback
 data/classification_feedback/
+data/smartsheet_feedback/
 
 # Local Mailbox Processing State
 data/mailbox_processing_state/
