@@ -283,6 +283,138 @@ implementation scope until these document-processing completion criteria are
 met. Their future architectural direction remains recorded, but Phase 1
 implementation stays focused on the automated document processor.
 
+## Document Processor Taxonomy and Training Framework
+
+The automated document processor must support many document families or types
+and many internal subtypes or purposes through one reusable framework.
+Document family/type and subtype/purpose are separate classification
+dimensions. For example, Authorization is a family with Renewal, Term, Stub,
+and future learned subtypes; 2067 is a family with UTL and future learned
+subtypes or purposes. Future document families may define their own learned
+subtypes in the same framework.
+
+Do not collapse family/type and subtype/purpose into one field unless an
+existing production contract explicitly requires a combined representation at
+an output boundary. Reuse the same OCR, structured-evidence, classification,
+extraction, validation, review, and write services for every family and
+subtype. Do not create one-off parsing stacks for UTL, Renewal, Term, Stub, or
+future subtypes.
+
+The generic processing relationship is:
+
+document family/type
+-> subtype/purpose
+-> expected fields/concepts
+-> evidence/confidence/provenance
+-> deterministic validation/business rules
+-> explicit Smartsheet mappings
+-> automatic row creation/population
+-> existing downstream Smartsheet automations
+
+### UTL Business Meaning
+
+- 2067 is the document or form family.
+- UTL is an internal LT Home Healthcare subtype or purpose of a 2067 and means
+  Unable To Locate.
+- A 2067 may be classified internally as UTL only when the complete document
+  contains deterministically supported evidence that the client or member
+  could not be located or contacted.
+- Evidence may occur anywhere in the document, including comments and
+  narrative text. Literal `UTL`, a fixed page, or fixed coordinates are not
+  required.
+- 2067 alone, `annual_due` alone, and Posted Date alone do not imply UTL.
+- Literal UTL text alone is not presently an approved substitute for the
+  required supported business evidence.
+- `contact_failure` is a supporting deterministic concept and remains
+  separate from the final UTL subtype until an approved subtype rule is
+  deterministically satisfied.
+- The exact production promotion rule from supported whole-document evidence
+  to UTL remains unresolved and must not be invented. In particular, business
+  approval is still required on whether family 2067 plus supported
+  `contact_failure` is sufficient and how contradictory, negated, or mixed
+  contact/location evidence affects the subtype decision.
+
+### Training a Family or Subtype
+
+Training the document processor on a family or subtype means using
+representative real documents and the protected whole-document tester to
+establish with evidence:
+
+- The supported family/type and subtype/purpose.
+- Indicators that distinguish the subtype, including alternate wording and
+  layouts expressing the same business meaning.
+- Required fields and concepts, strong versus supporting evidence, and
+  evidence that is insufficient.
+- Conflicts or missing evidence that require review and conclusions that must
+  never be inferred.
+- Required explicit Smartsheet fields and mappings.
+- Synthetic and regression coverage for the learned behavior.
+
+Training does not inherently mean retraining an LLM. A training update may
+change classification or subtype definitions, normalization, deterministic
+rules, prompts and schemas, reference data, OCR or model configuration,
+extraction schema, review logic, or regression tests. Model tuning is a later
+option only when evidence supports it.
+
+### Generalization Requirement
+
+The processor reasons over the entire document and must recognize trained
+families and subtypes across different layouts, page locations, wording,
+formatting, source organizations, and email, fax, or scanned-document
+presentation. Layout and coordinates may be optional evidence but are not
+required unless a specific validated rule intentionally uses them.
+
+For an unfamiliar or partially matching document, select the most strongly
+supported family and subtype only when evidence is sufficient. Otherwise keep
+family and/or subtype unknown as appropriate, route uncertainty or conflict to
+review, and never guess merely to force classification.
+
+### Whole-Document Tester Purpose
+
+The protected tester is a development and training tool for the entire
+document processor. For a selected real protected document it should
+ultimately provide a PHI-safe comprehensive view of likely family/type and
+subtype/purpose; modeled fields found, missing, or conflicting; dates and
+semantic roles; form identifiers; service and authorization structures;
+narrative and comment concepts; deterministic concepts; model-proposed
+observations; evidence references; repeated evidence; contradictions; schema
+gaps; novel concepts; review reasons; and confidence and provenance.
+
+The tester inspects and reasons over the complete document without requiring
+fixed positions. Deterministically supported concepts and model-proposed
+observations remain visibly distinct.
+
+### Phase 1 Business Goal
+
+Phase 1 must:
+
+1. Automatically ingest approved document sources.
+2. OCR and understand the entire document.
+3. Identify the supported document family/type.
+4. Identify the supported subtype/purpose.
+5. Extract required fields and concepts.
+6. Preserve evidence, confidence, and provenance.
+7. Validate deterministically.
+8. Apply business rules.
+9. Automatically create or populate the correct Smartsheet row through
+   explicit mappings.
+10. Allow existing Smartsheet automations to perform downstream work.
+11. Route uncertain or problematic fields and cases to review.
+12. Allow confident-but-incorrect outcomes to be flagged and converted into
+    controlled development and regression improvements.
+
+Normal sufficiently supported documents process automatically. Review is
+downstream exception handling, not a prerequisite for normal writes.
+
+Future EHR automation, eligibility batch processing, and other company-AI
+subsystems remain outside active implementation scope until this document-
+processing subsystem meets its live Phase 1 completion criteria. Future needs
+may influence architecture only to prevent dead ends. Zero-assumption and
+platform-reuse rules remain mandatory: inspect actual repository state,
+callers, tests, and interfaces before changes, extend shared abstractions, and
+do not create subtype-specific processing stacks when the generic framework
+can support the behavior.
+
 ## Current Implemented Capabilities
 
 - Microsoft Graph mailbox access and attachment handling.
@@ -1321,11 +1453,14 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Design the smallest tested production extension for explicit validated OCR
-model/runtime configuration and configuration-aware cache provenance while
-preserving `OCRProvider`, `OCRService`, current cache compatibility, and the
-current production default until promotion is approved. Include startup
-model-readiness validation without prediction, dependency/version pinning,
-and representative synthetic coverage; then define and execute separately
-authorized multi-purpose protected validation before considering small-det
-plus medium-rec as the production default.
+Inspect the existing family classification, whole-document learning evidence,
+`contact_failure` normalization, report grounding, and production mapping
+contracts, then present the smallest explicit UTL business decision for
+approval: whether family 2067 plus deterministically supported
+`contact_failure` is sufficient for subtype UTL and how contradictory,
+negated, or mixed contact/location evidence must affect that decision. Do not
+implement a UTL production rule before approval. Then extend the generic
+family/subtype representation without regressing Authorization behavior,
+surface deterministic concepts beside model observations, and continue OCR
+configuration/readiness/provenance work only as needed for Phase 1 production
+readiness.
