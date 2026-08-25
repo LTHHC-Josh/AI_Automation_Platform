@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from src.models.ocr_document import OCRDocument
+from src.models.document_concept import DeterministicDocumentConcept
 
 
 @dataclass
@@ -68,10 +69,17 @@ class Document:
     document_subtype: str = "unknown"
     classification_reason: str = ""
     confidence: float = 0.0
+    classification_support_status: str = "unknown"
+    subtype_support_status: str = "unknown"
+    family_evidence_confidence: float | None = None
+    subtype_evidence_confidence: float | None = None
 
     # OCR output
     raw_text: str = ""
     ocr_document: OCRDocument | None = field(default=None, repr=False)
+    deterministic_concepts: tuple[DeterministicDocumentConcept, ...] = field(
+        default=(), repr=False
+    )
 
     # Extracted structured values
     extracted_data: dict[str, Any] = field(

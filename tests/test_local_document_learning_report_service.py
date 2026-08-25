@@ -206,12 +206,14 @@ def test_report_is_comprehensive_and_contains_no_protected_values():
 
     assert set(report) == {
         "report_schema_version", "whole_document_coverage",
+        "classification", "deterministic_concepts",
         "document_structure", "field_inventory", "date_structure",
         "authorization_service_structure", "business_concepts",
         "schema_gaps", "observations", "novel_observations",
         "contradictions", "review_quality", "development_implications",
         "protected_values_suppressed",
     }
+    assert report["report_schema_version"] == 3
     rendered = repr(report)
     assert PROTECTED_MARKER not in rendered
     assert "synthetic.png" not in rendered

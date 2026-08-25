@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 import re
 from typing import Any
 
+from src.models.document_taxonomy import DocumentTaxonomyRegistry
+
 
 @dataclass(frozen=True)
 class ClassificationFeedback:
@@ -46,42 +48,20 @@ class ClassificationFeedbackService:
     source_text, extracted values, or email content.
     """
 
-    DOCUMENT_CATEGORIES = {
-        "authorization",
-        "referral",
-        "termination",
-        "denial",
-        "assessment",
-        "plan_of_care",
-        "claim",
-        "other",
-        "unknown",
-    }
+    DOCUMENT_CATEGORIES = set(DocumentTaxonomyRegistry.families())
 
-    AUTHORIZATION_SUBTYPES = {
-        "initial",
-        "renewal",
-        "extension",
-        "continuation",
-        "amendment",
-        "partial_approval",
-        "unknown",
-    }
-
-    TERMINATION_SUBTYPES = {
-        "authorization_termination",
-        "service_termination",
-        "unknown",
-    }
-
+    AUTHORIZATION_SUBTYPES = set(
+        DocumentTaxonomyRegistry.definition("authorization").subtypes
+    )
+    TERMINATION_SUBTYPES = set(
+        DocumentTaxonomyRegistry.definition("termination").subtypes
+    )
+    FORM_2067_SUBTYPES = set(
+        DocumentTaxonomyRegistry.definition("2067").subtypes
+    )
     CATEGORIES_WITHOUT_SUBTYPES = {
-        "referral",
-        "denial",
-        "assessment",
-        "plan_of_care",
-        "claim",
-        "other",
-        "unknown",
+        family for family in DocumentTaxonomyRegistry.families()
+        if DocumentTaxonomyRegistry.definition(family).subtypes == frozenset({"unknown"})
     }
 
     CONFIRMATION_STATUSES = {
@@ -233,26 +213,10 @@ class ClassificationFeedbackService:
             )
             return
 
-        if category == "authorization":
-            if subtype not in self.AUTHORIZATION_SUBTYPES:
-                errors.append(
-                    f"{prefix} authorization subtype is not supported."
-                )
-            return
-
-        if category == "termination":
-            if subtype not in self.TERMINATION_SUBTYPES:
-                errors.append(
-                    f"{prefix} termination subtype is not supported."
-                )
-            return
-
-        if (
-            category in self.CATEGORIES_WITHOUT_SUBTYPES
-            and subtype != "unknown"
-        ):
+        definition = DocumentTaxonomyRegistry.definition(category)
+        if definition is None or subtype not in definition.subtypes:
             errors.append(
-                f"{prefix} category must use subtype unknown."
+                f"{prefix} subtype is not supported for the selected category."
             )
 
     def _normalize_label(

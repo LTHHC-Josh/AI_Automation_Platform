@@ -132,8 +132,11 @@ def test_learning_envelope_contains_every_page_and_block_once() -> None:
 
     assert prompt.count("first marker") == 1
     assert prompt.count("second marker") == 1
-    assert "<PAGE ref=1>" in prompt
-    assert "<PAGE ref=2>" in prompt
+    assert '<PAGE ref="1">' in prompt
+    assert '<PAGE ref="2">' in prompt
+    assert 'ref="e0001"' in prompt
+    assert 'ref="e0002"' in prompt
+    assert "page_1_block_1" not in prompt
     assert "posted_date, service_code" in prompt
 
 

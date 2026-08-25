@@ -4,6 +4,7 @@ import src.business_rules.rules as rules
 
 from src.business_rules.rule_registry import RuleRegistry
 from src.business_rules.rules.neutral_rule import NeutralRule
+from src.models.document_taxonomy import DocumentTaxonomyRegistry
 
 
 class RuleFactory:
@@ -16,14 +17,9 @@ class RuleFactory:
     """
 
     NEUTRAL_DOCUMENT_TYPES = {
-        "referral",
-        "termination",
-        "denial",
-        "assessment",
-        "plan_of_care",
-        "claim",
-        "other",
-        "unknown",
+        definition.family
+        for definition in DocumentTaxonomyRegistry.DEFINITIONS
+        if definition.neutral_rule
     }
 
     @staticmethod

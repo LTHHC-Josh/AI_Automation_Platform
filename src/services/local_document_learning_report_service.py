@@ -8,6 +8,7 @@ from typing import Any, Iterable
 from src.models.document import Document
 from src.models.ocr_document import OCRDocument
 from src.services.learning_label_sanitizer import LearningLabelSanitizer
+from src.models.document_taxonomy import DocumentTaxonomyRegistry
 
 
 class LocalDocumentLearningReportService:
@@ -17,11 +18,11 @@ class LocalDocumentLearningReportService:
         "annual", "approval", "approved", "assessment", "authorization",
         "business", "change", "claim", "communication", "contact",
         "continuation", "date", "denial", "direction", "document", "due",
-        "effective", "end", "extension", "field", "form", "inbound",
+        "effective", "end", "extension", "failure", "field", "form", "inbound",
         "initial", "locate", "missing", "modifier", "no", "notice",
         "outbound", "past", "posted", "purpose", "quantity", "reach",
         "referral", "renewal", "request", "requested", "review", "service",
-        "start", "status", "termination", "to", "unable", "units", "unknown",
+        "start", "status", "termination", "to", "unable", "units", "unknown", "utl",
         "unmodeled", "visits", "workflow",
     }
     SAFE_EVIDENCE_STATUSES = {
@@ -64,6 +65,7 @@ class LocalDocumentLearningReportService:
         model_dates = self._safe_date_fields(safe_analysis.get("date_fields"))
         date_inventory = self._merge_date_fields(field_inventory, model_dates)
         concepts = self._safe_concepts(safe_analysis.get("business_concepts"))
+        deterministic_concepts = self._deterministic_concepts(document)
         schema_gaps = self._safe_schema_gaps(safe_analysis.get("schema_gaps"))
         service_structure = self._service_structure(document, safe_analysis)
         review = self._review_structure(document, field_inventory, concepts)
@@ -82,7 +84,8 @@ class LocalDocumentLearningReportService:
             safe_analysis.get("contradictions"), evidence_index
         )
         coverage = self._coverage(
-            safe_analysis.get("coverage"), ocr_document, evidence_index
+            safe_analysis.get("coverage"), ocr_document, evidence_index,
+            safe_analysis.get("grounding"),
         )
         novel_observations = [
             item for item in observations
@@ -113,11 +116,33 @@ class LocalDocumentLearningReportService:
             review["learning_conflict_count"] > 0
             or review["whole_document_coverage_incomplete"]
             or any(item["requires_review"] for item in observations)
+            or any(
+                item["support_status"] in {"conflicting", "ambiguous", "unsupported"}
+                for item in deterministic_concepts
+            )
         )
 
         return {
-            "report_schema_version": 2,
+            "report_schema_version": 3,
             "whole_document_coverage": coverage,
+            "classification": {
+                "family": self._classification_dimension(
+                    document.document_category,
+                    document.classification_support_status,
+                    document.family_evidence_confidence,
+                    deterministic_concepts,
+                    "form_2067",
+                    family=document.document_category,
+                ),
+                "subtype": self._classification_dimension(
+                    document.document_subtype,
+                    document.subtype_support_status,
+                    document.subtype_evidence_confidence,
+                    deterministic_concepts,
+                    "contact_failure",
+                    family=document.document_category,
+                ),
+            },
             "document_structure": {
                 "document_form_type": self._safe_label(
                     structure.get("document_form_type"), "unknown"
@@ -125,6 +150,10 @@ class LocalDocumentLearningReportService:
                 "document_category": self._safe_category(
                     structure.get("document_category"),
                     document.document_category,
+                ),
+                "document_subtype": self._safe_label(
+                    structure.get("document_subtype"),
+                    self._safe_label(document.document_subtype, "unknown"),
                 ),
                 "purpose_concepts": self._safe_label_list(
                     structure.get("purpose_concepts")
@@ -139,6 +168,7 @@ class LocalDocumentLearningReportService:
             "date_structure": date_inventory,
             "authorization_service_structure": service_structure,
             "business_concepts": concepts,
+            "deterministic_concepts": deterministic_concepts,
             "schema_gaps": schema_gaps,
             "observations": observations,
             "novel_observations": novel_observations,
@@ -170,9 +200,10 @@ class LocalDocumentLearningReportService:
     def _evidence_index(ocr_document: OCRDocument) -> dict[str, dict[str, Any]]:
         index = {}
         for page in ocr_document.pages:
-            for block in page.blocks:
+            for block_ordinal, block in enumerate(page.blocks, start=1):
                 index[block.block_id] = {
                     "page_reference": page.page_number,
+                    "block_ordinal": block_ordinal,
                     "evidence_kind": block.block_type
                     if block.block_type in {
                         "text", "table", "checkbox", "header", "footer", "unknown"
@@ -180,7 +211,7 @@ class LocalDocumentLearningReportService:
                 }
         return index
 
-    def _coverage(self, value, ocr_document, evidence_index):
+    def _coverage(self, value, ocr_document, evidence_index, grounding=None):
         details = value if isinstance(value, dict) else {}
         supplied = details.get("analyzed_evidence_refs")
         supplied = supplied if isinstance(supplied, list) else []
@@ -188,11 +219,23 @@ class LocalDocumentLearningReportService:
             str(item) for item in supplied if str(item) in evidence_index
         ))
         all_ids = set(evidence_index)
+        page_refs = details.get("analyzed_page_refs")
+        page_refs = page_refs if isinstance(page_refs, list) else []
+        valid_page_refs = sorted({
+            item for item in page_refs
+            if isinstance(item, int) and not isinstance(item, bool)
+            and item in {page.page_number for page in ocr_document.pages}
+        })
+        expected_pages = sorted({
+            page.page_number for page in ocr_document.pages
+            if page.page_number is not None
+        })
+        legacy_complete = bool(all_ids) and set(valid) == all_ids
         complete = (
             details.get("complete_document_analyzed") is True
-            and set(valid) == all_ids
-            and len(valid) == len(all_ids)
+            and (valid_page_refs == expected_pages or legacy_complete)
         )
+        safe_grounding = grounding if isinstance(grounding, dict) else {}
         return {
             "complete_document_analyzed": complete,
             "coverage_status": "complete" if complete else "incomplete",
@@ -200,6 +243,14 @@ class LocalDocumentLearningReportService:
             "page_count": ocr_document.page_count,
             "evidence_block_count": len(all_ids),
             "analyzed_evidence_block_count": len(valid),
+            "delivered_evidence_block_count": len(all_ids),
+            "model_claimed_page_count": len(valid_page_refs),
+            "grounded_reference_count": self._integer(
+                safe_grounding.get("valid_reference_count")
+            ),
+            "unsupported_reference_count": self._integer(
+                safe_grounding.get("unsupported_reference_count")
+            ) + self._integer(safe_grounding.get("malformed_reference_count")),
             "layout_used_as_hint_only": True,
         }
 
@@ -252,8 +303,8 @@ class LocalDocumentLearningReportService:
                 "confidence": self._nullable_confidence(item.get("confidence")),
                 "evidence_references": [
                     {
-                        "block_reference": ref,
                         "page_reference": evidence_index[ref]["page_reference"],
+                        "block_ordinal": evidence_index[ref]["block_ordinal"],
                         "evidence_kind": evidence_index[ref]["evidence_kind"],
                     }
                     for ref in refs
@@ -267,6 +318,70 @@ class LocalDocumentLearningReportService:
                 "production_rule_status": "not_mapped",
             })
         return results
+
+    def _deterministic_concepts(self, document: Document) -> list[dict[str, Any]]:
+        results = []
+        for concept in document.deterministic_concepts or ():
+            support = list(concept.supporting_evidence)
+            conflicts = list(concept.conflicting_evidence)
+            results.append({
+                "concept_label": self._safe_label(
+                    concept.concept_name, "unknown"
+                ),
+                "support_status": self._evidence_status(concept.support_status),
+                "confidence": self._nullable_confidence(concept.confidence),
+                "supporting_evidence_count": len(support),
+                "conflicting_evidence_count": len(conflicts),
+                "support_occurrence_count": concept.support_occurrence_count,
+                "conflict_occurrence_count": concept.conflict_occurrence_count,
+                "repeated_evidence": concept.support_occurrence_count > 1,
+                "evidence_references": [
+                    {
+                        "page_reference": item.page_ordinal,
+                        "block_ordinal": item.block_ordinal,
+                        "evidence_kind": item.evidence_kind,
+                    }
+                    for item in (*support, *conflicts)
+                ],
+                "deterministically_validated": True,
+                "production_rule_status": (
+                    "approved_subtype_evidence"
+                    if concept.concept_name == "contact_failure"
+                    else "approved_family_evidence"
+                    if concept.concept_name == "form_2067"
+                    else "not_mapped"
+                ),
+            })
+        return results
+
+    def _classification_dimension(
+        self, label, status, confidence, concepts, evidence_concept, *, family
+    ) -> dict[str, Any]:
+        evidence_count = sum(
+            item["supporting_evidence_count"]
+            for item in concepts
+            if item["concept_label"] == evidence_concept
+        )
+        normalized_label = (
+            DocumentTaxonomyRegistry.normalize_family(label)
+            if evidence_concept == "form_2067"
+            else DocumentTaxonomyRegistry.normalize_subtype(family, label)
+        )
+        normalized_status = self._evidence_status(status)
+        normalized_confidence = self._nullable_confidence(confidence)
+        if normalized_label == "unknown":
+            normalized_status = "unknown"
+            normalized_confidence = None
+        return {
+            "label": normalized_label,
+            "support_status": normalized_status,
+            "confidence": normalized_confidence,
+            "evidence_reference_count": evidence_count,
+            "review_required": (
+                normalized_label == "unknown"
+                or normalized_status != "supported"
+            ),
+        }
 
     def _safe_contradictions(self, value, evidence_index):
         results = []
@@ -529,7 +644,7 @@ class LocalDocumentLearningReportService:
     def _safe_category(self, proposed: Any, fallback: Any) -> str:
         allowed = {
             "authorization", "referral", "termination", "denial", "assessment",
-            "plan_of_care", "claim", "communication", "form", "other", "unknown",
+            "plan_of_care", "claim", "communication", "form", "2067", "other", "unknown",
         }
         value = str(proposed or fallback or "unknown").strip().lower()
         return value if value in allowed else "unknown"

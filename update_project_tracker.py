@@ -7553,6 +7553,123 @@ automatically. Any later controlled performance comparison must change one
 effective inference setting only and must not treat the global Paddle flag as
 PaddleOCR's effective oneDNN state.
 
+
+------------------------------------------------------------
+WHOLE-DOCUMENT FAMILY/SUBTYPE GROUNDING - 2026-08-25
+------------------------------------------------------------
+
+Work completed:
+
+- Added a centralized reusable family/subtype taxonomy while preserving all
+  existing Authorization and termination legacy routes.
+- Added 2067 as a family and UTL as a separate subtype. The approved rule
+  requires supported 2067 plus uncontradicted deterministic contact_failure;
+  annual, Posted Date, literal UTL, and 2067 alone remain insufficient.
+- Added whole-document deterministic concept evidence with protected source
+  text, nullable confidence, page/block provenance, repetition, and conflicts.
+- Replaced free-form model references with compact request-local aliases, a
+  request-bound strict schema, deterministic alias resolution, and safe
+  invalid-reference counts.
+- Learning report schema version 3 separates family, subtype, deterministic
+  concepts, model observations, modeled fields, coverage, contradictions,
+  schema gaps, and novel observations without returning protected values.
+- No 2067 Smartsheet mapping or subtype-specific write action was added.
+
+Verification:
+
+- Modified Python compiled successfully.
+- Focused synthetic deterministic/mock tests: 37 passed, 0 failed.
+- Affected synthetic deterministic/mock regressions: 213 passed, 0 failed.
+- No protected document, OCR, Paddle prediction, real Ollama, Graph,
+  Smartsheet, rename, or external integration ran.
+
+Exact next starting point:
+
+After review and commit, run one explicitly authorized cache-only protected
+whole-document/local-Ollama acceptance with the existing structured OCR cache.
+Do not rerun OCR. Verify grounded references and the PHI-safe 2067/UTL report
+before requesting any missing production Smartsheet mapping decision.
+
+
+------------------------------------------------------------
+REAL 2067/UTL WHOLE-DOCUMENT ACCEPTANCE - 2026-08-25
+------------------------------------------------------------
+
+Work completed:
+
+- Completed the generalized family/subtype, deterministic-concept, and
+  learning-evidence grounding implementation without adding a 2067-specific
+  processing stack or production Smartsheet mapping.
+- Corrected deterministic 2067 form-marker recognition for bounded compact
+  identifiers while rejecting unrelated embedded-number forms.
+- Preserved separate protected provenance for deterministic `form_2067`,
+  `contact_failure`, positive contact evidence, and model observations.
+- Preserved legacy Authorization family/subtype routing and automatic-write
+  boundaries.
+
+Files:
+
+- PROJECT_MEMORY.md
+- src/ai/llm/providers/ollama_provider.py
+- src/business_rules/rule_factory.py
+- src/document_processing/document_processor.py
+- src/models/document.py
+- src/models/document_concept.py
+- src/models/document_taxonomy.py
+- src/models/learning_document_evidence.py
+- src/services/classification_feedback_service.py
+- src/services/deterministic_document_concept_service.py
+- src/services/document_classification_resolution_service.py
+- src/services/learning_evidence_grounding_service.py
+- src/services/learning_label_sanitizer.py
+- src/services/local_document_evaluation_service.py
+- src/services/local_document_learning_report_service.py
+- src/services/review_decision_service.py
+- src/services/review_output_service.py
+- tests/test_document_family_subtype_training.py
+- tests/test_llm_attempt_routing.py
+- tests/test_local_document_learning_report_service.py
+- tests/test_processor_classification_integration.py
+- update_project_tracker.py
+
+Verification:
+
+- Modified Python compiled successfully.
+- Focused synthetic deterministic/mock checks: 57 passed, 0 failed.
+- Affected synthetic deterministic/mock regressions: 214 passed, 0 failed.
+- Real cached OCR / real local Ollama acceptance completed successfully on one
+  protected four-page, 144-block document. Cache-only mode used the structured
+  sidecar, Paddle prediction count remained zero, and no external integration
+  was invoked.
+- The accepted result resolved family 2067 and subtype UTL with supported
+  deterministic `form_2067` and `contact_failure`. Family and subtype required
+  no taxonomy review, six evidence references grounded successfully, zero
+  references were unsupported, and literal UTL text was not required.
+- PHI handling: protected OCR text, source evidence, document identity, paths,
+  values, dates, IDs, provider details, raw model output, and Smartsheet data
+  were excluded from tests, tracker content, Git, and reported diagnostics.
+
+Limitations:
+
+- UTL identification is accepted for this known case; full end-to-end
+  Smartsheet field and mapping acceptance remains pending.
+- The learning report currently records zero analyzed evidence blocks despite
+  delivery of all 144 blocks and complete page coverage.
+- Model-proposed novel or conflicting observations may independently recommend
+  learning review even when authoritative production taxonomy is supported;
+  this does not change production family/subtype or top-level review state.
+- One accepted protected case does not establish universal equivalence across
+  every future 2067 layout or subtype.
+
+Exact next starting point:
+
+Inspect the existing 2067/UTL extraction, validation, business-rule,
+Smartsheet destination, and automatic-write contracts and callers. Establish
+the exact approved UTL row fields and mappings, identify only the smallest
+unresolved business mapping decisions, preserve Authorization behavior, and
+implement only approved reusable mapping behavior before separately
+authorized end-to-end Smartsheet acceptance.
+
 """
 
 
@@ -7782,7 +7899,9 @@ updates = [
         "In Progress",
         (
             "Implemented separate local Ollama classification and extraction "
-            "prompts with field-level evidence and service-line records. "
+            "prompts with field-level evidence and service-line records. The "
+            "whole-document learning prompt now uses request-local evidence "
+            "aliases and a request-bound reference schema. "
             "Repeated extraction can still vary, so controlled retry and human "
             "review remain active."
         ),
@@ -7792,9 +7911,13 @@ updates = [
         "In Progress",
         (
             "Implemented local Ollama classification with structured JSON and "
-            "PHI-safe request metrics. Generic authorization classification "
-            "works, while subtype and workflow classification remain "
-            "untrained."
+            "PHI-safe request metrics. A centralized family/subtype registry "
+            "preserves Authorization behavior and now supports grounded 2067 "
+            "with deterministic UTL resolution from uncontradicted contact-"
+            "failure evidence. One real protected cache-only/local-Ollama "
+            "acceptance resolved the known 2067/UTL case with supported "
+            "deterministic family and subtype evidence. Other future subtypes "
+            "remain untrained."
         ),
     ),
     (
@@ -7906,6 +8029,12 @@ updates = [
             "wiring remains disabled. A separate validated-input boundary now "
             "preserves dedicated evidence and accepts only explicit approved 2067 "
             "workflow context; it is not connected to production callers."
+            " The generalized whole-document family/subtype path also passed "
+            "one real protected cache-only/local-Ollama acceptance: structured "
+            "OCR was reused with zero prediction calls, family 2067 and subtype "
+            "UTL resolved from deterministic evidence, and all six returned "
+            "learning references grounded with zero unsupported references. "
+            "Full UTL Smartsheet field/mapping acceptance remains pending."
         ),
     ),
     (

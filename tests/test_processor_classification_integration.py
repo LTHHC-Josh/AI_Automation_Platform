@@ -19,18 +19,19 @@ class SyntheticOCR:
     No PaddleOCR model initialization or prediction occurs.
     """
 
-    def __init__(self):
+    def __init__(self, text=None):
         self.calls = 0
+        self.text = text or (
+            "Synthetic healthcare document text for deterministic "
+            "classification integration testing."
+        )
 
     def extract_text(self, file_path):
         self.calls += 1
 
         assert Path(file_path).is_file()
 
-        return (
-            "Synthetic healthcare document text for deterministic "
-            "classification integration testing."
-        )
+        return self.text
 
 
 class SyntheticLLM:
@@ -109,12 +110,12 @@ def run_test(name, test):
         )
 
 
-def build_processor(classification):
+def build_processor(classification, *, ocr_text=None):
     processor = DocumentProcessor.__new__(
         DocumentProcessor
     )
 
-    processor.ocr = SyntheticOCR()
+    processor.ocr = SyntheticOCR(ocr_text)
     processor.llm = SyntheticLLM(
         classification
     )
@@ -130,7 +131,7 @@ def build_processor(classification):
     return processor
 
 
-def process_classification(classification):
+def process_classification(classification, *, ocr_text=None):
     with TemporaryDirectory() as directory:
         file_path = (
             Path(directory)
@@ -143,7 +144,8 @@ def process_classification(classification):
         )
 
         processor = build_processor(
-            classification
+            classification,
+            ocr_text=ocr_text,
         )
 
         document = processor.process(
@@ -335,7 +337,30 @@ def test_unknown_classification_is_preserved():
     assert document.document_category == "unknown"
     assert document.document_subtype == "unknown"
     assert document.document_type == "unknown"
-    assert document.confidence == 0.20
+    assert document.confidence == 0.0
+    assert document.classification_support_status == "unknown"
+    assert document.family_evidence_confidence is None
+
+
+def test_deterministic_2067_utl_overrides_legacy_plan_of_care():
+    _, document = process_classification(
+        classification(
+            category="plan_of_care",
+            subtype="unknown",
+            document_type="plan_of_care",
+            confidence=1.0,
+        ),
+        ocr_text=(
+            "2067. The team was unable to reach the member after an "
+            "attempted call."
+        ),
+    )
+    assert document.document_category == "2067"
+    assert document.document_subtype == "utl"
+    assert document.document_type == "2067"
+    assert document.classification_support_status == "supported"
+    assert document.subtype_support_status == "supported"
+    assert "UTL" not in document.raw_text
 
 
 def test_no_real_local_ai_provider_is_initialized():
@@ -396,6 +421,10 @@ run_test(
 run_test(
     "unknown classification is preserved",
     test_unknown_classification_is_preserved,
+)
+run_test(
+    "deterministic 2067 UTL overrides legacy plan of care",
+    test_deterministic_2067_utl_overrides_legacy_plan_of_care,
 )
 run_test(
     "no real local AI provider is initialized",

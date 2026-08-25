@@ -26,6 +26,9 @@ from src.services.local_protected_review_errors import (
 from src.services.local_document_learning_report_service import (
     LocalDocumentLearningReportService,
 )
+from src.services.learning_evidence_grounding_service import (
+    LearningEvidenceGroundingService,
+)
 from src.services.document_fingerprint_service import (
     DocumentFingerprintService,
 )
@@ -636,6 +639,10 @@ class LocalDocumentEvaluationService:
                         structural_analysis = processor.llm.analyze_learning_structure(
                             learning_evidence
                         )
+                        structural_analysis = LearningEvidenceGroundingService().resolve(
+                            structural_analysis,
+                            learning_evidence,
+                        ).analysis
                     learning_report = LocalDocumentLearningReportService().build(
                         document,
                         structural_analysis,
@@ -1139,6 +1146,7 @@ class LocalDocumentEvaluationService:
         allowed_subtypes = (
             ReviewDecisionService.AUTHORIZATION_SUBTYPES
             | ReviewDecisionService.TERMINATION_SUBTYPES
+            | ReviewDecisionService.FORM_2067_SUBTYPES
             | {
                 "unknown",
             }

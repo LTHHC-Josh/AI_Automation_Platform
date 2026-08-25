@@ -328,11 +328,10 @@ document family/type
 - `contact_failure` is a supporting deterministic concept and remains
   separate from the final UTL subtype until an approved subtype rule is
   deterministically satisfied.
-- The exact production promotion rule from supported whole-document evidence
-  to UTL remains unresolved and must not be invented. In particular, business
-  approval is still required on whether family 2067 plus supported
-  `contact_failure` is sufficient and how contradictory, negated, or mixed
-  contact/location evidence affects the subtype decision.
+- The approved deterministic promotion rule is supported family 2067 plus
+  supported `contact_failure` with no negated, contradictory, or mixed
+  contact/location evidence. Otherwise the subtype remains unknown and routes
+  to review.
 
 ### Training a Family or Subtype
 
@@ -488,14 +487,61 @@ can support the behavior.
   inferring an unsupported discriminator.
 - A deterministic, source-agnostic contact-failure normalization boundary that
   preserves supplied confidence and source evidence, returns unknown plus
-  review for unsupported wording, and has no UTL mapping or production caller.
+  review for unsupported wording, and remains separate from the approved
+  family/subtype resolver that applies the UTL rule.
 - A versioned whole-document learning boundary that preserves protected OCR
   page/block relationships when available, reuses legacy text-only caches
   without OCR, sends one complete evidence envelope only to the opt-in local
   analyzer, and emits PHI-safe referenced observations, conflicts, coverage,
   and generalized novel-concept signals without changing production rules.
+- A centralized document-family/subtype taxonomy that preserves existing
+  Authorization and termination routing while supporting 2067 and UTL as
+  separate family and subtype dimensions.
+- Whole-document deterministic concept analysis that preserves protected
+  block provenance, repeated evidence, conflicts, and nullable confidence.
+  Supported 2067 plus uncontradicted deterministic `contact_failure` resolves
+  subtype UTL; absent, negated, contradictory, or mixed contact evidence keeps
+  the subtype unknown with review.
+- Compact request-local learning evidence aliases with deterministic mapping
+  back to exact protected OCR blocks. Invalid model references remain
+  unsupported and only PHI-safe failure counts survive report construction.
 
 ## Recent Tested Baseline
+
+Latest family/subtype and learning-grounding checkpoint:
+
+- Centralized family/subtype compatibility and legacy routing without
+  changing existing Authorization behavior. Added 2067 as a family and UTL as
+  its approved deterministic subtype; Term and Stub remain unimplemented until
+  their exact production meanings are established.
+- The approved UTL rule is supported 2067 plus deterministically supported,
+  uncontradicted `contact_failure`. Literal UTL, annual evidence, Posted Date,
+  or 2067 alone is insufficient. Conflicting or mixed contact evidence returns
+  subtype unknown plus required review.
+- Fixed the whole-document learning grounding boundary. The model now receives
+  compact request-local block aliases and page ordinals, a request-bound schema
+  restricts references, and a deterministic resolver maps valid aliases back
+  to internal OCR evidence while exposing only safe invalid-reference counts.
+- Report schema version 3 presents family and subtype separately and keeps
+  deterministic concepts distinct from model-proposed observations. Evidence
+  is reported only through page/block ordinals and safe evidence kinds.
+- Modified Python compiled. Final focused synthetic deterministic/mock checks
+  passed 57 with 0 failures; affected classification, processor, review,
+  feedback, rule, filename, Smartsheet-boundary, evidence-validation, and
+  quantity-safety regressions passed 214 with 0 failures.
+- A real protected cache-only/local-Ollama acceptance completed successfully
+  against the known four-page, 144-block document. It used the structured OCR
+  cache with cache-only enforcement, made zero Paddle prediction calls, and
+  invoked no external integration.
+- The real document resolved family 2067 and subtype UTL. Deterministic
+  `form_2067` and `contact_failure` were supported; family and subtype required
+  no taxonomy review; literal UTL text was not required.
+- Real evidence grounding returned six valid references and zero unsupported
+  references. The prior zero-valid-reference grounding defect is resolved on
+  this protected document.
+- UTL identification is accepted for this known case. Full UTL end-to-end
+  Smartsheet field and mapping acceptance remains pending; no new 2067
+  Smartsheet mapping or subtype-specific write action has been added.
 
 Latest whole-document learning-analyzer checkpoint:
 
@@ -1268,10 +1314,18 @@ Latest verified OCR performance baseline:
 - Existing text-only OCR caches contain the complete flattened text but cannot
   recover historical page/block relationships without rerunning OCR; they are
   intentionally labeled `unavailable_legacy_flat` and are not regenerated.
-- The whole-document learning schema and sanitizer are synthetic/mock verified;
-  an explicitly authorized protected cache/local-Ollama acceptance run remains
-  pending. Model coverage references prove contract coverage, not semantic
-  correctness, so all model-only observations remain non-deterministic.
+- The protected whole-document learning path is real cache/local-Ollama
+  accepted for the known 2067/UTL case. Model coverage references prove
+  contract coverage, not semantic correctness, so all model-only observations
+  remain non-deterministic.
+- `analyzed_evidence_block_count` currently reports zero even when all 144
+  structured blocks were delivered and page-level coverage reports complete.
+  This is a learning-report accounting limitation, not missing OCR evidence.
+- `learning_review_recommended` may remain true because model-proposed novel or
+  conflicting learning observations are reviewed independently even when the
+  authoritative deterministic family/subtype classification is supported.
+  Learning-review recommendations must not be conflated with production
+  taxonomy or top-level review state.
 
 - Authorization quantity meaning remains conservative where deterministic
   evidence is insufficient.
@@ -1453,14 +1507,10 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Inspect the existing family classification, whole-document learning evidence,
-`contact_failure` normalization, report grounding, and production mapping
-contracts, then present the smallest explicit UTL business decision for
-approval: whether family 2067 plus deterministically supported
-`contact_failure` is sufficient for subtype UTL and how contradictory,
-negated, or mixed contact/location evidence must affect that decision. Do not
-implement a UTL production rule before approval. Then extend the generic
-family/subtype representation without regressing Authorization behavior,
-surface deterministic concepts beside model observations, and continue OCR
-configuration/readiness/provenance work only as needed for Phase 1 production
-readiness.
+Inspect the existing 2067/UTL extraction, deterministic-validation,
+business-rule, Smartsheet destination, and automatic-write contracts and all
+callers. Establish the exact required UTL row fields and mappings already
+approved, identify only the smallest unresolved business mapping decisions,
+and preserve Authorization behavior. Then implement and synthetic-test only
+the approved reusable mapping behavior before a separately authorized
+end-to-end Smartsheet acceptance. Do not infer or add unsupported fields.

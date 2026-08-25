@@ -2,6 +2,7 @@
 from typing import Any
 
 from src.models.document import Document
+from src.models.document_taxonomy import DocumentTaxonomyRegistry
 
 
 @dataclass
@@ -39,42 +40,20 @@ class ReviewDecisionService:
     HUMAN_REVIEW_CLASSIFICATION_THRESHOLD = 0.75
     FIELD_CONFIDENCE_THRESHOLD = 0.85
 
-    DOCUMENT_CATEGORIES = {
-        "authorization",
-        "referral",
-        "termination",
-        "denial",
-        "assessment",
-        "plan_of_care",
-        "claim",
-        "other",
-        "unknown",
-    }
+    DOCUMENT_CATEGORIES = set(DocumentTaxonomyRegistry.families())
 
-    AUTHORIZATION_SUBTYPES = {
-        "initial",
-        "renewal",
-        "extension",
-        "continuation",
-        "amendment",
-        "partial_approval",
-        "unknown",
-    }
-
-    TERMINATION_SUBTYPES = {
-        "authorization_termination",
-        "service_termination",
-        "unknown",
-    }
-
+    AUTHORIZATION_SUBTYPES = set(
+        DocumentTaxonomyRegistry.definition("authorization").subtypes
+    )
+    TERMINATION_SUBTYPES = set(
+        DocumentTaxonomyRegistry.definition("termination").subtypes
+    )
+    FORM_2067_SUBTYPES = set(
+        DocumentTaxonomyRegistry.definition("2067").subtypes
+    )
     CATEGORIES_WITHOUT_SUBTYPES = {
-        "referral",
-        "denial",
-        "assessment",
-        "plan_of_care",
-        "claim",
-        "other",
-        "unknown",
+        family for family in DocumentTaxonomyRegistry.families()
+        if DocumentTaxonomyRegistry.definition(family).subtypes == frozenset({"unknown"})
     }
 
     SUCCESS_ACTIONS = {
@@ -317,6 +296,15 @@ class ReviewDecisionService:
                 required_review_reasons.append(
                     self.UNKNOWN_TERMINATION_SUBTYPE_REASON
                 )
+
+        elif category == "2067":
+            if subtype not in self.FORM_2067_SUBTYPES:
+                reasons.append(self.INCOMPATIBLE_SUBTYPE_REASON)
+                required_review_reasons.append(self.INCOMPATIBLE_SUBTYPE_REASON)
+            elif subtype == "unknown":
+                reason = "2067 subtype could not be deterministically determined."
+                reasons.append(reason)
+                required_review_reasons.append(reason)
 
         elif category in self.CATEGORIES_WITHOUT_SUBTYPES:
             if subtype != "unknown":

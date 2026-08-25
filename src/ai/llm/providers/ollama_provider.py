@@ -1,5 +1,6 @@
 import json
 import os
+from copy import deepcopy
 from typing import Any
 
 import requests
@@ -7,6 +8,7 @@ import requests
 from src.ai import config
 from src.ai.llm.llm_provider import LLMProvider
 from src.ai.llm.provider_registration import register_llm_provider
+from src.models.document_taxonomy import DocumentTaxonomyRegistry
 
 
 @register_llm_provider("ollama")
@@ -27,45 +29,17 @@ class OllamaProvider(LLMProvider):
     RETRY_SEED_OFFSET = 1
     CHAT_ENDPOINT = "/api/chat"
 
-    DOCUMENT_CATEGORIES = [
-        "authorization",
-        "referral",
-        "termination",
-        "denial",
-        "assessment",
-        "plan_of_care",
-        "claim",
-        "other",
-        "unknown",
-    ]
+    DOCUMENT_CATEGORIES = list(DocumentTaxonomyRegistry.families())
 
-    DOCUMENT_SUBTYPES = [
-        "initial",
-        "renewal",
-        "extension",
-        "continuation",
-        "amendment",
-        "partial_approval",
-        "authorization_termination",
-        "service_termination",
-        "unknown",
-    ]
+    DOCUMENT_SUBTYPES = list(DocumentTaxonomyRegistry.subtypes())
 
-    AUTHORIZATION_SUBTYPES = {
-        "initial",
-        "renewal",
-        "extension",
-        "continuation",
-        "amendment",
-        "partial_approval",
-        "unknown",
-    }
+    AUTHORIZATION_SUBTYPES = set(
+        DocumentTaxonomyRegistry.definition("authorization").subtypes
+    )
 
-    TERMINATION_SUBTYPES = {
-        "authorization_termination",
-        "service_termination",
-        "unknown",
-    }
+    TERMINATION_SUBTYPES = set(
+        DocumentTaxonomyRegistry.definition("termination").subtypes
+    )
 
     FIELD_NAMES = [
         "patient_name",
@@ -278,14 +252,15 @@ class OllamaProvider(LLMProvider):
                         "enum": [
                             "authorization", "referral", "termination",
                             "denial", "assessment", "plan_of_care", "claim",
-                            "communication", "form", "other", "unknown",
+                            "communication", "form", "2067", "other", "unknown",
                         ],
                     },
+                    "document_subtype": {"type": "string"},
                     "purpose_concepts": {"type": "array", "items": {"type": "string"}},
                     "direction_context": {"type": "array", "items": {"type": "string"}},
                 },
                 "required": [
-                    "document_form_type", "document_category",
+                    "document_form_type", "document_category", "document_subtype",
                     "purpose_concepts", "direction_context",
                 ],
                 "additionalProperties": False,
@@ -387,10 +362,10 @@ class OllamaProvider(LLMProvider):
             "coverage": {
                 "type": "object",
                 "properties": {
-                    "analyzed_evidence_refs": {"type": "array", "items": {"type": "string"}},
+                    "analyzed_page_refs": {"type": "array", "items": {"type": "integer"}},
                     "complete_document_analyzed": {"type": "boolean"},
                 },
-                "required": ["analyzed_evidence_refs", "complete_document_analyzed"],
+                "required": ["analyzed_page_refs", "complete_document_analyzed"],
                 "additionalProperties": False,
             },
             "observations": {
@@ -624,12 +599,36 @@ class OllamaProvider(LLMProvider):
                 "any document value or narrative text.\n\nDOCUMENT EVIDENCE\n"
                 "=============\n" + cleaned_text
             ),
-            schema=self.LEARNING_ANALYSIS_SCHEMA,
+            schema=self._learning_schema(evidence),
             seed=self.seed,
         )
         self._last_request_metrics["request_type"] = "learning_analysis"
         self._last_request_metrics["seed"] = self.seed
         return result
+
+    def _learning_schema(self, evidence) -> dict:
+        """Bind model references to aliases supplied in this one request."""
+
+        from src.models.learning_document_evidence import LearningDocumentEvidence
+
+        schema = deepcopy(self.LEARNING_ANALYSIS_SCHEMA)
+        if not isinstance(evidence, LearningDocumentEvidence):
+            return schema
+        reference_schema = {
+            "type": "string",
+            "enum": list(evidence.model_references),
+        }
+        for section in ("observations", "contradictions"):
+            schema["properties"][section]["items"]["properties"][
+                "evidence_refs"
+            ]["items"] = reference_schema
+        schema["properties"]["coverage"]["properties"][
+            "analyzed_page_refs"
+        ]["items"] = {
+            "type": "integer",
+            "enum": list(evidence.page_references),
+        }
+        return schema
 
     def test_connection(self) -> dict:
         """
@@ -697,7 +696,7 @@ You are a local structural document-learning service for a healthcare
 automation platform. Analyze the entire OCR text, including labeled fields,
 tables, checkboxes, headings, comments, and narrative business concepts.
 
-Inspect every page and block and return every analyzed block id in coverage.
+Inspect every page and block. Return every analyzed page ordinal in coverage.
 Layout, page, region, coordinates, and header/footer status are optional hints,
 never fixed requirements. Use labels, nearby values, reading order, repetition,
 and cross-page relationships. Preserve repeated agreement; conflicting or
@@ -718,8 +717,8 @@ For schema gaps, identify labeled fields or useful structural concepts absent
 from the current modeled field set, but return only a generic semantic label,
 structural type, and evidence status. Do not propose production decisions.
 
-Every observation and contradiction must reference block ids from the supplied
-envelope. Literal evidence stays in the envelope; return generic semantic labels
+Every observation and contradiction must reference compact block aliases from
+the supplied envelope exactly. Literal evidence stays in the envelope; return generic semantic labels
 and references only. Keep literal evidence, normalized meaning, and production
 fields or rules separate. Confidence is nullable and never correctness proof.
 Set deterministically_validated false for every observation. Learning cannot
@@ -745,6 +744,7 @@ DOCUMENT CATEGORIES
 - assessment
 - plan_of_care
 - claim
+- 2067
 - other
 - unknown
 
@@ -766,7 +766,18 @@ For termination:
 - service_termination
 - unknown
 
+For 2067:
+
+- utl
+- unknown
+
 For every other category, use subtype unknown.
+
+Use 2067 only when the document itself supports that form family. Use utl only
+as a candidate when the complete document supports inability to locate or
+contact the member. Deterministic application validation makes the final UTL
+decision; 2067, annual wording, Posted Date, or a literal UTL token alone is
+insufficient.
 
 GENERAL RULES
 
@@ -1234,16 +1245,8 @@ Return only JSON matching the required schema.
             )
         ).strip().lower()
 
-        if category not in self.DOCUMENT_CATEGORIES:
-            category = "unknown"
-
-        if subtype not in self.DOCUMENT_SUBTYPES:
-            subtype = "unknown"
-
-        subtype = self._normalize_subtype_for_category(
-            category=category,
-            subtype=subtype,
-        )
+        category = DocumentTaxonomyRegistry.normalize_family(category)
+        subtype = DocumentTaxonomyRegistry.normalize_subtype(category, subtype)
 
         return {
             "document_category": category,
@@ -1274,19 +1277,7 @@ Return only JSON matching the required schema.
         Reject subtypes that are incompatible with the category.
         """
 
-        if category == "authorization":
-            if subtype in self.AUTHORIZATION_SUBTYPES:
-                return subtype
-
-            return "unknown"
-
-        if category == "termination":
-            if subtype in self.TERMINATION_SUBTYPES:
-                return subtype
-
-            return "unknown"
-
-        return "unknown"
+        return DocumentTaxonomyRegistry.normalize_subtype(category, subtype)
 
     def _legacy_document_type(
         self,
@@ -1300,18 +1291,7 @@ Return only JSON matching the required schema.
         authorization_renewal routing value.
         """
 
-        if category == "authorization":
-            if subtype in {
-                "renewal",
-                "extension",
-                "continuation",
-                "amendment",
-            }:
-                return "authorization_renewal"
-
-            return "authorization"
-
-        return category
+        return DocumentTaxonomyRegistry.legacy_route(category, subtype)
 
     def _normalize_fields(
         self,

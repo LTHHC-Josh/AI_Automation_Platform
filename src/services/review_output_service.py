@@ -6,6 +6,7 @@ from src.models.document import (
     AuthorizationServiceLine,
     Document,
 )
+from src.models.document_concept import DeterministicDocumentConcept
 
 
 @dataclass
@@ -69,6 +70,13 @@ class ReviewOutput:
     document_subtype: str = "unknown"
     classification_reason: str = ""
     classification_confidence: float = 0.0
+    classification_support_status: str = "unknown"
+    subtype_support_status: str = "unknown"
+    family_evidence_confidence: float | None = None
+    subtype_evidence_confidence: float | None = None
+    deterministic_concepts: tuple[DeterministicDocumentConcept, ...] = field(
+        default=(), repr=False
+    )
     fields: list[ReviewField] = field(
         default_factory=list
     )
@@ -139,6 +147,19 @@ class ReviewOutputService:
                     document.confidence
                 )
             ),
+            classification_support_status=self._normalize_classification_label(
+                document.classification_support_status
+            ),
+            subtype_support_status=self._normalize_classification_label(
+                document.subtype_support_status
+            ),
+            family_evidence_confidence=self._normalize_optional_confidence(
+                document.family_evidence_confidence
+            ),
+            subtype_evidence_confidence=self._normalize_optional_confidence(
+                document.subtype_evidence_confidence
+            ),
+            deterministic_concepts=tuple(document.deterministic_concepts),
             fields=self._build_fields(
                 document
             ),

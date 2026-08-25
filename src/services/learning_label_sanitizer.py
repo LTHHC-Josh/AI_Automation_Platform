@@ -25,7 +25,7 @@ class LearningLabelSanitizer:
         "reach", "referral", "renewal", "request", "requested", "review",
         "service", "start", "status", "table", "termination", "text",
         "to", "unable", "units", "unknown", "unmodeled", "visits",
-        "workflow",
+        "workflow", "utl",
     }
 
     def sanitize(

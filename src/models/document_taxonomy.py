@@ -1,0 +1,105 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class DocumentFamilyDefinition:
+    """One reusable document-family classification definition."""
+
+    family: str
+    subtypes: frozenset[str]
+    legacy_routes: tuple[tuple[str, str], ...] = ()
+    neutral_rule: bool = False
+
+    def legacy_route(self, subtype: str) -> str:
+        routes = dict(self.legacy_routes)
+        return routes.get(subtype, self.family)
+
+
+class DocumentTaxonomyRegistry:
+    """Authoritative family/subtype compatibility and legacy routing."""
+
+    UNKNOWN = "unknown"
+    DEFINITIONS = (
+        DocumentFamilyDefinition(
+            family="authorization",
+            subtypes=frozenset({
+                "initial", "renewal", "extension", "continuation",
+                "amendment", "partial_approval", "unknown",
+            }),
+            legacy_routes=(
+                ("renewal", "authorization_renewal"),
+                ("extension", "authorization_renewal"),
+                ("continuation", "authorization_renewal"),
+                ("amendment", "authorization_renewal"),
+            ),
+        ),
+        DocumentFamilyDefinition(
+            family="termination",
+            subtypes=frozenset({
+                "authorization_termination", "service_termination", "unknown",
+            }),
+            neutral_rule=True,
+        ),
+        DocumentFamilyDefinition(
+            family="2067",
+            subtypes=frozenset({"utl", "unknown"}),
+            neutral_rule=True,
+        ),
+        *(
+            DocumentFamilyDefinition(
+                family=family,
+                subtypes=frozenset({"unknown"}),
+                neutral_rule=True,
+            )
+            for family in (
+                "referral", "denial", "assessment", "plan_of_care",
+                "claim", "other", "unknown",
+            )
+        ),
+    )
+    _BY_FAMILY = {definition.family: definition for definition in DEFINITIONS}
+
+    @classmethod
+    def families(cls) -> tuple[str, ...]:
+        return tuple(definition.family for definition in cls.DEFINITIONS)
+
+    @classmethod
+    def subtypes(cls) -> tuple[str, ...]:
+        return tuple(sorted({
+            subtype
+            for definition in cls.DEFINITIONS
+            for subtype in definition.subtypes
+        }))
+
+    @classmethod
+    def definition(cls, family: str) -> DocumentFamilyDefinition | None:
+        return cls._BY_FAMILY.get(cls.normalize_label(family))
+
+    @classmethod
+    def normalize_family(cls, value) -> str:
+        normalized = cls.normalize_label(value)
+        return normalized if normalized in cls._BY_FAMILY else cls.UNKNOWN
+
+    @classmethod
+    def normalize_subtype(cls, family, subtype) -> str:
+        definition = cls.definition(cls.normalize_family(family))
+        normalized = cls.normalize_label(subtype)
+        if definition is None or normalized not in definition.subtypes:
+            return cls.UNKNOWN
+        return normalized
+
+    @classmethod
+    def legacy_route(cls, family, subtype) -> str:
+        normalized_family = cls.normalize_family(family)
+        definition = cls.definition(normalized_family)
+        if definition is None:
+            return cls.UNKNOWN
+        return definition.legacy_route(
+            cls.normalize_subtype(normalized_family, subtype)
+        )
+
+    @staticmethod
+    def normalize_label(value) -> str:
+        return str(value or "unknown").strip().lower() or "unknown"

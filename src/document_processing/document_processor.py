@@ -19,6 +19,12 @@ from src.services.review_decision_service import (
 from src.services.review_output_service import (
     ReviewOutputService,
 )
+from src.services.deterministic_document_concept_service import (
+    DeterministicDocumentConceptService,
+)
+from src.services.document_classification_resolution_service import (
+    DocumentClassificationResolutionService,
+)
 
 
 class DocumentProcessor:
@@ -84,6 +90,8 @@ class DocumentProcessor:
         self.rules = RuleService()
         self.review_decisions = ReviewDecisionService()
         self.review_outputs = ReviewOutputService()
+        self.document_concepts = DeterministicDocumentConceptService()
+        self.classification_resolution = DocumentClassificationResolutionService()
 
     def process(
         self,
@@ -153,6 +161,11 @@ class DocumentProcessor:
                     safe_ocr_diagnostics
                 )
 
+        concept_service = getattr(self, "document_concepts", None)
+        if concept_service is None:
+            concept_service = DeterministicDocumentConceptService()
+        document.deterministic_concepts = concept_service.analyze(document.ocr_document)
+
         classification_started_at = perf_counter()
 
         classification = self.llm.classify(
@@ -175,6 +188,14 @@ class DocumentProcessor:
             dict,
         ):
             classification = {}
+
+        classification_resolution = getattr(
+            self, "classification_resolution", None
+        ) or DocumentClassificationResolutionService()
+        classification = classification_resolution.resolve(
+            classification,
+            document.deterministic_concepts,
+        )
 
         document.document_category = self._normalize_classification_label(
             classification.get(
@@ -210,6 +231,18 @@ class DocumentProcessor:
                 "confidence",
                 0.0,
             )
+        )
+        document.classification_support_status = str(
+            classification.get("classification_support_status") or "unknown"
+        )
+        document.subtype_support_status = str(
+            classification.get("subtype_support_status") or "unknown"
+        )
+        document.family_evidence_confidence = classification.get(
+            "family_evidence_confidence"
+        )
+        document.subtype_evidence_confidence = classification.get(
+            "subtype_evidence_confidence"
         )
 
         (
@@ -816,7 +849,6 @@ class DocumentProcessor:
             raw_text=template_document.raw_text,
             ocr_document=template_document.ocr_document,
         )
-
         candidate.field_evidence = self._get_field_evidence(
             extraction_result
         )
