@@ -70,6 +70,12 @@ def build_review_output(
                     "6",
                     "1",
                 ],
+                confidence=0.90,
+                source_text="PHI-bearing evidence",
+            ),
+            ReviewField(
+                name="low_confidence_value",
+                value="Synthetic low-confidence value",
                 confidence=0.50,
                 source_text="PHI-bearing evidence",
             ),
@@ -138,27 +144,27 @@ def test_approved_fields_are_mapped():
     )
 
 
-def test_field_confidence_is_mapped_without_threshold_override():
+def test_low_confidence_value_is_omitted_without_losing_review_state():
     service = SmartsheetReviewRowMappingService()
 
     result = service.map(
-        review_output=build_review_output(),
+        review_output=build_review_output(
+            needs_human_review=True,
+            review_status="Human Review Recommended",
+        ),
         policies=[
             SmartsheetColumnPolicy(
-                source_field="authorized_units",
-                column_name="Authorized Units",
-                confidence_column_name="Authorized Units Conf.",
+                source_field="low_confidence_value",
+                column_name="Low Confidence Value",
+                confidence_column_name="Low Confidence Value Conf.",
             ),
         ],
         run_type=TEST_RUN_TYPE,
     )
 
-    assert (
-        result.values[
-            "Authorized Units Conf."
-        ]
-        == 0.50
-    )
+    assert "Low Confidence Value" not in result.values
+    assert result.ready_for_write is True
+    assert result.values["AI Review Required"] is True
 
 
 def test_sheet_minimum_confidence_uses_only_displayed_confidences():
@@ -219,7 +225,7 @@ def test_sheet_minimum_confidence_tracks_lowest_displayed_confidence():
         result.values[
             "AI Minimum Field Confidence"
         ]
-        == 0.50
+        == 0.90
     )
 
 
@@ -674,8 +680,8 @@ run_test(
     test_approved_fields_are_mapped,
 )
 run_test(
-    "field confidence is mapped without threshold override",
-    test_field_confidence_is_mapped_without_threshold_override,
+    "low-confidence values are omitted without blocking the row",
+    test_low_confidence_value_is_omitted_without_losing_review_state,
 )
 run_test(
     "sheet minimum confidence uses only displayed confidences",

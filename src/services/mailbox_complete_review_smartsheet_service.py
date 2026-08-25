@@ -160,7 +160,13 @@ class MailboxCompleteReviewSmartsheetService:
                     self.configuration_service.resolve(
                         document_type=(
                             review_output.document_type
-                        )
+                        ),
+                        document_family=(
+                            review_output.document_category
+                        ),
+                        document_subtype=(
+                            review_output.document_subtype
+                        ),
                     )
                 )
 

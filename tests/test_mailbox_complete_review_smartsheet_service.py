@@ -22,8 +22,20 @@ class RecordingConfigurationService:
         self.success = success
         self.calls = []
 
-    def resolve(self, *, document_type):
-        self.calls.append(document_type)
+    def resolve(
+        self,
+        *,
+        document_type=None,
+        document_family=None,
+        document_subtype=None,
+    ):
+        self.calls.append(
+            (
+                document_type,
+                document_family,
+                document_subtype,
+            )
+        )
         if not self.success:
             return SmartsheetReviewConfigurationResult(
                 policy_count=0,
@@ -80,13 +92,20 @@ class RecordingSubmissionService:
         )
 
 
-def build_message(*, needs_human_review=False, include_review=True):
+def build_message(
+    *,
+    needs_human_review=False,
+    include_review=True,
+    document_type="authorization",
+    document_family="authorization",
+    document_subtype="renewal",
+):
     document = Document(file_path=Path("synthetic-document.bin"))
     if include_review:
         document.review_output = ReviewOutput(
-            document_type="authorization",
-            document_category="authorization",
-            document_subtype="renewal",
+            document_type=document_type,
+            document_category=document_family,
+            document_subtype=document_subtype,
             fields=[
                 ReviewField(
                     name="authorization_number",
@@ -134,7 +153,13 @@ def test_document_type_resolves_configuration():
         run_type="Synthetic Mailbox Submission",
     )
     assert result.success is True
-    assert configuration.calls == ["authorization"]
+    assert configuration.calls == [
+        (
+            "authorization",
+            "authorization",
+            "renewal",
+        )
+    ]
 
 
 def test_configuration_and_attachment_reach_submission():
@@ -158,6 +183,25 @@ def test_review_required_document_is_written_automatically():
     )
     assert result.success is True
     assert result.written_count == 1
+    assert submission.calls[0]["review_output"].needs_human_review is True
+
+
+def test_unknown_taxonomy_document_is_submitted_for_downstream_review():
+    service, configuration, submission = build_service()
+    result = service.run(
+        message_results=[
+            build_message(
+                needs_human_review=True,
+                document_type="unknown",
+                document_family="unknown",
+                document_subtype="unknown",
+            )
+        ],
+        run_type="Synthetic Mailbox Submission",
+    )
+    assert result.success is True
+    assert result.written_count == 1
+    assert configuration.calls == [("unknown", "unknown", "unknown")]
     assert submission.calls[0]["review_output"].needs_human_review is True
 
 
@@ -230,6 +274,7 @@ TESTS = [
     ("document type resolves configuration", test_document_type_resolves_configuration),
     ("configuration and attachment reach submission", test_configuration_and_attachment_reach_submission),
     ("review-required document writes automatically", test_review_required_document_is_written_automatically),
+    ("unknown taxonomy document writes for downstream review", test_unknown_taxonomy_document_is_submitted_for_downstream_review),
     ("configuration failure blocks submission", test_configuration_failure_blocks_submission),
     ("submission failure is counted", test_submission_failure_is_counted),
     ("missing review output blocks downstream calls", test_missing_review_output_blocks_downstream_calls),

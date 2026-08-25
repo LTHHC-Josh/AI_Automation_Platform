@@ -9,9 +9,12 @@ from src.services.smartsheet_destination_schema_service import (
 from src.services.smartsheet_mapping_policy_service import (
     SmartsheetMappingPolicyService,
 )
+from src.services.smartsheet_review_row_mapping_service import (
+    SmartsheetReviewRowMappingService,
+)
 
 
-APPROVED_AUTHORIZATION_POLICIES = (
+APPROVED_DOCUMENT_FIELD_POLICIES = (
     SmartsheetColumnPolicy(
         source_field="authorization_status",
         column_name="Authorization Status",
@@ -60,9 +63,13 @@ APPROVED_AUTHORIZATION_POLICIES = (
 
 
 APPROVED_POLICIES_BY_DOCUMENT_TYPE = {
-    "authorization": APPROVED_AUTHORIZATION_POLICIES,
-    "authorization_renewal": APPROVED_AUTHORIZATION_POLICIES,
+    "authorization": APPROVED_DOCUMENT_FIELD_POLICIES,
+    "authorization_renewal": APPROVED_DOCUMENT_FIELD_POLICIES,
+    "2067": APPROVED_DOCUMENT_FIELD_POLICIES,
 }
+
+# Backward-compatible name retained for existing imports.
+APPROVED_AUTHORIZATION_POLICIES = APPROVED_DOCUMENT_FIELD_POLICIES
 
 
 @dataclass(frozen=True)
@@ -101,7 +108,8 @@ class SmartsheetReviewConfigurationService:
             or SmartsheetMappingPolicyService(
                 policies_by_document_type=(
                     APPROVED_POLICIES_BY_DOCUMENT_TYPE
-                )
+                ),
+                default_policies=APPROVED_DOCUMENT_FIELD_POLICIES,
             )
         )
 
@@ -113,13 +121,19 @@ class SmartsheetReviewConfigurationService:
     def resolve(
         self,
         *,
-        document_type,
+        document_type=None,
+        document_family=None,
+        document_subtype=None,
     ) -> SmartsheetReviewConfigurationResult:
-        policy_result = (
-            self.policy_service.get(
-                document_type=document_type
-            )
-        )
+        policy_arguments = {
+            "document_type": document_type,
+        }
+        if document_family is not None:
+            policy_arguments["document_family"] = document_family
+        if document_subtype is not None:
+            policy_arguments["document_subtype"] = document_subtype
+
+        policy_result = self.policy_service.get(**policy_arguments)
 
         if not policy_result.success:
             return self._failure(
@@ -144,6 +158,10 @@ class SmartsheetReviewConfigurationService:
             policy.confidence_column_name
             for policy in policy_result.policies
             if policy.confidence_column_name
+        )
+
+        policy_columns.update(
+            SmartsheetReviewRowMappingService.OPERATIONAL_METADATA_COLUMNS
         )
 
         missing_columns = (

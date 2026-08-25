@@ -13,6 +13,9 @@ from src.services.smartsheet_review_configuration_service import (
     SmartsheetReviewConfigurationResult,
     SmartsheetReviewConfigurationService,
 )
+from src.services.smartsheet_review_row_mapping_service import (
+    SmartsheetReviewRowMappingService,
+)
 
 
 passed = 0
@@ -44,6 +47,25 @@ class RecordingSchemaService:
         self,
         result,
     ):
+        if result.success:
+            columns = dict(result.columns)
+            column_types = dict(result.column_types)
+            next_id = max(columns.values(), default=1000) + 1
+            for column_name in (
+                SmartsheetReviewRowMappingService.OPERATIONAL_METADATA_COLUMNS
+            ):
+                if column_name in columns:
+                    continue
+                columns[column_name] = next_id
+                column_types[column_name] = "TEXT_NUMBER"
+                next_id += 1
+            result = SmartsheetDestinationSchemaResult(
+                column_count=len(columns),
+                columns=columns,
+                success=True,
+                status=result.status,
+                column_types=column_types,
+            )
         self.result = result
         self.call_count = 0
 
@@ -144,17 +166,23 @@ def test_ready_configuration_is_returned():
     assert result.success is True
     assert result.status == "ready"
     assert result.policy_count == 2
-    assert result.column_count == 3
+    assert result.column_count == (
+        3
+        + len(
+            set(
+                SmartsheetReviewRowMappingService.OPERATIONAL_METADATA_COLUMNS
+            )
+            - {"AI Review Status"}
+        )
+    )
 
     assert len(
         result.policies
     ) == 2
 
-    assert result.available_columns == {
-        "Authorization Status": 1001,
-        "Start Date": 1002,
-        "AI Review Status": 1003,
-    }
+    assert result.available_columns["Authorization Status"] == 1001
+    assert result.available_columns["Start Date"] == 1002
+    assert result.available_columns["AI Review Status"] == 1003
 
     assert policy_service.calls == [
         "authorization"
@@ -509,7 +537,15 @@ def test_extra_destination_columns_are_allowed():
     )
 
     assert result.success is True
-    assert result.column_count == 4
+    assert result.column_count == (
+        4
+        + len(
+            set(
+                SmartsheetReviewRowMappingService.OPERATIONAL_METADATA_COLUMNS
+            )
+            - {"AI Review Status"}
+        )
+    )
 
 
 def test_result_contract_is_phi_safe():

@@ -7670,6 +7670,77 @@ unresolved business mapping decisions, preserve Authorization behavior, and
 implement only approved reusable mapping behavior before separately
 authorized end-to-end Smartsheet acceptance.
 
+
+------------------------------------------------------------
+GENERIC PRODUCTION SMARTSHEET ROW CONTRACT - 2026-08-25
+------------------------------------------------------------
+
+Work completed:
+
+- Extended the existing explicit mapping-policy boundary with authoritative
+  family/subtype resolution and backward-compatible legacy routing.
+- Made the current approved extracted-field policies the shared production
+  default so every processed document, including unknown taxonomy cases, can
+  produce an automatic metadata/attachment row after validation and business
+  rules.
+- Routed 2067/UTL through the same configuration, mapping, destination,
+  submission, and attachment services used by Authorization. No subtype-
+  specific writer or new destination column was added.
+- Omitted mapped values below the existing field-confidence threshold or
+  without reliable support while preserving review metadata and protected
+  evidence internally.
+- Added configuration validation for every universal operational metadata
+  column emitted by the row mapper.
+- Recorded that the current nine approved extracted mappings are an evolving
+  Phase 1 checkpoint, not the final production schema. New fields require
+  operator-approved destination columns, explicit mapping, validation, and
+  tests; columns are never created or inferred automatically.
+
+Files:
+
+- PROJECT_MEMORY.md
+- src/services/mailbox_complete_review_smartsheet_service.py
+- src/services/smartsheet_mapping_policy_service.py
+- src/services/smartsheet_review_configuration_service.py
+- src/services/smartsheet_review_row_mapping_service.py
+- tests/test_generic_smartsheet_production_mapping.py
+- tests/test_mailbox_complete_review_smartsheet_service.py
+- tests/test_smartsheet_partial_success_retry.py
+- tests/test_smartsheet_review_configuration_service.py
+- tests/test_smartsheet_review_mapping_integration.py
+- tests/test_smartsheet_review_row_mapping.py
+- update_project_tracker.py
+
+Verification:
+
+- All modified Python compiled successfully.
+- Focused synthetic deterministic/mock checks: 59 passed, 0 failed.
+- Affected synthetic deterministic/mock regressions: 144 passed, 0 failed.
+- No real Smartsheet, Graph, OCR/Paddle, Ollama, protected document, filename,
+  or external integration execution occurred.
+- PHI handling: tests used synthetic values; OCR text, source_text, protected
+  identity, paths, credentials, tokens, payload values, and row IDs were not
+  printed, stored in continuity data, or added to Git.
+
+Limitations:
+
+- The live destination schema and existing correction/review workflows have
+  not yet been inspected for the platform-wide feedback requirement.
+- Correction/readback, immutable AI-versus-human value separation, effective-
+  value resolution, and confident-but-incorrect feedback remain required
+  Phase 1 work.
+- Durable cross-process row/attachment idempotency and mailbox handled-state
+  ordering remain production-hardening gaps.
+
+Exact next starting point:
+
+After explicit authorization, inspect the AI destination Smartsheet column
+metadata and workflow dependencies read-only. Reconcile exact existing
+review/correction titles, types, allowed values, formulas, and automations
+without reading row values or modifying the sheet. Reuse sufficient existing
+columns and propose only the minimum evidence-backed additions, requiring
+approval before any sheet or correction/readback implementation change.
+
 """
 
 
@@ -7687,8 +7758,10 @@ updates = [
             "references are synthetic-tested, and the configured authoritative "
             "reference workbook passed live read-only refresh and cache safety "
             "verification. The 2067 document type is now separated from optional "
-            "supported workflow context. Remaining filename business rules and "
-            "production naming remain open."
+            "supported workflow context. Generic family/subtype-aware automatic "
+            "Smartsheet mapping now covers every processed document with the "
+            "current explicit policies; the evolving destination schema and "
+            "platform-wide correction/readback contract remain Phase 1 work."
         ),
     ),
     (
@@ -7718,8 +7791,9 @@ updates = [
         "Completed",
         (
             "Implemented configured confidence evaluation, deterministic review "
-            "routing, null-safe clearing, and destination-safe confidence status "
-            "mapping without inventing confidence."
+            "routing, null-safe clearing, and generic omission of low-confidence "
+            "Smartsheet values while protected evidence and downstream review "
+            "metadata remain preserved."
         ),
     ),
     (
@@ -8034,7 +8108,12 @@ updates = [
             "OCR was reused with zero prediction calls, family 2067 and subtype "
             "UTL resolved from deterministic evidence, and all six returned "
             "learning references grounded with zero unsupported references. "
-            "Full UTL Smartsheet field/mapping acceptance remains pending."
+            "The later generic production-row checkpoint routes 2067/UTL, "
+            "Authorization, unknown taxonomy, and future trained families through "
+            "one family/subtype-aware mapping boundary using the current explicit "
+            "approved fields. Live schema inspection, evolving operational fields, "
+            "correction/readback, and end-to-end Smartsheet acceptance remain "
+            "pending."
         ),
     ),
     (

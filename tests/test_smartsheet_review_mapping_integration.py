@@ -75,7 +75,7 @@ def build_document(
     document.field_confidences = {
         "authorization_status": 0.95,
         "service_codes": 0.95,
-        "authorized_units": 0.50,
+        "authorized_units": 0.90,
         "approved_visits": 0.0,
         "start_date": 0.95,
         "end_date": 0.95,
@@ -100,7 +100,7 @@ def build_document(
                 "6",
                 "1",
             ],
-            "confidence": 0.50,
+            "confidence": 0.90,
             "source_text": "Synthetic PHI-bearing source evidence.",
         },
         "approved_visits": {
@@ -183,7 +183,7 @@ def build_document(
         else []
     )
 
-    document.minimum_field_confidence = 0.50
+    document.minimum_field_confidence = 0.90
 
     return document
 

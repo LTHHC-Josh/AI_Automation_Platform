@@ -149,7 +149,13 @@ class FixedDestinationValidationService:
 
 
 class FixedConfigurationService:
-    def resolve(self, *, document_type):
+    def resolve(
+        self,
+        *,
+        document_type=None,
+        document_family=None,
+        document_subtype=None,
+    ):
         return SmartsheetReviewConfigurationResult(
             policy_count=1,
             column_count=1,

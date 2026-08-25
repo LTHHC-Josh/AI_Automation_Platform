@@ -158,13 +158,27 @@ Separate Ollama attempts are independently validated and are never merged.
 The strongest deterministically supported candidate is selected. Ties keep
 attempt 1.
 
-Unsupported, conflicting, ambiguous, guessed, invalid, or insufficiently
-evidenced values remain null/unknown and flag the row for review as
-appropriate.
+Unsupported, conflicting, ambiguous, guessed, invalid, low-confidence, or
+insufficiently evidenced values remain null/unknown and flag the row for
+review as appropriate.
 
 After deterministic validation and business rules, the normal production
-flow automatically creates or populates the intentionally mapped Smartsheet
-row. Human review is a downstream exception workflow, not a write gate.
+flow attempts to create the Smartsheet row for every processed document.
+Every sufficiently supported value with an explicit approved mapping is
+populated, including PHI because Smartsheet is an approved production
+destination. Unknown family/subtype and review-required results still produce
+the appropriate row and downstream review metadata; review is not a write
+gate. Actual configuration, destination, or write failures fail safely and
+must not be reported as successful writes.
+
+The current approved Smartsheet mappings are an evolving Phase 1 checkpoint,
+not the final production schema. Newly trained families/subtypes may establish
+additional operational fields for classification, subtype determination,
+downstream automations, review, correction, or business processing. New
+columns are added only with operator approval, followed by explicit mapping,
+validation, and tests. Unknown or unmapped fields remain internal until their
+destination is approved; the platform never creates, renames, or infers sheet
+columns automatically.
 
 ## Knowledge Architecture
 
@@ -205,6 +219,10 @@ do not automatically become production rules.
   document data.
 - Review status and reasons accompany an automatically populated row when
   the configured accuracy/reliability rules require downstream review.
+- Original AI-written Smartsheet values must remain immutable for provenance.
+  Human corrections use separate approved fields, and the effective
+  operational value uses an approved human correction when present or the
+  original supported AI value otherwise.
 - Payer, sender, filename, and template must not imply document meaning or
   authorization conclusions.
 
@@ -233,6 +251,10 @@ The required end state is:
   every document.
 - Operators can flag incorrect outputs even when the system did not request
   review.
+- End users perform review and correction in Smartsheet through separate
+  approved correction fields. Original AI values remain unchanged, human
+  overrides are attributable, and correction/readback applies across every
+  processed family/subtype.
 - Flagged incorrect results become PHI-safe development and learning inputs.
 - The team can reproduce failures locally without exposing PHI to ChatGPT or
   Codex.
@@ -428,8 +450,13 @@ can support the behavior.
 - Authorization business-rule boundary.
 - Human classification review and local feedback.
 - Automatic Smartsheet row mapping and submission after deterministic
-  validation and business rules, with review-required rows written with
-  downstream review status and reasons.
+  validation and business rules through a generic family/subtype-aware policy
+  resolver. Every processed document receives the current approved value
+  mappings plus universal metadata; unknown and review-required rows remain
+  writeable with downstream review status and reasons.
+- Generic mapping eligibility omits unsupported or low-confidence values from
+  Smartsheet while preserving their value, confidence, and protected source
+  evidence inside the authorized review boundary.
 - Smartsheet document attachment support.
 - Explicit PHI-safe Run Type.
 - Human-confirmed classification propagation.
@@ -508,6 +535,33 @@ can support the behavior.
 
 ## Recent Tested Baseline
 
+Latest generic production-row checkpoint:
+
+- The automatic Smartsheet policy resolver now accepts authoritative family
+  and subtype plus the backward-compatible routing type. Exact subtype and
+  family policies can be added explicitly, while the current approved field
+  mappings provide the platform-wide default for every processed document.
+- 2067/UTL uses the same mapping, destination-validation, submission, and
+  attachment services as Authorization. No UTL-only writer or destination
+  column was introduced.
+- Unknown family/subtype and downstream-review rows remain writeable.
+  Universal operational metadata is validated with the approved value columns
+  before submission. Actual schema, configuration, or write failures remain
+  explicit failures.
+- Values below the existing 0.85 field-confidence threshold, unavailable
+  confidence, and deterministically unsupported values remain blank in mapped
+  value columns. Review output retains the original value, confidence, and
+  protected evidence; review metadata still reaches Smartsheet.
+- The current nine approved extracted-value mappings are an evolving Phase 1
+  checkpoint, not the final production field set. No new destination or
+  correction columns were invented or created.
+- Modified Python compiled successfully. Focused synthetic deterministic/mock
+  verification passed 59 with 0 failures. Affected Smartsheet, attachment,
+  mailbox-orchestration, processor-taxonomy, family/subtype, review-output,
+  and Authorization regressions passed 144 with 0 failures.
+- No real Smartsheet, Graph, OCR/Paddle, Ollama, protected-document, filename,
+  or other external integration execution occurred.
+
 Latest family/subtype and learning-grounding checkpoint:
 
 - Centralized family/subtype compatibility and legacy routing without
@@ -539,9 +593,10 @@ Latest family/subtype and learning-grounding checkpoint:
 - Real evidence grounding returned six valid references and zero unsupported
   references. The prior zero-valid-reference grounding defect is resolved on
   this protected document.
-- UTL identification is accepted for this known case. Full UTL end-to-end
-  Smartsheet field and mapping acceptance remains pending; no new 2067
-  Smartsheet mapping or subtype-specific write action has been added.
+- UTL identification is accepted for this known case. At that checkpoint,
+  full UTL Smartsheet acceptance remained pending; the later generic
+  production-row checkpoint added shared 2067 mapping without a subtype-
+  specific write action.
 
 Latest whole-document learning-analyzer checkpoint:
 
@@ -1349,6 +1404,16 @@ Latest verified OCR performance baseline:
   destination and therefore remain unmapped. Any future destination must be
   intentionally designed without serializing document/review objects
   wholesale.
+- The live destination schema and existing review/correction workflows have
+  not yet been inspected under the new platform-wide feedback requirement.
+  Exact correction column titles, types, allowed values, formulas, and
+  workflow dependencies remain intentionally undefined until a separately
+  authorized read-only inspection. No sheet mutation is allowed during that
+  inspection.
+- Smartsheet correction/readback is not implemented. Phase 1 still requires
+  immutable original AI cells, separate attributable human corrections,
+  effective-value resolution, controlled feedback cases, and idempotent
+  readback for every processed family/subtype.
 - Review thresholds currently remain the configured values in
   `ReviewDecisionService`; this clarification does not change them.
 - The protected-review UI has been rendered only with synthetic non-PHI data;
@@ -1507,10 +1572,13 @@ When the operator says `end of day`:
 
 ## CURRENT NEXT START
 
-Inspect the existing 2067/UTL extraction, deterministic-validation,
-business-rule, Smartsheet destination, and automatic-write contracts and all
-callers. Establish the exact required UTL row fields and mappings already
-approved, identify only the smallest unresolved business mapping decisions,
-and preserve Authorization behavior. Then implement and synthetic-test only
-the approved reusable mapping behavior before a separately authorized
-end-to-end Smartsheet acceptance. Do not infer or add unsupported fields.
+After explicit authorization, inspect the live AI destination sheet column
+metadata and workflow dependencies read-only. Reconcile existing review and
+correction fields, exact titles, types, allowed values, formulas, and current
+automations without reading row values or modifying the sheet. Determine the
+minimum platform-wide correction/feedback schema needed to preserve immutable
+AI output, separate attributable human corrections, effective-value
+resolution, and confident-but-incorrect feedback for every document
+family/subtype. Reuse existing columns where sufficient; propose additional
+columns only when the live evidence proves a gap, and require approval before
+any sheet or correction/readback implementation change.

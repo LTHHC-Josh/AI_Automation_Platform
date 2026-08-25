@@ -11,6 +11,7 @@ from src.services.review_output_service import (
 from src.services.review_reason_summary_service import (
     ReviewReasonSummaryService,
 )
+from src.services.review_decision_service import ReviewDecisionService
 
 
 class SmartsheetReviewRowMappingService:
@@ -60,6 +61,19 @@ class SmartsheetReviewRowMappingService:
     )
     RECONCILIATION_COLUMN = (
         "AI Authorized Units Reconciled"
+    )
+    OPERATIONAL_METADATA_COLUMNS = (
+        REVIEW_STATUS_COLUMN,
+        REVIEW_REQUIRED_COLUMN,
+        DOCUMENT_CATEGORY_COLUMN,
+        DOCUMENT_SUBTYPE_COLUMN,
+        REVIEW_REASONS_COLUMN,
+        RUN_TYPE_COLUMN,
+        CLASSIFICATION_CONFIDENCE_COLUMN,
+        MINIMUM_CONFIDENCE_COLUMN,
+        SELECTED_ATTEMPT_COLUMN,
+        RETRY_TRIGGERED_COLUMN,
+        RECONCILIATION_COLUMN,
     )
 
     def __init__(self, *, review_reason_summary_service=None) -> None:
@@ -162,6 +176,23 @@ class SmartsheetReviewRowMappingService:
                 )
                 continue
 
+            if not self._is_reliably_supported(
+                review_field=review_field,
+                review_output=review_output,
+            ):
+                self._record_missing_required(
+                    policy=policy,
+                    result=result,
+                )
+                self._map_unavailable_confidence(
+                    policy=policy,
+                    review_field=review_field,
+                    review_output=review_output,
+                    result=result,
+                    displayed_confidences=displayed_confidences,
+                )
+                continue
+
             result.values[
                 policy.column_name
             ] = self._serialize_value(
@@ -223,6 +254,34 @@ class SmartsheetReviewRowMappingService:
         )
 
         return result
+
+    def _is_reliably_supported(
+        self,
+        *,
+        review_field: ReviewField,
+        review_output: ReviewOutput,
+    ) -> bool:
+        if not review_field.confidence_available:
+            return False
+        confidence = review_field.confidence
+        if (
+            isinstance(confidence, bool)
+            or not isinstance(confidence, (int, float))
+        ):
+            return False
+        if (
+            float(confidence)
+            < ReviewDecisionService.FIELD_CONFIDENCE_THRESHOLD
+        ):
+            return False
+        return self._confidence_status(
+            field_name=review_field.name,
+            reasons=(
+                list(review_output.review_reasons)
+                + list(review_output.validation_actions)
+                + list(review_output.rule_actions)
+            ),
+        ) is None
 
     def _map_unavailable_confidence(
         self,
