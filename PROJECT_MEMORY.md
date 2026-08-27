@@ -420,6 +420,12 @@ needed and the operator approves it.
   with zero failures after removal of the obsolete human-approval write gate.
 - Partial-success/retry regressions passed 12 focused and 123 affected tests
   with zero failures.
+- One explicitly authorized PHI-free synthetic live acceptance created one
+  technical-key-only row and one tiny attachment. Deterministically suppressed
+  application responses were reconciled to exactly one existing row and one
+  existing attachment without duplicate mutation; a repeated recovery call
+  was a no-op. The captured attachment and row were deleted, and exact-key
+  cleanup verification returned zero matches.
 - Graph security and mailbox diagnostic regressions remain synthetic/mock for
   negative authentication and legacy live-output cases.
 
@@ -540,13 +546,13 @@ Current gaps and limitations include:
   not implemented current capabilities.
 - The technical Smartsheet submission-key title was supplied session-only for
   authorized read-only acceptance. Exactly one matching TEXT_NUMBER column
-  exists and passes the corrected non-system-column schema gate. Exact-key and
-  attachment-metadata live acceptance remain incomplete. Durable production
-  mailbox writes remain intentionally blocked pending those gates and later
-  separately authorized read-after-write acceptance.
-- Live read-after-write behavior and uncertain-outcome reconciliation require
-  separately authorized acceptance before any unattended uncertain retry
-  policy can be considered.
+  exists and passes the corrected non-system-column schema gate. Controlled
+  exact-key row and attachment read-after-write reconciliation passed with one
+  PHI-free synthetic case and deterministic cleanup.
+- The controlled acceptance proves the existing fail-safe reconciliation path
+  for one synthetic case, not broad production reliability. Unattended retries
+  from uncertain row or attachment outcomes remain disabled pending broader
+  operational acceptance.
 - OCR small-det accuracy needs broader representative-document acceptance
   before any production-default change.
 - Paddle/PaddleOCR packages, resolved model identities, and effective runtime
@@ -614,9 +620,8 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Perform least-privilege existing-value exact-key acceptance using only the
-validated technical column and without printing or persisting its values or
-row references. Independently designate a safe test row before attachment-
-metadata acceptance. Read-after-write and uncertain-outcome behavior still
-require separate explicit authorization before Prefect integration or any
-unattended uncertain retry policy. Do not create or modify the column in code.
+Perform a repository-level Prefect integration and fit assessment against the
+existing processor entry points, durable job state, Windows runtime, PHI-safe
+diagnostics, and retry boundaries. Plan the smallest self-hosted adapter without
+rewriting processing services. Keep unattended uncertain row and attachment
+retries disabled; the single synthetic acceptance does not authorize them.

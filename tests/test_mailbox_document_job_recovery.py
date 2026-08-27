@@ -11,6 +11,12 @@ from src.services.mailbox_document_smartsheet_recovery_service import (
 from src.services.smartsheet_submission_key_configuration_service import (
     SmartsheetSubmissionKeyConfigurationService,
 )
+from src.models.smartsheet_mapping import SmartsheetRowMappingResult
+from src.services.review_output_service import ReviewOutput
+from src.services.smartsheet_reviewed_write_service import (
+    SmartsheetAttachmentWriteOperationResult,
+    SmartsheetRowWriteOperationResult,
+)
 from src.graph.mailbox_processor import MailboxProcessor, MessageProcessingResult
 from src.services.mailbox_processing_state_service import MailboxProcessingStateResult
 
@@ -115,6 +121,185 @@ def test_uncertain_row_never_automatically_creates_again(tmp_path):
     assert not result.success and result.status == "row_write_uncertain"
     assert client.row_creations == 0
     assert state_service.load(state.job_key).state.stage == "row_write_uncertain"
+
+
+class SequencedReconciliationClient:
+    def __init__(self, *, row_matches, attachment_names):
+        self.row_matches = list(row_matches)
+        self.attachment_names = list(attachment_names)
+        self.row_reads = 0
+        self.attachment_reads = 0
+
+    def find_row_ids_by_exact_column_value(self, **kwargs):
+        result = self.row_matches[self.row_reads]
+        self.row_reads += 1
+        return list(result)
+
+    def list_row_attachment_names(self, **kwargs):
+        result = self.attachment_names[self.attachment_reads]
+        self.attachment_reads += 1
+        return list(result)
+
+
+class SyntheticConfigurationService:
+    def resolve(self, **kwargs):
+        return SimpleNamespace(
+            success=True,
+            status="ready",
+            policies=(),
+            available_columns={"Synthetic Technical Key": 101},
+        )
+
+
+class EmptyReadyMappingService:
+    def map(self, **kwargs):
+        return SmartsheetRowMappingResult(values={}, ready_for_write=True)
+
+
+class LostRowResponseWriteService:
+    def __init__(self, client):
+        self.client = client
+        self.row_create_calls = 0
+        self.attachment_calls = 0
+
+    def create_row(self, **kwargs):
+        self.row_create_calls += 1
+        return SmartsheetRowWriteOperationResult(
+            written=False,
+            success=False,
+            status="smartsheet_write_failed",
+        )
+
+    def attach_to_existing_row(self, **kwargs):
+        self.attachment_calls += 1
+        raise AssertionError("duplicate attachment attempted")
+
+
+def test_lost_row_response_reconciles_exactly_one_without_duplicate_create(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state = discovered(state_service).state
+    lease = state_service.acquire_processing_lease(state.job_key).state
+    state_service.transition(
+        state.job_key,
+        expected_stages={"processing"},
+        stage="row_write_pending",
+        lease_token=lease.lease_token,
+    )
+    technical_name = f"{state.job_key}.txt"
+    client = SequencedReconciliationClient(
+        row_matches=[[], [7001]],
+        attachment_names=[[technical_name]],
+    )
+    write_service = LostRowResponseWriteService(client)
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
+            environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}
+        ),
+        configuration_service=SyntheticConfigurationService(),
+        mapping_service=EmptyReadyMappingService(),
+        write_service=write_service,
+    )
+    work_item = MailboxDocumentWorkItem(
+        state.job_key,
+        digest("a"),
+        digest("b"),
+        digest("c"),
+        Path("synthetic.txt"),
+        "row_write_pending",
+        SimpleNamespace(review_output=ReviewOutput(document_type="synthetic")),
+    )
+
+    result = recovery.run(work_item=work_item, run_type="Synthetic acceptance")
+    calls_after_completion = (client.row_reads, client.attachment_reads,
+                              write_service.row_create_calls, write_service.attachment_calls)
+    repeated = recovery.run(work_item=work_item, run_type="Synthetic acceptance")
+
+    assert result.success and result.completed and result.status == "completed"
+    assert repeated.success and repeated.completed
+    assert write_service.row_create_calls == 1
+    assert write_service.attachment_calls == 0
+    assert client.row_reads == 2
+    assert client.attachment_reads == 1
+    assert calls_after_completion == (
+        client.row_reads,
+        client.attachment_reads,
+        write_service.row_create_calls,
+        write_service.attachment_calls,
+    )
+    assert state.job_key not in repr(result)
+    assert "7001" not in repr(result)
+
+
+class LostAttachmentResponseWriteService:
+    def __init__(self, client):
+        self.client = client
+        self.row_create_calls = 0
+        self.attachment_calls = 0
+
+    def create_row(self, **kwargs):
+        self.row_create_calls += 1
+        raise AssertionError("duplicate row attempted")
+
+    def attach_to_existing_row(self, **kwargs):
+        self.attachment_calls += 1
+        return SmartsheetAttachmentWriteOperationResult(
+            written=False,
+            success=False,
+            status="smartsheet_attachment_failed",
+        )
+
+
+def test_lost_attachment_response_reconciles_without_duplicate_upload(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state = discovered(state_service).state
+    lease = state_service.acquire_processing_lease(state.job_key).state
+    state_service.transition(
+        state.job_key,
+        expected_stages={"processing"},
+        stage="row_write_pending",
+        lease_token=lease.lease_token,
+    )
+    state_service.transition(
+        state.job_key,
+        expected_stages={"row_write_pending"},
+        stage="row_written",
+        smartsheet_row_id=7001,
+    )
+    technical_name = f"{state.job_key}.txt"
+    client = SequencedReconciliationClient(
+        row_matches=[],
+        attachment_names=[[], [technical_name]],
+    )
+    write_service = LostAttachmentResponseWriteService(client)
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
+            environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}
+        ),
+        write_service=write_service,
+    )
+    work_item = MailboxDocumentWorkItem(
+        state.job_key,
+        digest("a"),
+        digest("b"),
+        digest("c"),
+        Path("synthetic.txt"),
+        "row_written",
+    )
+
+    result = recovery.run(work_item=work_item)
+    calls_after_completion = (client.attachment_reads, write_service.attachment_calls)
+    repeated = recovery.run(work_item=work_item)
+
+    assert result.success and result.completed and result.status == "completed"
+    assert repeated.success and repeated.completed
+    assert write_service.row_create_calls == 0
+    assert write_service.attachment_calls == 1
+    assert client.attachment_reads == 2
+    assert calls_after_completion == (client.attachment_reads, write_service.attachment_calls)
+    assert state.job_key not in repr(result)
+    assert "7001" not in repr(result)
 
 
 class OrderedMessageState:

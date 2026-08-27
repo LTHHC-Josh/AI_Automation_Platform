@@ -7987,6 +7987,60 @@ Limitations and exact next starting point:
 - Read-after-write and uncertain-outcome behavior still require separate
   explicit authorization before any unattended uncertain retry policy.
 
+
+------------------------------------------------------------
+PHI-FREE SMARTSHEET RECONCILIATION ACCEPTANCE - 2026-08-27
+------------------------------------------------------------
+
+Work completed:
+
+- Added deterministic mock coverage for an accepted-but-lost row response,
+  exactly-one row reconciliation, an accepted-but-lost attachment response,
+  exactly-one attachment reconciliation, duplicate prevention, and a durable
+  second-call no-op.
+- Ran one explicitly authorized live acceptance using one PHI-free synthetic
+  technical-key-only row and one tiny synthetic attachment.
+- Injected response loss only after each real SDK response was accepted and
+  its cleanup identifier was retained in memory.
+- Reconciled the existing row and attachment through the current recovery
+  service without a second create or upload.
+- Deleted only the captured synthetic attachment and row, then verified zero
+  remaining exact-key matches.
+- Removed the temporary live acceptance harness after cleanup.
+
+Files:
+
+- PROJECT_MEMORY.md
+- tests/test_mailbox_document_job_recovery.py
+- update_project_tracker.py
+
+Verification:
+
+- Modified Python compiled successfully.
+- Focused and affected synthetic deterministic/mock checks: 107 passed, 0
+  failed; no external integration was called by those suites.
+- Live schema gate passed; preflight exact-key category was zero.
+- Exactly one row add and one attachment upload occurred. Both suppressed-
+  response boundaries reconciled to exactly one existing artifact, duplicate
+  row creation was prevented, and the repeated recovery call was a no-op.
+- Exactly one captured attachment deletion and one captured row deletion
+  occurred. Post-cleanup exact-key category was zero.
+- No existing row was targeted; unrelated row cells were not requested.
+- No schema change, Graph, OCR/Paddle, Ollama, patient-document, Prefect, or
+  unattended retry operation occurred.
+- Output contained only allowlisted statuses, booleans, count categories, and
+  timing buckets. Titles, IDs, keys, values, filenames, paths, credentials,
+  tokens, provider objects, and provider errors were excluded.
+
+Limitations and exact next starting point:
+
+- One PHI-free synthetic case proves the controlled boundary, not broad
+  production reliability, and does not authorize unattended uncertain retries.
+- Perform a repository-level Prefect integration and fit assessment against
+  current entry points, durable state, Windows runtime, PHI-safe diagnostics,
+  and retry boundaries. Plan the smallest self-hosted adapter without rewriting
+  processing services and keep unattended uncertain retries disabled.
+
 """
 
 
@@ -8367,8 +8421,11 @@ updates = [
             "readers; live checkbox normalization and adapter wiring remain "
             "pending approval and inspection. The technical submission-key "
             "column now passes corrected live columns-only type and non-system "
-            "metadata acceptance; exact-key, attachment-metadata, and "
-            "read-after-write acceptance remain pending."
+            "metadata acceptance. One controlled PHI-free live case also passed "
+            "exact-key row and attachment read-after-write reconciliation, "
+            "duplicate prevention, deterministic cleanup, and post-cleanup "
+            "zero-match verification; unattended uncertain retries remain "
+            "disabled pending broader acceptance."
         ),
     ),
     (
