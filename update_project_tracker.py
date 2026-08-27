@@ -8213,6 +8213,44 @@ Limitation and exact next start:
   manual-only mailbox deployment. Keep startup, schedules, Prefect retries,
   and unattended uncertain-state retries disabled.
 
+
+------------------------------------------------------------
+PREFECT 3.8.4 DRY-RUN EXCEPTION - 2026-08-27
+------------------------------------------------------------
+
+Assessment:
+
+- Classified the failure as an upstream dry-run-only defect. Alembic offline
+  SQL emission returns no cursor result, while historical migration
+  14dc68cc5853 unconditionally dereferences result.rowcount.
+- Confirmed the online path uses a real PostgreSQL connection/result and that
+  the migration source remains unchanged in Prefect 3.8.5.dev1 and current
+  upstream main. No matching upstream fix or issue was found.
+- Accepted a narrow operational exception for pinned Prefect 3.8.4 only; it
+  expires and must be re-evaluated on every Prefect version change.
+
+Read-only verification:
+
+- Derived one installed PostgreSQL migration head: 9e9dadc36797 across 116
+  revisions.
+- Queried exactly one database revision equal to that installed head.
+- Flow and task state-name invariant-gap counts were both zero.
+- Existing evidence remains: real online migration succeeded, Prefect reported
+  PostgreSQL 17.11, and five sequential synthetic flows/tasks completed with
+  zero retries and healthy API/worker endpoints.
+- PostgreSQL was stopped after verification; ports 4200, 8080, and 5432 had no
+  listeners, and process password/connection settings were absent.
+- No Graph, Smartsheet, OCR/Paddle, Ollama, patient document, mailbox adapter,
+  schema mutation, schedule, or retry operation ran.
+
+Exact next starting point:
+
+Review addition of the existing bounded_mailbox_flow to prefect.yaml as a
+second manual-only, parameterless deployment using lthhc-local-process,
+concurrency one, no schedule, no Prefect retries, application-owned DOWNSTREAM
+mode, and the existing fixed approved Run Type. Do not execute it or enable
+automatic startup, schedules, or unattended uncertain-state retries.
+
 """
 
 
@@ -8368,8 +8406,10 @@ updates = [
             "application-owned downstream-review mode, durable PHI-safe result, "
             "and parameterless one-call mailbox adapter are implemented and "
             "mock-tested but remain undeployed. Production registration, Prefect "
-            "retries, scheduling, and automatic startup remain disabled while "
-            "the pinned Prefect offline migration dry-run defect is unresolved."
+            "retries, scheduling, and automatic startup remain disabled. The "
+            "pinned Prefect 3.8.4 offline dry-run defect now has a version-bounded "
+            "operational exception backed by online migration, exact head, "
+            "state-invariant, and synthetic acceptance evidence."
         ),
     ),
     (

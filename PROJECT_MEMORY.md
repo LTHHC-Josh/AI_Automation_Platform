@@ -478,10 +478,13 @@ needed and the operator approves it.
   launcher. Five sequential process-worker runs completed with five tasks,
   run count one, zero retries, pool concurrency one, and healthy API/worker
   endpoints. Server, worker, and PostgreSQL were stopped afterward.
-- Prefect 3.8.4's offline `database upgrade --dry-run` remains defective at
-  historical data migration `14dc68cc5853` because the offline result is null.
-  Real migrations succeeded, but this dry-run gate needs a supported resolution
-  or an explicitly accepted operational exception before mailbox registration.
+- Prefect 3.8.4's offline `database upgrade --dry-run` is a verified upstream
+  dry-run-only defect: Alembic emits SQL and returns no cursor result while
+  historical migration `14dc68cc5853` dereferences `result.rowcount`. Online
+  migration uses a real result and is unaffected. The database has exactly one
+  revision equal to the sole installed PostgreSQL head `9e9dadc36797`; aggregate
+  flow/task state-name invariant gaps are zero. The explicit exception applies
+  only to Prefect 3.8.4 and must be rechecked on every version change.
 
 ### Authorization
 
@@ -574,9 +577,8 @@ evidence but does not make Phase 1 live.
    small-det plus medium-rec candidate.
 7. Harden retries, restart recovery, idempotency, attachment handling, and
    mailbox handled-state ordering.
-8. Resolve the Prefect Windows/SQLite deployment-readiness locking evidence or
-   approve a PostgreSQL hosting plan, then register the already implemented
-   dormant mailbox adapter only after a separate deployment review.
+8. Review registration of the already implemented dormant mailbox adapter as
+   a separate manual-only PostgreSQL deployment checkpoint.
 9. Finish unattended Outlook/Graph ingestion behavior.
 10. Finish PHI-safe operational monitoring and readiness.
 11. Run broad representative real-document acceptance.
@@ -597,9 +599,11 @@ Current gaps and limitations include:
   only at the synthetic/mock level.
 - The PHI-safe self-hosted Prefect PostgreSQL control room and dormant
   parameterless mailbox adapter are implemented, but no mailbox deployment is
-  registered or executed. PostgreSQL removed the observed SQLite locking;
-  Prefect 3.8.4's broken offline migration dry-run remains the checkpoint gate.
-  Automatic startup, scheduling, and Prefect retries remain disabled.
+  registered or executed. PostgreSQL removed the observed SQLite locking, and
+  the Prefect 3.8.4 dry-run-only defect has a version-bounded operational
+  exception backed by online migration, head-revision, invariant, and synthetic
+  acceptance. Automatic startup, scheduling, and Prefect retries remain
+  disabled.
 - The technical Smartsheet submission-key title was supplied session-only for
   authorized read-only acceptance. Exactly one matching TEXT_NUMBER column
   exists and passes the corrected non-system-column schema gate. Controlled
@@ -676,8 +680,9 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Resolve Prefect 3.8.4's PostgreSQL offline migration dry-run defect at
-`14dc68cc5853`, or obtain an explicit operational exception based on the
-successful real migration and five-run acceptance. Do not register or run the
-dormant mailbox adapter, enable schedules/startup/Prefect retries, or permit
-unattended uncertain row or attachment retries until that gate is resolved.
+Add the existing `bounded_mailbox_flow` to `prefect.yaml` as a second
+manual-only, parameterless deployment using `lthhc-local-process`, concurrency
+one, no schedule, no Prefect retries, application-owned `DOWNSTREAM` review
+mode, and its existing fixed approved Run Type. Review and register it only in
+that separate checkpoint; do not execute it, enable automatic startup or
+schedules, or permit unattended uncertain row or attachment retries.

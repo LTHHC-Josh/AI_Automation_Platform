@@ -55,11 +55,15 @@ $pgServices=@(Get-Service | Where-Object { $_.Name -like 'postgresql*' }); if($p
 & '.\scripts\invoke_prefect_postgresql.ps1' -Action 'Upgrade'
 ```
 
-Prefect 3.8.4 has a confirmed upstream offline-dry-run limitation: its
-historical `14dc68cc5853` data migration dereferences a missing offline result
-object. `UpgradeDryRun` therefore fails closed on this pinned version without
-changing the database. Review that sanitized failure, then use `Upgrade` for
-the real migration; normal migration execution was validated successfully.
+Prefect 3.8.4 has a confirmed upstream dry-run-only limitation: Alembic offline
+execution emits SQL and returns no cursor result, while historical migration
+`14dc68cc5853` unconditionally dereferences `result.rowcount`.
+`UpgradeDryRun` therefore fails closed on this pinned version without changing
+the database. Online migration uses a real PostgreSQL result and completed
+successfully. The accepted operational exception requires exactly one database
+revision equal to the installed PostgreSQL head `9e9dadc36797`, zero affected
+flow/task state-name invariant gaps, and successful synthetic PostgreSQL
+acceptance. The exception must be rechecked on every Prefect version change.
 
 The prior SQLite database remains untouched under the operator's local
 Prefect home as a rollback artifact. Its synthetic history is not migrated.
@@ -116,5 +120,6 @@ $pgServices=@(Get-Service | Where-Object { $_.Name -like 'postgresql*' }); if($p
 
 PostgreSQL is now the supported local Prefect control-plane database. SQLite
 startup guidance is retired. The dormant mailbox adapter remains absent from
-`prefect.yaml`; do not register it until the dry-run limitation has a supported
-resolution or an explicitly accepted operational exception.
+`prefect.yaml`. The Prefect 3.8.4 dry-run limitation is covered only by the
+version-bounded operational exception above; mailbox registration remains a
+separate manual-only deployment checkpoint.
