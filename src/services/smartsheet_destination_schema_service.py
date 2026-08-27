@@ -24,6 +24,35 @@ class SmartsheetDestinationSchemaService:
     document paths, or patient data are returned or logged.
     """
 
+    SYSTEM_COLUMN_TYPES = frozenset({
+        "AUTO_NUMBER",
+        "CREATED_BY",
+        "CREATED_DATE",
+        "MODIFIED_BY",
+        "MODIFIED_DATE",
+    })
+
+    @classmethod
+    def system_column_type_category(
+        cls,
+        value: Any,
+    ) -> str:
+        """Normalize SDK wrapper values without relying on wrapper truthiness."""
+        normalized = str(value).strip().upper()
+        if normalized in {"", "NONE", "NULL"}:
+            return "none"
+        if normalized in cls.SYSTEM_COLUMN_TYPES:
+            return normalized
+        return "unexpected"
+
+    @classmethod
+    def is_system_column_type(
+        cls,
+        value: Any,
+    ) -> bool:
+        """Return whether normalized metadata designates a system column."""
+        return cls.system_column_type_category(value) != "none"
+
     def __init__(
         self,
         *,

@@ -11,6 +11,17 @@ passed = 0
 failed = 0
 
 
+class TruthySystemColumnType:
+    def __init__(self, normalized_value):
+        self.normalized_value = normalized_value
+
+    def __bool__(self):
+        return True
+
+    def __str__(self):
+        return str(self.normalized_value)
+
+
 class RecordingClient:
     def __init__(
         self,
@@ -333,6 +344,31 @@ def test_result_contract_is_phi_safe():
     )
 
 
+def test_truthy_none_wrapper_is_not_a_system_column():
+    value = TruthySystemColumnType(None)
+    assert bool(value) is True
+    assert SmartsheetDestinationSchemaService.system_column_type_category(value) == "none"
+    assert SmartsheetDestinationSchemaService.is_system_column_type(value) is False
+
+
+def test_truthy_auto_number_wrapper_is_a_system_column():
+    value = TruthySystemColumnType("AUTO_NUMBER")
+    assert SmartsheetDestinationSchemaService.system_column_type_category(value) == "AUTO_NUMBER"
+    assert SmartsheetDestinationSchemaService.is_system_column_type(value) is True
+
+
+def test_other_supported_wrappers_are_system_columns():
+    for category in ("CREATED_BY", "CREATED_DATE", "MODIFIED_BY", "MODIFIED_DATE"):
+        value = TruthySystemColumnType(category)
+        assert SmartsheetDestinationSchemaService.system_column_type_category(value) == category
+        assert SmartsheetDestinationSchemaService.is_system_column_type(value) is True
+
+
+def test_plain_none_is_not_a_system_column():
+    assert SmartsheetDestinationSchemaService.system_column_type_category(None) == "none"
+    assert SmartsheetDestinationSchemaService.is_system_column_type(None) is False
+
+
 print(
     "=" * 60
 )
@@ -396,6 +432,26 @@ run_test(
 run_test(
     "result contract is PHI-safe",
     test_result_contract_is_phi_safe,
+)
+
+run_test(
+    "truthy normalized-None wrapper is not a system column",
+    test_truthy_none_wrapper_is_not_a_system_column,
+)
+
+run_test(
+    "AUTO_NUMBER wrapper is a system column",
+    test_truthy_auto_number_wrapper_is_a_system_column,
+)
+
+run_test(
+    "other supported wrappers are system columns",
+    test_other_supported_wrappers_are_system_columns,
+)
+
+run_test(
+    "plain None is not a system column",
+    test_plain_none_is_not_a_system_column,
 )
 
 print()

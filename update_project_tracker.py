@@ -7941,6 +7941,52 @@ safe test row before attachment-metadata acceptance. Any later read-after-write
 acceptance still requires explicit authorization for a PHI-free synthetic row,
 optional synthetic attachment, response-loss simulation, and cleanup.
 
+
+------------------------------------------------------------
+SMARTSHEET SYSTEM-COLUMN CLASSIFICATION CORRECTION - 2026-08-27
+------------------------------------------------------------
+
+Work completed:
+
+- Replaced SDK-wrapper truthiness in the read-only schema acceptance boundary
+  with deterministic normalized-value classification.
+- A truthy wrapper whose normalized content is None now means no system-column
+  designation. AUTO_NUMBER, CREATED_BY, CREATED_DATE, MODIFIED_BY, and
+  MODIFIED_DATE remain system-column designations; unexpected nonempty values
+  fail conservatively as present.
+- No title-specific logic, row/attachment behavior, mapping, write, recovery,
+  retry, schema mutation, or external-write behavior changed.
+
+Files:
+
+- PROJECT_MEMORY.md
+- src/services/smartsheet_destination_schema_service.py
+- tests/test_smartsheet_destination_schema_service.py
+- update_project_tracker.py
+
+Verification:
+
+- Modified Python files compiled successfully.
+- Focused and affected synthetic deterministic/mock checks: 93 passed, 0
+  failed.
+- Live columns-metadata-only acceptance resolved exactly one exact-title
+  column, confirmed acceptable TEXT_NUMBER type, classified normalized system
+  metadata as absent, and passed the corrected schema gate.
+- No row, attachment, create, update, delete, upload, Graph, OCR/Paddle,
+  Ollama, patient-document, or Prefect operation occurred.
+- PHI-safe live output contained only booleans and allowlisted categories; no
+  titles, IDs, keys, values, credentials, tokens, or provider objects were
+  emitted.
+
+Limitations and exact next starting point:
+
+- Exact-key and attachment-metadata live acceptance remain incomplete.
+- Perform existing-value exact-key acceptance using only the validated
+  technical column and without printing or persisting values or row references.
+- Independently designate a safe test row before attachment-metadata acceptance.
+- Read-after-write and uncertain-outcome behavior still require separate
+  explicit authorization before any unattended uncertain retry policy.
+
 """
 
 
@@ -8319,7 +8365,10 @@ updates = [
             "pending. A separate read-only incorrect-AI feedback boundary now "
             "stores idempotent protected comment snapshots behind injected "
             "readers; live checkbox normalization and adapter wiring remain "
-            "pending approval and inspection."
+            "pending approval and inspection. The technical submission-key "
+            "column now passes corrected live columns-only type and non-system "
+            "metadata acceptance; exact-key, attachment-metadata, and "
+            "read-after-write acceptance remain pending."
         ),
     ),
     (
