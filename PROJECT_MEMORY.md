@@ -51,11 +51,21 @@ approved email/fax/document sources
 
 ## Intended Phase 1 Production Runtime
 
-Prefect is the intended Phase 1 production orchestration/control-plane
-candidate unless a later repository-level fit assessment finds a material
-blocker. Prefer self-hosted Prefect inside the approved LTHHC environment for
-Phase 1. Do not depend on Prefect Cloud unless it is separately reviewed and
-approved.
+Prefect 3.8.4 passed the repository-level architectural fit assessment and a
+PHI-safe self-hosted development control-room acceptance on the Windows host.
+It remains the intended Phase 1 orchestration/control-plane candidate, not an
+application state or business-logic layer. Prefer self-hosted Prefect inside
+the approved LTHHC environment. Do not depend on Prefect Cloud unless it is
+separately reviewed and approved.
+
+The accepted development topology is one localhost server/UI, the default
+local SQLite database, one process work pool with concurrency one, one process
+worker, and manual synthetic runs only. Prefect 3.8.4 emitted repeated
+non-fatal SQLite database-lock errors from deployment-readiness updates during
+worker polling even though both synthetic runs completed and UI/API/worker
+health endpoints remained healthy. SQLite is therefore sufficient only for
+this manual development checkpoint. Resolve the locking behavior or separately
+review PostgreSQL before scheduling or always-on production use.
 
 Target live architecture:
 
@@ -389,6 +399,9 @@ needed and the operator approves it.
   evaluation.
 - Validated business-reference workbook boundary and deterministic filename
   policy/input services. Production filename orchestration remains disabled.
+- Prefect 3.8.4 pinned with a self-hosted localhost server/UI, native process
+  work pool/worker, versioned synthetic deployment, PHI-safe flow/task, and
+  copy/paste-verified Windows operator guide. No production callable is wired.
 
 ## Verified Current Baselines
 
@@ -428,6 +441,27 @@ needed and the operator approves it.
   cleanup verification returned zero matches.
 - Graph security and mailbox diagnostic regressions remain synthetic/mock for
   negative authentication and legacy live-output cases.
+
+### Prefect Development Control Room
+
+- Prefect 3.8.4 was installed in the Python 3.13.14 project virtual
+  environment and passed dependency validation.
+- The installed CLI help verified the documented profile, configuration,
+  server, pool, concurrency, deployment, worker, and run command signatures.
+  UTF-8 output and explicit per-command profile selection are required for
+  copy/paste-safe PowerShell 5.1 startup from a stopped system.
+- Five focused synthetic checks passed. Two manual localhost process-worker
+  runs reached Completed with one flow and one task; UI, API, and worker-health
+  endpoints returned success. No Graph, Smartsheet, OCR/Paddle, Ollama,
+  patient-document, or production mailbox operation occurred.
+- Full-orchestration, durable recovery, mailbox-handling, partial-success, and
+  automatic-write regressions passed. The older persistent-idempotency script
+  is stale against the current attachment and delayed-completion interfaces
+  and failed at its first legacy assertion; current mailbox handling and
+  durable-recovery suites remain the authoritative passing coverage.
+- Repeated non-fatal SQLite deployment-readiness lock errors prevent treating
+  this as always-on or production-hosting acceptance. The worker and server
+  were stopped cleanly after the bounded acceptance.
 
 ### Authorization
 
@@ -520,9 +554,9 @@ evidence but does not make Phase 1 live.
    small-det plus medium-rec candidate.
 7. Harden retries, restart recovery, idempotency, attachment handling, and
    mailbox handled-state ordering.
-8. Perform a repository-level Prefect integration/fit assessment and add
-   self-hosted Prefect as the production orchestration/control plane if no
-   material blocker is found.
+8. Resolve the Prefect Windows/SQLite deployment-readiness locking evidence or
+   approve a PostgreSQL hosting plan, then add only the application-owned
+   noninteractive/retry-disposition adapter before scheduling.
 9. Finish unattended Outlook/Graph ingestion behavior.
 10. Finish PHI-safe operational monitoring and readiness.
 11. Run broad representative real-document acceptance.
@@ -541,9 +575,11 @@ Current gaps and limitations include:
   SDK checkbox normalization, or production caller is implemented. The local
   injected-reader ingestion and protected case-storage boundary is complete
   only at the synthetic/mock level.
-- Prefect fit/integration, the self-hosted control plane, automatic worker
-  startup, and always-on Windows deployment are intended roadmap work and are
-  not implemented current capabilities.
+- The PHI-safe self-hosted Prefect development control room is implemented,
+  but the production application callable is not connected. Its current
+  interactive feedback tail and missing authoritative retry disposition must
+  be resolved in application code before wrapping. Repeated SQLite lock errors
+  also block automatic worker startup, scheduling, and always-on deployment.
 - The technical Smartsheet submission-key title was supplied session-only for
   authorized read-only acceptance. Exactly one matching TEXT_NUMBER column
   exists and passes the corrected non-system-column schema gate. Controlled
@@ -620,8 +656,9 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Perform a repository-level Prefect integration and fit assessment against the
-existing processor entry points, durable job state, Windows runtime, PHI-safe
-diagnostics, and retry boundaries. Plan the smallest self-hosted adapter without
-rewriting processing services. Keep unattended uncertain row and attachment
-retries disabled; the single synthetic acceptance does not authorize them.
+Perform a PHI-free Prefect persistence decision checkpoint: reproduce and
+isolate the Prefect 3.8.4 Windows/SQLite deployment-readiness lock behavior,
+then either prove a clean supported SQLite configuration or prepare a separate
+PostgreSQL hosting plan for approval. Do not connect the production mailbox
+callable, enable schedules/startup, or permit unattended uncertain row or
+attachment retries during that checkpoint.

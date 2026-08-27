@@ -1,0 +1,18 @@
+name: lthhc-ai-automation-platform
+prefect-version: 3.8.4
+build: null
+push: null
+pull: null
+deployments:
+  - name: phi-safe-local
+    description: PHI-safe local server, worker, flow, and task wiring check.
+    tags:
+      - synthetic
+      - phi-safe
+    schedule: null
+    entrypoint: src/orchestration/prefect_control_room.py:phi_safe_control_room_flow
+    parameters: {}
+    work_pool:
+      name: lthhc-local-process
+      work_queue_name: null
+      job_variables: {}

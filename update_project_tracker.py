@@ -8041,6 +8041,79 @@ Limitations and exact next starting point:
   and retry boundaries. Plan the smallest self-hosted adapter without rewriting
   processing services and keep unattended uncertain retries disabled.
 
+
+------------------------------------------------------------
+PREFECT PHI-SAFE LOCAL CONTROL ROOM - 2026-08-27
+------------------------------------------------------------
+
+Work completed:
+
+- Pinned Prefect 3.8.4 in the project dependency file and installed it in the
+  Python 3.13.14 project virtual environment.
+- Added one parameterless PHI-safe synthetic flow and one bounded synthetic
+  task with zero retries, disabled print capture, and disabled result
+  persistence. No production application service is imported or callable.
+- Added a versioned local process-pool deployment and a Windows operator guide
+  using one complete PowerShell command per physical line.
+- Verified the profile, config, server, work-pool, concurrency, deploy, worker,
+  and deployment-run syntax against installed Prefect 3.8.4 CLI help.
+- Corrected Windows CP1252 output failure with explicit UTF-8 configuration and
+  corrected first-run profile ordering by configuring the named profile before
+  using it explicitly on each command.
+- Started the localhost server/UI and native process worker, registered the
+  concurrency-one pool and synthetic deployment, completed two synthetic runs,
+  verified UI/API/worker health, and stopped both processes.
+
+Files:
+
+- PROJECT_MEMORY.md
+- docs/prefect_local_control_room.md
+- prefect.yaml
+- requirements.txt
+- src/orchestration/__init__.py
+- src/orchestration/prefect_control_room.py
+- tests/test_prefect_control_room.py
+- update_project_tracker.py
+
+Verification:
+
+- Prefect 3.8.4 resolved exactly and pip reported no broken requirements.
+- New modules and focused test compiled successfully.
+- Focused synthetic local-Prefect checks: 5 passed, 0 failed.
+- Two local self-hosted synthetic process-worker runs reached Completed; UI,
+  API, and worker-health endpoints returned success.
+- Affected mock/synthetic checks passed: full orchestration 13, durable recovery
+  8, mailbox handling 12, Smartsheet partial-success 12, and automatic-write
+  boundary 13.
+- The older persistent-idempotency script failed its first legacy assertion
+  because its mock still implements the removed attachment interface and expects
+  handled/read completion before durable business completion. No Prefect change
+  touched that behavior; current handling and recovery suites passed.
+- No Graph, Smartsheet write, OCR/Paddle, Ollama, patient document, protected
+  state enumeration, production mailbox workflow, or uncertain retry ran.
+
+Limitations:
+
+- The in-app browser surface was unavailable, so UI availability was verified
+  through its localhost HTTP endpoint plus Prefect run/pool state rather than a
+  visual browser inspection.
+- Prefect 3.8.4 repeatedly emitted non-fatal SQLite database-lock errors from
+  deployment-readiness updates during worker polling. Runs and health remained
+  successful, but SQLite is accepted only for this bounded manual checkpoint.
+- The production callable remains disconnected. Its interactive feedback tail
+  and authoritative retry-disposition contract must be addressed in application
+  code before a Prefect production wrapper.
+- No schedule, service, automatic startup, PostgreSQL, Redis, Docker, or
+  unattended uncertain-state retry was introduced.
+
+Exact next starting point:
+
+Perform a PHI-free persistence decision checkpoint for the Prefect 3.8.4
+Windows/SQLite deployment-readiness locking. Either prove a clean supported
+SQLite configuration or prepare a separate PostgreSQL hosting plan for
+approval. Keep the production callable, schedules, automatic startup, and
+unattended uncertain retries disabled.
+
 """
 
 
@@ -8189,7 +8262,12 @@ updates = [
             "INBOUND AUTH context, and Posted Date-only 2067 naming are now "
             "synthetic-tested. A separate validated-input boundary now requires "
             "dedicated evidence and approved context. Production filename wiring "
-            "remains disabled pending assembly and runtime context providers."
+            "remains disabled pending assembly and runtime context providers. "
+            "Prefect 3.8.4 now provides a PHI-safe manual localhost control-room "
+            "checkpoint with a synthetic process-worker deployment. Production "
+            "workflow wiring and automatic startup remain disabled while repeated "
+            "SQLite deployment-readiness lock errors and the application-owned "
+            "noninteractive retry-disposition boundary are unresolved."
         ),
     ),
     (
