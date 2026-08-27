@@ -34,7 +34,7 @@ PROHIBITED_IMPORT_PREFIXES = (
 )
 CRITICAL_COMMANDS = (
     " config set ",
-    " server start ",
+    "-Action 'Server'",
     " work-pool create ",
     " work-pool set-concurrency-limit ",
     " deploy --all",
@@ -104,7 +104,7 @@ def test_documented_critical_commands_are_single_line_copy_safe():
         matches = [line for line in lines if marker in line]
         assert matches, marker
         for line in matches:
-            assert line.startswith("& .\\.venv\\Scripts\\prefect.exe ")
+            assert line.startswith(("& ", "$", "1..5 "))
             assert not line.rstrip().endswith("`")
     for line in lines:
         if "`" in line and not line.lstrip().startswith("#"):

@@ -58,14 +58,12 @@ application state or business-logic layer. Prefer self-hosted Prefect inside
 the approved LTHHC environment. Do not depend on Prefect Cloud unless it is
 separately reviewed and approved.
 
-The accepted development topology is one localhost server/UI, the default
-local SQLite database, one process work pool with concurrency one, one process
-worker, and manual synthetic runs only. Prefect 3.8.4 emitted repeated
-non-fatal SQLite database-lock errors from deployment-readiness updates during
-worker polling even though both synthetic runs completed and UI/API/worker
-health endpoints remained healthy. SQLite is therefore sufficient only for
-this manual development checkpoint. Resolve the locking behavior or separately
-review PostgreSQL before scheduling or always-on production use.
+The accepted development topology is one localhost server/UI backed by native
+PostgreSQL 17.11, one process work pool with concurrency one, one process
+worker, and manual synthetic runs only. Five strictly sequential synthetic
+runs completed with one task and zero retries each; API, worker health, and
+pool readiness passed with no SQLite-locking or database operational errors.
+The prior SQLite database remains untouched only as a local rollback artifact.
 
 The application prerequisite boundary is now implemented but remains dormant:
 an explicit downstream classification-review mode, PHI-safe durable job-batch
@@ -474,9 +472,16 @@ needed and the operator approves it.
   duplicate/permanent-blocked, active-lease, and insufficient-evidence states
   remain non-retryable. The pending count is invocation-local, not global
   mailbox backlog.
-- Repeated non-fatal SQLite deployment-readiness lock errors prevent treating
-  this as always-on or production-hosting acceptance. The worker and server
-  were stopped cleanly after the bounded acceptance.
+- Native PostgreSQL 17.11 is installed as a manual-start, loopback-only service
+  with SCRAM, a least-privilege Prefect role/database, and a current-user DPAPI
+  secret boundary. Prefect reported PostgreSQL 17.11 through the process-local
+  launcher. Five sequential process-worker runs completed with five tasks,
+  run count one, zero retries, pool concurrency one, and healthy API/worker
+  endpoints. Server, worker, and PostgreSQL were stopped afterward.
+- Prefect 3.8.4's offline `database upgrade --dry-run` remains defective at
+  historical data migration `14dc68cc5853` because the offline result is null.
+  Real migrations succeeded, but this dry-run gate needs a supported resolution
+  or an explicitly accepted operational exception before mailbox registration.
 
 ### Authorization
 
@@ -590,12 +595,11 @@ Current gaps and limitations include:
   SDK checkbox normalization, or production caller is implemented. The local
   injected-reader ingestion and protected case-storage boundary is complete
   only at the synthetic/mock level.
-- The PHI-safe self-hosted Prefect development control room and dormant
+- The PHI-safe self-hosted Prefect PostgreSQL control room and dormant
   parameterless mailbox adapter are implemented, but no mailbox deployment is
-  registered or executed. Repeated SQLite lock errors block deployment
-  registration, automatic worker startup, scheduling, Prefect retries, and
-  always-on operation until a clean supported SQLite soak or separately
-  approved PostgreSQL hosting checkpoint passes.
+  registered or executed. PostgreSQL removed the observed SQLite locking;
+  Prefect 3.8.4's broken offline migration dry-run remains the checkpoint gate.
+  Automatic startup, scheduling, and Prefect retries remain disabled.
 - The technical Smartsheet submission-key title was supplied session-only for
   authorized read-only acceptance. Exactly one matching TEXT_NUMBER column
   exists and passes the corrected non-system-column schema gate. Controlled
@@ -672,9 +676,8 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Perform a PHI-free Prefect persistence decision checkpoint using the intended
-single-server/single-worker production-shaped topology: either prove a clean
-supported SQLite soak with zero lock errors or prepare a separate PostgreSQL
-hosting plan for approval. Do not register or run the dormant mailbox adapter,
-enable schedules/startup/Prefect retries, or permit unattended uncertain row or
-attachment retries during that checkpoint.
+Resolve Prefect 3.8.4's PostgreSQL offline migration dry-run defect at
+`14dc68cc5853`, or obtain an explicit operational exception based on the
+successful real migration and five-run acceptance. Do not register or run the
+dormant mailbox adapter, enable schedules/startup/Prefect retries, or permit
+unattended uncertain row or attachment retries until that gate is resolved.

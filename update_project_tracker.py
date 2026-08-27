@@ -8173,6 +8173,46 @@ SQLite soak with zero lock errors or prepare a separate PostgreSQL hosting plan
 for approval. Do not register or run the dormant mailbox adapter or enable
 schedules, startup, Prefect retries, or uncertain-state retries.
 
+
+------------------------------------------------------------
+PREFECT POSTGRESQL CONTROL PLANE - 2026-08-27
+------------------------------------------------------------
+
+Work completed:
+
+- Installed native PostgreSQL 17.11 and configured the single discovered
+  service for manual startup, localhost-only listening, port 5432, and SCRAM.
+- Created a least-privilege Prefect login/database and stored only current-user
+  DPAPI ciphertext outside the repository.
+- Added fail-closed configuration and process-local launcher scripts, a
+  password-free server profile, focused tests, and PostgreSQL operator guidance.
+- Preserved the old SQLite database as a rollback artifact and kept the dormant
+  mailbox adapter absent from prefect.yaml.
+
+Verification:
+
+- PowerShell AST parsing and affected Python compilation passed.
+- PostgreSQL-focused synthetic deterministic checks: 6 passed, 0 failed.
+- Existing synthetic Prefect checks: 5 passed, 0 failed.
+- Prefect 3.8.4 reported PostgreSQL 17.11; pip check found no broken packages.
+- Real local Prefect/PostgreSQL migration execution succeeded. Five strictly
+  sequential synthetic flows and five tasks completed with run count one, zero
+  retries, pool concurrency one/READY, and API/worker health 200.
+- Reviewed server/worker output contained no SQLite locking, sqlite3,
+  OperationalError, unexpected traceback, PHI, or protected identifiers.
+- No Graph, Smartsheet, OCR/Paddle, Ollama, patient document, mailbox adapter,
+  schedule, or external production integration ran.
+
+Limitation and exact next start:
+
+- Prefect 3.8.4 offline migration dry-run deterministically fails at historical
+  data migration 14dc68cc5853 because its offline result object is null. The
+  launcher fails closed and removes secret-bearing state; real migration and
+  runtime acceptance passed. Resolve this pinned-version dry-run defect or
+  obtain an explicit operational exception before registering the dormant
+  manual-only mailbox deployment. Keep startup, schedules, Prefect retries,
+  and unattended uncertain-state retries disabled.
+
 """
 
 
@@ -8322,13 +8362,14 @@ updates = [
             "synthetic-tested. A separate validated-input boundary now requires "
             "dedicated evidence and approved context. Production filename wiring "
             "remains disabled pending assembly and runtime context providers. "
-            "Prefect 3.8.4 now provides a PHI-safe manual localhost control-room "
-            "checkpoint with a synthetic process-worker deployment. An explicit "
+            "Prefect 3.8.4 now provides a PHI-safe manual localhost PostgreSQL "
+            "17.11 control-room checkpoint with a synthetic process-worker "
+            "deployment and five completed sequential runs. An explicit "
             "application-owned downstream-review mode, durable PHI-safe result, "
             "and parameterless one-call mailbox adapter are implemented and "
             "mock-tested but remain undeployed. Production registration, Prefect "
             "retries, scheduling, and automatic startup remain disabled while "
-            "SQLite deployment-readiness lock errors are unresolved."
+            "the pinned Prefect offline migration dry-run defect is unresolved."
         ),
     ),
     (
