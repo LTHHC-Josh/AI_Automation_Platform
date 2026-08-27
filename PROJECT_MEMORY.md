@@ -268,7 +268,9 @@ universal coverage across every future 2067 layout or subtype.
   the known row, and uncertain row/attachment outcomes remain fail-closed.
 - Durable mailbox submission requires an explicitly configured, operator-
   approved technical submission-key column with no default. The application
-  does not create or rename that column.
+  does not create or rename that column. Read-only live inspection found one
+  exact-title TEXT_NUMBER column, but it has a system-column designation and
+  therefore fails the required controlled-key schema gate.
 - Production filename wiring remains disabled unless separately approved.
   The current normal path retains the existing safe attachment filename.
 
@@ -536,9 +538,11 @@ Current gaps and limitations include:
 - Prefect fit/integration, the self-hosted control plane, automatic worker
   startup, and always-on Windows deployment are intended roadmap work and are
   not implemented current capabilities.
-- The technical Smartsheet submission-key column has not been manually
-  created or configured, so durable production mailbox writes intentionally
-  remain blocked before mapping or external writes.
+- The technical Smartsheet submission-key title was supplied session-only for
+  authorized read-only acceptance. Exactly one matching TEXT_NUMBER column
+  exists, but its system-column designation makes it unacceptable for the
+  controlled submission-key mapping. Durable production mailbox writes remain
+  intentionally blocked before mapping or external writes.
 - Live read-after-write behavior and uncertain-outcome reconciliation require
   separately authorized acceptance before any unattended uncertain retry
   policy can be considered.
@@ -609,9 +613,10 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Obtain the exact operator-approved technical submission-key column title and
-manually create that column outside application code. Then, with separate
-authorization, configure it and perform least-privilege read-only schema,
-exact-key, and attachment-metadata acceptance. Validate read-after-write and
-uncertain-outcome behavior before Prefect integration or any unattended
-uncertain retry policy. Do not create or modify the column in code.
+Resolve the live technical-column design outside application code so the exact
+approved title identifies one non-system TEXT_NUMBER column. Then rerun the
+least-privilege read-only schema gate and existing-value exact-key acceptance.
+Independently designate a safe test row before attachment-metadata acceptance.
+Read-after-write and uncertain-outcome behavior still require separate explicit
+authorization before Prefect integration or any unattended uncertain retry
+policy. Do not create or modify the column in code.

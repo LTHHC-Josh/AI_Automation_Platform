@@ -42,16 +42,16 @@ class SmartsheetDestinationSchemaService:
         self,
     ) -> SmartsheetDestinationSchemaResult:
         try:
-            sheet = self.client.get_sheet()
+            response = self.client.get_columns()
         except Exception:
             return self._failure(
                 "schema_read_failed"
             )
 
         raw_columns = getattr(
-            sheet,
-            "columns",
-            None,
+            response,
+            "data",
+            response,
         )
 
         try:

@@ -22,7 +22,7 @@ class RecordingClient:
         self.error = error
         self.call_count = 0
 
-    def get_sheet(
+    def get_columns(
         self,
     ):
         self.call_count += 1
@@ -30,9 +30,7 @@ class RecordingClient:
         if self.error is not None:
             raise self.error
 
-        return SimpleNamespace(
-            columns=self.columns
-        )
+        return SimpleNamespace(data=self.columns)
 
 
 def run_test(

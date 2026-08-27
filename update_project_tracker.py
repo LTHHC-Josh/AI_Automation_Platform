@@ -7877,6 +7877,70 @@ least-privilege live schema, exact-key, and attachment-metadata acceptance.
 Validate uncertain-outcome behavior before Prefect integration or any policy
 that permits unattended uncertain retries.
 
+
+------------------------------------------------------------
+CONTROLLED SMARTSHEET READ-ONLY RECONCILIATION - 2026-08-27
+------------------------------------------------------------
+
+Work completed:
+
+- Changed destination schema inspection from whole-sheet retrieval to the
+  Smartsheet SDK 4.3.0 columns-only boundary with include-all pagination.
+- Corrected exact technical-key lookup to use supported Get Sheet pagination,
+  request only the resolved technical column, and fail closed on invalid or
+  inconsistent sheet version, row-count, or page metadata.
+- Preserved all mapping, row/attachment write, recovery-state, retry, and
+  uncertain-outcome behavior.
+- Performed the separately authorized live read-only schema gate with the
+  approved title supplied only in the child process.
+
+Files:
+
+- PROJECT_MEMORY.md
+- src/clients/smartsheet_client.py
+- src/services/smartsheet_destination_schema_service.py
+- tests/test_smartsheet_client_read_boundaries.py
+- tests/test_smartsheet_destination_schema_service.py
+- update_project_tracker.py
+
+Verification:
+
+- Modified Python files compiled successfully.
+- Read-boundary and schema checks: 20 passed, 0 failed.
+- Recovery checks: 6 passed, 0 failed.
+- Affected configuration, destination-validation, reviewed-write,
+  automatic-write, and partial-success suites: 63 passed, 0 failed.
+- Synthetic deterministic/mock checks used only synthetic technical metadata;
+  no external API, OCR/Paddle, Ollama, Graph, or protected document operation
+  occurred during those suites.
+- Live read-only schema acceptance resolved exactly one exact-title column with
+  TEXT_NUMBER type, but detected a system-column designation and stopped before
+  row pages, exact-key lookup, or attachment metadata.
+- No Smartsheet create, update, delete, or upload method was invoked. Live
+  output contained only allowlisted booleans, categories, and timing buckets;
+  no titles, IDs, keys, values, rows, attachment names, credentials, tokens, or
+  provider errors were exposed.
+
+Limitations:
+
+- The approved technical column is not acceptable for controlled key writes
+  while it retains a system-column designation. Application code did not and
+  will not modify the column.
+- Exact-key live acceptance is not run because the schema prerequisite failed.
+- Attachment live acceptance remains blocked without an independently
+  designated safe row.
+- Read-after-write and uncertain-outcome reconciliation remain unproven, and
+  uncertain row or attachment outcomes remain prohibited from automatic retry.
+
+Exact next starting point:
+
+Resolve the live technical-column design outside application code so the exact
+approved title identifies one non-system TEXT_NUMBER column. Then rerun the
+read-only schema and existing-value exact-key gates. Independently designate a
+safe test row before attachment-metadata acceptance. Any later read-after-write
+acceptance still requires explicit authorization for a PHI-free synthetic row,
+optional synthetic attachment, response-loss simulation, and cleanup.
+
 """
 
 

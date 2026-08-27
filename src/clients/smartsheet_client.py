@@ -57,6 +57,13 @@ class SmartsheetClient:
             self.sheet_id
         )
 
+    def get_columns(self):
+        """Return only destination column metadata, never sheet rows or cells."""
+        return self.client.Sheets.get_columns(
+            self.sheet_id,
+            include_all=True,
+        )
+
     def list_columns(self):
 
         sheet = self.get_sheet()
@@ -168,19 +175,67 @@ class SmartsheetClient:
         """Return protected row IDs matching one already-resolved technical column."""
         if isinstance(column_id, bool) or not isinstance(column_id, int) or column_id <= 0:
             raise ValueError("A valid technical column ID is required.")
-        sheet = self.client.Sheets.get_sheet(
-            self.sheet_id,
-            column_ids=[column_id],
-            include_all=True,
-        )
+
         matches = []
-        for row in getattr(sheet, "rows", []) or []:
-            for cell in getattr(row, "cells", []) or []:
-                if getattr(cell, "column_id", None) == column_id and getattr(cell, "value", None) == value:
-                    row_id = getattr(row, "id", None)
-                    if isinstance(row_id, int) and not isinstance(row_id, bool) and row_id > 0:
-                        matches.append(row_id)
-                    break
+        page = 1
+        page_size = 100
+        expected_version = None
+        expected_total_row_count = None
+        rows_seen = 0
+
+        while True:
+            sheet = self.client.Sheets.get_sheet(
+                self.sheet_id,
+                column_ids=[column_id],
+                page_size=page_size,
+                page=page,
+            )
+            version = getattr(sheet, "version", None)
+            if page == 1:
+                if isinstance(version, bool) or not isinstance(version, int) or version < 0:
+                    raise RuntimeError("Paginated sheet response has an invalid version.")
+                expected_version = version
+            elif version != expected_version:
+                raise RuntimeError("Sheet version changed during paginated read.")
+
+            total_row_count = getattr(sheet, "total_row_count", None)
+            if (
+                isinstance(total_row_count, bool)
+                or not isinstance(total_row_count, int)
+                or total_row_count < 0
+            ):
+                raise RuntimeError("Paginated sheet response has an invalid row count.")
+            if page == 1:
+                expected_total_row_count = total_row_count
+            elif total_row_count != expected_total_row_count:
+                raise RuntimeError("Sheet row count changed during paginated read.")
+
+            rows = list(getattr(sheet, "rows", []) or [])
+            if rows_seen < total_row_count and not rows:
+                raise RuntimeError("Paginated sheet response ended before all rows were read.")
+
+            for row in rows:
+                for cell in getattr(row, "cells", []) or []:
+                    if (
+                        getattr(cell, "column_id", None) == column_id
+                        and getattr(cell, "value", None) == value
+                    ):
+                        row_id = getattr(row, "id", None)
+                        if (
+                            isinstance(row_id, int)
+                            and not isinstance(row_id, bool)
+                            and row_id > 0
+                        ):
+                            matches.append(row_id)
+                        break
+
+            rows_seen += len(rows)
+            if rows_seen > total_row_count:
+                raise RuntimeError("Paginated sheet response exceeded its row count.")
+            if rows_seen >= total_row_count:
+                break
+            page += 1
+
         return matches
 
     def find_row_ids_by_exact_column_title_value(self, *, column_title, value):
