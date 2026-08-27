@@ -91,3 +91,11 @@ SQLite remains acceptable only for this manual development checkpoint. Do not
 enable unattended schedules or production mailbox work until the lock behavior
 is resolved or a separately reviewed PostgreSQL deployment is accepted. Redis,
 Docker, and PostgreSQL are not introduced by this checkpoint.
+
+The dormant mailbox adapter is intentionally absent from `prefect.yaml`. It is
+not an operator command or deployment. PostgreSQL becomes mandatory if a
+supported SQLite configuration cannot complete a PHI-free production-shaped
+server/worker soak without lock errors before any mailbox deployment is
+registered, scheduled, configured for Prefect retries, started automatically,
+or run with multiple/always-on workers. The adapter may remain import- and
+mock-tested while this persistence gate is unresolved.

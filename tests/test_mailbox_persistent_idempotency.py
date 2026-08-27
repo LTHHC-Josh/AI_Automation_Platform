@@ -1,11 +1,19 @@
 ﻿from pathlib import Path
 from tempfile import TemporaryDirectory
+import hashlib
 
+from src.graph.attachment_service import (
+    SupportedAttachmentCandidateOutcome,
+    SupportedAttachmentDownloadResult,
+)
 from src.graph.mailbox_processor import (
     MailboxProcessor,
 )
 from src.services.mailbox_processing_state_service import (
     MailboxProcessingStateService,
+)
+from src.services.mailbox_document_job_state_service import (
+    MailboxDocumentJobStateService,
 )
 
 
@@ -31,17 +39,34 @@ class RecordingAttachmentService:
     def __init__(self):
         self.calls = []
 
-    def download_file_attachments(
+    def download_supported_file_attachments(
         self,
         message_id,
+        *,
+        supported_extensions,
     ):
         self.calls.append(
             message_id
         )
 
-        return [
-            Path("synthetic.pdf")
-        ]
+        file_path = Path("synthetic.pdf")
+        return SupportedAttachmentDownloadResult(
+            downloaded_files=[file_path],
+            candidate_outcomes=[
+                SupportedAttachmentCandidateOutcome(
+                    local_path=file_path,
+                    document_fingerprint=hashlib.sha256(
+                        b"synthetic-document"
+                    ).hexdigest(),
+                    attachment_order_key=hashlib.sha256(
+                        b"synthetic-attachment"
+                    ).hexdigest(),
+                    status="downloaded",
+                )
+            ],
+            examined_count=1,
+            skipped_count=0,
+        )
 
 
 class RecordingDocumentProcessor:
@@ -81,6 +106,7 @@ def run_test(
 
 def test_handled_state_survives_new_processor_instance():
     with TemporaryDirectory() as directory:
+        state_root = Path(directory)
         message = {
             "id": "synthetic-persistent-message",
             "subject": "Synthetic subject",
@@ -101,8 +127,11 @@ def test_handled_state_survives_new_processor_instance():
             document_processor=first_documents,
             processing_state_service=(
                 MailboxProcessingStateService(
-                    directory
+                    state_root / "messages"
                 )
+            ),
+            job_state_service=MailboxDocumentJobStateService(
+                state_root / "jobs"
             ),
         )
 
@@ -113,7 +142,9 @@ def test_handled_state_survives_new_processor_instance():
         )
 
         assert first_result.succeeded is True
-        assert first_result.marked_as_read is True
+        assert first_result.marked_as_read is False
+        assert len(first_result.work_items) == 1
+        assert first_email.mark_calls == []
 
         assert first_attachments.calls == [
             "synthetic-persistent-message"
@@ -121,6 +152,23 @@ def test_handled_state_survives_new_processor_instance():
 
         assert first_documents.calls == [
             Path("synthetic.pdf")
+        ]
+
+        job_key = first_result.work_items[0].job_key
+        first_processor.job_state_service.transition(
+            job_key,
+            expected_stages={"row_write_pending"},
+            stage="row_written",
+            smartsheet_row_id=1001,
+        )
+        first_processor.job_state_service.transition(
+            job_key,
+            expected_stages={"row_written"},
+            stage="attachment_written",
+        )
+        assert first_processor.complete_message(first_result) is True
+        assert first_email.mark_calls == [
+            "synthetic-persistent-message"
         ]
 
         second_email = RecordingEmailService()
@@ -137,8 +185,11 @@ def test_handled_state_survives_new_processor_instance():
             document_processor=second_documents,
             processing_state_service=(
                 MailboxProcessingStateService(
-                    directory
+                    state_root / "messages"
                 )
+            ),
+            job_state_service=MailboxDocumentJobStateService(
+                state_root / "jobs"
             ),
         )
 

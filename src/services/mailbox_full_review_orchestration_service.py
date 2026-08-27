@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 from src.graph.mailbox_processor import (
@@ -37,6 +38,21 @@ class MailboxFullReviewOrchestrationResult:
     failed_count: int
     success: bool
     status: str
+    stage: str = "completed"
+    failure_category: str | None = None
+    retryable: bool = False
+    row_attempt_count: int | None = None
+    attachment_attempt_count: int | None = None
+    pending_document_count: int | None = None
+    completed_document_count: int = 0
+
+
+class MailboxClassificationReviewMode(str, Enum):
+    """Explicit application-owned disposition for local classification review."""
+
+    INTERACTIVE = "interactive"
+    DOWNSTREAM = "downstream"
+    DEMO_SKIP = "demo_skip"
 
 
 class MailboxFullReviewOrchestrationService:
@@ -85,7 +101,9 @@ class MailboxFullReviewOrchestrationService:
         *,
         top: Any = 10,
         created_at: Any = None,
-        skip_classification_review: bool = False,
+        review_mode: MailboxClassificationReviewMode = (
+            MailboxClassificationReviewMode.INTERACTIVE
+        ),
         run_type: str = "",
     ) -> MailboxFullReviewOrchestrationResult:
         normalized_top = self._normalize_top(
@@ -94,7 +112,14 @@ class MailboxFullReviewOrchestrationService:
 
         if normalized_top is None:
             return self._failure(
-                "invalid_top"
+                "invalid_top",
+                stage="input_validation",
+            )
+
+        if not isinstance(review_mode, MailboxClassificationReviewMode):
+            return self._failure(
+                "invalid_review_mode",
+                stage="input_validation",
             )
 
         try:
@@ -106,7 +131,8 @@ class MailboxFullReviewOrchestrationService:
             )
         except Exception:
             return self._failure(
-                "mailbox_processing_failed"
+                "mailbox_processing_failed",
+                stage="mailbox_processing",
             )
 
         try:
@@ -118,45 +144,55 @@ class MailboxFullReviewOrchestrationService:
             )
         except Exception:
             mailbox_summary = (
-                self._build_skipped_classification_result(
-                    message_results
+                self._build_noninteractive_classification_result(
+                    message_results,
+                    review_mode=MailboxClassificationReviewMode.DOWNSTREAM,
                 )
             )
-            return MailboxFullReviewOrchestrationResult(
+            return self._build_result(
+                message_results=message_results,
                 message_count=mailbox_summary.message_count,
                 document_count=mailbox_summary.document_count,
-                classification_submitted_count=0,
-                classification_cancelled_count=0,
-                approved_count=0,
-                written_count=0,
-                rejected_count=0,
-                complete_review_cancelled_count=0,
                 failed_count=1,
                 success=False,
                 status="smartsheet_submission_failed",
+                stage="business_actions",
+                failure_category="smartsheet_submission_failed",
+            )
+
+        message_error_count = sum(
+            bool(getattr(result, "errors", None))
+            for result in message_results
+        )
+
+        if complete_result.status == "no_documents" and message_error_count:
+            return self._build_result(
+                message_results=message_results,
+                message_count=complete_result.message_count,
+                document_count=0,
+                failed_count=message_error_count,
+                success=False,
+                status="mailbox_items_failed",
+                stage="mailbox_processing",
+                failure_category="mailbox_item_failed",
             )
 
         if complete_result.status == "no_documents":
-            return MailboxFullReviewOrchestrationResult(
+            return self._build_result(
+                message_results=message_results,
                 message_count=complete_result.message_count,
                 document_count=0,
-                classification_submitted_count=0,
-                classification_cancelled_count=0,
-                approved_count=0,
-                written_count=0,
-                rejected_count=0,
-                complete_review_cancelled_count=0,
                 failed_count=0,
                 success=True,
                 status="no_documents",
+                stage="completed",
             )
 
         if not complete_result.success:
-            return MailboxFullReviewOrchestrationResult(
+            return self._build_result(
+                message_results=message_results,
                 message_count=complete_result.message_count,
                 document_count=complete_result.document_count,
-                classification_submitted_count=0,
-                classification_cancelled_count=0,
                 approved_count=complete_result.approved_count,
                 written_count=complete_result.written_count,
                 rejected_count=complete_result.rejected_count,
@@ -166,40 +202,51 @@ class MailboxFullReviewOrchestrationService:
                 failed_count=complete_result.failed_count,
                 success=False,
                 status=complete_result.status,
+                stage="business_actions",
+                failure_category=complete_result.status,
             )
 
         for message_result in message_results:
             if getattr(message_result, "work_items", None):
                 if not getattr(message_result, "business_actions_completed", False):
-                    return MailboxFullReviewOrchestrationResult(
+                    return self._build_result(
+                        message_results=message_results,
                         message_count=complete_result.message_count,
                         document_count=complete_result.document_count,
-                        classification_submitted_count=0,
-                        classification_cancelled_count=0,
                         approved_count=complete_result.approved_count,
                         written_count=complete_result.written_count,
                         rejected_count=complete_result.rejected_count,
                         complete_review_cancelled_count=complete_result.cancelled_count,
                         failed_count=max(1, complete_result.failed_count),
-                        success=False, status="business_completion_incomplete",
+                        success=False,
+                        status="business_completion_incomplete",
+                        stage="business_actions",
+                        failure_category="business_completion_incomplete",
                     )
                 if not self.mailbox_processor.complete_message(message_result):
-                    return MailboxFullReviewOrchestrationResult(
+                    return self._build_result(
+                        message_results=message_results,
                         message_count=complete_result.message_count,
                         document_count=complete_result.document_count,
-                        classification_submitted_count=0,
-                        classification_cancelled_count=0,
                         approved_count=complete_result.approved_count,
                         written_count=complete_result.written_count,
                         rejected_count=complete_result.rejected_count,
                         complete_review_cancelled_count=complete_result.cancelled_count,
-                        failed_count=1, success=False, status="mailbox_completion_failed",
+                        failed_count=1,
+                        success=False,
+                        status="mailbox_completion_failed",
+                        stage="mailbox_completion",
+                        failure_category="mailbox_completion_failed",
                     )
 
-        if skip_classification_review:
+        if review_mode in {
+            MailboxClassificationReviewMode.DOWNSTREAM,
+            MailboxClassificationReviewMode.DEMO_SKIP,
+        }:
             classification_result = (
-                self._build_skipped_classification_result(
-                    message_results
+                self._build_noninteractive_classification_result(
+                    message_results,
+                    review_mode=review_mode,
                 )
             )
         else:
@@ -211,11 +258,10 @@ class MailboxFullReviewOrchestrationService:
                     )
                 )
             except Exception:
-                return MailboxFullReviewOrchestrationResult(
+                return self._build_result(
+                    message_results=message_results,
                     message_count=complete_result.message_count,
                     document_count=complete_result.document_count,
-                    classification_submitted_count=0,
-                    classification_cancelled_count=0,
                     approved_count=complete_result.approved_count,
                     written_count=complete_result.written_count,
                     rejected_count=complete_result.rejected_count,
@@ -227,10 +273,13 @@ class MailboxFullReviewOrchestrationService:
                     ),
                     success=False,
                     status="completed_with_review_failures",
+                    stage="downstream_review",
+                    failure_category="interactive_review_failed",
                 )
 
         if not classification_result.success:
-            return MailboxFullReviewOrchestrationResult(
+            return self._build_result(
+                message_results=message_results,
                 message_count=(
                     classification_result.message_count
                 ),
@@ -255,6 +304,8 @@ class MailboxFullReviewOrchestrationService:
                 ),
                 success=False,
                 status="completed_with_review_failures",
+                stage="downstream_review",
+                failure_category="interactive_review_failed",
             )
 
         failed_count = (
@@ -273,7 +324,8 @@ class MailboxFullReviewOrchestrationService:
         else:
             status = "completed"
 
-        return MailboxFullReviewOrchestrationResult(
+        return self._build_result(
+            message_results=message_results,
             message_count=(
                 classification_result.message_count
             ),
@@ -301,11 +353,15 @@ class MailboxFullReviewOrchestrationService:
             failed_count=failed_count,
             success=success,
             status=status,
+            stage="completed" if success else "downstream_review",
+            failure_category=None if success else "workflow_failed",
         )
 
     @staticmethod
-    def _build_skipped_classification_result(
+    def _build_noninteractive_classification_result(
         message_results,
+        *,
+        review_mode: MailboxClassificationReviewMode,
     ) -> MailboxReviewSessionResult:
         """
         Build a PHI-safe demo-only classification-review summary.
@@ -369,8 +425,82 @@ class MailboxFullReviewOrchestrationService:
             status=(
                 "no_documents"
                 if document_count == 0
-                else "classification_review_skipped_demo"
+                else (
+                    "classification_review_deferred_downstream"
+                    if review_mode == MailboxClassificationReviewMode.DOWNSTREAM
+                    else "classification_review_skipped_demo"
+                )
             ),
+        )
+
+    def _build_result(
+        self,
+        *,
+        message_results,
+        message_count: int,
+        document_count: int,
+        failed_count: int,
+        success: bool,
+        status: str,
+        stage: str,
+        failure_category: str | None = None,
+        classification_submitted_count: int = 0,
+        classification_cancelled_count: int = 0,
+        approved_count: int = 0,
+        written_count: int = 0,
+        rejected_count: int = 0,
+        complete_review_cancelled_count: int = 0,
+    ) -> MailboxFullReviewOrchestrationResult:
+        results = list(message_results)
+        job_keys = [
+            item.job_key
+            for result in results
+            for item in getattr(result, "work_items", [])
+        ]
+        state_service = getattr(self.mailbox_processor, "job_state_service", None)
+        summary_method = getattr(state_service, "summarize", None)
+
+        if job_keys and callable(summary_method):
+            summary = summary_method(job_keys)
+            row_attempt_count = summary.row_attempt_count
+            attachment_attempt_count = summary.attachment_attempt_count
+            pending_document_count = summary.pending_document_count
+            completed_document_count = summary.completed_document_count
+            if not summary.success or summary.pending_document_count:
+                failure_category = summary.failure_category or failure_category
+            retryable = bool(not success and summary.success and summary.retryable)
+        elif not job_keys and document_count == 0 and not failed_count:
+            row_attempt_count = 0
+            attachment_attempt_count = 0
+            pending_document_count = 0
+            completed_document_count = 0
+            retryable = False
+        else:
+            row_attempt_count = None
+            attachment_attempt_count = None
+            pending_document_count = None
+            completed_document_count = 0
+            retryable = False
+
+        return MailboxFullReviewOrchestrationResult(
+            message_count=message_count,
+            document_count=document_count,
+            classification_submitted_count=classification_submitted_count,
+            classification_cancelled_count=classification_cancelled_count,
+            approved_count=approved_count,
+            written_count=written_count,
+            rejected_count=rejected_count,
+            complete_review_cancelled_count=complete_review_cancelled_count,
+            failed_count=failed_count,
+            success=success,
+            status=status,
+            stage=stage,
+            failure_category=None if success else failure_category,
+            retryable=retryable,
+            row_attempt_count=row_attempt_count,
+            attachment_attempt_count=attachment_attempt_count,
+            pending_document_count=pending_document_count,
+            completed_document_count=completed_document_count,
         )
 
     @staticmethod
@@ -398,6 +528,8 @@ class MailboxFullReviewOrchestrationService:
     @staticmethod
     def _failure(
         status: str,
+        *,
+        stage: str = "completed",
     ) -> MailboxFullReviewOrchestrationResult:
         return MailboxFullReviewOrchestrationResult(
             message_count=0,
@@ -411,4 +543,6 @@ class MailboxFullReviewOrchestrationService:
             failed_count=0,
             success=False,
             status=status,
+            stage=stage,
+            failure_category=status,
         )

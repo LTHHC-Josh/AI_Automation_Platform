@@ -8114,6 +8114,65 @@ SQLite configuration or prepare a separate PostgreSQL hosting plan for
 approval. Keep the production callable, schedules, automatic startup, and
 unattended uncertain retries disabled.
 
+
+------------------------------------------------------------
+PREFECT MAILBOX APPLICATION BOUNDARY - 2026-08-27
+------------------------------------------------------------
+
+Work completed:
+
+- Reconciled the stale cross-instance mailbox idempotency regression to the
+  current supported-attachment and delayed handled/read completion contracts.
+- Added explicit interactive, downstream, and demo classification-review modes.
+  Downstream mode leaves review as downstream exception handling and does not
+  invoke the local interactive classification-feedback tail.
+- Added an application-owned PHI-safe durable job-batch summary with aggregate
+  row/attachment attempts, bounded completion/pending counts, sanitized failure
+  category, and fail-closed retryability.
+- Added a parameterless one-call Prefect mailbox adapter with zero retries,
+  disabled result persistence/print capture, sanitized exceptions, and fixed
+  approved Run Type `Prefect bounded mailbox orchestration`.
+- Kept the adapter absent from prefect.yaml; no mailbox deployment or schedule
+  was registered or executed.
+- Documented the exact SQLite-to-PostgreSQL production gate.
+
+Verification:
+
+- New/modified Python modules compiled successfully.
+- Prefect mailbox readiness: 8 passed, 0 failed; synthetic/mock.
+- Persistent cross-instance idempotency: 1 passed, 0 failed; synthetic local
+  durable state with mocked attachment/document boundaries.
+- Full mailbox orchestration: 13 passed, 0 failed; mock.
+- Full mailbox command: 12 passed, 0 failed; mock.
+- Affected mailbox handling, durable recovery, mailbox Smartsheet coordination,
+  partial-success, automatic-write, mapping, and synthetic Prefect regressions
+  passed with no external integration.
+- The approved fixed Run Type was accepted and preserved by the current mapping
+  contract rather than inferred or added as an environment convention.
+- No Graph, Smartsheet write, OCR/Paddle, Ollama, patient document, production
+  mailbox workflow, protected-state enumeration, schedule, or uncertain retry
+  ran.
+
+Safety and limitations:
+
+- Uncertain row/attachment outcomes, corrupt/inconsistent or unavailable state,
+  duplicate/permanent blocks, active leases, row-write pending state without a
+  durably reconstructible processed result, and insufficient evidence are all
+  non-retryable.
+- Pending/completion counts cover only explicitly selected jobs from the bounded
+  invocation and are not a global mailbox backlog.
+- The adapter is import/mock-tested only. SQLite locking remains unresolved and
+  blocks mailbox deployment registration, Prefect retries, scheduling,
+  automatic startup, multiple workers, and always-on production.
+
+Exact next starting point:
+
+Run a PHI-free Prefect persistence decision checkpoint using the intended
+single-server/single-worker production-shaped topology. Prove a supported
+SQLite soak with zero lock errors or prepare a separate PostgreSQL hosting plan
+for approval. Do not register or run the dormant mailbox adapter or enable
+schedules, startup, Prefect retries, or uncertain-state retries.
+
 """
 
 
@@ -8264,10 +8323,12 @@ updates = [
             "dedicated evidence and approved context. Production filename wiring "
             "remains disabled pending assembly and runtime context providers. "
             "Prefect 3.8.4 now provides a PHI-safe manual localhost control-room "
-            "checkpoint with a synthetic process-worker deployment. Production "
-            "workflow wiring and automatic startup remain disabled while repeated "
-            "SQLite deployment-readiness lock errors and the application-owned "
-            "noninteractive retry-disposition boundary are unresolved."
+            "checkpoint with a synthetic process-worker deployment. An explicit "
+            "application-owned downstream-review mode, durable PHI-safe result, "
+            "and parameterless one-call mailbox adapter are implemented and "
+            "mock-tested but remain undeployed. Production registration, Prefect "
+            "retries, scheduling, and automatic startup remain disabled while "
+            "SQLite deployment-readiness lock errors are unresolved."
         ),
     ),
     (

@@ -67,6 +67,13 @@ health endpoints remained healthy. SQLite is therefore sufficient only for
 this manual development checkpoint. Resolve the locking behavior or separately
 review PostgreSQL before scheduling or always-on production use.
 
+The application prerequisite boundary is now implemented but remains dormant:
+an explicit downstream classification-review mode, PHI-safe durable job-batch
+summary, and parameterless one-call Prefect adapter exist without a deployment.
+The adapter uses the explicit PHI-safe operator-purpose Run Type `Prefect
+bounded mailbox orchestration`; it is not registered in `prefect.yaml` and has
+zero Prefect retries.
+
 Target live architecture:
 
 Windows production AI host
@@ -401,7 +408,9 @@ needed and the operator approves it.
   policy/input services. Production filename orchestration remains disabled.
 - Prefect 3.8.4 pinned with a self-hosted localhost server/UI, native process
   work pool/worker, versioned synthetic deployment, PHI-safe flow/task, and
-  copy/paste-verified Windows operator guide. No production callable is wired.
+  copy/paste-verified Windows operator guide. A parameterless mailbox adapter
+  is import/mock-tested but remains undeployed and has never invoked the live
+  production workflow.
 
 ## Verified Current Baselines
 
@@ -456,9 +465,15 @@ needed and the operator approves it.
   patient-document, or production mailbox operation occurred.
 - Full-orchestration, durable recovery, mailbox-handling, partial-success, and
   automatic-write regressions passed. The older persistent-idempotency script
-  is stale against the current attachment and delayed-completion interfaces
-  and failed at its first legacy assertion; current mailbox handling and
-  durable-recovery suites remain the authoritative passing coverage.
+  was reconciled to the current supported-attachment and delayed-completion
+  interfaces and now proves handled-state survival across processor instances
+  only after durable attachment completion.
+- The application now returns allowlisted stage/status, sanitized failure
+  category, fail-closed retryability, bounded durable attempt totals, and
+  bounded completion/pending counts. Uncertain, corrupt/inconsistent,
+  duplicate/permanent-blocked, active-lease, and insufficient-evidence states
+  remain non-retryable. The pending count is invocation-local, not global
+  mailbox backlog.
 - Repeated non-fatal SQLite deployment-readiness lock errors prevent treating
   this as always-on or production-hosting acceptance. The worker and server
   were stopped cleanly after the bounded acceptance.
@@ -555,8 +570,8 @@ evidence but does not make Phase 1 live.
 7. Harden retries, restart recovery, idempotency, attachment handling, and
    mailbox handled-state ordering.
 8. Resolve the Prefect Windows/SQLite deployment-readiness locking evidence or
-   approve a PostgreSQL hosting plan, then add only the application-owned
-   noninteractive/retry-disposition adapter before scheduling.
+   approve a PostgreSQL hosting plan, then register the already implemented
+   dormant mailbox adapter only after a separate deployment review.
 9. Finish unattended Outlook/Graph ingestion behavior.
 10. Finish PHI-safe operational monitoring and readiness.
 11. Run broad representative real-document acceptance.
@@ -575,11 +590,12 @@ Current gaps and limitations include:
   SDK checkbox normalization, or production caller is implemented. The local
   injected-reader ingestion and protected case-storage boundary is complete
   only at the synthetic/mock level.
-- The PHI-safe self-hosted Prefect development control room is implemented,
-  but the production application callable is not connected. Its current
-  interactive feedback tail and missing authoritative retry disposition must
-  be resolved in application code before wrapping. Repeated SQLite lock errors
-  also block automatic worker startup, scheduling, and always-on deployment.
+- The PHI-safe self-hosted Prefect development control room and dormant
+  parameterless mailbox adapter are implemented, but no mailbox deployment is
+  registered or executed. Repeated SQLite lock errors block deployment
+  registration, automatic worker startup, scheduling, Prefect retries, and
+  always-on operation until a clean supported SQLite soak or separately
+  approved PostgreSQL hosting checkpoint passes.
 - The technical Smartsheet submission-key title was supplied session-only for
   authorized read-only acceptance. Exactly one matching TEXT_NUMBER column
   exists and passes the corrected non-system-column schema gate. Controlled
@@ -656,9 +672,9 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Perform a PHI-free Prefect persistence decision checkpoint: reproduce and
-isolate the Prefect 3.8.4 Windows/SQLite deployment-readiness lock behavior,
-then either prove a clean supported SQLite configuration or prepare a separate
-PostgreSQL hosting plan for approval. Do not connect the production mailbox
-callable, enable schedules/startup, or permit unattended uncertain row or
+Perform a PHI-free Prefect persistence decision checkpoint using the intended
+single-server/single-worker production-shaped topology: either prove a clean
+supported SQLite soak with zero lock errors or prepare a separate PostgreSQL
+hosting plan for approval. Do not register or run the dormant mailbox adapter,
+enable schedules/startup/Prefect retries, or permit unattended uncertain row or
 attachment retries during that checkpoint.

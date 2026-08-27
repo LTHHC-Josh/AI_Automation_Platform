@@ -56,6 +56,20 @@ class MailboxDocumentJobStateResult:
     state: MailboxDocumentJobState | None = field(default=None, repr=False)
 
 
+@dataclass(frozen=True)
+class MailboxDocumentJobBatchSummary:
+    """PHI-safe aggregate derived from explicitly selected durable jobs."""
+
+    completed_document_count: int
+    pending_document_count: int | None
+    row_attempt_count: int | None
+    attachment_attempt_count: int | None
+    failure_category: str | None
+    retryable: bool
+    success: bool
+    status: str
+
+
 class MailboxDocumentJobStateService:
     SCHEMA_VERSION = 1
     DEFAULT_STATE_DIR = Path("data/mailbox_processing_state/jobs")
@@ -118,6 +132,56 @@ class MailboxDocumentJobStateService:
     def acquire_processing_lease(self, job_key: str) -> MailboxDocumentJobStateResult:
         return self._mutate(job_key, self._acquire_lease)
 
+    def summarize(self, job_keys) -> MailboxDocumentJobBatchSummary:
+        """Summarize only the supplied durable jobs without directory enumeration."""
+        try:
+            keys = list(dict.fromkeys(job_keys))
+        except (TypeError, ValueError):
+            return self._summary_failure("invalid_job_keys")
+        if any(not self._valid_digest(key) for key in keys):
+            return self._summary_failure("invalid_job_key")
+
+        states = []
+        for key in keys:
+            loaded = self.load(key)
+            if not loaded.success or loaded.state is None:
+                return self._summary_failure(loaded.status)
+            states.append(loaded.state)
+
+        completed = sum(state.stage == "attachment_written" for state in states)
+        pending = len(states) - completed
+        row_attempts = sum(state.row_attempt_count for state in states)
+        attachment_attempts = sum(state.attachment_attempt_count for state in states)
+        categories = []
+        retryable = bool(pending)
+
+        for state in states:
+            if state.stage == "attachment_written":
+                continue
+            category, state_retryable = self._state_retry_disposition(state)
+            categories.append(category)
+            if not state_retryable:
+                retryable = False
+
+        distinct_categories = list(dict.fromkeys(categories))
+        if not distinct_categories:
+            failure_category = None
+        elif len(distinct_categories) == 1:
+            failure_category = distinct_categories[0]
+        else:
+            failure_category = "multiple_failures"
+
+        return MailboxDocumentJobBatchSummary(
+            completed_document_count=completed,
+            pending_document_count=pending,
+            row_attempt_count=row_attempts,
+            attachment_attempt_count=attachment_attempts,
+            failure_category=failure_category,
+            retryable=retryable,
+            success=True,
+            status="ready",
+        )
+
     def transition(self, job_key: str, *, expected_stages: set[str], stage: str,
                    lease_token: str | None = None, smartsheet_row_id: int | None = None,
                    failure_category: str | None = None, retryable: bool | None = None,
@@ -158,6 +222,40 @@ class MailboxDocumentJobStateService:
                       lease_expires_at=(now + timedelta(seconds=self.lease_seconds)).isoformat(),
                       updated_at=now.isoformat())
         return MailboxDocumentJobState(**values)
+
+    def _state_retry_disposition(self, state: MailboxDocumentJobState):
+        if not state.retryable:
+            return (
+                state.last_failure_category or state.stage,
+                False,
+            )
+        if state.stage == "row_write_pending":
+            return "processed_result_unavailable", False
+        if state.stage in {
+            "row_write_uncertain",
+            "attachment_write_uncertain",
+            "blocked_permanent",
+        }:
+            return state.last_failure_category or state.stage, False
+        if state.stage == "processing" and self._lease_is_active(state):
+            return "processing_lease_active", False
+        if state.stage in {
+            "discovered",
+            "processing",
+            "row_written",
+            "attachment_write_pending",
+        }:
+            return "work_pending", True
+        return "retryability_unresolved", False
+
+    @staticmethod
+    def _lease_is_active(state: MailboxDocumentJobState) -> bool:
+        if not state.lease_token or not state.lease_expires_at:
+            return False
+        try:
+            return datetime.fromisoformat(state.lease_expires_at) > datetime.now(timezone.utc)
+        except ValueError:
+            return True
 
     def _mutate(self, job_key: str, operation) -> MailboxDocumentJobStateResult:
         if not self._valid_digest(job_key):
@@ -253,3 +351,16 @@ class MailboxDocumentJobStateService:
     @staticmethod
     def _failure(status: str) -> MailboxDocumentJobStateResult:
         return MailboxDocumentJobStateResult(False, status, None)
+
+    @staticmethod
+    def _summary_failure(status: str) -> MailboxDocumentJobBatchSummary:
+        return MailboxDocumentJobBatchSummary(
+            completed_document_count=0,
+            pending_document_count=None,
+            row_attempt_count=None,
+            attachment_attempt_count=None,
+            failure_category=str(status),
+            retryable=False,
+            success=False,
+            status=str(status),
+        )

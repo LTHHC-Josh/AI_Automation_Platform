@@ -8,6 +8,7 @@ from src.services.mailbox_complete_review_smartsheet_service import (
     MailboxCompleteReviewSmartsheetResult,
 )
 from src.services.mailbox_full_review_orchestration_service import (
+    MailboxClassificationReviewMode,
     MailboxFullReviewOrchestrationResult,
     MailboxFullReviewOrchestrationService,
 )
@@ -293,7 +294,7 @@ def test_demo_skip_bypasses_classification_review_only():
     )
 
     result = service.run(
-        skip_classification_review=True
+        review_mode=MailboxClassificationReviewMode.DEMO_SKIP
     )
 
     assert classification.calls == []
@@ -732,6 +733,13 @@ def test_result_contract_is_phi_safe():
         "failed_count",
         "success",
         "status",
+        "stage",
+        "failure_category",
+        "retryable",
+        "row_attempt_count",
+        "attachment_attempt_count",
+        "pending_document_count",
+        "completed_document_count",
     }
 
     prohibited_names = {

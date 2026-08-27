@@ -1,4 +1,5 @@
 from src.services.mailbox_full_review_orchestration_service import (
+    MailboxClassificationReviewMode,
     MailboxFullReviewOrchestrationResult,
 )
 from src.ui.mailbox_full_review_command import (
@@ -44,16 +45,14 @@ class RecordingOrchestrationService:
         *,
         top=10,
         created_at=None,
-        skip_classification_review=False,
+        review_mode=MailboxClassificationReviewMode.INTERACTIVE,
         run_type="",
     ):
         self.calls.append(
             {
                 "top": top,
                 "created_at": created_at,
-                "skip_classification_review": (
-                    skip_classification_review
-                ),
+                "review_mode": review_mode,
                 "run_type": run_type,
             }
         )
@@ -137,7 +136,7 @@ def test_command_calls_full_orchestration_once():
         {
             "top": 4,
             "created_at": TIMESTAMP,
-            "skip_classification_review": False,
+            "review_mode": MailboxClassificationReviewMode.INTERACTIVE,
             "run_type": "",
         }
     ]
@@ -301,7 +300,7 @@ def test_demo_skip_flag_reaches_orchestration():
 
     result = command.run(
         top=5,
-        skip_classification_review=True,
+        review_mode=MailboxClassificationReviewMode.DEMO_SKIP,
     )
 
     assert result.success is True
@@ -310,7 +309,7 @@ def test_demo_skip_flag_reaches_orchestration():
         {
             "top": 5,
             "created_at": None,
-            "skip_classification_review": True,
+            "review_mode": MailboxClassificationReviewMode.DEMO_SKIP,
             "run_type": "",
         }
     ]
@@ -337,6 +336,35 @@ def test_demo_skip_flag_reaches_orchestration():
         arguments.demo_skip_classification_review
         is True
     )
+
+
+def test_downstream_mode_is_explicit_and_mutually_exclusive_with_demo():
+    parser = build_argument_parser()
+    arguments = parser.parse_args(
+        [
+            "--classification-review-mode",
+            "downstream",
+            "--run-type",
+            "Synthetic downstream mode",
+        ]
+    )
+    assert arguments.classification_review_mode == "downstream"
+    assert arguments.demo_skip_classification_review is False
+
+    try:
+        parser.parse_args(
+            [
+                "--classification-review-mode",
+                "downstream",
+                "--demo-skip-classification-review",
+                "--run-type",
+                "Synthetic invalid combined mode",
+            ]
+        )
+    except SystemExit as error:
+        assert error.code == 2
+    else:
+        raise AssertionError("Review modes must be mutually exclusive.")
 
 
 def test_complete_review_approval_option_is_absent():
@@ -407,9 +435,9 @@ def test_command_does_not_construct_workflow_data():
 
     assert (
         orchestration.calls[0][
-            "skip_classification_review"
+            "review_mode"
         ]
-        is False
+        == MailboxClassificationReviewMode.INTERACTIVE
     )
 
 
@@ -470,6 +498,11 @@ run_test(
 run_test(
     "demo skip flag reaches orchestration",
     test_demo_skip_flag_reaches_orchestration,
+)
+
+run_test(
+    "downstream mode is explicit and demo-exclusive",
+    test_downstream_mode_is_explicit_and_mutually_exclusive_with_demo,
 )
 
 run_test(

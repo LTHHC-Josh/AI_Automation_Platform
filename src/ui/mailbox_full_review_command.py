@@ -3,6 +3,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from src.services.mailbox_full_review_orchestration_service import (
+    MailboxClassificationReviewMode,
     MailboxFullReviewOrchestrationResult,
     MailboxFullReviewOrchestrationService,
 )
@@ -40,15 +41,15 @@ class MailboxFullReviewCommand:
         *,
         top: Any = 10,
         created_at: Any = None,
-        skip_classification_review: bool = False,
+        review_mode: MailboxClassificationReviewMode = (
+            MailboxClassificationReviewMode.INTERACTIVE
+        ),
         run_type: str = "",
     ) -> MailboxFullReviewOrchestrationResult:
         result = self.orchestration_service.run(
             top=top,
             created_at=created_at,
-            skip_classification_review=(
-                skip_classification_review
-            ),
+            review_mode=review_mode,
             run_type=run_type,
         )
 
@@ -72,10 +73,23 @@ class MailboxFullReviewCommand:
             f"Documents                 : {result.document_count}"
         )
 
-        if skip_classification_review:
+        if review_mode == MailboxClassificationReviewMode.DEMO_SKIP:
             self.output_writer(
                 "Demo classification review skipped: True"
             )
+
+        self.output_writer(
+            f"Stage                     : {result.stage}"
+        )
+
+        self.output_writer(
+            "Failure category          : "
+            f"{result.failure_category or ''}"
+        )
+
+        self.output_writer(
+            f"Retryable                 : {result.retryable}"
+        )
 
         self.output_writer(
             "Classification submitted  : "
@@ -134,7 +148,22 @@ def build_argument_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    parser.add_argument(
+    review_group = parser.add_mutually_exclusive_group()
+
+    review_group.add_argument(
+        "--classification-review-mode",
+        choices=(
+            MailboxClassificationReviewMode.INTERACTIVE.value,
+            MailboxClassificationReviewMode.DOWNSTREAM.value,
+        ),
+        default=MailboxClassificationReviewMode.INTERACTIVE.value,
+        help=(
+            "Choose interactive local classification feedback or explicit "
+            "downstream exception review."
+        ),
+    )
+
+    review_group.add_argument(
         "--demo-skip-classification-review",
         action="store_true",
         help=(
@@ -169,8 +198,12 @@ def main(
     result = MailboxFullReviewCommand().run(
         top=arguments.top,
         created_at=arguments.created_at,
-        skip_classification_review=(
-            arguments.demo_skip_classification_review
+        review_mode=(
+            MailboxClassificationReviewMode.DEMO_SKIP
+            if arguments.demo_skip_classification_review
+            else MailboxClassificationReviewMode(
+                arguments.classification_review_mode
+            )
         ),
         run_type=arguments.run_type,
     )
