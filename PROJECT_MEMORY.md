@@ -92,6 +92,15 @@ Prefect retries. The mailbox worker was not started, no mailbox flow was
 created, no discrepancy was found, and the temporary PostgreSQL and Prefect
 server processes were stopped after verification.
 
+A later explicitly authorized guarded acceptance stopped at preflight without
+triggering the deployment. The same-boundary worker Graph authentication gate
+passed, but the submission-key column configuration readiness boolean was
+false, so aggregate readiness was false. No mailbox flow was created, no
+mailbox content was enumerated or processed, and PostgreSQL, the Prefect
+server, and the worker were stopped. The approved submission-key setting must
+be restored only through the ignored local/process configuration boundary and
+must pass the PHI-safe readiness gate before any newly authorized acceptance.
+
 The boolean-only readiness probe now proves the running server backend from
 the server's own database-connectivity and non-secret driver settings instead
 of the client profile's local backend report. Regression coverage requires a
@@ -457,8 +466,9 @@ needed and the operator approves it.
   is import/mock-tested and registered as a manual-only deployment. One later
   real run reached application processing with one candidate message and two
   candidate documents before safe operator cancellation; the exactly-one-
-  message/exactly-one-document guard was added afterward and has not yet been
-  redeployed or exercised live.
+  message/exactly-one-document guard was added afterward, registered, and
+  verified read-only. A later guarded acceptance stopped at preflight because
+  the submission-key configuration readiness gate was false; no flow ran.
 
 ## Verified Current Baselines
 
@@ -738,10 +748,10 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Obtain separate explicit authorization for exactly one guarded real mailbox
-acceptance. Then start only the documented PostgreSQL, Prefect server, and
-same-boundary mailbox-worker launcher; require its Graph authentication gate
-and every PHI-safe mailbox readiness boolean to pass before triggering the
-parameterless `lthhc-bounded-mailbox/manual-local` deployment exactly once.
-Stop without triggering if any gate is false, and do not enable schedules,
-Prefect retries, increased concurrency, or any automatic/manual retrigger.
+Restore the approved Smartsheet submission-key column setting only in the
+existing ignored local/process configuration boundary, without exposing or
+tracking its value. Run a PHI-safe configuration-only verification proving
+that the submission-key column resolves uniquely with the required type. Do
+not start PostgreSQL, the Prefect server, the mailbox worker, enumerate mailbox
+content, or trigger a flow. Any later guarded real mailbox acceptance requires
+new separate explicit authorization and every readiness boolean true.

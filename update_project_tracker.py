@@ -8581,6 +8581,61 @@ parameterless lthhc-bounded-mailbox/manual-local deployment exactly once. Stop
 without triggering if any gate is false, and do not enable schedules, Prefect
 retries, increased concurrency, or any automatic/manual retrigger.
 
+
+------------------------------------------------------------
+GUARDED MAILBOX ACCEPTANCE PREFLIGHT STOP - 2026-08-28
+------------------------------------------------------------
+
+Outcome:
+
+- Began the explicitly authorized exactly-one guarded mailbox acceptance from
+  clean synchronized Git commit
+  299fb68b9f4868f80f41309e06b243b2f7e4c14d.
+- Confirmed the static one-message/one-document limits, zero Prefect retries,
+  parameterless manual deployment, concurrency one, and CANCEL_NEW.
+- Started only the documented PostgreSQL component, Prefect server, and
+  same-boundary mailbox-worker launcher.
+- The worker Graph authentication gate passed. The full PHI-safe readiness
+  result was false because the submission-key column configuration readiness
+  boolean was false.
+- Stopped before triggering. Deployment-trigger count was zero; no mailbox
+  flow was created, no candidate counts were produced, and the acceptance
+  guard or application pipeline did not run.
+- Stopped the worker, Prefect server, and PostgreSQL and verified all three
+  components stopped.
+
+Files:
+
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification classification and PHI handling:
+
+- Real external integration: same-boundary Graph authentication readiness and
+  approved dependency/configuration readiness only.
+- Real local integration: PostgreSQL, Prefect server, and one Prefect worker.
+- No mailbox enumeration, attachment download, OCR, Ollama processing,
+  Smartsheet write, mailbox mutation, patient-document processing, schedule,
+  retry, or deployment flow occurred.
+- Evidence retained only PHI-safe booleans, component statuses, and a zero
+  trigger count. No protected values or identifiers were retained.
+
+Limitation:
+
+- A guarded real mailbox acceptance remains unexecuted because the required
+  submission-key configuration gate did not pass. No retry or retrigger is
+  authorized by this checkpoint.
+
+Exact next starting point:
+
+Restore the approved Smartsheet submission-key column setting only in the
+existing ignored local/process configuration boundary, without exposing or
+tracking its value. Run a PHI-safe configuration-only verification proving
+that the submission-key column resolves uniquely with the required type. Do
+not start PostgreSQL, the Prefect server, the mailbox worker, enumerate mailbox
+content, or trigger a flow. Any later guarded real mailbox acceptance requires
+new separate explicit authorization and every readiness boolean true.
+
 """
 
 
