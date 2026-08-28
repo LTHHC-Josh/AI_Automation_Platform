@@ -8636,6 +8636,47 @@ not start PostgreSQL, the Prefect server, the mailbox worker, enumerate mailbox
 content, or trigger a flow. Any later guarded real mailbox acceptance requires
 new separate explicit authorization and every readiness boolean true.
 
+
+------------------------------------------------------------
+SUBMISSION-KEY CONFIGURATION-ONLY VERIFICATION - 2026-08-28
+------------------------------------------------------------
+
+Work completed:
+
+- Confirmed the exact approved submission-key column setting was restored in
+  the existing ignored local configuration boundary and became visible to the
+  existing configuration service.
+- Performed one live columns-metadata-only read through the existing
+  Smartsheet destination client.
+- Resolved exactly one configured column, verified TEXT_NUMBER type, and
+  verified that normalized system-column metadata was absent.
+
+Files:
+
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Configuration and schema boundaries: 24 passed, 0 failed; synthetic
+  deterministic/mock. No external API was called by these tests.
+- Live configuration-only verification passed every required boolean; real
+  external read-only Smartsheet columns metadata.
+- No Smartsheet row/cell read or write, attachment operation, mailbox access,
+  OCR, Ollama, PostgreSQL, Prefect server, worker, or Prefect flow ran.
+- The configured title, column identifier, credentials, tokens, provider
+  output, and unrelated configuration values were neither printed nor tracked.
+
+Exact next starting point:
+
+Obtain new separate explicit authorization for exactly one guarded real
+mailbox acceptance. Then start only the documented PostgreSQL, Prefect server,
+and same-boundary mailbox-worker launcher; require its Graph authentication
+gate and every PHI-safe mailbox readiness boolean to pass before triggering the
+parameterless lthhc-bounded-mailbox/manual-local deployment exactly once. Stop
+without triggering if any gate is false, and do not enable schedules, Prefect
+retries, increased concurrency, or any automatic/manual retrigger.
+
 """
 
 

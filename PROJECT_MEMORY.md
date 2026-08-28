@@ -100,6 +100,11 @@ mailbox content was enumerated or processed, and PostgreSQL, the Prefect
 server, and the worker were stopped. The approved submission-key setting must
 be restored only through the ignored local/process configuration boundary and
 must pass the PHI-safe readiness gate before any newly authorized acceptance.
+The exact approved setting was subsequently restored in that ignored boundary.
+A configuration-only, columns-metadata-only live verification proved that the
+setting is visible to configuration loading, resolves exactly one column, has
+`TEXT_NUMBER` type, and has no system-column designation. No row, attachment,
+mailbox, OCR, Ollama, PostgreSQL, worker, server, or Prefect flow operation ran.
 
 The boolean-only readiness probe now proves the running server backend from
 the server's own database-connectivity and non-secret driver settings instead
@@ -748,10 +753,10 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Restore the approved Smartsheet submission-key column setting only in the
-existing ignored local/process configuration boundary, without exposing or
-tracking its value. Run a PHI-safe configuration-only verification proving
-that the submission-key column resolves uniquely with the required type. Do
-not start PostgreSQL, the Prefect server, the mailbox worker, enumerate mailbox
-content, or trigger a flow. Any later guarded real mailbox acceptance requires
-new separate explicit authorization and every readiness boolean true.
+Obtain new separate explicit authorization for exactly one guarded real
+mailbox acceptance. Then start only the documented PostgreSQL, Prefect server,
+and same-boundary mailbox-worker launcher; require its Graph authentication
+gate and every PHI-safe mailbox readiness boolean to pass before triggering the
+parameterless `lthhc-bounded-mailbox/manual-local` deployment exactly once.
+Stop without triggering if any gate is false, and do not enable schedules,
+Prefect retries, increased concurrency, or any automatic/manual retrigger.
