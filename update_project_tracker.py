@@ -8251,6 +8251,56 @@ concurrency one, no schedule, no Prefect retries, application-owned DOWNSTREAM
 mode, and the existing fixed approved Run Type. Do not execute it or enable
 automatic startup, schedules, or unattended uncertain-state retries.
 
+
+------------------------------------------------------------
+PREFECT MANUAL MAILBOX REGISTRATION - 2026-08-28
+------------------------------------------------------------
+
+Work completed:
+
+- Added bounded_mailbox_flow to prefect.yaml as a second manual-only,
+  parameterless deployment on lthhc-local-process with deployment concurrency
+  one, CANCEL_NEW, no schedule, no trigger, and no Prefect retries.
+- Preserved the one-call application boundary, fixed top 10, application-owned
+  DOWNSTREAM review mode, and approved Run Type. Expanded the single Prefect log
+  record only with PHI-safe aggregate counts.
+- Added a fail-closed, no-argument readiness command whose public output is
+  limited to seven category booleans and all_ready. Live dependency probes were
+  not executed in this checkpoint.
+- Updated the PostgreSQL operator guide with registration, stop conditions,
+  exact future manual command, and PHI-safe UI expectations.
+
+Verification:
+
+- Modified Python files compiled successfully.
+- Readiness boundary: 5 passed, 0 failed; synthetic deterministic/mock.
+- Prefect mailbox boundary: 10 passed, 0 failed; synthetic deterministic/mock.
+- PostgreSQL control-plane checks: 7 passed, 0 failed; synthetic deterministic.
+- Synthetic Prefect control room: 5 passed, 0 failed. Full mailbox orchestration,
+  command, durable idempotency, handling, job recovery, automatic submission,
+  partial-success, automatic-write, and submission regressions passed without
+  external integration. pip check found no broken requirements.
+- Registered lthhc-bounded-mailbox/manual-local against Prefect 3.8.4 on
+  PostgreSQL 17.11. Read-only metadata verified the fixed entrypoint, empty
+  parameters, no schedules or automations, manual/phi-safe tags, matching pool,
+  concurrency one, CANCEL_NEW, and pool concurrency one.
+- The registered deployment has zero flow runs. No worker was started and no
+  Graph, Smartsheet, OCR/Paddle, Ollama, patient document, or mailbox operation
+  ran. Prefect and PostgreSQL were stopped; database environment settings were
+  absent after launcher cleanup.
+
+Limitation and exact next start:
+
+- The approved submission-key column setting is currently absent from local
+  configuration, so the real-run preflight must fail closed until the operator
+  supplies it without exposing its value.
+- Obtain separate explicit authorization, start the manual PostgreSQL server
+  and exactly one worker, run the boolean-only dependency preflight, require
+  every boolean true and zero existing mailbox runs, then trigger exactly one
+  manual lthhc-bounded-mailbox/manual-local run with --watch. Do not enable a
+  schedule, Prefect retry, automatic startup, second worker, or unattended
+  retry of uncertain/non-retryable application state.
+
 """
 
 
@@ -8404,9 +8454,10 @@ updates = [
             "17.11 control-room checkpoint with a synthetic process-worker "
             "deployment and five completed sequential runs. An explicit "
             "application-owned downstream-review mode, durable PHI-safe result, "
-            "and parameterless one-call mailbox adapter are implemented and "
-            "mock-tested but remain undeployed. Production registration, Prefect "
-            "retries, scheduling, and automatic startup remain disabled. The "
+            "and parameterless one-call mailbox adapter are implemented, "
+            "mock-tested, and registered as a manual-only deployment with zero "
+            "runs. Prefect retries, scheduling, and automatic startup remain "
+            "disabled. The "
             "pinned Prefect 3.8.4 offline dry-run defect now has a version-bounded "
             "operational exception backed by online migration, exact head, "
             "state-invariant, and synthetic acceptance evidence."

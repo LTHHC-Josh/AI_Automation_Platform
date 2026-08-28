@@ -1,6 +1,7 @@
 import ast
 from pathlib import Path
 import re
+import yaml
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -64,6 +65,8 @@ def test_documented_operator_commands_are_one_physical_line():
         "work-pool create 'lthhc-local-process'",
         "work-pool set-concurrency-limit 'lthhc-local-process' 1",
         "deploy --all",
+        "deploy 'src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow'",
+        "deployment inspect 'lthhc-bounded-mailbox/manual-local'",
         "worker start --pool 'lthhc-local-process'",
         "Start-Process 'http://127.0.0.1:4200'",
         "1..5 | ForEach-Object",
@@ -76,13 +79,38 @@ def test_documented_operator_commands_are_one_physical_line():
         assert not matches[0].rstrip().endswith("`")
 
 
-def test_only_synthetic_deployment_remains_registered():
+def test_synthetic_and_manual_mailbox_deployments_are_conservative():
     deployment = read(ROOT / "prefect.yaml")
-    assert deployment.count("entrypoint:") == 1
+    assert deployment.count("entrypoint:") == 2
     assert "prefect_control_room.py:phi_safe_control_room_flow" in deployment
-    assert "prefect_mailbox_workflow" not in deployment
-    assert "schedule: null" in deployment
+    assert "prefect_mailbox_workflow.py:bounded_mailbox_flow" in deployment
+    assert deployment.count("schedule: null") == 2
+    assert deployment.count("parameters: {}") == 2
+    assert "name: manual-local" in deployment
+    assert "limit: 1" in deployment
+    assert "collision_strategy: CANCEL_NEW" in deployment
     assert "retries" not in deployment
+    parsed = yaml.safe_load(deployment)
+    mailbox = parsed["deployments"][1]
+    assert mailbox == {
+        "name": "manual-local",
+        "description": (
+            "Manual-only bounded mailbox orchestration with PHI-safe "
+            "operational output."
+        ),
+        "tags": ["manual", "phi-safe"],
+        "schedule": None,
+        "concurrency_limit": {"limit": 1, "collision_strategy": "CANCEL_NEW"},
+        "entrypoint": (
+            "src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow"
+        ),
+        "parameters": {},
+        "work_pool": {
+            "name": "lthhc-local-process",
+            "work_queue_name": None,
+            "job_variables": {},
+        },
+    }
 
 
 def test_operational_exception_is_version_bounded_and_evidence_gated():
@@ -96,8 +124,10 @@ def test_operational_exception_is_version_bounded_and_evidence_gated():
         assert "version" in source.lower()
     assert "dry-run-only" in guide
     assert "must be rechecked on every Prefect version change" in guide
-    assert "bounded_mailbox_flow" in continuity
-    assert "prefect_mailbox_workflow" not in read(ROOT / "prefect.yaml")
+    assert "lthhc-bounded-mailbox/manual-local" in continuity
+    assert "prefect_mailbox_workflow.py:bounded_mailbox_flow" in read(
+        ROOT / "prefect.yaml"
+    )
 
 
 def test_tracker_and_memory_parse_without_embedded_runtime_secret():

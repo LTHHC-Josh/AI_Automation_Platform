@@ -1,9 +1,11 @@
 # Prefect Local Control Room
 
-This manual development checkpoint runs one PHI-safe synthetic deployment
-against a self-hosted Prefect 3.8.4 server whose control-plane database is
-native PostgreSQL 17.11-1. It does not call Microsoft Graph, Smartsheet,
-OCR/Paddle, Ollama, patient documents, or the dormant mailbox adapter.
+This manual development control room contains one PHI-safe synthetic
+deployment and one manual-only bounded mailbox deployment against a
+self-hosted Prefect 3.8.4 server whose control-plane database is native
+PostgreSQL 17.11-1. Registering or inspecting the mailbox deployment does not
+execute it. Microsoft Graph, Smartsheet, OCR/Paddle, Ollama, patient documents,
+and the mailbox application remain behind a separate explicit authorization.
 
 The Prefect API/UI and PostgreSQL are bound only to localhost. PostgreSQL,
 the Prefect server, and the single process worker remain manually operated.
@@ -90,6 +92,22 @@ Set-Location 'C:\Projects\LTHHC-AI-Automation-Platform'
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deploy --all
 ```
 
+For the mailbox registration checkpoint, deploy only the reviewed manual
+deployment and inspect the resulting server metadata. These commands do not
+create a flow run:
+
+```powershell
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deploy 'src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow' --name 'manual-local' --description 'Manual-only bounded mailbox orchestration with PHI-safe operational output.' --tag 'manual' --tag 'phi-safe' --pool 'lthhc-local-process' --concurrency-limit 1 --collision-strategy 'CANCEL_NEW' --no-prompt
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment inspect 'lthhc-bounded-mailbox/manual-local' --output json
+```
+
+The mailbox deployment has no schedule, trigger, or parameters. Its deployment
+concurrency is one with `CANCEL_NEW`; the process pool concurrency and worker
+limit also remain one. Its flow and task have zero Prefect retries, disabled
+print logging, and disabled result persistence. Registration must stop here
+until the operator separately authorizes a real dependency preflight and one
+mailbox run.
+
 Start exactly one worker:
 
 ```powershell
@@ -109,6 +127,57 @@ Reviewed output must contain only fixed synthetic status/timing metadata and no
 SQLite locking, `sqlite3`, database `OperationalError`, unexpected traceback,
 PHI, protected path or filename, row ID, or submission key.
 
+## Separately authorized manual mailbox acceptance
+
+Do not perform this section as part of registration. Before a separately
+authorized run, supply the approved submission-key column title through the
+worker terminal's process-local environment or ignored local configuration.
+Never paste its value into documentation, Prefect parameters, commands, logs,
+or tracked files.
+
+The readiness command returns only Graph auth/config, Smartsheet destination,
+submission-key column, OCR config/model, Ollama/model, protected local storage,
+PostgreSQL/Prefect, and aggregate `all_ready` booleans. It suppresses dependency
+output and does not enumerate the mailbox, retrieve a document, run inference,
+or perform a business write.
+
+```powershell
+$env:PYTHONPATH=(Get-Location).Path; & '.\.venv\Scripts\python.exe' '.\scripts\check_mailbox_prefect_readiness.py'; if($LASTEXITCODE -ne 0){throw 'Mailbox Prefect readiness failed.'}
+```
+
+Stop before triggering when any boolean is false; when the configured
+submission-key column is missing, invalid, ambiguous, or the wrong type; when
+the server, worker, pool, deployment, model, or protected storage is not ready;
+when either concurrency limit is not one; when a mailbox run is already
+Pending, Scheduled, or Running; or when any schedule, trigger, parameter,
+Prefect retry, non-loopback endpoint, inherited database connection setting,
+or additional online worker is present. Corrupt, inconsistent, uncertain,
+permanently blocked, actively leased, or insufficient-evidence application
+state also remains a stop condition and is never made retryable by Prefect.
+
+After every readiness boolean is true and the operator has explicitly
+authorized exactly one real run, use this command without parameters, tags,
+custom run names, or delayed start options:
+
+```powershell
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment run 'lthhc-bounded-mailbox/manual-local' --watch; if($LASTEXITCODE -ne 0){throw 'Manual bounded mailbox Prefect run failed.'}
+```
+
+The UI should show flow `lthhc-bounded-mailbox`, deployment `manual-local`, one
+`bounded-mailbox-application-run` task, zero Prefect retries, worker health,
+native timestamps/durations, and one allowlisted log record containing stage,
+status, failure category, retryable, and aggregate message/document/write/
+failure/row-attempt/attachment-attempt/pending/completed counts. Application
+success, including `no_documents`, reaches Completed; application failure
+reaches Failed with only the sanitized failure category.
+
+The UI, state, logs, exceptions, names, and parameters must never expose a
+patient/member name, sender, subject, filename or protected path, OCR or source
+text, extracted value, row ID, submission key, provider/MCO detail, payload,
+credential, token, configured model or endpoint value, or underlying
+application exception text. Application idempotency and recovery remain
+authoritative. A result with `retryable=false` is not retriggered.
+
 ## Clean shutdown
 
 Wait for the final run to reach a terminal state, press `Ctrl+C` in the worker
@@ -119,7 +188,7 @@ $pgServices=@(Get-Service | Where-Object { $_.Name -like 'postgresql*' }); if($p
 ```
 
 PostgreSQL is now the supported local Prefect control-plane database. SQLite
-startup guidance is retired. The dormant mailbox adapter remains absent from
-`prefect.yaml`. The Prefect 3.8.4 dry-run limitation is covered only by the
-version-bounded operational exception above; mailbox registration remains a
-separate manual-only deployment checkpoint.
+startup guidance is retired. The mailbox adapter is registered only as the
+manual, parameterless deployment described above; it has no schedule or
+Prefect retries. The Prefect 3.8.4 dry-run limitation is covered only by the
+version-bounded operational exception above and must be rechecked on upgrade.

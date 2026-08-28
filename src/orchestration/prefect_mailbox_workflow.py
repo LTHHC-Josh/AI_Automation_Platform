@@ -1,8 +1,4 @@
-"""Dormant PHI-safe Prefect adapter for one bounded mailbox invocation.
-
-This module is intentionally not registered in ``prefect.yaml``. It provides
-an import- and mock-testable boundary without enabling production execution.
-"""
+"""PHI-safe Prefect adapter for one manual bounded mailbox invocation."""
 
 from prefect import flow, get_run_logger, task
 
@@ -43,12 +39,17 @@ def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
     logger = get_run_logger()
     logger.info(
         "stage=%s status=%s failure_category=%s retryable=%s "
+        "message_count=%s document_count=%s written_count=%s failed_count=%s "
         "row_attempt_count=%s attachment_attempt_count=%s "
         "pending_document_count=%s completed_document_count=%s",
         result.stage,
         result.status,
         result.failure_category or "none",
         str(result.retryable).lower(),
+        result.message_count,
+        result.document_count,
+        result.written_count,
+        result.failed_count,
         result.row_attempt_count,
         result.attachment_attempt_count,
         result.pending_document_count,

@@ -65,12 +65,12 @@ runs completed with one task and zero retries each; API, worker health, and
 pool readiness passed with no SQLite-locking or database operational errors.
 The prior SQLite database remains untouched only as a local rollback artifact.
 
-The application prerequisite boundary is now implemented but remains dormant:
-an explicit downstream classification-review mode, PHI-safe durable job-batch
-summary, and parameterless one-call Prefect adapter exist without a deployment.
-The adapter uses the explicit PHI-safe operator-purpose Run Type `Prefect
-bounded mailbox orchestration`; it is not registered in `prefect.yaml` and has
-zero Prefect retries.
+The application prerequisite boundary is implemented and registered only for
+manual operation: an explicit downstream classification-review mode, PHI-safe
+durable job-batch summary, and parameterless one-call Prefect adapter exist as
+the `manual-local` deployment. The adapter uses the explicit PHI-safe
+operator-purpose Run Type `Prefect bounded mailbox orchestration`; it has no
+schedule, no parameters, zero Prefect retries, and zero flow runs.
 
 Target live architecture:
 
@@ -406,9 +406,9 @@ needed and the operator approves it.
   policy/input services. Production filename orchestration remains disabled.
 - Prefect 3.8.4 pinned with a self-hosted localhost server/UI, native process
   work pool/worker, versioned synthetic deployment, PHI-safe flow/task, and
-  copy/paste-verified Windows operator guide. A parameterless mailbox adapter
-  is import/mock-tested but remains undeployed and has never invoked the live
-  production workflow.
+  copy/paste-verified Windows operator guide. The parameterless mailbox adapter
+  is import/mock-tested and registered as a manual-only deployment with zero
+  runs; it has never invoked the live production workflow through Prefect.
 
 ## Verified Current Baselines
 
@@ -485,6 +485,11 @@ needed and the operator approves it.
   revision equal to the sole installed PostgreSQL head `9e9dadc36797`; aggregate
   flow/task state-name invariant gaps are zero. The explicit exception applies
   only to Prefect 3.8.4 and must be rechecked on every version change.
+- The manual mailbox deployment is registered with the fixed application
+  entrypoint, empty parameters, no schedules or automations, manual/PHI-safe
+  tags, deployment concurrency one with CANCEL_NEW, and pool concurrency one.
+  Read-only verification found zero mailbox flow runs. Registration started no
+  worker and invoked no application or external integration.
 
 ### Authorization
 
@@ -577,8 +582,8 @@ evidence but does not make Phase 1 live.
    small-det plus medium-rec candidate.
 7. Harden retries, restart recovery, idempotency, attachment handling, and
    mailbox handled-state ordering.
-8. Review registration of the already implemented dormant mailbox adapter as
-   a separate manual-only PostgreSQL deployment checkpoint.
+8. Run one separately authorized, preflight-gated manual mailbox deployment
+   acceptance without enabling schedules or Prefect retries.
 9. Finish unattended Outlook/Graph ingestion behavior.
 10. Finish PHI-safe operational monitoring and readiness.
 11. Run broad representative real-document acceptance.
@@ -597,9 +602,10 @@ Current gaps and limitations include:
   SDK checkbox normalization, or production caller is implemented. The local
   injected-reader ingestion and protected case-storage boundary is complete
   only at the synthetic/mock level.
-- The PHI-safe self-hosted Prefect PostgreSQL control room and dormant
-  parameterless mailbox adapter are implemented, but no mailbox deployment is
-  registered or executed. PostgreSQL removed the observed SQLite locking, and
+- The PHI-safe self-hosted Prefect PostgreSQL control room and parameterless
+  mailbox adapter are implemented, and the adapter is registered only as a
+  manual deployment with zero runs. PostgreSQL removed the observed SQLite
+  locking, and
   the Prefect 3.8.4 dry-run-only defect has a version-bounded operational
   exception backed by online migration, head-revision, invariant, and synthetic
   acceptance. Automatic startup, scheduling, and Prefect retries remain
@@ -680,9 +686,11 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Add the existing `bounded_mailbox_flow` to `prefect.yaml` as a second
-manual-only, parameterless deployment using `lthhc-local-process`, concurrency
-one, no schedule, no Prefect retries, application-owned `DOWNSTREAM` review
-mode, and its existing fixed approved Run Type. Review and register it only in
-that separate checkpoint; do not execute it, enable automatic startup or
-schedules, or permit unattended uncertain row or attachment retries.
+Obtain separate explicit authorization for one operator-controlled mailbox
+acceptance. Start the PostgreSQL-backed server and exactly one process worker,
+supply the approved submission-key column setting without exposing its value,
+run the boolean-only readiness preflight, and require every boolean true plus
+zero existing mailbox runs. Then trigger exactly one
+`lthhc-bounded-mailbox/manual-local` run with `--watch`. Do not enable automatic
+startup, schedules, Prefect retries, a second worker, or unattended retries of
+uncertain/non-retryable application state.

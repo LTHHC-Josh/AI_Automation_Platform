@@ -1,5 +1,7 @@
 import ast
+import contextlib
 from dataclasses import fields
+import io
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,6 +13,7 @@ from src.graph.mailbox_processor import MessageProcessingResult
 from src.orchestration.prefect_mailbox_workflow import (
     PREFECT_MAILBOX_RUN_TYPE,
     SanitizedMailboxRunError,
+    bounded_mailbox_flow,
     run_bounded_mailbox_application,
 )
 from src.services.mailbox_complete_review_smartsheet_service import (
@@ -331,6 +334,58 @@ def test_adapter_is_parameterless_and_calls_only_full_boundary_once():
     assert application_imports == {
         "src.services.mailbox_full_review_orchestration_service"
     }
+    assert not any(
+        isinstance(node, (ast.For, ast.AsyncFor, ast.While))
+        for node in ast.walk(tree)
+    )
+
+
+def test_adapter_options_disable_prefect_retries_and_result_capture():
+    assert bounded_mailbox_flow.retries == 0
+    assert bounded_mailbox_flow.persist_result is False
+    assert bounded_mailbox_flow.log_prints is False
+    assert run_bounded_mailbox_application.retries == 0
+    assert run_bounded_mailbox_application.persist_result is False
+    assert run_bounded_mailbox_application.log_prints is False
+
+
+def test_adapter_logs_only_allowlisted_aggregate_metadata():
+    private_marker = "PRIVATE-SYNTHETIC-PATIENT"
+    logged = []
+
+    class SyntheticLogger:
+        def info(self, template, *arguments):
+            logged.append(template % arguments)
+
+    class SyntheticService:
+        def run(self, **kwargs):
+            return build_result()
+
+    original_service = prefect_adapter.MailboxFullReviewOrchestrationService
+    original_logger = prefect_adapter.get_run_logger
+    prefect_adapter.MailboxFullReviewOrchestrationService = SyntheticService
+    prefect_adapter.get_run_logger = lambda: SyntheticLogger()
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            result = run_bounded_mailbox_application.fn()
+    finally:
+        prefect_adapter.MailboxFullReviewOrchestrationService = original_service
+        prefect_adapter.get_run_logger = original_logger
+
+    rendered = "\n".join(logged) + stdout.getvalue() + stderr.getvalue()
+    assert result.success is True
+    assert private_marker not in rendered
+    assert "stage=completed" in rendered
+    assert "message_count=1" in rendered
+    assert "document_count=1" in rendered
+    assert "written_count=1" in rendered
+    assert "failed_count=0" in rendered
+    assert "row_attempt_count=1" in rendered
+    assert "attachment_attempt_count=1" in rendered
+    assert "pending_document_count=0" in rendered
+    assert "completed_document_count=1" in rendered
 
 
 def test_adapter_failure_is_sanitized_and_nonretrying():

@@ -16,3 +16,18 @@ deployments:
       name: lthhc-local-process
       work_queue_name: null
       job_variables: {}
+  - name: manual-local
+    description: Manual-only bounded mailbox orchestration with PHI-safe operational output.
+    tags:
+      - manual
+      - phi-safe
+    schedule: null
+    concurrency_limit:
+      limit: 1
+      collision_strategy: CANCEL_NEW
+    entrypoint: src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow
+    parameters: {}
+    work_pool:
+      name: lthhc-local-process
+      work_queue_name: null
+      job_variables: {}
