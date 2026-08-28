@@ -8462,6 +8462,75 @@ category true and zero active/conflicting runs, then trigger one manual run
 only. Do not enable schedules, Prefect retries, concurrency increases, or any
 automatic/manual retrigger.
 
+
+------------------------------------------------------------
+PREFECT MANUAL ACCEPTANCE GUARD AND STAGE VISIBILITY - 2026-08-28
+------------------------------------------------------------
+
+Work completed:
+
+- Recorded the safely cancelled real acceptance: one candidate message, two
+  candidate documents, `row_write_pending`, terminal Cancelled, no uncertain
+  state, no duplicate business action, and all components stopped.
+- Replaced the Prefect adapter's hard-coded `top=10` with explicit manual
+  limits of one candidate message and one supported document.
+- Added an application-owned pre-processing guard. It requests one additional
+  message to prove overflow, reuses the discovered collection, counts supported
+  documents from attachment metadata without requesting content, and fails
+  closed on exceeded or unprovable counts before attachment download, OCR,
+  Ollama, Smartsheet, mailbox completion, or automatic retry.
+- Preserved the single bounded Prefect application task, zero Prefect retries,
+  application-owned durable state/idempotency/reconciliation, and unchanged
+  `row_write_uncertain` / `attachment_write_uncertain` behavior.
+- Added PHI-safe stage/timing/attempt/count events for mailbox discovery,
+  attachment download, OCR, classification, subtype classification,
+  extraction, validation, business rules, Smartsheet row write, attachment
+  upload, mailbox completion, downstream review, and completion where reached.
+
+Files:
+
+- src/document_processing/document_processor.py
+- src/graph/attachment_service.py
+- src/graph/mailbox_processor.py
+- src/orchestration/prefect_mailbox_workflow.py
+- src/services/mailbox_full_review_orchestration_service.py
+- tests/test_mailbox_prefect_readiness.py
+- tests/test_prefect_manual_acceptance_guard.py
+- docs/prefect_local_control_room.md
+- PROJECT_MEMORY.md
+- prefect.yaml
+- update_project_tracker.py
+
+Verification:
+
+- Modified Python compiled successfully.
+- Focused manual-guard and Prefect boundary: 14 passed, 0 failed; synthetic
+  deterministic/mock.
+- Affected mailbox, attachment, orchestration, recovery, Smartsheet,
+  document-processor, worker-boundary, preflight, PostgreSQL-control-plane, and
+  Prefect-control-room regressions: 97 passed, 0 failed; synthetic
+  deterministic/mock, including one local synthetic Prefect server run.
+- No real Graph/mailbox enumeration, protected attachment download, OCR,
+  Ollama, Smartsheet, patient-document, mailbox mutation, or mailbox Prefect
+  flow ran. Diagnostics and tests used only synthetic values, aggregate counts,
+  allowlisted statuses/categories, attempts, and timings.
+
+Limitations:
+
+- The new guarded source has not yet been redeployed or exercised against a
+  real mailbox. The cancelled run is operational evidence for the defect, not
+  acceptance evidence for the correction.
+- Stage events remain inside the existing single application task; internal
+  services were not split into Prefect tasks.
+
+Exact next starting point:
+
+Perform a PHI-safe registration/read-only verification checkpoint for the
+updated lthhc-bounded-mailbox/manual-local deployment. Verify empty parameters,
+no schedule/automation, concurrency one with CANCEL_NEW, one application task,
+and zero retries. Do not start the mailbox worker, enumerate mailbox content,
+or trigger a real mailbox flow.
+
 """
 
 
@@ -8615,9 +8684,12 @@ updates = [
             "17.11 control-room checkpoint with a synthetic process-worker "
             "deployment and five completed sequential runs. An explicit "
             "application-owned downstream-review mode, durable PHI-safe result, "
-            "and parameterless one-call mailbox adapter are implemented, "
-            "mock-tested, and registered as a manual-only deployment with zero "
-            "runs. Prefect retries, scheduling, and automatic startup remain "
+            "and parameterless one-call mailbox adapter are implemented and "
+            "mock-tested. After one real run exposed one message with two "
+            "documents and was safely cancelled, the manual adapter gained an "
+            "application-owned exactly-one-message/exactly-one-document guard "
+            "plus PHI-safe stage visibility. Prefect retries, scheduling, and "
+            "automatic startup remain "
             "disabled. The "
             "pinned Prefect 3.8.4 offline dry-run defect now has a version-bounded "
             "operational exception backed by online migration, exact head, "

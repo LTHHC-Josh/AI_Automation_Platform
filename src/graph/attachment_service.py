@@ -29,6 +29,14 @@ class SupportedAttachmentDownloadResult:
     collision_count: int = 0
 
 
+@dataclass(frozen=True)
+class SupportedAttachmentCountResult:
+    """PHI-safe deterministic count from attachment metadata only."""
+
+    count: int | None
+    success: bool
+
+
 class AttachmentService:
     def __init__(self, download_dir: str = "data/incoming"):
         self.client = GraphClient()
@@ -49,6 +57,47 @@ class AttachmentService:
             ),
         )
         return response.get("value", [])
+
+    def count_supported_file_attachments(
+        self,
+        message_id: str,
+        *,
+        supported_extensions: set[str],
+    ) -> SupportedAttachmentCountResult:
+        """Count processable documents without requesting attachment content."""
+        endpoint = (
+            f"/users/{self.config.mailbox}"
+            f"/messages/{message_id}/attachments"
+        )
+        try:
+            response = self.client.get(
+                endpoint,
+                params={"$select": "id,name,isInline,@odata.type"},
+                operation_category="attachment_enumeration",
+            )
+        except Exception:
+            return SupportedAttachmentCountResult(count=None, success=False)
+
+        attachments = response.get("value") if isinstance(response, dict) else None
+        if not isinstance(attachments, list):
+            return SupportedAttachmentCountResult(count=None, success=False)
+
+        count = 0
+        for attachment in attachments:
+            if not isinstance(attachment, dict):
+                return SupportedAttachmentCountResult(count=None, success=False)
+            if (
+                attachment.get("@odata.type") != "#microsoft.graph.fileAttachment"
+                or attachment.get("isInline", False) is not False
+            ):
+                continue
+            name = attachment.get("name")
+            if not isinstance(name, str) or not name.strip():
+                return SupportedAttachmentCountResult(count=None, success=False)
+            if Path(Path(name).name).suffix.lower() in supported_extensions:
+                count += 1
+
+        return SupportedAttachmentCountResult(count=count, success=True)
 
     def download_file_attachments(self, message_id: str) -> list[Path]:
         attachments = self.get_attachments(message_id)

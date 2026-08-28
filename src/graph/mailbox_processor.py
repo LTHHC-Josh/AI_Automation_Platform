@@ -27,6 +27,16 @@ SUPPORTED_FILE_EXTENSIONS = {
 }
 
 
+class MailboxAcceptanceGuardError(RuntimeError):
+    """Fail-closed manual-acceptance refusal with aggregate counts only."""
+
+    def __init__(self, category, *, message_count=None, document_count=None):
+        super().__init__(category)
+        self.category = category
+        self.message_count = message_count
+        self.document_count = document_count
+
+
 @dataclass
 class MessageProcessingResult:
     message_id: str = field(repr=False)
@@ -126,20 +136,56 @@ class MailboxProcessor:
     def process_unread_messages(
         self,
         top: int = 10,
+        *,
+        acceptance_max_messages: int | None = None,
+        acceptance_max_documents: int | None = None,
+        stage_observer=None,
     ) -> list[MessageProcessingResult]:
-        messages = (
-            self.email_service
-            .get_unread_messages(top=top)
-        )
+        guarded = acceptance_max_messages is not None or acceptance_max_documents is not None
+        discovery_top = top + 1 if guarded else top
+        started_at = __import__("time").perf_counter()
+        messages = self.email_service.get_unread_messages(top=discovery_top)
+        if not isinstance(messages, list):
+            raise MailboxAcceptanceGuardError("acceptance_count_unproven")
+        self._observe(stage_observer, "mailbox_discovery", "completed", started_at,
+                      candidate_message_count=len(messages))
+
+        if guarded:
+            if not isinstance(acceptance_max_messages, int) or acceptance_max_messages < 1:
+                raise MailboxAcceptanceGuardError("acceptance_policy_invalid")
+            if not isinstance(acceptance_max_documents, int) or acceptance_max_documents < 1:
+                raise MailboxAcceptanceGuardError("acceptance_policy_invalid")
+            if len(messages) > acceptance_max_messages:
+                raise MailboxAcceptanceGuardError(
+                    "acceptance_message_limit_exceeded", message_count=len(messages))
+            document_count = 0
+            for message in messages:
+                message_id = message.get("id") if isinstance(message, dict) else None
+                if not isinstance(message_id, str) or not message_id:
+                    raise MailboxAcceptanceGuardError(
+                        "acceptance_count_unproven", message_count=len(messages))
+                count_result = self.attachment_service.count_supported_file_attachments(
+                    message_id, supported_extensions=SUPPORTED_FILE_EXTENSIONS)
+                if not getattr(count_result, "success", False) or not isinstance(
+                    getattr(count_result, "count", None), int
+                ):
+                    raise MailboxAcceptanceGuardError(
+                        "acceptance_count_unproven", message_count=len(messages))
+                document_count += count_result.count
+            if document_count > acceptance_max_documents:
+                raise MailboxAcceptanceGuardError(
+                    "acceptance_document_limit_exceeded",
+                    message_count=len(messages), document_count=document_count)
+            self._observe(stage_observer, "acceptance_guard", "passed", started_at,
+                          candidate_message_count=len(messages),
+                          candidate_document_count=document_count)
 
         results: list[
             MessageProcessingResult
         ] = []
 
         for message in messages:
-            result = self.process_message(
-                message
-            )
+            result = self.process_message(message, stage_observer=stage_observer)
 
             results.append(result)
 
@@ -148,6 +194,8 @@ class MailboxProcessor:
     def process_message(
         self,
         message: dict,
+        *,
+        stage_observer=None,
     ) -> MessageProcessingResult:
         message_id = message.get(
             "id",
@@ -204,11 +252,15 @@ class MailboxProcessor:
             return result
 
         try:
+            download_started_at = __import__("time").perf_counter()
             download_result = self.attachment_service.download_supported_file_attachments(
                 message_id,
                 supported_extensions=SUPPORTED_FILE_EXTENSIONS,
             )
             result.downloaded_files.extend(download_result.downloaded_files)
+            self._observe(stage_observer, "attachment_download", "completed",
+                          download_started_at,
+                          candidate_document_count=len(download_result.candidate_outcomes))
         except Exception:
             result.errors.append(
                 "Attachment download failed."
@@ -247,12 +299,11 @@ class MailboxProcessor:
                 result.errors.append("Mailbox document job could not be claimed.")
                 continue
             try:
-                document = (
-                    self.document_processor
-                    .process(
-                        file_path
-                    )
-                )
+                if stage_observer is None:
+                    document = self.document_processor.process(file_path)
+                else:
+                    document = self.document_processor.process(
+                        file_path, stage_observer=stage_observer)
 
                 result.processed_documents.append(
                     document
@@ -274,6 +325,13 @@ class MailboxProcessor:
                     "Document processing failed."
                 )
         return result
+
+    @staticmethod
+    def _observe(observer, stage, status, started_at, **counts):
+        if not callable(observer):
+            return
+        duration = max(0.0, __import__("time").perf_counter() - started_at)
+        observer(stage=stage, status=status, duration_seconds=duration, **counts)
 
     def complete_message(self, result: MessageProcessingResult) -> bool:
         if not isinstance(result, MessageProcessingResult):

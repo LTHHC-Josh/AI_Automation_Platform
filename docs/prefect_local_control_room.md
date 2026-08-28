@@ -168,6 +168,14 @@ After every readiness boolean is true and the operator has explicitly
 authorized exactly one real run, use this command without parameters, tags,
 custom run names, or delayed start options:
 
+The parameterless manual deployment is application-configured for at most one
+candidate message and at most one supported document. Discovery requests one
+additional message only to prove that the message limit is not exceeded, then
+uses the same discovered collection for processing. Supported-document count
+is proven from attachment metadata before attachment content download. An
+exceeded or unprovable count fails closed before OCR, Ollama, Smartsheet, or
+mailbox completion, with zero Prefect retries and no automatic retrigger.
+
 ```powershell
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment run 'lthhc-bounded-mailbox/manual-local' --watch; if($LASTEXITCODE -ne 0){throw 'Manual bounded mailbox Prefect run failed.'}
 ```
@@ -176,7 +184,12 @@ The UI should show flow `lthhc-bounded-mailbox`, deployment `manual-local`, one
 `bounded-mailbox-application-run` task, zero Prefect retries, worker health,
 native timestamps/durations, and one allowlisted log record containing stage,
 status, failure category, retryable, and aggregate message/document/write/
-failure/row-attempt/attachment-attempt/pending/completed counts. Application
+failure/row-attempt/attachment-attempt/pending/completed counts. The same
+single application task also emits allowlisted stage status/timing events for
+mailbox discovery, attachment download, OCR, classification, subtype
+classification, extraction, validation, business rules, Smartsheet row write,
+attachment upload, mailbox completion, downstream review, and completion where
+the application boundary reaches those stages. Application
 success, including `no_documents`, reaches Completed; application failure
 reaches Failed with only the sanitized failure category.
 

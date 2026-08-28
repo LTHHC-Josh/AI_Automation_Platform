@@ -316,10 +316,14 @@ def test_adapter_is_parameterless_and_calls_only_full_boundary_once():
 
     assert result.success is True
     assert calls == [{
-        "top": 10,
+        "top": 1,
         "review_mode": MailboxClassificationReviewMode.DOWNSTREAM,
         "run_type": PREFECT_MAILBOX_RUN_TYPE,
+        "acceptance_max_messages": 1,
+        "acceptance_max_documents": 1,
+        "stage_observer": calls[0]["stage_observer"],
     }]
+    assert callable(calls[0]["stage_observer"])
     assert not run_bounded_mailbox_application.fn.__code__.co_argcount
 
     source = (ROOT / "src/orchestration/prefect_mailbox_workflow.py").read_text(
@@ -359,6 +363,19 @@ def test_adapter_logs_only_allowlisted_aggregate_metadata():
 
     class SyntheticService:
         def run(self, **kwargs):
+            for stage in (
+                "mailbox_discovery", "attachment_download", "ocr",
+                "classification", "subtype_classification", "extraction",
+                "validation", "business_rules", "smartsheet_row_write",
+                "attachment_upload", "mailbox_completion",
+                "downstream_review", "completed",
+            ):
+                kwargs["stage_observer"](
+                    stage=stage,
+                    status="completed",
+                    duration_seconds=0.01,
+                    attempt_count=1,
+                )
             return build_result()
 
     original_service = prefect_adapter.MailboxFullReviewOrchestrationService
@@ -386,6 +403,14 @@ def test_adapter_logs_only_allowlisted_aggregate_metadata():
     assert "attachment_attempt_count=1" in rendered
     assert "pending_document_count=0" in rendered
     assert "completed_document_count=1" in rendered
+    for stage in (
+        "mailbox_discovery", "attachment_download", "ocr", "classification",
+        "subtype_classification", "extraction", "validation", "business_rules",
+        "smartsheet_row_write", "attachment_upload", "mailbox_completion",
+        "downstream_review", "completed",
+    ):
+        assert f"stage={stage}" in rendered
+    assert private_marker not in rendered
 
 
 def test_adapter_failure_is_sanitized_and_nonretrying():

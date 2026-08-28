@@ -10,6 +10,8 @@ from src.services.mailbox_full_review_orchestration_service import (
 
 
 PREFECT_MAILBOX_RUN_TYPE = "Prefect bounded mailbox orchestration"
+PREFECT_MANUAL_MAILBOX_MESSAGE_LIMIT = 1
+PREFECT_MANUAL_MAILBOX_DOCUMENT_LIMIT = 1
 
 
 class SanitizedMailboxRunError(RuntimeError):
@@ -24,11 +26,26 @@ class SanitizedMailboxRunError(RuntimeError):
 )
 def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
     """Call the complete application boundary exactly once."""
+    logger = get_run_logger()
+
+    def observe_stage(*, stage, status, duration_seconds=None, attempt_count=None,
+                      candidate_message_count=None, candidate_document_count=None):
+        logger.info(
+            "stage=%s status=%s duration_seconds=%s attempt_count=%s "
+            "candidate_message_count=%s candidate_document_count=%s "
+            "retryable=false failure_category=none",
+            stage, status, duration_seconds, attempt_count,
+            candidate_message_count, candidate_document_count,
+        )
+
     try:
         result = MailboxFullReviewOrchestrationService().run(
-            top=10,
+            top=PREFECT_MANUAL_MAILBOX_MESSAGE_LIMIT,
             review_mode=MailboxClassificationReviewMode.DOWNSTREAM,
             run_type=PREFECT_MAILBOX_RUN_TYPE,
+            acceptance_max_messages=PREFECT_MANUAL_MAILBOX_MESSAGE_LIMIT,
+            acceptance_max_documents=PREFECT_MANUAL_MAILBOX_DOCUMENT_LIMIT,
+            stage_observer=observe_stage,
         )
     except Exception:
         raise SanitizedMailboxRunError(
@@ -36,7 +53,6 @@ def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
             "failure_category=application_boundary_failed retryable=false"
         ) from None
 
-    logger = get_run_logger()
     logger.info(
         "stage=%s status=%s failure_category=%s retryable=%s "
         "message_count=%s document_count=%s written_count=%s failed_count=%s "

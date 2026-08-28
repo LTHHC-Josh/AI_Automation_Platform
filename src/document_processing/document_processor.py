@@ -98,6 +98,7 @@ class DocumentProcessor:
         file_path: str | Path,
         *,
         ocr_cache_only: bool = False,
+        stage_observer=None,
     ) -> Document:
         """
         Process a document through the complete local pipeline.
@@ -126,6 +127,7 @@ class DocumentProcessor:
         )
 
         ocr_started_at = perf_counter()
+        self._observe(stage_observer, "ocr", "started")
 
         extract_document = getattr(self.ocr, "extract_document", None)
         if callable(extract_document):
@@ -152,6 +154,10 @@ class DocumentProcessor:
             perf_counter()
             - ocr_started_at
         )
+        self._observe(
+            stage_observer, "ocr", "completed",
+            duration_seconds=document.processing_metrics["ocr_wall_seconds"],
+        )
 
         get_ocr_diagnostics = getattr(self.ocr, "get_last_diagnostics", None)
         if callable(get_ocr_diagnostics):
@@ -167,6 +173,7 @@ class DocumentProcessor:
         document.deterministic_concepts = concept_service.analyze(document.ocr_document)
 
         classification_started_at = perf_counter()
+        self._observe(stage_observer, "classification", "started")
 
         classification = self.llm.classify(
             document.raw_text
@@ -177,6 +184,10 @@ class DocumentProcessor:
         ] = (
             perf_counter()
             - classification_started_at
+        )
+        self._observe(
+            stage_observer, "classification", "completed",
+            duration_seconds=document.processing_metrics["classification_wall_seconds"],
         )
 
         document.processing_metrics[
@@ -196,6 +207,7 @@ class DocumentProcessor:
             classification,
             document.deterministic_concepts,
         )
+        self._observe(stage_observer, "subtype_classification", "completed")
 
         document.document_category = self._normalize_classification_label(
             classification.get(
@@ -413,6 +425,16 @@ class DocumentProcessor:
             )
             for attempt in extraction_attempts
         )
+        self._observe(
+            stage_observer, "extraction", "completed",
+            duration_seconds=document.processing_metrics["extraction_wall_seconds"],
+            attempt_count=len(extraction_attempts),
+        )
+        self._observe(
+            stage_observer, "validation", "completed",
+            duration_seconds=document.processing_metrics["validation_wall_seconds"],
+            attempt_count=len(extraction_attempts),
+        )
 
         selected_attempt_metrics = extraction_attempts[
             selected_attempt - 1
@@ -446,6 +468,10 @@ class DocumentProcessor:
         ] = (
             perf_counter()
             - rules_started_at
+        )
+        self._observe(
+            stage_observer, "business_rules", "completed",
+            duration_seconds=document.processing_metrics["business_rules_wall_seconds"],
         )
 
         review_started_at = perf_counter()
@@ -489,6 +515,11 @@ class DocumentProcessor:
         )
 
         return document
+
+    @staticmethod
+    def _observe(observer, stage, status, **metadata):
+        if callable(observer):
+            observer(stage=stage, status=status, **metadata)
 
     def _attach_review_output(
         self,

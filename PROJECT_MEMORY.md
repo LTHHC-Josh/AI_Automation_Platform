@@ -70,13 +70,23 @@ manual operation: an explicit downstream classification-review mode, PHI-safe
 durable job-batch summary, and parameterless one-call Prefect adapter exist as
 the `manual-local` deployment. The adapter uses the explicit PHI-safe
 operator-purpose Run Type `Prefect bounded mailbox orchestration`; it has no
-schedule, no parameters, and zero Prefect retries. Its first and only
-explicitly authorized flow run reached terminal Failed before mailbox
-enumeration because the execution environment blocked the required outbound
-authentication connection. The adapter returned only the sanitized
-`application_boundary_failed` category with `retryable=false`; no second run
-was triggered. The registered deployment remains
-`lthhc-bounded-mailbox/manual-local`.
+schedule, no parameters, and zero Prefect retries. The first authorized flow
+run reached terminal Failed before mailbox enumeration because the execution
+environment blocked the required outbound authentication connection. A later
+authorized real run exposed one candidate message containing two candidate
+documents and reached `row_write_pending`; it was safely cancelled. Final state
+was Cancelled, uncertain state was absent, no duplicate business action was
+detected, and all components were stopped.
+
+The manual adapter is now application-configured for at most one candidate
+message and at most one supported document. It discovers one extra message to
+prove the message bound, counts supported documents from attachment metadata
+before content download, reuses the same discovered collection, and fails
+closed when either count exceeds one or cannot be proven. A blocked acceptance
+does not begin attachment download, OCR, Ollama, Smartsheet, mailbox completion,
+or automatic retry. The registered deployment remains
+`lthhc-bounded-mailbox/manual-local`; it must be redeployed before any later
+separately authorized acceptance so the registration reflects this guard.
 
 The boolean-only readiness probe now proves the running server backend from
 the server's own database-connectivity and non-secret driver settings instead
@@ -440,8 +450,11 @@ needed and the operator approves it.
 - Prefect 3.8.4 pinned with a self-hosted localhost server/UI, native process
   work pool/worker, versioned synthetic deployment, PHI-safe flow/task, and
   copy/paste-verified Windows operator guide. The parameterless mailbox adapter
-  is import/mock-tested and registered as a manual-only deployment with zero
-  runs; it has never invoked the live production workflow through Prefect.
+  is import/mock-tested and registered as a manual-only deployment. One later
+  real run reached application processing with one candidate message and two
+  candidate documents before safe operator cancellation; the exactly-one-
+  message/exactly-one-document guard was added afterward and has not yet been
+  redeployed or exercised live.
 
 ## Verified Current Baselines
 
@@ -521,8 +534,10 @@ needed and the operator approves it.
 - The manual mailbox deployment is registered with the fixed application
   entrypoint, empty parameters, no schedules or automations, manual/PHI-safe
   tags, deployment concurrency one with CANCEL_NEW, and pool concurrency one.
-  Read-only verification found zero mailbox flow runs. Registration started no
-  worker and invoked no application or external integration.
+  Application source now adds exactly-one-message/exactly-one-document manual
+  limits and PHI-safe stage events while retaining one application task and
+  zero retries. Registration itself started no worker and invoked no
+  application or external integration.
 
 ### Authorization
 
@@ -637,7 +652,7 @@ Current gaps and limitations include:
   only at the synthetic/mock level.
 - The PHI-safe self-hosted Prefect PostgreSQL control room and parameterless
   mailbox adapter are implemented, and the adapter is registered only as a
-  manual deployment with zero runs. PostgreSQL removed the observed SQLite
+  manual deployment. PostgreSQL removed the observed SQLite
   locking, and
   the Prefect 3.8.4 dry-run-only defect has a version-bounded operational
   exception backed by online migration, head-revision, invariant, and synthetic
@@ -719,10 +734,9 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Obtain separate explicit authorization for exactly one replacement manual
-mailbox acceptance. Start the documented PostgreSQL-backed control plane and
-auth-gated worker, rerun the boolean-only readiness preflight, require every
-category true and zero active/conflicting mailbox runs, then trigger exactly
-one `lthhc-bounded-mailbox/manual-local` run. Do not retrigger under any
-circumstance; preserve concurrency one, manual-only operation, zero Prefect
-retries, and all existing application safety rules.
+Perform a PHI-safe registration/read-only verification checkpoint for the
+updated `lthhc-bounded-mailbox/manual-local` deployment so the registered code
+contains the exactly-one-message/exactly-one-document guard and stage
+observability. Verify empty parameters, no schedule/automation, concurrency
+one with CANCEL_NEW, one application task, and zero retries. Do not start the
+mailbox worker, enumerate mailbox content, or trigger a real mailbox flow.

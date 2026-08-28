@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Any
 
 from src.graph.mailbox_processor import (
+    MailboxAcceptanceGuardError,
     MailboxProcessor,
 )
 from src.services.mailbox_complete_review_smartsheet_service import (
@@ -27,8 +28,8 @@ class MailboxFullReviewOrchestrationResult:
     normal automatic production processing does not use them as gates.
     """
 
-    message_count: int
-    document_count: int
+    message_count: int | None
+    document_count: int | None
     classification_submitted_count: int
     classification_cancelled_count: int
     approved_count: int
@@ -105,6 +106,9 @@ class MailboxFullReviewOrchestrationService:
             MailboxClassificationReviewMode.INTERACTIVE
         ),
         run_type: str = "",
+        acceptance_max_messages: int | None = None,
+        acceptance_max_documents: int | None = None,
+        stage_observer=None,
     ) -> MailboxFullReviewOrchestrationResult:
         normalized_top = self._normalize_top(
             top
@@ -123,11 +127,22 @@ class MailboxFullReviewOrchestrationService:
             )
 
         try:
-            message_results = (
-                self.mailbox_processor
-                .process_unread_messages(
-                    top=normalized_top
+            processing_options = {}
+            if acceptance_max_messages is not None or acceptance_max_documents is not None:
+                processing_options.update(
+                    acceptance_max_messages=acceptance_max_messages,
+                    acceptance_max_documents=acceptance_max_documents,
                 )
+            if stage_observer is not None:
+                processing_options["stage_observer"] = stage_observer
+            message_results = self.mailbox_processor.process_unread_messages(
+                top=normalized_top, **processing_options)
+        except MailboxAcceptanceGuardError as error:
+            return self._failure(
+                error.category,
+                stage="acceptance_guard",
+                message_count=error.message_count,
+                document_count=error.document_count,
             )
         except Exception:
             return self._failure(
@@ -136,11 +151,20 @@ class MailboxFullReviewOrchestrationService:
             )
 
         try:
+            action_started_at = __import__("time").perf_counter()
             complete_result = (
                 self.complete_review_smartsheet_service.run(
                     message_results=message_results,
                     run_type=run_type,
                 )
+            )
+            self._observe(
+                stage_observer, "smartsheet_row_write", "completed",
+                action_started_at, attempt_count=complete_result.written_count,
+            )
+            self._observe(
+                stage_observer, "attachment_upload", "completed",
+                action_started_at, attempt_count=complete_result.written_count,
             )
         except Exception:
             mailbox_summary = (
@@ -238,6 +262,7 @@ class MailboxFullReviewOrchestrationService:
                         stage="mailbox_completion",
                         failure_category="mailbox_completion_failed",
                     )
+        self._observe(stage_observer, "mailbox_completion", "completed", action_started_at)
 
         if review_mode in {
             MailboxClassificationReviewMode.DOWNSTREAM,
@@ -249,6 +274,7 @@ class MailboxFullReviewOrchestrationService:
                     review_mode=review_mode,
                 )
             )
+            self._observe(stage_observer, "downstream_review", "completed", action_started_at)
         else:
             try:
                 classification_result = (
@@ -324,7 +350,7 @@ class MailboxFullReviewOrchestrationService:
         else:
             status = "completed"
 
-        return self._build_result(
+        result = self._build_result(
             message_results=message_results,
             message_count=(
                 classification_result.message_count
@@ -356,6 +382,15 @@ class MailboxFullReviewOrchestrationService:
             stage="completed" if success else "downstream_review",
             failure_category=None if success else "workflow_failed",
         )
+        if result.success:
+            self._observe(stage_observer, "completed", "completed", action_started_at)
+        return result
+
+    @staticmethod
+    def _observe(observer, stage, status, started_at, **metadata):
+        if callable(observer):
+            duration = max(0.0, __import__("time").perf_counter() - started_at)
+            observer(stage=stage, status=status, duration_seconds=duration, **metadata)
 
     @staticmethod
     def _build_noninteractive_classification_result(
@@ -530,10 +565,12 @@ class MailboxFullReviewOrchestrationService:
         status: str,
         *,
         stage: str = "completed",
+        message_count: int | None = 0,
+        document_count: int | None = 0,
     ) -> MailboxFullReviewOrchestrationResult:
         return MailboxFullReviewOrchestrationResult(
-            message_count=0,
-            document_count=0,
+            message_count=message_count,
+            document_count=document_count,
             classification_submitted_count=0,
             classification_cancelled_count=0,
             approved_count=0,

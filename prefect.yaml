@@ -17,7 +17,7 @@ deployments:
       work_queue_name: null
       job_variables: {}
   - name: manual-local
-    description: Manual-only bounded mailbox orchestration with PHI-safe operational output.
+    description: Manual-only one-message/one-document mailbox acceptance with PHI-safe operational output.
     tags:
       - manual
       - phi-safe
