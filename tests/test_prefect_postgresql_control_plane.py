@@ -35,9 +35,11 @@ def test_launcher_uses_only_process_local_canonical_setting_and_cleans_up():
     assert "[ValidateSet('UpgradeDryRun', 'Upgrade', 'Server')]" in source
     assert "postgresql+asyncpg://prefect_server:$plainPassword" in source
     assert "$env:PREFECT_SERVER_DATABASE_CONNECTION_URL = $connectionUrl" in source
+    assert "$env:PREFECT_SERVER_DATABASE_DRIVER = 'postgresql+asyncpg'" in source
     assert "$env:PREFECT_API_DATABASE_CONNECTION_URL =" not in source
     assert source.count("Remove-Item Env:PREFECT_SERVER_DATABASE_CONNECTION_URL") == 1
     assert source.count("Remove-Item Env:PREFECT_API_DATABASE_CONNECTION_URL") == 1
+    assert source.count("Remove-Item Env:PREFECT_SERVER_DATABASE_DRIVER") == 1
     assert "finally" in source
     assert "Write-Host $connectionUrl" not in source
     assert "Write-Output $connectionUrl" not in source

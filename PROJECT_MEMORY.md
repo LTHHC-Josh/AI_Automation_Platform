@@ -72,6 +72,15 @@ the `manual-local` deployment. The adapter uses the explicit PHI-safe
 operator-purpose Run Type `Prefect bounded mailbox orchestration`; it has no
 schedule, no parameters, zero Prefect retries, and zero flow runs.
 
+The boolean-only readiness probe now proves the running server backend from
+the server's own database-connectivity and non-secret driver settings instead
+of the client profile's local backend report. Regression coverage requires a
+PostgreSQL server to pass even when the client profile reports SQLite, and
+requires actual SQLite or unproven server-backend state to fail closed. A live
+authorized readiness run passed all eight booleans with PostgreSQL, the server,
+one worker, pool concurrency one, and the manual deployment ready; no mailbox
+flow ran.
+
 Target live architecture:
 
 Windows production AI host
@@ -689,8 +698,8 @@ without the required separate approval.
 Obtain separate explicit authorization for one operator-controlled mailbox
 acceptance. Start the PostgreSQL-backed server and exactly one process worker,
 supply the approved submission-key column setting without exposing its value,
-run the boolean-only readiness preflight, and require every boolean true plus
-zero existing mailbox runs. Then trigger exactly one
+reconfirm the boolean-only readiness preflight immediately before execution,
+and require every boolean true plus zero existing mailbox runs. Then trigger exactly one
 `lthhc-bounded-mailbox/manual-local` run with `--watch`. Do not enable automatic
 startup, schedules, Prefect retries, a second worker, or unattended retries of
 uncertain/non-retryable application state.

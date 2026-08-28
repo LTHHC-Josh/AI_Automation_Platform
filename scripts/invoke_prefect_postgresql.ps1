@@ -27,6 +27,7 @@ try {
     $plainPassword = [Net.NetworkCredential]::new('', $securePassword).Password
     $connectionUrl = "postgresql+asyncpg://prefect_server:$plainPassword@localhost:5432/prefect_control_plane"
     $env:PREFECT_SERVER_DATABASE_CONNECTION_URL = $connectionUrl
+    $env:PREFECT_SERVER_DATABASE_DRIVER = 'postgresql+asyncpg'
 
     $prefect = Join-Path $PSScriptRoot '..\.venv\Scripts\prefect.exe'
     if (-not (Test-Path -LiteralPath $prefect -PathType Leaf)) {
@@ -49,6 +50,7 @@ try {
 } finally {
     Remove-Item Env:PREFECT_SERVER_DATABASE_CONNECTION_URL -ErrorAction SilentlyContinue
     Remove-Item Env:PREFECT_API_DATABASE_CONNECTION_URL -ErrorAction SilentlyContinue
+    Remove-Item Env:PREFECT_SERVER_DATABASE_DRIVER -ErrorAction SilentlyContinue
     Remove-Variable securePassword,ciphertext -ErrorAction SilentlyContinue
     $plainPassword = $null
     $connectionUrl = $null

@@ -193,10 +193,22 @@ def _prefect_ready() -> bool:
     ):
         return False
     health = requests.get(f"{API_URL}/health", timeout=10)
-    if health.status_code != 200:
+    database_ready = requests.get(f"{API_URL}/ready", timeout=10)
+    server_version = requests.get(f"{API_URL}/admin/version", timeout=10)
+    server_settings = requests.get(f"{API_URL}/admin/settings", timeout=10)
+    if not all(
+        response.status_code == 200
+        for response in (health, database_ready, server_version, server_settings)
+    ):
         return False
-    version_output = _run_prefect("version").lower()
-    if "3.8.4" not in version_output or "postgresql" not in version_output:
+    settings = server_settings.json()
+    if not isinstance(settings, dict):
+        return False
+    database = settings.get("server", {}).get("database", {})
+    if not isinstance(database, dict) or (
+        server_version.json() != "3.8.4"
+        or database.get("driver") != "postgresql+asyncpg"
+    ):
         return False
 
     pool = json.loads(_run_prefect("work-pool", "inspect", POOL_NAME, "--output", "json"))

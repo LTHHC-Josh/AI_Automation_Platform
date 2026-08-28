@@ -128,7 +128,7 @@ def test_source_has_no_mailbox_enumeration_or_business_processing_calls():
         assert marker not in source
 
 
-def test_prefect_probe_requires_postgresql_manual_contract_and_zero_runs():
+def test_prefect_probe_uses_running_server_backend_and_preserves_manual_contract():
     module = load_module()
     deployment = {
         "id": "00000000-0000-0000-0000-000000000001",
@@ -155,7 +155,13 @@ def test_prefect_probe_requires_postgresql_manual_contract_and_zero_runs():
 
     class Requests:
         @staticmethod
-        def get(*args, **kwargs):
+        def get(url, **kwargs):
+            if url.endswith("/admin/version"):
+                return Response("3.8.4")
+            if url.endswith("/admin/settings"):
+                return Response(
+                    {"server": {"database": {"driver": "postgresql+asyncpg"}}}
+                )
             return Response()
 
         @staticmethod
@@ -166,6 +172,7 @@ def test_prefect_probe_requires_postgresql_manual_contract_and_zero_runs():
 
     original_requests = module.requests
     original_run = module._run_prefect
+    prefect_calls = []
     saved = {
         name: os.environ.pop(name, None)
         for name in (
@@ -174,15 +181,18 @@ def test_prefect_probe_requires_postgresql_manual_contract_and_zero_runs():
         )
     }
     module.requests = Requests
-    module._run_prefect = lambda *arguments: (
-        "3.8.4 postgresql"
-        if arguments == ("version",)
-        else json.dumps(pool)
-        if arguments[:2] == ("work-pool", "inspect")
-        else json.dumps(deployment)
-    )
+    def run_prefect(*arguments):
+        prefect_calls.append(arguments)
+        if arguments == ("version",):
+            return "3.8.4 sqlite"
+        if arguments[:2] == ("work-pool", "inspect"):
+            return json.dumps(pool)
+        return json.dumps(deployment)
+
+    module._run_prefect = run_prefect
     try:
         assert module._prefect_ready() is True
+        assert ("version",) not in prefect_calls
         original_post = Requests.post
         Requests.post = staticmethod(
             lambda url, **kwargs: (
@@ -198,6 +208,44 @@ def test_prefect_probe_requires_postgresql_manual_contract_and_zero_runs():
         for name, value in saved.items():
             if value is not None:
                 os.environ[name] = value
+
+
+def test_prefect_probe_rejects_sqlite_or_unproven_running_server_backend():
+    module = load_module()
+
+    class Response:
+        status_code = 200
+
+        def __init__(self, payload=None):
+            self.payload = payload
+
+        def json(self):
+            return self.payload
+
+    class Requests:
+        driver = "sqlite+aiosqlite"
+
+        @classmethod
+        def get(cls, url, **kwargs):
+            if url.endswith("/admin/version"):
+                return Response("3.8.4")
+            if url.endswith("/admin/settings"):
+                payload = (
+                    {"server": {"database": {"driver": cls.driver}}}
+                    if cls.driver is not None
+                    else {"server": {"database": {}}}
+                )
+                return Response(payload)
+            return Response()
+
+    original_requests = module.requests
+    module.requests = Requests
+    try:
+        assert module._prefect_ready() is False
+        Requests.driver = None
+        assert module._prefect_ready() is False
+    finally:
+        module.requests = original_requests
 
 
 if __name__ == "__main__":

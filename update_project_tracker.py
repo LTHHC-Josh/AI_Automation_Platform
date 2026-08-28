@@ -8301,6 +8301,45 @@ Limitation and exact next start:
   schedule, Prefect retry, automatic startup, second worker, or unattended
   retry of uncertain/non-retryable application state.
 
+
+------------------------------------------------------------
+PREFECT RUNNING-BACKEND READINESS CORRECTION - 2026-08-28
+------------------------------------------------------------
+
+Work completed:
+
+- Replaced the readiness probe's client-profile database report with proof
+  from the actual running server: API health, database connectivity, server
+  version, and the server's non-secret configured database driver.
+- Made the PostgreSQL launcher declare its fixed async PostgreSQL driver only
+  in the child process environment and remove it during normal or exceptional
+  cleanup. The password and complete database URL remain unreported.
+- Kept every pool, deployment, zero-run, concurrency, schedule, parameter,
+  retry, and single-worker readiness condition unchanged.
+
+Verification:
+
+- Modified Python compiled successfully.
+- Readiness preflight: 6 passed, 0 failed; synthetic deterministic/mock. It
+  proves a SQLite-reporting client with a PostgreSQL server passes, while an
+  actual SQLite server or unproven backend fails closed.
+- Mailbox readiness: 10 passed, 0 failed; synthetic deterministic/mock.
+- PostgreSQL control-plane: 7 passed, 0 failed; synthetic deterministic.
+- Synthetic Prefect control room: 5 passed, 0 failed; no external integration.
+- An authorized live boolean-only readiness run returned every category true
+  and all_ready true with PostgreSQL, the localhost server, exactly one worker,
+  pool concurrency one, and the manual deployment ready.
+- No mailbox deployment, mailbox enumeration, Smartsheet write, patient OCR,
+  Ollama patient inference, patient-document processing, schedule, or retry ran.
+
+Exact next starting point:
+
+Obtain separate explicit authorization for exactly one operator-controlled
+mailbox acceptance. Reconfirm the boolean-only readiness gate immediately
+before triggering the single manual deployment run. Do not enable schedules,
+Prefect retries, automatic startup, a second worker, or unattended uncertain-
+state retries.
+
 """
 
 
