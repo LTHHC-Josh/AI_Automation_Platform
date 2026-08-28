@@ -70,7 +70,13 @@ manual operation: an explicit downstream classification-review mode, PHI-safe
 durable job-batch summary, and parameterless one-call Prefect adapter exist as
 the `manual-local` deployment. The adapter uses the explicit PHI-safe
 operator-purpose Run Type `Prefect bounded mailbox orchestration`; it has no
-schedule, no parameters, zero Prefect retries, and zero flow runs.
+schedule, no parameters, and zero Prefect retries. Its first and only
+explicitly authorized flow run reached terminal Failed before mailbox
+enumeration because the execution environment blocked the required outbound
+authentication connection. The adapter returned only the sanitized
+`application_boundary_failed` category with `retryable=false`; no second run
+was triggered. The registered deployment remains
+`lthhc-bounded-mailbox/manual-local`.
 
 The boolean-only readiness probe now proves the running server backend from
 the server's own database-connectivity and non-secret driver settings instead
@@ -80,6 +86,17 @@ requires actual SQLite or unproven server-backend state to fail closed. A live
 authorized readiness run passed all eight booleans with PostgreSQL, the server,
 one worker, pool concurrency one, and the manual deployment ready; no mailbox
 flow ran.
+
+The first mailbox acceptance failure was classified as a network/service
+reachability defect, not an application configuration or credential-loading
+defect. The parent readiness command ran with approved outbound access, while
+the Prefect worker was launched inside a restricted network boundary. Both
+paths used the same ignored dotenv/environment configuration, repository
+working directory, Graph configuration loader, and authenticator. A dedicated
+mailbox-worker launcher now runs the shared boolean-only Graph authentication
+gate inside the same process/network boundary before starting the worker; it
+fails closed without persisting credentials or changing the parameterless
+deployment.
 
 Target live architecture:
 
@@ -695,11 +712,10 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Obtain separate explicit authorization for one operator-controlled mailbox
-acceptance. Start the PostgreSQL-backed server and exactly one process worker,
-supply the approved submission-key column setting without exposing its value,
-reconfirm the boolean-only readiness preflight immediately before execution,
-and require every boolean true plus zero existing mailbox runs. Then trigger exactly one
-`lthhc-bounded-mailbox/manual-local` run with `--watch`. Do not enable automatic
-startup, schedules, Prefect retries, a second worker, or unattended retries of
-uncertain/non-retryable application state.
+Run an explicitly authorized infrastructure-only check by starting the mailbox
+worker through `scripts/invoke_prefect_mailbox_worker.ps1` from a process
+boundary with approved outbound access. Require its boolean authentication gate
+to pass and the worker to become healthy, then stop it without triggering the
+mailbox deployment. Only after that proof may the operator separately authorize
+one replacement acceptance run. Preserve concurrency one, manual-only
+operation, zero Prefect retries, and all existing application safety rules.

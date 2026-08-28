@@ -135,6 +135,15 @@ worker terminal's process-local environment or ignored local configuration.
 Never paste its value into documentation, Prefect parameters, commands, logs,
 or tracked files.
 
+Use only the documented mailbox worker-launch command below. Its boolean-only Graph
+authentication check runs in the same process and network boundary that
+launches the worker, and the worker is not started when that boundary cannot
+prove authentication readiness.
+
+```powershell
+& '.\scripts\invoke_prefect_mailbox_worker.ps1'
+```
+
 The readiness command returns only Graph auth/config, Smartsheet destination,
 submission-key column, OCR config/model, Ollama/model, protected local storage,
 PostgreSQL/Prefect, and aggregate `all_ready` booleans. It suppresses dependency

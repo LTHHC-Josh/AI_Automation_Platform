@@ -61,14 +61,9 @@ def _quiet_probe(probe, default):
 
 
 def _graph_ready() -> bool:
-    from src.graph.auth import GraphAuthenticator
+    from src.graph.readiness import graph_auth_ready
 
-    token = None
-    try:
-        token = GraphAuthenticator().get_access_token()
-        return isinstance(token, str) and bool(token.strip())
-    finally:
-        token = None
+    return graph_auth_ready()
 
 
 def _smartsheet_ready() -> tuple[bool, bool]:

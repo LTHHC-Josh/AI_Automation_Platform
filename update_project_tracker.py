@@ -8340,6 +8340,92 @@ before triggering the single manual deployment run. Do not enable schedules,
 Prefect retries, automatic startup, a second worker, or unattended uncertain-
 state retries.
 
+
+------------------------------------------------------------
+FIRST MANUAL PREFECT MAILBOX ACCEPTANCE - 2026-08-28
+------------------------------------------------------------
+
+Acceptance evidence:
+
+- Started the documented PostgreSQL-backed Prefect server and exactly one
+  concurrency-one worker, supplied the approved submission-key setting only
+  process-locally, and reran the boolean-only readiness gate.
+- All eight readiness booleans were true. The deployment had zero prior runs
+  and zero Pending, Scheduled, or Running runs before the trigger.
+- Triggered exactly one lthhc-bounded-mailbox/manual-local flow. No second run,
+  schedule, Prefect retry, concurrency change, schema change, or manual
+  retrigger occurred.
+- The single flow and application task reached terminal Failed. The PHI-safe
+  application contract reported stage mailbox_processing, sanitized category
+  application_boundary_failed, and retryable false.
+- The execution environment blocked the required outbound authentication
+  connection before mailbox enumeration. Therefore no mailbox enumeration,
+  patient-document processing, OCR inference, Ollama inference, Smartsheet
+  business write, attachment write, or mailbox handled/read transition ran.
+- Aggregate application counts and handled-ordering evidence were unavailable
+  because the application boundary did not return a result.
+- After evidence capture, the worker, Prefect server, and PostgreSQL were
+  stopped. The deployment has exactly one total run and zero active runs.
+
+Exact next starting point:
+
+Perform a PHI-safe infrastructure-only checkpoint that proves the Prefect
+worker process can reach the approved authentication service. Do not enumerate
+mail, process documents, write Smartsheet, or trigger another deployment run.
+Any retry of the failed manual deployment requires separate explicit
+authorization after that infrastructure gate passes.
+
+
+------------------------------------------------------------
+PREFECT WORKER AUTH BOUNDARY CORRECTION - 2026-08-28
+------------------------------------------------------------
+
+Verified root cause:
+
+- Classified the first acceptance failure as network/service reachability.
+  Readiness ran with approved outbound access, while the Prefect worker and its
+  flow child ran inside a restricted network boundary.
+- Source tracing confirmed both paths used the same repository working
+  directory, ignored dotenv/environment credential source, Graph configuration
+  loader, authenticator, and application service construction. Configuration
+  was present; authentication failed before mailbox enumeration because the
+  worker boundary could not reach the approved authentication service.
+
+Correction:
+
+- Added one shared PHI-safe Graph authentication readiness function used by
+  both the full readiness command and the worker boundary.
+- Added a boolean-only worker authentication check and fail-closed PowerShell
+  launcher. The check executes in the same process/network boundary before the
+  worker starts; a failed check prevents worker startup.
+- Kept credentials in the existing ignored local/process environment boundary.
+  No credential, endpoint, identifier, or value enters Prefect parameters,
+  deployment metadata, logs, results, or tracked configuration.
+- Preserved the parameterless manual deployment, concurrency one, zero Prefect
+  retries, application-owned retryability, and existing business boundaries.
+
+Verification:
+
+- Modified Python compiled and the worker launcher parsed successfully.
+- Worker auth boundary: 6 passed, 0 failed; synthetic deterministic/mock.
+- Prefect readiness: 6 passed, 0 failed; synthetic deterministic/mock.
+- Mailbox readiness: 10 passed, 0 failed; synthetic deterministic/mock.
+- PostgreSQL control-plane: 7 passed, 0 failed; synthetic deterministic.
+- Graph security: 17 passed, 0 failed; synthetic deterministic/mock.
+- Full mailbox orchestration: 13 passed, 0 failed; mock.
+- Full mailbox command: 12 passed, 0 failed; mock.
+- Synthetic Prefect control room: 5 passed, 0 failed.
+- No live Graph, mailbox, Smartsheet, OCR, Ollama, patient-document, or Prefect
+  mailbox deployment operation ran during this correction.
+
+Exact next starting point:
+
+With separate authorization, run only the new mailbox-worker launcher from a
+network-approved process boundary, require its boolean auth gate and worker
+health to pass, then stop the worker without triggering the deployment. A
+second one-run mailbox acceptance remains blocked until that infrastructure-
+only proof passes and receives separate explicit authorization.
+
 """
 
 

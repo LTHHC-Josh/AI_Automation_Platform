@@ -69,6 +69,7 @@ def test_documented_operator_commands_are_one_physical_line():
         "deploy --all",
         "deploy 'src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow'",
         "deployment inspect 'lthhc-bounded-mailbox/manual-local'",
+        "invoke_prefect_mailbox_worker.ps1",
         "worker start --pool 'lthhc-local-process'",
         "Start-Process 'http://127.0.0.1:4200'",
         "1..5 | ForEach-Object",
