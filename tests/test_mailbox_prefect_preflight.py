@@ -196,7 +196,7 @@ def test_prefect_probe_uses_running_server_backend_and_preserves_manual_contract
         original_post = Requests.post
         Requests.post = staticmethod(
             lambda url, **kwargs: (
-                Response([{"state": "PENDING"}])
+                Response([{"state_type": "PENDING"}])
                 if url.endswith("/flow_runs/filter")
                 else original_post(url, **kwargs)
             )
@@ -208,6 +208,52 @@ def test_prefect_probe_uses_running_server_backend_and_preserves_manual_contract
         for name, value in saved.items():
             if value is not None:
                 os.environ[name] = value
+
+
+def test_terminal_mailbox_history_is_allowed_and_active_or_unknown_is_blocked():
+    module = load_module()
+
+    class Response:
+        status_code = 200
+
+        def __init__(self, payload):
+            self.payload = payload
+
+        def json(self):
+            return self.payload
+
+    class Requests:
+        run_items = []
+
+        @classmethod
+        def post(cls, *args, **kwargs):
+            return Response(cls.run_items)
+
+    original_requests = module.requests
+    module.requests = Requests
+    try:
+        Requests.run_items = [
+            {"state_type": state_type}
+            for state_type in ("COMPLETED", "FAILED", "CANCELLED", "CRASHED")
+        ]
+        assert module._mailbox_run_history_is_terminal("synthetic-deployment") is True
+
+        for state_type in (
+            "SCHEDULED",
+            "PENDING",
+            "RUNNING",
+            "PAUSED",
+            "CANCELLING",
+        ):
+            Requests.run_items = [{"state_type": state_type}]
+            assert module._mailbox_run_history_is_terminal("synthetic-deployment") is False
+
+        Requests.run_items = [{"state_type": "UNKNOWN"}]
+        assert module._mailbox_run_history_is_terminal("synthetic-deployment") is False
+        Requests.run_items = [{}]
+        assert module._mailbox_run_history_is_terminal("synthetic-deployment") is False
+    finally:
+        module.requests = original_requests
 
 
 def test_prefect_probe_rejects_sqlite_or_unproven_running_server_backend():

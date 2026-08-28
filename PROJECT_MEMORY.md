@@ -98,6 +98,13 @@ gate inside the same process/network boundary before starting the worker; it
 fails closed without persisting credentials or changing the parameterless
 deployment.
 
+Mailbox run-conflict readiness now follows Prefect 3.8.4 state types rather
+than requiring an empty deployment history. Completed, Failed, Cancelled, and
+Crashed are confirmed terminal and allowed; Scheduled, Pending, Running,
+Paused, Cancelling, missing, or unknown state is blocked. The live boolean-only
+preflight passed every category with the one historical terminal failure and
+zero active runs; it created no flow run.
+
 Target live architecture:
 
 Windows production AI host
@@ -712,10 +719,10 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Run an explicitly authorized infrastructure-only check by starting the mailbox
-worker through `scripts/invoke_prefect_mailbox_worker.ps1` from a process
-boundary with approved outbound access. Require its boolean authentication gate
-to pass and the worker to become healthy, then stop it without triggering the
-mailbox deployment. Only after that proof may the operator separately authorize
-one replacement acceptance run. Preserve concurrency one, manual-only
-operation, zero Prefect retries, and all existing application safety rules.
+Obtain separate explicit authorization for exactly one replacement manual
+mailbox acceptance. Start the documented PostgreSQL-backed control plane and
+auth-gated worker, rerun the boolean-only readiness preflight, require every
+category true and zero active/conflicting mailbox runs, then trigger exactly
+one `lthhc-bounded-mailbox/manual-local` run. Do not retrigger under any
+circumstance; preserve concurrency one, manual-only operation, zero Prefect
+retries, and all existing application safety rules.

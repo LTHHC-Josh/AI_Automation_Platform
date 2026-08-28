@@ -8426,6 +8426,42 @@ health to pass, then stop the worker without triggering the deployment. A
 second one-run mailbox acceptance remains blocked until that infrastructure-
 only proof passes and receives separate explicit authorization.
 
+
+------------------------------------------------------------
+PREFECT TERMINAL-RUN READINESS CORRECTION - 2026-08-28
+------------------------------------------------------------
+
+Work completed:
+
+- Replaced the mailbox readiness gate's zero-history requirement with the
+  exact Prefect 3.8.4 terminal state-type contract.
+- Allowed only Completed, Failed, Cancelled, and Crashed history. Scheduled,
+  Pending, Running, Paused, Cancelling, missing, unknown, malformed, or
+  unprovable state remains fail-closed.
+- Paginated all deployment history so an active/conflicting run cannot be
+  hidden behind terminal history. Every other readiness condition is unchanged.
+
+Verification:
+
+- Modified Python compiled successfully.
+- Prefect readiness: 7 passed, 0 failed; synthetic deterministic/mock.
+- Mailbox readiness: 10 passed, 0 failed; synthetic deterministic/mock.
+- Worker auth boundary: 6 passed, 0 failed; synthetic deterministic/mock.
+- PostgreSQL control-plane: 7 passed, 0 failed; synthetic deterministic.
+- Live boolean-only readiness returned every category true with one historical
+  terminal Failed run, zero active runs, and exactly one healthy worker.
+- No mailbox flow, Graph enumeration, Smartsheet write, patient OCR, Ollama
+  inference, patient-document processing, schedule, retry, or schema change ran.
+- Worker, Prefect server, and PostgreSQL were stopped after evidence capture.
+
+Exact next starting point:
+
+Obtain separate explicit authorization for exactly one replacement manual
+mailbox acceptance. Reconfirm the boolean-only readiness gate, require every
+category true and zero active/conflicting runs, then trigger one manual run
+only. Do not enable schedules, Prefect retries, concurrency increases, or any
+automatic/manual retrigger.
+
 """
 
 

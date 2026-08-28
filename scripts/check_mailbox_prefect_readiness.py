@@ -26,6 +26,10 @@ PREFECT = ROOT / ".venv" / "Scripts" / "prefect.exe"
 API_URL = "http://127.0.0.1:4200/api"
 POOL_NAME = "lthhc-local-process"
 DEPLOYMENT_NAME = "lthhc-bounded-mailbox/manual-local"
+TERMINAL_FLOW_RUN_STATE_TYPES = frozenset(
+    {"COMPLETED", "FAILED", "CANCELLED", "CRASHED"}
+)
+FLOW_RUN_PAGE_SIZE = 200
 
 
 @dataclass(frozen=True)
@@ -180,6 +184,35 @@ def _run_prefect(*arguments: str) -> str:
     return completed.stdout
 
 
+def _mailbox_run_history_is_terminal(deployment_id: object) -> bool:
+    if not isinstance(deployment_id, str) or not deployment_id:
+        return False
+    offset = 0
+    while True:
+        runs = requests.post(
+            f"{API_URL}/flow_runs/filter",
+            json={
+                "deployments": {"id": {"any_": [deployment_id]}},
+                "limit": FLOW_RUN_PAGE_SIZE,
+                "offset": offset,
+            },
+            timeout=10,
+        )
+        if runs.status_code != 200:
+            return False
+        run_items = runs.json()
+        if not isinstance(run_items, list):
+            return False
+        for item in run_items:
+            if not isinstance(item, dict) or item.get("state_type") not in (
+                TERMINAL_FLOW_RUN_STATE_TYPES
+            ):
+                return False
+        if len(run_items) < FLOW_RUN_PAGE_SIZE:
+            return True
+        offset += len(run_items)
+
+
 def _prefect_ready() -> bool:
     if (
         os.getenv("PREFECT_SERVER_DATABASE_CONNECTION_URL")
@@ -232,19 +265,7 @@ def _prefect_ready() -> bool:
     ):
         return False
 
-    runs = requests.post(
-        f"{API_URL}/flow_runs/filter",
-        json={
-            "deployments": {"id": {"any_": [deployment.get("id")]}},
-            "limit": 1,
-            "offset": 0,
-        },
-        timeout=10,
-    )
-    if runs.status_code != 200:
-        return False
-    run_items = runs.json()
-    if not isinstance(run_items, list) or run_items:
+    if not _mailbox_run_history_is_terminal(deployment.get("id")):
         return False
 
     workers = requests.post(
