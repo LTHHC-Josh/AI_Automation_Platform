@@ -8531,6 +8531,56 @@ no schedule/automation, concurrency one with CANCEL_NEW, one application task,
 and zero retries. Do not start the mailbox worker, enumerate mailbox content,
 or trigger a real mailbox flow.
 
+
+------------------------------------------------------------
+PREFECT GUARDED DEPLOYMENT READ-ONLY VERIFICATION - 2026-08-28
+------------------------------------------------------------
+
+Work completed:
+
+- Reconciled the completed PHI-safe registration/read-only verification for
+  lthhc-bounded-mailbox/manual-local at Git commit
+  b2d15c71a3f6508803e59e467287c3bbddd98bf9.
+- Confirmed that the registered deployment was found with empty parameters,
+  no schedule, no automations or triggers, concurrency one with CANCEL_NEW,
+  exactly one application task, and zero Prefect retries.
+- Confirmed that the mailbox worker was not started, no mailbox flow was
+  created, and PostgreSQL plus the Prefect server were stopped after the
+  bounded verification.
+
+Files:
+
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Narrow static/runtime assertions and deployment-metadata verification
+  passed with no discrepancies; real local Prefect/PostgreSQL, read-only.
+- Repository history and the clean synchronized Git state support the guarded
+  source and registered deployment revision.
+- No Graph mailbox enumeration, attachment download, OCR, Ollama, Smartsheet
+  write, patient-document processing, mailbox worker, or mailbox Prefect flow
+  ran. Only PHI-safe booleans, counts, configuration metadata, and statuses
+  were retained.
+
+Limitations:
+
+- The guarded deployment has not yet completed a real mailbox acceptance.
+- A real run still requires separate explicit authorization, the documented
+  same-boundary worker authentication gate, and every PHI-safe readiness
+  boolean to pass immediately before the one allowed trigger.
+
+Exact next starting point:
+
+Obtain separate explicit authorization for exactly one guarded real mailbox
+acceptance. Then start only the documented PostgreSQL, Prefect server, and
+same-boundary mailbox-worker launcher; require its Graph authentication gate
+and every PHI-safe mailbox readiness boolean to pass before triggering the
+parameterless lthhc-bounded-mailbox/manual-local deployment exactly once. Stop
+without triggering if any gate is false, and do not enable schedules, Prefect
+retries, increased concurrency, or any automatic/manual retrigger.
+
 """
 
 

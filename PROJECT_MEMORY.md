@@ -84,9 +84,13 @@ prove the message bound, counts supported documents from attachment metadata
 before content download, reuses the same discovered collection, and fails
 closed when either count exceeds one or cannot be proven. A blocked acceptance
 does not begin attachment download, OCR, Ollama, Smartsheet, mailbox completion,
-or automatic retry. The registered deployment remains
-`lthhc-bounded-mailbox/manual-local`; it must be redeployed before any later
-separately authorized acceptance so the registration reflects this guard.
+or automatic retry. The guarded source was registered as
+`lthhc-bounded-mailbox/manual-local` and then verified read-only: the deployment
+was found with empty parameters, no schedule, no automations or triggers,
+concurrency one with `CANCEL_NEW`, exactly one application task, and zero
+Prefect retries. The mailbox worker was not started, no mailbox flow was
+created, no discrepancy was found, and the temporary PostgreSQL and Prefect
+server processes were stopped after verification.
 
 The boolean-only readiness probe now proves the running server backend from
 the server's own database-connectivity and non-secret driver settings instead
@@ -734,9 +738,10 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Perform a PHI-safe registration/read-only verification checkpoint for the
-updated `lthhc-bounded-mailbox/manual-local` deployment so the registered code
-contains the exactly-one-message/exactly-one-document guard and stage
-observability. Verify empty parameters, no schedule/automation, concurrency
-one with CANCEL_NEW, one application task, and zero retries. Do not start the
-mailbox worker, enumerate mailbox content, or trigger a real mailbox flow.
+Obtain separate explicit authorization for exactly one guarded real mailbox
+acceptance. Then start only the documented PostgreSQL, Prefect server, and
+same-boundary mailbox-worker launcher; require its Graph authentication gate
+and every PHI-safe mailbox readiness boolean to pass before triggering the
+parameterless `lthhc-bounded-mailbox/manual-local` deployment exactly once.
+Stop without triggering if any gate is false, and do not enable schedules,
+Prefect retries, increased concurrency, or any automatic/manual retrigger.
