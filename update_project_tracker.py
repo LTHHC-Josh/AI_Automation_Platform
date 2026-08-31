@@ -8751,6 +8751,57 @@ metadata discovery boundary. Do not start the mailbox worker, enumerate
 mailbox content, display the popup, or trigger a mailbox flow. Stop PostgreSQL
 and the Prefect server after the bounded verification.
 
+
+------------------------------------------------------------
+POPUP-SELECTED DEPLOYMENT REGISTRATION VERIFICATION - 2026-08-31
+------------------------------------------------------------
+
+Work completed:
+
+- Registered the current committed popup-selected source as
+  lthhc-bounded-mailbox/manual-local through the documented manual-only
+  Prefect command.
+- Verified empty parameters and parameter schema, no schedule, no automations
+  or triggers, deployment concurrency one with CANCEL_NEW, the fixed manual
+  entrypoint and tags, zero online workers, and no mailbox flow created.
+- Proved from current-HEAD source and focused tests that the registered
+  entrypoint contains one parameterless flow, exactly one application task,
+  zero Prefect retries, newest-ten unread Inbox metadata discovery, exactly-one
+  selection/document enforcement, exact Inbox re-verification, no
+  newest-unread fallback, guard failure before expensive processing, and
+  unchanged normal production enumeration.
+
+Verification:
+
+- Static current-HEAD/parent AST assertions passed every required source and
+  architecture boolean.
+- Popup, Graph metadata, Prefect adapter, deployment control-plane, and legacy
+  guard checks: 36 passed, 0 failed; synthetic deterministic/mock/static.
+- Real local Prefect/PostgreSQL deployment registration and read-only metadata
+  inspection passed. The two existing historical deployment runs were
+  unchanged and zero runs were created on the verification date.
+- PostgreSQL and the Prefect server were the only components started and were
+  stopped afterward. No worker, mailbox enumeration, popup, attachment
+  download, OCR, Ollama, production Smartsheet operation, or mailbox flow ran.
+
+Files:
+
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Exact next starting point:
+
+Obtain new separate explicit authorization for exactly one popup-selected
+guarded real mailbox acceptance. From a clean synchronized state, start only
+the documented PostgreSQL, Prefect server, and same-boundary mailbox-worker
+launcher; require the Graph authentication gate and every PHI-safe readiness
+boolean to pass; then trigger the parameterless
+lthhc-bounded-mailbox/manual-local deployment exactly once. Select exactly one
+eligible candidate in the local popup and observe only that run to terminal
+state. Cancel, no eligible candidate, or failed exact-candidate re-verification
+must stop without fallback, retry, or retrigger. Stop every started component
+afterward.
+
 """
 
 
@@ -8910,7 +8961,9 @@ updates = [
             "acceptance-only local popup with safe numbered labels, newest-ten "
             "metadata discovery, exact Inbox re-verification, one-message/one-"
             "document enforcement, no newest-unread fallback, and PHI-safe "
-            "stage visibility. Prefect retries, scheduling, and "
+            "stage visibility. That popup-selected source is now registered "
+            "and passed read-only deployment-metadata verification without a "
+            "worker or flow. Prefect retries, scheduling, and "
             "automatic startup remain "
             "disabled. The "
             "pinned Prefect 3.8.4 offline dry-run defect now has a version-bounded "

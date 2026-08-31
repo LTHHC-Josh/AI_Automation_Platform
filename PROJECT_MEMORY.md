@@ -90,12 +90,15 @@ multiple, or unprovable re-verification fail closed before attachment download,
 OCR, Ollama, Smartsheet, or mailbox completion. There is no newest-unread
 fallback. Normal unattended enumeration remains unchanged.
 
-The earlier exactly-one-message/exactly-one-document guarded source was
-registered as `lthhc-bounded-mailbox/manual-local` and verified read-only with
-empty parameters, no schedule, no automations or triggers, concurrency one
-with `CANCEL_NEW`, exactly one application task, and zero Prefect retries. The
-popup-selected source preserves those static contracts but has not yet been
-re-registered or verified against deployment metadata.
+The popup-selected source is registered as
+`lthhc-bounded-mailbox/manual-local`. A PHI-safe registration/read-only
+verification found empty parameters, no schedule, no automations or triggers,
+concurrency one with `CANCEL_NEW`, exactly one application task, and zero
+Prefect retries. Registered entrypoint and current-HEAD assertions proved the
+newest-ten metadata discovery, local popup selection, exact Inbox
+re-verification, one-message/one-document limits, no newest-unread fallback,
+and unchanged normal production enumeration. No worker, popup, mailbox access,
+or flow ran, and PostgreSQL plus the Prefect server were stopped afterward.
 
 A later explicitly authorized guarded acceptance stopped at preflight without
 triggering the deployment. The same-boundary worker Graph authentication gate
@@ -480,9 +483,9 @@ needed and the operator approves it.
   real run reached application processing with one candidate message and two
   candidate documents before safe operator cancellation; the exactly-one-
   message/exactly-one-document guard was added afterward and verified
-  read-only. That manual path now uses a local popup-selected candidate with
-  exact Inbox re-verification; the updated source still requires registration
-  and deployment-metadata verification. A later guarded acceptance stopped at
+  read-only. That registered manual path now uses a local popup-selected
+  candidate with newest-ten metadata discovery, exact Inbox re-verification,
+  and no newest-unread fallback. A later guarded acceptance stopped at
   preflight because the submission-key configuration readiness gate was false;
   no flow ran.
 
@@ -566,8 +569,8 @@ needed and the operator approves it.
   deployment concurrency one with CANCEL_NEW, pool concurrency one, one
   application task, and zero retries. The current source adds acceptance-only
   popup selection, bounded metadata discovery, exact Inbox re-verification,
-  and PHI-safe stage events. Its updated registration metadata has not yet been
-  verified.
+  and PHI-safe stage events. Registration metadata and current-HEAD source
+  assertions passed without creating a worker or flow.
 
 ### Authorization
 
@@ -764,10 +767,13 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Perform a PHI-safe registration and read-only deployment-metadata verification
-for the popup-selected `lthhc-bounded-mailbox/manual-local` source. Verify empty
-parameters, no schedule or automations, concurrency one with `CANCEL_NEW`, one
-application task, zero Prefect retries, and the acceptance-only newest-ten
-metadata discovery boundary. Do not start the mailbox worker, enumerate
-mailbox content, display the popup, or trigger a mailbox flow. Stop PostgreSQL
-and the Prefect server after the bounded verification.
+Obtain new separate explicit authorization for exactly one popup-selected
+guarded real mailbox acceptance. From a clean synchronized state, start only
+the documented PostgreSQL, Prefect server, and same-boundary mailbox-worker
+launcher; require the Graph authentication gate and every PHI-safe readiness
+boolean to pass; then trigger the parameterless
+`lthhc-bounded-mailbox/manual-local` deployment exactly once. Select exactly
+one eligible candidate in the local popup and observe only that run to terminal
+state. Cancel, no eligible candidate, or failed exact-candidate re-verification
+must stop without fallback, retry, or retrigger. Stop every started component
+afterward.
