@@ -1,10 +1,12 @@
 ﻿from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 
 from src.document_processing.document_processor import (
     DocumentProcessor,
 )
 from src.models.document import Document
+from src.models.mailbox_acceptance import MailboxAcceptanceCandidate
 from src.services.mailbox_processing_state_service import (
     MailboxProcessingStateService,
 )
@@ -190,6 +192,177 @@ class MailboxProcessor:
             results.append(result)
 
         return results
+
+    def process_selected_unread_message(
+        self,
+        *,
+        selector,
+        discovery_top: int = 10,
+        acceptance_max_messages: int = 1,
+        acceptance_max_documents: int = 1,
+        stage_observer=None,
+    ) -> list[MessageProcessingResult]:
+        """Select and re-verify one manual acceptance candidate in memory."""
+        if (
+            not isinstance(discovery_top, int)
+            or isinstance(discovery_top, bool)
+            or discovery_top < 1
+            or not isinstance(acceptance_max_messages, int)
+            or isinstance(acceptance_max_messages, bool)
+            or acceptance_max_messages != 1
+            or not isinstance(acceptance_max_documents, int)
+            or isinstance(acceptance_max_documents, bool)
+            or acceptance_max_documents != 1
+        ):
+            raise MailboxAcceptanceGuardError("acceptance_policy_invalid")
+
+        started_at = __import__("time").perf_counter()
+        messages = self.email_service.get_unread_messages(top=discovery_top)
+        if not isinstance(messages, list):
+            raise MailboxAcceptanceGuardError("acceptance_count_unproven")
+
+        safe_candidates: list[MailboxAcceptanceCandidate] = []
+        selected_identities: list[str] = []
+        for message in messages:
+            if not isinstance(message, dict):
+                raise MailboxAcceptanceGuardError("acceptance_count_unproven")
+            message_id = message.get("id")
+            if not isinstance(message_id, str) or not message_id:
+                raise MailboxAcceptanceGuardError("acceptance_count_unproven")
+            if message.get("isRead") is not False:
+                continue
+            count_result = self.attachment_service.count_supported_file_attachments(
+                message_id,
+                supported_extensions=SUPPORTED_FILE_EXTENSIONS,
+            )
+            count = getattr(count_result, "count", None)
+            if (
+                not getattr(count_result, "success", False)
+                or not isinstance(count, int)
+                or isinstance(count, bool)
+            ):
+                continue
+            if count != 1:
+                continue
+            candidate_number = len(safe_candidates) + 1
+            safe_candidates.append(
+                MailboxAcceptanceCandidate(
+                    candidate_number=candidate_number,
+                    received_timestamp=self._safe_received_timestamp(
+                        message.get("receivedDateTime")
+                    ),
+                    supported_document_count=count,
+                )
+            )
+            selected_identities.append(message_id)
+
+        self._observe(
+            stage_observer,
+            "mailbox_discovery",
+            "completed",
+            started_at,
+            candidate_message_count=len(safe_candidates),
+        )
+        if not safe_candidates:
+            raise MailboxAcceptanceGuardError(
+                "acceptance_no_eligible_candidate",
+                message_count=0,
+                document_count=0,
+            )
+
+        try:
+            selected_number = selector.select(tuple(safe_candidates))
+        except Exception:
+            raise MailboxAcceptanceGuardError(
+                "acceptance_selection_unavailable"
+            ) from None
+        if selected_number is None:
+            raise MailboxAcceptanceGuardError(
+                "acceptance_selection_cancelled"
+            )
+        if (
+            not isinstance(selected_number, int)
+            or isinstance(selected_number, bool)
+            or selected_number < 1
+            or selected_number > len(selected_identities)
+        ):
+            raise MailboxAcceptanceGuardError(
+                "acceptance_selection_invalid"
+            )
+
+        selected_identity = selected_identities[selected_number - 1]
+        try:
+            selected_message = self.email_service.get_unread_inbox_message(
+                selected_identity
+            )
+        except Exception:
+            raise MailboxAcceptanceGuardError(
+                "acceptance_selected_candidate_unavailable"
+            ) from None
+        if (
+            not isinstance(selected_message, dict)
+            or selected_message.get("id") != selected_identity
+        ):
+            raise MailboxAcceptanceGuardError(
+                "acceptance_selected_candidate_unavailable"
+            )
+        if selected_message.get("isRead") is not False:
+            raise MailboxAcceptanceGuardError(
+                "acceptance_selected_candidate_read",
+                message_count=1,
+            )
+
+        count_result = self.attachment_service.count_supported_file_attachments(
+            selected_identity,
+            supported_extensions=SUPPORTED_FILE_EXTENSIONS,
+        )
+        document_count = getattr(count_result, "count", None)
+        if (
+            not getattr(count_result, "success", False)
+            or not isinstance(document_count, int)
+            or isinstance(document_count, bool)
+        ):
+            raise MailboxAcceptanceGuardError(
+                "acceptance_count_unproven",
+                message_count=1,
+            )
+        if document_count != 1:
+            raise MailboxAcceptanceGuardError(
+                "acceptance_document_count_invalid",
+                message_count=1,
+                document_count=document_count,
+            )
+
+        self._observe(
+            stage_observer,
+            "acceptance_guard",
+            "passed",
+            started_at,
+            candidate_message_count=1,
+            candidate_document_count=1,
+        )
+        return [
+            self.process_message(
+                selected_message,
+                stage_observer=stage_observer,
+            )
+        ]
+
+    @staticmethod
+    def _safe_received_timestamp(value) -> str | None:
+        if not isinstance(value, str) or not value.strip():
+            return None
+        try:
+            parsed = datetime.fromisoformat(
+                value.strip().replace("Z", "+00:00")
+            )
+            if parsed.tzinfo is None:
+                return None
+            return parsed.astimezone(timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S UTC"
+            )
+        except (TypeError, ValueError, OverflowError):
+            return None
 
     def process_message(
         self,

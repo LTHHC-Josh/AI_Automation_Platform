@@ -8677,6 +8677,80 @@ parameterless lthhc-bounded-mailbox/manual-local deployment exactly once. Stop
 without triggering if any gate is false, and do not enable schedules, Prefect
 retries, increased concurrency, or any automatic/manual retrigger.
 
+
+------------------------------------------------------------
+ACCEPTANCE-ONLY MAILBOX SELECTION POPUP - 2026-08-31
+------------------------------------------------------------
+
+Work completed:
+
+- Added a synchronous local Tkinter popup for manual acceptance that receives
+  only numbered PHI-safe candidate models, normalized UTC receipt times, and
+  deterministically proven supported-document counts.
+- Added a separate acceptance-only ingestion path that inspects the newest ten
+  unread Inbox messages through metadata, retains the index-to-message mapping
+  only in process memory, and never changes normal unattended enumeration.
+- Added exact Inbox-scoped re-fetch and re-verification. The selected candidate
+  must remain available, unread, identity-matched, and contain exactly one
+  supported document. Cancel, invalid/unavailable selection, movement,
+  read-state change, and zero, multiple, or unprovable counts fail closed with
+  no newest-unread fallback.
+- Kept Prefect parameterless with one application task, zero retries,
+  concurrency one, and CANCEL_NEW. Business logic remains in the application
+  services and the existing durable processing/write/completion path is reused.
+
+Files:
+
+- src/models/mailbox_acceptance.py
+- src/ui/mailbox_acceptance_selection.py
+- src/graph/email_service.py
+- src/graph/mailbox_processor.py
+- src/services/mailbox_full_review_orchestration_service.py
+- src/orchestration/prefect_mailbox_workflow.py
+- prefect.yaml
+- docs/prefect_local_control_room.md
+- tests/test_mailbox_acceptance_selection.py
+- tests/test_graph_attachment_enumeration.py
+- tests/test_mailbox_prefect_readiness.py
+- tests/test_prefect_postgresql_control_plane.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Verification:
+
+- Modified Python compiled successfully.
+- Focused popup, exact-Graph-boundary, and Prefect-adapter checks: 25 passed,
+  0 failed; synthetic deterministic/mock.
+- Affected mailbox guard, orchestration, handling, persistent idempotency,
+  uncertain-write/recovery, Smartsheet, worker, readiness, deployment, and
+  control-plane checks: 114 passed, 0 failed, plus the silent durable recovery
+  harness with exit code 0; synthetic deterministic/mock/local-state.
+- No live mailbox access, attachment download, OCR, Ollama, production
+  Smartsheet row/attachment write, worker start, PostgreSQL start, or manual
+  mailbox deployment invocation ran. The required project-tracker
+  synchronization updated only project-status rows.
+  One affected Prefect control-room regression started and stopped its own
+  temporary localhost server and completed one PHI-free synthetic wiring flow;
+  it did not invoke the mailbox adapter or any external integration.
+- Protected synthetic identities were absent from popup models, display rows,
+  repr, stdout/stderr, sanitized failures, Prefect parameters, and public
+  results.
+
+Limitation:
+
+- The popup-selected source has not been registered or verified against live
+  deployment metadata, and no live popup or mailbox acceptance has run.
+
+Exact next starting point:
+
+Perform a PHI-safe registration and read-only deployment-metadata verification
+for the popup-selected lthhc-bounded-mailbox/manual-local source. Verify empty
+parameters, no schedule or automations, concurrency one with CANCEL_NEW, one
+application task, zero Prefect retries, and the acceptance-only newest-ten
+metadata discovery boundary. Do not start the mailbox worker, enumerate
+mailbox content, display the popup, or trigger a mailbox flow. Stop PostgreSQL
+and the Prefect server after the bounded verification.
+
 """
 
 
@@ -8833,8 +8907,10 @@ updates = [
             "and parameterless one-call mailbox adapter are implemented and "
             "mock-tested. After one real run exposed one message with two "
             "documents and was safely cancelled, the manual adapter gained an "
-            "application-owned exactly-one-message/exactly-one-document guard "
-            "plus PHI-safe stage visibility. Prefect retries, scheduling, and "
+            "acceptance-only local popup with safe numbered labels, newest-ten "
+            "metadata discovery, exact Inbox re-verification, one-message/one-"
+            "document enforcement, no newest-unread fallback, and PHI-safe "
+            "stage visibility. Prefect retries, scheduling, and "
             "automatic startup remain "
             "disabled. The "
             "pinned Prefect 3.8.4 offline dry-run defect now has a version-bounded "

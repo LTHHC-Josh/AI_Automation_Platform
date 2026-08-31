@@ -97,7 +97,7 @@ deployment and inspect the resulting server metadata. These commands do not
 create a flow run:
 
 ```powershell
-& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deploy 'src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow' --name 'manual-local' --description 'Manual-only bounded mailbox orchestration with PHI-safe operational output.' --tag 'manual' --tag 'phi-safe' --pool 'lthhc-local-process' --concurrency-limit 1 --collision-strategy 'CANCEL_NEW' --no-prompt
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deploy 'src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow' --name 'manual-local' --description 'Manual-only popup-selected one-message/one-document acceptance with PHI-safe operational output.' --tag 'manual' --tag 'phi-safe' --pool 'lthhc-local-process' --concurrency-limit 1 --collision-strategy 'CANCEL_NEW' --no-prompt
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment inspect 'lthhc-bounded-mailbox/manual-local' --output json
 ```
 
@@ -168,13 +168,18 @@ After every readiness boolean is true and the operator has explicitly
 authorized exactly one real run, use this command without parameters, tags,
 custom run names, or delayed start options:
 
-The parameterless manual deployment is application-configured for at most one
-candidate message and at most one supported document. Discovery requests one
-additional message only to prove that the message limit is not exceeded, then
-uses the same discovered collection for processing. Supported-document count
-is proven from attachment metadata before attachment content download. An
-exceeded or unprovable count fails closed before OCR, Ollama, Smartsheet, or
-mailbox completion, with zero Prefect retries and no automatic retrigger.
+The parameterless manual deployment opens one local acceptance-only popup from
+inside its single application task. It inspects only the newest ten unread
+Inbox messages through metadata, displays only numbered candidates, UTC
+received timestamps, and deterministically proven supported-document counts,
+and permits exactly one eligible one-document selection. The selected identity
+remains in process memory, is re-fetched through the exact Inbox boundary, and
+must still be available, unread, and contain exactly one supported document.
+Cancel, close, invalid selection, movement, read-state change, and zero,
+multiple, or unprovable document counts fail closed before attachment download,
+OCR, Ollama, Smartsheet, or mailbox completion. There is no newest-unread
+fallback, Prefect retry, or automatic retrigger. Normal unattended mailbox
+enumeration remains unchanged.
 
 ```powershell
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment run 'lthhc-bounded-mailbox/manual-local' --watch; if($LASTEXITCODE -ne 0){throw 'Manual bounded mailbox Prefect run failed.'}

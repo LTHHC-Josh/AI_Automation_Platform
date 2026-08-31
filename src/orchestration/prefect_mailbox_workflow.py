@@ -12,6 +12,7 @@ from src.services.mailbox_full_review_orchestration_service import (
 PREFECT_MAILBOX_RUN_TYPE = "Prefect bounded mailbox orchestration"
 PREFECT_MANUAL_MAILBOX_MESSAGE_LIMIT = 1
 PREFECT_MANUAL_MAILBOX_DOCUMENT_LIMIT = 1
+PREFECT_MANUAL_MAILBOX_DISCOVERY_LIMIT = 10
 
 
 class SanitizedMailboxRunError(RuntimeError):
@@ -39,8 +40,8 @@ def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
         )
 
     try:
-        result = MailboxFullReviewOrchestrationService().run(
-            top=PREFECT_MANUAL_MAILBOX_MESSAGE_LIMIT,
+        result = MailboxFullReviewOrchestrationService().run_selected_acceptance(
+            discovery_top=PREFECT_MANUAL_MAILBOX_DISCOVERY_LIMIT,
             review_mode=MailboxClassificationReviewMode.DOWNSTREAM,
             run_type=PREFECT_MAILBOX_RUN_TYPE,
             acceptance_max_messages=PREFECT_MANUAL_MAILBOX_MESSAGE_LIMIT,

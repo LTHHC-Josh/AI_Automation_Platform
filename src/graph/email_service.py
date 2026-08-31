@@ -115,6 +115,36 @@ class EmailService:
             params=params,
         )
 
+    def get_unread_inbox_message(
+        self,
+        message_id: str,
+    ) -> dict:
+        """Re-fetch one exact Inbox message for manual acceptance verification."""
+        if not message_id:
+            raise ValueError(
+                "A message ID is required."
+            )
+
+        endpoint = (
+            f"/users/{self.config.mailbox}"
+            f"/mailFolders/inbox/messages/{message_id}"
+        )
+        params = {
+            "$select": (
+                "id,"
+                "subject,"
+                "from,"
+                "receivedDateTime,"
+                "hasAttachments,"
+                "isRead"
+            ),
+        }
+        return self.client.get(
+            endpoint,
+            params=params,
+            operation_category="mailbox_enumeration",
+        )
+
     def mark_as_read(
         self,
         message_id: str,

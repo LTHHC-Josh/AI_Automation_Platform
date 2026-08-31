@@ -78,19 +78,24 @@ documents and reached `row_write_pending`; it was safely cancelled. Final state
 was Cancelled, uncertain state was absent, no duplicate business action was
 detected, and all components were stopped.
 
-The manual adapter is now application-configured for at most one candidate
-message and at most one supported document. It discovers one extra message to
-prove the message bound, counts supported documents from attachment metadata
-before content download, reuses the same discovered collection, and fails
-closed when either count exceeds one or cannot be proven. A blocked acceptance
-does not begin attachment download, OCR, Ollama, Smartsheet, mailbox completion,
-or automatic retry. The guarded source was registered as
-`lthhc-bounded-mailbox/manual-local` and then verified read-only: the deployment
-was found with empty parameters, no schedule, no automations or triggers,
-concurrency one with `CANCEL_NEW`, exactly one application task, and zero
-Prefect retries. The mailbox worker was not started, no mailbox flow was
-created, no discrepancy was found, and the temporary PostgreSQL and Prefect
-server processes were stopped after verification.
+The manual adapter now uses an acceptance-only local popup inside its single
+application task. It inspects only the newest ten unread Inbox messages through
+metadata, lists only candidates with exactly one deterministically supported
+document, and displays only a candidate number, normalized UTC receipt time,
+and supported-document count. The selected identity remains in process memory,
+is re-fetched through the exact Inbox boundary, and must still be available,
+unread, identity-matched, and contain exactly one supported document. Cancel,
+invalid or unavailable selection, movement, read-state change, and zero,
+multiple, or unprovable re-verification fail closed before attachment download,
+OCR, Ollama, Smartsheet, or mailbox completion. There is no newest-unread
+fallback. Normal unattended enumeration remains unchanged.
+
+The earlier exactly-one-message/exactly-one-document guarded source was
+registered as `lthhc-bounded-mailbox/manual-local` and verified read-only with
+empty parameters, no schedule, no automations or triggers, concurrency one
+with `CANCEL_NEW`, exactly one application task, and zero Prefect retries. The
+popup-selected source preserves those static contracts but has not yet been
+re-registered or verified against deployment metadata.
 
 A later explicitly authorized guarded acceptance stopped at preflight without
 triggering the deployment. The same-boundary worker Graph authentication gate
@@ -463,6 +468,9 @@ needed and the operator approves it.
 - PHI-safe Graph, mailbox, OCR, evaluation, and integration diagnostics.
 - Opt-in local protected document listing/selection/review and cache-only
   evaluation.
+- Acceptance-only PHI-safe local mailbox candidate selection with bounded
+  metadata discovery, exact Inbox re-verification, and no newest-unread
+  fallback. Normal unattended enumeration is unchanged.
 - Validated business-reference workbook boundary and deterministic filename
   policy/input services. Production filename orchestration remains disabled.
 - Prefect 3.8.4 pinned with a self-hosted localhost server/UI, native process
@@ -471,9 +479,12 @@ needed and the operator approves it.
   is import/mock-tested and registered as a manual-only deployment. One later
   real run reached application processing with one candidate message and two
   candidate documents before safe operator cancellation; the exactly-one-
-  message/exactly-one-document guard was added afterward, registered, and
-  verified read-only. A later guarded acceptance stopped at preflight because
-  the submission-key configuration readiness gate was false; no flow ran.
+  message/exactly-one-document guard was added afterward and verified
+  read-only. That manual path now uses a local popup-selected candidate with
+  exact Inbox re-verification; the updated source still requires registration
+  and deployment-metadata verification. A later guarded acceptance stopped at
+  preflight because the submission-key configuration readiness gate was false;
+  no flow ran.
 
 ## Verified Current Baselines
 
@@ -550,13 +561,13 @@ needed and the operator approves it.
   revision equal to the sole installed PostgreSQL head `9e9dadc36797`; aggregate
   flow/task state-name invariant gaps are zero. The explicit exception applies
   only to Prefect 3.8.4 and must be rechecked on every version change.
-- The manual mailbox deployment is registered with the fixed application
-  entrypoint, empty parameters, no schedules or automations, manual/PHI-safe
-  tags, deployment concurrency one with CANCEL_NEW, and pool concurrency one.
-  Application source now adds exactly-one-message/exactly-one-document manual
-  limits and PHI-safe stage events while retaining one application task and
-  zero retries. Registration itself started no worker and invoked no
-  application or external integration.
+- The manual mailbox deployment retains the fixed application entrypoint,
+  empty parameters, no schedules or automations, manual/PHI-safe tags,
+  deployment concurrency one with CANCEL_NEW, pool concurrency one, one
+  application task, and zero retries. The current source adds acceptance-only
+  popup selection, bounded metadata discovery, exact Inbox re-verification,
+  and PHI-safe stage events. Its updated registration metadata has not yet been
+  verified.
 
 ### Authorization
 
@@ -753,10 +764,10 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Obtain new separate explicit authorization for exactly one guarded real
-mailbox acceptance. Then start only the documented PostgreSQL, Prefect server,
-and same-boundary mailbox-worker launcher; require its Graph authentication
-gate and every PHI-safe mailbox readiness boolean to pass before triggering the
-parameterless `lthhc-bounded-mailbox/manual-local` deployment exactly once.
-Stop without triggering if any gate is false, and do not enable schedules,
-Prefect retries, increased concurrency, or any automatic/manual retrigger.
+Perform a PHI-safe registration and read-only deployment-metadata verification
+for the popup-selected `lthhc-bounded-mailbox/manual-local` source. Verify empty
+parameters, no schedule or automations, concurrency one with `CANCEL_NEW`, one
+application task, zero Prefect retries, and the acceptance-only newest-ten
+metadata discovery boundary. Do not start the mailbox worker, enumerate
+mailbox content, display the popup, or trigger a mailbox flow. Stop PostgreSQL
+and the Prefect server after the bounded verification.

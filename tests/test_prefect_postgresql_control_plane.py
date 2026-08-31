@@ -98,8 +98,8 @@ def test_synthetic_and_manual_mailbox_deployments_are_conservative():
     assert mailbox == {
         "name": "manual-local",
         "description": (
-            "Manual-only bounded mailbox orchestration with PHI-safe "
-            "operational output."
+            "Manual-only popup-selected one-message/one-document acceptance "
+            "with PHI-safe operational output."
         ),
         "tags": ["manual", "phi-safe"],
         "schedule": None,

@@ -302,7 +302,7 @@ def test_adapter_is_parameterless_and_calls_only_full_boundary_once():
     calls = []
 
     class SyntheticService:
-        def run(self, **kwargs):
+        def run_selected_acceptance(self, **kwargs):
             calls.append(kwargs)
             return build_result()
 
@@ -316,7 +316,7 @@ def test_adapter_is_parameterless_and_calls_only_full_boundary_once():
 
     assert result.success is True
     assert calls == [{
-        "top": 1,
+        "discovery_top": 10,
         "review_mode": MailboxClassificationReviewMode.DOWNSTREAM,
         "run_type": PREFECT_MAILBOX_RUN_TYPE,
         "acceptance_max_messages": 1,
@@ -362,7 +362,7 @@ def test_adapter_logs_only_allowlisted_aggregate_metadata():
             logged.append(template % arguments)
 
     class SyntheticService:
-        def run(self, **kwargs):
+        def run_selected_acceptance(self, **kwargs):
             for stage in (
                 "mailbox_discovery", "attachment_download", "ocr",
                 "classification", "subtype_classification", "extraction",
@@ -417,7 +417,7 @@ def test_adapter_failure_is_sanitized_and_nonretrying():
     private_marker = "PRIVATE-SYNTHETIC-PATIENT"
 
     class FailingService:
-        def run(self, **kwargs):
+        def run_selected_acceptance(self, **kwargs):
             raise RuntimeError(private_marker)
 
     original = prefect_adapter.MailboxFullReviewOrchestrationService

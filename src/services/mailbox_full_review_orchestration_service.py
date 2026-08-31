@@ -108,6 +108,8 @@ class MailboxFullReviewOrchestrationService:
         run_type: str = "",
         acceptance_max_messages: int | None = None,
         acceptance_max_documents: int | None = None,
+        acceptance_selector=None,
+        acceptance_discovery_top: int = 10,
         stage_observer=None,
     ) -> MailboxFullReviewOrchestrationResult:
         normalized_top = self._normalize_top(
@@ -135,8 +137,19 @@ class MailboxFullReviewOrchestrationService:
                 )
             if stage_observer is not None:
                 processing_options["stage_observer"] = stage_observer
-            message_results = self.mailbox_processor.process_unread_messages(
-                top=normalized_top, **processing_options)
+            if acceptance_selector is None:
+                message_results = self.mailbox_processor.process_unread_messages(
+                    top=normalized_top,
+                    **processing_options,
+                )
+            else:
+                message_results = (
+                    self.mailbox_processor.process_selected_unread_message(
+                        selector=acceptance_selector,
+                        discovery_top=acceptance_discovery_top,
+                        **processing_options,
+                    )
+                )
         except MailboxAcceptanceGuardError as error:
             return self._failure(
                 error.category,
@@ -385,6 +398,39 @@ class MailboxFullReviewOrchestrationService:
         if result.success:
             self._observe(stage_observer, "completed", "completed", action_started_at)
         return result
+
+    def run_selected_acceptance(
+        self,
+        *,
+        discovery_top: int = 10,
+        created_at: Any = None,
+        review_mode: MailboxClassificationReviewMode = (
+            MailboxClassificationReviewMode.DOWNSTREAM
+        ),
+        run_type: str = "",
+        acceptance_max_messages: int = 1,
+        acceptance_max_documents: int = 1,
+        stage_observer=None,
+        selector=None,
+    ) -> MailboxFullReviewOrchestrationResult:
+        """Run one explicit popup-selected manual acceptance."""
+        if selector is None:
+            from src.ui.mailbox_acceptance_selection import (
+                LocalMailboxAcceptanceSelector,
+            )
+
+            selector = LocalMailboxAcceptanceSelector()
+        return self.run(
+            top=1,
+            created_at=created_at,
+            review_mode=review_mode,
+            run_type=run_type,
+            acceptance_max_messages=acceptance_max_messages,
+            acceptance_max_documents=acceptance_max_documents,
+            acceptance_selector=selector,
+            acceptance_discovery_top=discovery_top,
+            stage_observer=stage_observer,
+        )
 
     @staticmethod
     def _observe(observer, stage, status, started_at, **metadata):

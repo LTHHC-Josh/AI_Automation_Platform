@@ -137,6 +137,27 @@ def test_mailbox_listing_uses_allowlisted_operation_category():
     assert client.calls[0]["operation_category"] == "mailbox_enumeration"
 
 
+def test_exact_acceptance_refetch_is_inbox_scoped_and_metadata_only():
+    client = RecordingGraphClient()
+    service = EmailService.__new__(EmailService)
+    service.client = client
+    service.config = SimpleNamespace(
+        mailbox="synthetic-mailbox@example.invalid"
+    )
+
+    result = service.get_unread_inbox_message(PROTECTED_MESSAGE_MARKER)
+
+    assert result == {"value": []}
+    assert len(client.calls) == 1
+    call = client.calls[0]
+    assert call["endpoint"].endswith(
+        f"/mailFolders/inbox/messages/{PROTECTED_MESSAGE_MARKER}"
+    )
+    assert call["operation_category"] == "mailbox_enumeration"
+    assert "body" not in call["params"]["$select"]
+    assert "uniqueBody" not in call["params"]["$select"]
+
+
 def test_recent_attachment_listing_requests_only_internal_required_fields():
     client = RecordingGraphClient()
     service = EmailService.__new__(EmailService)
