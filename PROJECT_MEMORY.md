@@ -100,6 +100,17 @@ re-verification, one-message/one-document limits, no newest-unread fallback,
 and unchanged normal production enumeration. No worker, popup, mailbox access,
 or flow ran, and PostgreSQL plus the Prefect server were stopped afterward.
 
+The first explicitly authorized popup-selected acceptance passed the
+same-boundary Graph authentication gate and every boolean readiness gate, then
+consumed exactly one deployment invocation. Metadata-only discovery found zero
+eligible candidates, so the acceptance guard failed closed with terminal
+Prefect state Failed. The popup was not displayed, no candidate was selected,
+and no attachment download, OCR, Ollama, Smartsheet operation, mailbox
+completion, retry, fallback, or retrigger occurred. PostgreSQL, the Prefect
+server, and the worker were stopped afterward. Prefect exposed the discovery
+and terminal guard category, but dedicated candidate-selection and
+candidate-reverification stage visibility remains absent from the adapter.
+
 A later explicitly authorized guarded acceptance stopped at preflight without
 triggering the deployment. The same-boundary worker Graph authentication gate
 passed, but the submission-key column configuration readiness boolean was
@@ -767,13 +778,12 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Obtain new separate explicit authorization for exactly one popup-selected
-guarded real mailbox acceptance. From a clean synchronized state, start only
-the documented PostgreSQL, Prefect server, and same-boundary mailbox-worker
-launcher; require the Graph authentication gate and every PHI-safe readiness
-boolean to pass; then trigger the parameterless
-`lthhc-bounded-mailbox/manual-local` deployment exactly once. Select exactly
-one eligible candidate in the local popup and observe only that run to terminal
-state. Cancel, no eligible candidate, or failed exact-candidate re-verification
-must stop without fallback, retry, or retrigger. Stop every started component
-afterward.
+Add PHI-safe `candidate_selection` and `candidate_reverification` stage events
+to the existing acceptance-only application boundary without exposing the
+selected identity or changing production enumeration. Cover popup display,
+selection/cancel, exact re-verification success/failure, and no-fallback
+behavior with synthetic/mock tests; then register and read-only verify the
+unchanged parameterless, one-task, zero-retry, concurrency-one `CANCEL_NEW`
+deployment. Do not perform another live mailbox acceptance without separate
+explicit authorization and an operator-provided eligible unread Inbox
+candidate containing exactly one supported document.

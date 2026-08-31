@@ -8802,6 +8802,58 @@ state. Cancel, no eligible candidate, or failed exact-candidate re-verification
 must stop without fallback, retry, or retrigger. Stop every started component
 afterward.
 
+
+------------------------------------------------------------
+POPUP-SELECTED GUARDED MAILBOX ACCEPTANCE - 2026-08-31
+------------------------------------------------------------
+
+Work completed:
+
+- Revalidated the clean synchronized source, registered parameterless manual
+  deployment, no schedule or automations, concurrency one with CANCEL_NEW,
+  one application task, zero Prefect retries, newest-ten metadata discovery,
+  exact-candidate re-verification, one-document guard, and no fallback.
+- Started only the documented PostgreSQL service, Prefect server, and
+  same-boundary mailbox worker. The worker Graph gate and every PHI-safe
+  readiness boolean passed.
+- Consumed exactly one authorized deployment invocation. Metadata-only
+  discovery found zero eligible candidates, so the application failed closed
+  at the acceptance guard before displaying the popup or performing any
+  expensive or business operation. No retry, fallback, or retrigger occurred.
+- Stopped PostgreSQL, the Prefect server, and the worker after the terminal
+  Failed state.
+
+Verification:
+
+- Real external integration: Graph authentication and all boolean readiness
+  gates passed; the single deployment reached terminal Failed with safe
+  category acceptance_no_eligible_candidate.
+- Candidate message count was zero and candidate document count was zero. No
+  candidate was selected; uncertain write state and duplicate business action
+  were absent because row and attachment attempts never began.
+- PHI-safe Prefect output exposed mailbox discovery and the terminal acceptance
+  guard category. Dedicated candidate-selection and candidate-reverification
+  stage events remain absent, so stage visibility is partial.
+- No attachment download, OCR, Ollama, Smartsheet write/upload, mailbox
+  completion, retry, fallback, or second flow invocation occurred.
+
+Files:
+
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Exact next starting point:
+
+Add PHI-safe candidate_selection and candidate_reverification stage events to
+the existing acceptance-only application boundary without exposing the
+selected identity or changing production enumeration. Cover popup display,
+selection/cancel, exact re-verification success/failure, and no-fallback
+behavior with synthetic/mock tests; then register and read-only verify the
+unchanged parameterless, one-task, zero-retry, concurrency-one CANCEL_NEW
+deployment. Do not perform another live mailbox acceptance without separate
+explicit authorization and an operator-provided eligible unread Inbox
+candidate containing exactly one supported document.
+
 """
 
 
