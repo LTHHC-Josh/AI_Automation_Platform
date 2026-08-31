@@ -60,10 +60,109 @@ def test_stop_worker_requires_ownership_and_does_not_stop_infrastructure():
     assert "process_created_utc" in text
     assert "/T" not in text
     assert "Stop-OwnedComponent -Name 'worker'" in helper
+    assert "Test-RecordedOwnedProcessExited" in helper
+    assert "worker_already_exited_prefect_heartbeat_settling" in helper
     assert "Stop-Service" not in helper and "Stop-OwnedComponent -Name 'server'" not in helper
     assert "Stop-ControlRoomWorker" in block
     assert "Get-Process |" not in text
     assert "Stop-Process -Name" not in text
+
+
+def test_stop_worker_recently_exited_owned_process_settles_fresh_heartbeat():
+    wrapper_path = str(WRAPPER).replace("'", "''")
+    command = r"""
+$tokens=$null;$errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
+foreach($name in @('Test-RecordedOwnedProcessExited','Stop-ControlRoomWorker')){
+  $node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq $name},$true)
+  Invoke-Expression $node.Extent.Text
+}
+$global:written=$false
+function Read-ControlState { return @{worker=@{pid=42;owned=$true;process_created_utc='synthetic'}} }
+function Write-ControlState([hashtable]$State) { $global:written=$true }
+function Get-ProcessIdentity([int]$ProcessId) { return $null }
+function Test-OwnedProcess { return $false }
+function Get-ControlPlaneStatus { return @{fresh_online_worker_count=1} }
+$result=Stop-ControlRoomWorker
+if($result -ne 'worker_already_exited_prefect_heartbeat_settling' -or -not $global:written){exit 41}
+Write-Output $PSVersionTable.PSVersion.Major
+""".replace("__WRAPPER__", wrapper_path)
+    completed = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "5"
+
+
+def test_stop_worker_unowned_fresh_worker_still_fails_closed():
+    wrapper_path = str(WRAPPER).replace("'", "''")
+    command = r"""
+$tokens=$null;$errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
+$node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq 'Stop-ControlRoomWorker'},$true)
+Invoke-Expression $node.Extent.Text
+function Read-ControlState { return @{} }
+function Get-ControlPlaneStatus { return @{fresh_online_worker_count=1} }
+try { Stop-ControlRoomWorker; exit 42 } catch {
+  if($_.Exception.Message -ne 'A fresh worker is active but wrapper ownership cannot be proven.'){exit 43}
+}
+Write-Output $PSVersionTable.PSVersion.Major
+""".replace("__WRAPPER__", wrapper_path)
+    completed = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "5"
+
+
+def test_reused_pid_fresh_worker_failure_preserves_local_state():
+    wrapper_path = str(WRAPPER).replace("'", "''")
+    command = r"""
+$tokens=$null;$errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
+foreach($name in @('Test-RecordedOwnedProcessExited','Stop-ControlRoomWorker')){
+  $node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq $name},$true)
+  Invoke-Expression $node.Extent.Text
+}
+$global:written=$false
+function Read-ControlState { return @{worker=@{pid=42;owned=$true;process_created_utc='old'}} }
+function Write-ControlState([hashtable]$State) { $global:written=$true }
+function Get-ProcessIdentity([int]$ProcessId) { return @{pid=42;created_utc='reused';command_line='unrelated'} }
+function Test-OwnedProcess { return $false }
+function Get-ControlPlaneStatus { return @{fresh_online_worker_count=1} }
+try { Stop-ControlRoomWorker; exit 45 } catch {
+  if($_.Exception.Message -ne 'A fresh worker is active but wrapper ownership cannot be proven.'){exit 46}
+}
+if($global:written){exit 47}
+Write-Output $PSVersionTable.PSVersion.Major
+""".replace("__WRAPPER__", wrapper_path)
+    completed = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "5"
+
+
+def test_reused_recorded_pid_cannot_authorize_heartbeat_settling():
+    wrapper_path = str(WRAPPER).replace("'", "''")
+    command = r"""
+$tokens=$null;$errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
+$node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq 'Test-RecordedOwnedProcessExited'},$true)
+Invoke-Expression $node.Extent.Text
+function Get-ProcessIdentity([int]$ProcessId) { return @{pid=42;created_utc='reused';command_line='unrelated'} }
+if(Test-RecordedOwnedProcessExited @{pid=42;owned=$true;process_created_utc='old'}){exit 44}
+Write-Output $PSVersionTable.PSVersion.Major
+""".replace("__WRAPPER__", wrapper_path)
+    completed = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "5"
 
 
 def test_control_room_stop_and_restart_are_worker_guarded_and_never_run_deployment():

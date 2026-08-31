@@ -1,9 +1,12 @@
 """PHI-safe Prefect adapter for one manual bounded mailbox invocation."""
 
 import re
+from uuid import uuid4
 
 from prefect import flow, get_run_logger, task
+from prefect.client.orchestration import get_client
 from prefect.context import get_run_context
+from prefect.states import Completed, Failed, Running
 
 from src.services.mailbox_full_review_orchestration_service import (
     MailboxClassificationReviewMode,
@@ -43,6 +46,24 @@ _STAGE_NAMES = {
     "downstream_review": "review-state",
     "mailbox_completion": "mailbox-finalization",
     "completed": "workflow-completion",
+}
+_LONG_RUNNING_STAGES = {
+    "ocr",
+    "classification",
+    "subtype_classification",
+    "extraction_attempt_1",
+    "validation_attempt_1",
+    "extraction_attempt_2",
+    "validation_attempt_2",
+}
+_OPERATOR_STAGE_NAMES = {
+    "ocr": "OCR",
+    "classification": "Document Classification",
+    "subtype_classification": "Subtype Classification",
+    "extraction_attempt_1": "Extraction Attempt 1",
+    "validation_attempt_1": "Validation Attempt 1",
+    "extraction_attempt_2": "Extraction Attempt 2",
+    "validation_attempt_2": "Validation Attempt 2",
 }
 _STAGE_STATUSES = {
     "started", "completed", "failed", "skipped", "cancelled", "passed",
@@ -98,6 +119,87 @@ def record_mailbox_lifecycle_stage(
     failure_category: str = "none",
 ) -> None:
     """Create one PHI-safe Prefect task run for an application lifecycle event."""
+
+
+@task(
+    name="Workflow Summary",
+    task_run_name="Workflow Summary",
+    retries=0,
+    log_prints=False,
+    persist_result=False,
+)
+def record_mailbox_workflow_summary(
+    *,
+    final_workflow_status: str,
+    document_count: int,
+    written_count: int,
+    failed_count: int,
+    attachment_attempt_count: int,
+    review_required: bool | None = None,
+    attempt_count: int | None = None,
+    selected_attempt: int | None = None,
+    retry_triggered: bool | None = None,
+    ocr_duration_seconds: float | None = None,
+    classification_duration_seconds: float | None = None,
+    extraction_duration_seconds: float | None = None,
+    validation_duration_seconds: float | None = None,
+    document_processing_duration_seconds: float | None = None,
+    ollama_total_duration_seconds: float | None = None,
+    prompt_token_count: int | None = None,
+    generated_token_count: int | None = None,
+) -> None:
+    """Expose only the already-normalized operational summary in Prefect."""
+    safe_summary = locals()
+    get_run_logger().info(
+        " ".join(
+            f"{key}={str(value).lower() if isinstance(value, bool) else value}"
+            for key, value in safe_summary.items()
+            if value is not None
+        )
+    )
+
+
+class _RunningStageVisibility:
+    """Manage PHI-free Prefect child task states around application stages."""
+
+    def __init__(self):
+        self._runs = {}
+
+    def update(self, *, application_stage, status):
+        if application_stage not in _LONG_RUNNING_STAGES:
+            return False
+        context = get_run_context()
+        flow_run_id = getattr(getattr(context, "task_run", None), "flow_run_id", None)
+        if flow_run_id is None:
+            return False
+        client = get_client(sync_client=True)
+        if status == "started":
+            task_run = client.create_task_run(
+                task=record_mailbox_lifecycle_stage,
+                flow_run_id=flow_run_id,
+                dynamic_key=f"stage-{application_stage}-{uuid4().hex}",
+                name=_OPERATOR_STAGE_NAMES[application_stage],
+                state=Running(),
+                task_inputs={},
+            )
+            self._runs[application_stage] = task_run.id
+            return True
+        task_run_id = self._runs.pop(application_stage, None)
+        if task_run_id is None:
+            return False
+        terminal_state = Failed(message="Application stage failed") if status == "failed" else Completed()
+        client.set_task_run_state(task_run_id, terminal_state, force=True)
+        return True
+
+    def fail_open_stages(self):
+        client = get_client(sync_client=True)
+        for task_run_id in tuple(self._runs.values()):
+            client.set_task_run_state(
+                task_run_id,
+                Failed(message="Application boundary failed"),
+                force=True,
+            )
+        self._runs.clear()
 
 
 def _normalize_stage_visibility(
@@ -189,6 +291,8 @@ def _record_stage_visibility(metadata) -> None:
 def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
     """Call the complete application boundary exactly once."""
     logger = get_run_logger()
+    running_stages = _RunningStageVisibility()
+    summary_events = {}
 
     def observe_stage(*, stage, status, duration_seconds=None, attempt_count=None,
                       candidate_message_count=None, candidate_document_count=None,
@@ -216,7 +320,17 @@ def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
             failure_category=failure_category,
             **operational_metadata,
         )
-        _record_stage_visibility(visibility)
+        try:
+            represented_by_running_task = running_stages.update(
+                application_stage=stage,
+                status=status,
+            )
+        except Exception:
+            represented_by_running_task = False
+        if not represented_by_running_task:
+            _record_stage_visibility(visibility)
+        if status in {"completed", "review_required"}:
+            summary_events[stage] = dict(visibility)
         log_metadata = {
             **visibility,
             "discovery_completed": discovery_completed,
@@ -250,6 +364,10 @@ def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
             stage_observer=observe_stage,
         )
     except Exception:
+        try:
+            running_stages.fail_open_stages()
+        except Exception:
+            pass
         raise SanitizedMailboxRunError(
             "stage=mailbox_processing status=failed "
             "failure_category=application_boundary_failed retryable=false"
@@ -273,6 +391,44 @@ def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
         result.pending_document_count,
         result.completed_document_count,
     )
+
+    document_event = summary_events.get("document_processing", {})
+    extraction_event = summary_events.get("extraction", {})
+    validation_event = summary_events.get("validation", {})
+    ocr_event = summary_events.get("ocr", {})
+    classification_event = summary_events.get("classification", {})
+    candidate_event = summary_events.get("extraction_candidate_selection", {})
+    retry_event = summary_events.get("extraction_retry_decision", {})
+    review_event = summary_events.get("review_determination", {})
+    safe_summary = {
+        "final_workflow_status": result.status,
+        "document_count": result.document_count,
+        "written_count": result.written_count,
+        "failed_count": result.failed_count,
+        "attachment_attempt_count": result.attachment_attempt_count,
+        "review_required": review_event.get("review_required"),
+        "attempt_count": extraction_event.get("attempt_count"),
+        "selected_attempt": candidate_event.get("selected_attempt"),
+        "retry_triggered": retry_event.get("retry_triggered"),
+        "ocr_duration_seconds": ocr_event.get("duration_seconds"),
+        "classification_duration_seconds": classification_event.get("duration_seconds"),
+        "extraction_duration_seconds": extraction_event.get("duration_seconds"),
+        "validation_duration_seconds": validation_event.get("duration_seconds"),
+        "document_processing_duration_seconds": document_event.get("duration_seconds"),
+        "ollama_total_duration_seconds": summary_events.get(
+            f"extraction_attempt_{candidate_event.get('selected_attempt')}", {}
+        ).get("ollama_total_duration_seconds"),
+        "prompt_token_count": summary_events.get(
+            f"extraction_attempt_{candidate_event.get('selected_attempt')}", {}
+        ).get("prompt_token_count"),
+        "generated_token_count": summary_events.get(
+            f"extraction_attempt_{candidate_event.get('selected_attempt')}", {}
+        ).get("generated_token_count"),
+    }
+    try:
+        record_mailbox_workflow_summary(**safe_summary)
+    except Exception:
+        pass
 
     if not result.success:
         raise SanitizedMailboxRunError(

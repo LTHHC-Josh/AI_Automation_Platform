@@ -203,6 +203,8 @@ class DocumentProcessor:
         ):
             classification = {}
 
+        subtype_started_at = perf_counter()
+        self._observe(stage_observer, "subtype_classification", "started")
         classification_resolution = getattr(
             self, "classification_resolution", None
         ) or DocumentClassificationResolutionService()
@@ -210,7 +212,10 @@ class DocumentProcessor:
             classification,
             document.deterministic_concepts,
         )
-        self._observe(stage_observer, "subtype_classification", "completed")
+        self._observe(
+            stage_observer, "subtype_classification", "completed",
+            duration_seconds=perf_counter() - subtype_started_at,
+        )
 
         document.document_category = self._normalize_classification_label(
             classification.get(
@@ -271,6 +276,7 @@ class DocumentProcessor:
             stage_observer=stage_observer,
         )
 
+        self._observe(stage_observer, "validation_attempt_1", "started", attempt=1)
         first_candidate = self._build_validated_candidate(
             template_document=document,
             extraction_result=first_result,
@@ -334,6 +340,7 @@ class DocumentProcessor:
                 stage_observer=stage_observer,
             )
 
+            self._observe(stage_observer, "validation_attempt_2", "started", attempt=2)
             second_candidate = self._build_validated_candidate(
                 template_document=document,
                 extraction_result=second_result,

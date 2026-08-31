@@ -1,6 +1,7 @@
 import asyncio
 import os
 import tempfile
+import time
 from pathlib import Path
 
 os.environ["PREFECT_HOME"] = str(
@@ -41,10 +42,12 @@ VISIBLE_STAGES = (
     "review-state",
     "workflow-completion",
 )
-VISIBLE_STARTED_STAGES = (
-    "ocr",
-    "document-classification",
-    "extraction-attempt-1",
+RUNNING_STAGE_NAMES = (
+    "OCR",
+    "Document Classification",
+    "Subtype Classification",
+    "Extraction Attempt 1",
+    "Validation Attempt 1",
 )
 
 
@@ -74,8 +77,6 @@ def result():
 class SyntheticApplication:
     def run_handoff_acceptance(self, **kwargs):
         observer = kwargs["stage_observer"]
-        for stage in ("ocr", "classification", "extraction_attempt_1"):
-            observer(stage=stage, status="started", attempt=1)
         internal_stages = (
             "acceptance_handoff",
             "candidate_reverification",
@@ -99,6 +100,12 @@ class SyntheticApplication:
             "completed",
         )
         for stage in internal_stages:
+            if stage in {
+                "ocr", "classification", "subtype_classification",
+                "extraction_attempt_1", "validation_attempt_1",
+            }:
+                observer(stage=stage, status="started", attempt=1)
+                time.sleep(0.01)
             metadata = dict(
                 stage=stage,
                 status="completed",
@@ -159,8 +166,8 @@ def test_visibility_normalization_is_strictly_allowlisted_and_typed():
     )
 
 
-async def task_run_names(flow_run_id):
-    names = set()
+async def task_runs(flow_run_id):
+    runs = []
     for _ in range(20):
         async with get_client() as client:
             runs = await client.read_task_runs(
@@ -169,10 +176,10 @@ async def task_run_names(flow_run_id):
                 )
             )
         names = {run.name for run in runs}
-        if len(names) >= len(VISIBLE_STAGES) + len(VISIBLE_STARTED_STAGES) + 1:
+        if len(names) >= len(VISIBLE_STAGES) + len(RUNNING_STAGE_NAMES) + 2:
             break
         await asyncio.sleep(0.25)
-    return names
+    return runs
 
 
 def test_synthetic_flow_exposes_safe_lifecycle_task_runs():
@@ -181,16 +188,26 @@ def test_synthetic_flow_exposes_safe_lifecycle_task_runs():
     try:
         with prefect_test_harness():
             state = workflow.bounded_mailbox_flow(return_state=True)
-            names = asyncio.run(task_run_names(state.state_details.flow_run_id))
+            runs = asyncio.run(task_runs(state.state_details.flow_run_id))
     finally:
         workflow.MailboxFullReviewOrchestrationService = original
 
+    names = {run.name for run in runs}
     assert state.is_completed()
     assert any(name.startswith("bounded-mailbox-application-run") for name in names)
     for stage in VISIBLE_STAGES:
-        assert f"{stage}-completed" in names
-    for stage in VISIBLE_STARTED_STAGES:
-        assert f"{stage}-started" in names
+        if stage not in {
+            "ocr", "document-classification", "subtype-classification",
+            "extraction-attempt-1", "validation-attempt-1",
+        }:
+            assert f"{stage}-completed" in names
+    for stage in RUNNING_STAGE_NAMES:
+        assert stage in names
+        stage_run = next(run for run in runs if run.name == stage)
+        assert stage_run.state.is_completed()
+        assert stage_run.total_run_time.total_seconds() > 0
+    assert any(name.startswith("Workflow Summary") for name in names)
+    assert not any(name.endswith("-started") for name in names)
     rendered = repr(names)
     for protected in (
         "message_id", "subject", "filename", "source_text", "row_id",
@@ -199,10 +216,91 @@ def test_synthetic_flow_exposes_safe_lifecycle_task_runs():
         assert protected not in rendered
 
 
+class SyntheticRetryApplication(SyntheticApplication):
+    def run_handoff_acceptance(self, **kwargs):
+        observer = kwargs["stage_observer"]
+        observer(stage="extraction_attempt_2", status="started", attempt=2)
+        time.sleep(0.01)
+        observer(
+            stage="extraction_attempt_2", status="completed", attempt=2,
+            duration_seconds=0.01,
+        )
+        observer(stage="validation_attempt_2", status="started", attempt=2)
+        time.sleep(0.01)
+        observer(
+            stage="validation_attempt_2", status="completed", attempt=2,
+            duration_seconds=0.01,
+        )
+        return super().run_handoff_acceptance(**kwargs)
+
+
+def test_conditional_attempt_two_has_completed_duration_tasks():
+    original = workflow.MailboxFullReviewOrchestrationService
+    workflow.MailboxFullReviewOrchestrationService = SyntheticRetryApplication
+    try:
+        with prefect_test_harness():
+            state = workflow.bounded_mailbox_flow(return_state=True)
+            runs = asyncio.run(task_runs(state.state_details.flow_run_id))
+    finally:
+        workflow.MailboxFullReviewOrchestrationService = original
+    for name in ("Extraction Attempt 2", "Validation Attempt 2"):
+        stage_run = next(run for run in runs if run.name == name)
+        assert stage_run.state.is_completed()
+        assert stage_run.total_run_time.total_seconds() > 0
+
+
+def test_conditional_attempt_two_uses_real_stage_names():
+    manager = workflow._RunningStageVisibility()
+    assert workflow._OPERATOR_STAGE_NAMES["extraction_attempt_2"] == "Extraction Attempt 2"
+    assert workflow._OPERATOR_STAGE_NAMES["validation_attempt_2"] == "Validation Attempt 2"
+    assert "extraction_retry_decision" not in workflow._LONG_RUNNING_STAGES
+    assert "extraction_candidate_selection" not in workflow._LONG_RUNNING_STAGES
+
+
+def test_summary_contract_excludes_protected_fields():
+    source = Path(workflow.__file__).read_text(encoding="utf-8")
+    summary_block = source.split("safe_summary = {", 1)[1].split("}\n    try:", 1)[0]
+    for protected in (
+        "source_text", "message_identity", "filename", "attachment_name",
+        "row_id", "payload", "mailbox_identity", "local_path", "credential",
+    ):
+        assert protected not in summary_block
+    try:
+        workflow.record_mailbox_workflow_summary.fn(
+            final_workflow_status="completed",
+            document_count=1,
+            written_count=1,
+            failed_count=0,
+            attachment_attempt_count=1,
+            source_text="PROTECTED",
+        )
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("The summary task accepted a non-allowlisted field")
+
+
+def test_visibility_failure_remains_best_effort():
+    original = workflow._RunningStageVisibility.update
+    workflow._RunningStageVisibility.update = lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("synthetic"))
+    original_record = workflow._record_stage_visibility
+    workflow._record_stage_visibility = lambda metadata: None
+    try:
+        application = SyntheticApplication()
+        assert application.run_handoff_acceptance(stage_observer=lambda **event: None).success
+    finally:
+        workflow._RunningStageVisibility.update = original
+        workflow._record_stage_visibility = original_record
+
+
 if __name__ == "__main__":
     test_visibility_normalization_is_strictly_allowlisted_and_typed()
     test_synthetic_flow_exposes_safe_lifecycle_task_runs()
-    print("Passed: 2")
+    test_conditional_attempt_two_has_completed_duration_tasks()
+    test_conditional_attempt_two_uses_real_stage_names()
+    test_summary_contract_excludes_protected_fields()
+    test_visibility_failure_remains_best_effort()
+    print("Passed: 6")
     print("Failed: 0")
     print("Classification: synthetic deterministic local Prefect workflow")
     print("External integrations: not called")

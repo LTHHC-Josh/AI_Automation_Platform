@@ -68,6 +68,13 @@ function Test-OwnedProcess([hashtable]$Record, [string]$RequiredMarker) {
     return ($identity.created_utc -eq [string]$Record.process_created_utc)
 }
 
+function Test-RecordedOwnedProcessExited([hashtable]$Record) {
+    if ($null -eq $Record -or -not $Record.ContainsKey('pid') -or -not $Record.ContainsKey('process_created_utc') -or $Record.owned -ne $true) { return $false }
+    $processId = 0
+    if (-not [int]::TryParse([string]$Record.pid, [ref]$processId) -or $processId -le 0) { return $false }
+    return $null -eq (Get-ProcessIdentity $processId)
+}
+
 function Get-PostgreSqlService {
     $services = @(Get-Service | Where-Object { $_.Name -like 'postgresql*' })
     if ($services.Count -ne 1) { throw "Expected exactly one PostgreSQL service; found $($services.Count)." }
@@ -258,14 +265,20 @@ function Stop-ControlRoomWorker {
     $state = Read-ControlState
     $ownedWorker = $state.ContainsKey('worker') -and (Test-OwnedProcess $state.worker 'invoke_prefect_mailbox_worker.ps1')
     if (-not $ownedWorker) {
+        $recordedOwnedWorkerExited = $state.ContainsKey('worker') -and (Test-RecordedOwnedProcessExited $state.worker)
+        if ((Get-ControlPlaneStatus).fresh_online_worker_count -gt 0) {
+            if (-not $recordedOwnedWorkerExited) {
+                throw 'A fresh worker is active but wrapper ownership cannot be proven.'
+            }
+            $state.Remove('worker')
+            Write-ControlState $state
+            return 'worker_already_exited_prefect_heartbeat_settling'
+        }
         if ($state.ContainsKey('worker')) {
             $state.Remove('worker')
             Write-ControlState $state
         }
-        if ((Get-ControlPlaneStatus).fresh_online_worker_count -gt 0) {
-            throw 'A fresh worker is active but wrapper ownership cannot be proven.'
-        }
-        return
+        return 'worker_already_stopped'
     }
     $previousPythonPath = $env:PYTHONPATH
     try {
@@ -274,6 +287,7 @@ function Stop-ControlRoomWorker {
         if ($LASTEXITCODE -ne 0) { throw 'Acceptance handoff cleanup failed.' }
     } finally { $env:PYTHONPATH = $previousPythonPath }
     Stop-OwnedComponent -Name 'worker' -Marker 'invoke_prefect_mailbox_worker.ps1'
+    return 'worker_stopped'
 }
 
 function Stop-ControlRoomInfrastructure {
@@ -331,8 +345,7 @@ switch ($Action) {
         if ($LASTEXITCODE -ne 0) { throw 'Manual bounded mailbox Prefect run failed.' }
     }
     'StopWorker' {
-        Stop-ControlRoomWorker
-        Write-Output 'worker_stopped'
+        Write-Output (Stop-ControlRoomWorker)
     }
     'StopControlRoom' {
         Stop-ControlRoomInfrastructure

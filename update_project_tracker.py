@@ -9277,6 +9277,32 @@ eligible document, observe the Prefect slow-stage performance lifecycle through
 terminal state, and evaluate PHI-safe OCR/Ollama timing data for optimization
 opportunities. Do not perform that live run as part of this checkpoint.
 
+Prefect stage-duration and worker-settlement checkpoint (2026-08-31):
+
+- Replaced misleading immediate started-marker task runs with PHI-free Prefect
+  child task runs whose Running-to-terminal lifetime follows the existing
+  authoritative application observer boundary for OCR, document/subtype
+  classification, extraction attempts 1/2, and validation attempts 1/2.
+  Business logic and the one-call application boundary remain unchanged.
+- Added a best-effort Workflow Summary task containing only allowlisted
+  aggregate counts, review/retry state, attempt selection, stage durations,
+  and existing safe Ollama timing/token diagnostics. No protected identity,
+  document content, extracted values, paths, payloads, or row IDs can enter it.
+- StopWorker now returns a safe heartbeat-settlement result when valid local
+  wrapper ownership state proves its recorded process is absent even though
+  Prefect briefly reports a fresh heartbeat. Active unowned workers and
+  mismatched/reused PIDs still fail closed; unknown processes are never killed,
+  and unresolved state is preserved.
+- Compiled modified Python and passed focused/affected synthetic deterministic,
+  mock, isolated local Prefect, Windows PowerShell 5.1, and isolated real-host
+  process-tree checks. No live mailbox/Graph, protected OCR, Ollama, production
+  document Smartsheet, worker/deployment, attachment, or mailbox mutation
+  operation occurred.
+
+Exact next start: design and implement the unattended Document Processor
+operating mode with operator commands startdp, statusdp, and stopdp while
+preserving preparerun/runonce/stopworker as the manual recovery/test path.
+
 """
 
 

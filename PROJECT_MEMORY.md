@@ -792,11 +792,35 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Perform one fresh guarded live mailbox run using the simplified operator
-workflow (`preparerun`, `runonce`, `stopworker`) with a newly eligible document,
-observe the Prefect slow-stage performance lifecycle through terminal state,
-and evaluate PHI-safe OCR/Ollama timing data for optimization opportunities.
-Do not perform that live run as part of this checkpoint.
+Design and implement the unattended Document Processor operating mode with
+operator commands startdp, statusdp, and stopdp while preserving
+preparerun/runonce/stopworker as the manual recovery/test path.
+
+Prefect stage-duration and worker-settlement checkpoint:
+
+- Replaced immediate `*-started` marker task runs for OCR, document and subtype
+  classification, extraction attempts, and validation attempts with fixed,
+  PHI-free child task runs that enter Running at the existing application
+  `stage_observer` start event and reach a terminal state at its corresponding
+  completion/failure event. Application services remain authoritative and the
+  bounded application boundary is still invoked exactly once.
+- Added one PHI-safe `Workflow Summary` task with allowlisted aggregate result
+  counts, review/retry state, selected extraction attempt, stage durations, and
+  already-supported Ollama timing/token diagnostics. Visibility remains best
+  effort and cannot replace the authoritative application result.
+- StopWorker now distinguishes a definitively absent, previously wrapper-owned
+  process from a live unowned or PID-reused process. A lingering fresh Prefect
+  heartbeat after proven local exit returns the safe settlement status
+  `worker_already_exited_prefect_heartbeat_settling`; active unowned and
+  mismatched/reused PID cases still fail closed without killing a process or
+  discarding the unresolved ownership record.
+- Python compilation, synthetic deterministic/mock application regressions,
+  isolated local Prefect one/two-attempt duration checks, Windows PowerShell
+  5.1 parse/behavior checks, and an isolated real-host owned process-tree test
+  passed. The temporary Prefect harness retained its known non-fatal Windows
+  cleanup warning in one run. No live mailbox/Graph, protected OCR, Ollama,
+  production document Smartsheet, worker/deployment, attachment upload, or
+  mailbox mutation operation occurred.
 
 Completed live acceptance and operator-command verification checkpoint:
 
