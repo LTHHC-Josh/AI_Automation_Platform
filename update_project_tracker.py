@@ -8854,6 +8854,70 @@ deployment. Do not perform another live mailbox acceptance without separate
 explicit authorization and an operator-provided eligible unread Inbox
 candidate containing exactly one supported document.
 
+
+------------------------------------------------------------
+POPUP CANDIDATE STAGE OBSERVABILITY - 2026-08-31
+------------------------------------------------------------
+
+Work completed:
+
+- Added a PHI-safe popup outcome contract that distinguishes selected,
+  cancelled, closed, no-selection, invalid, and unavailable outcomes while
+  retaining only the safe candidate ordinal and lifecycle booleans.
+- Added candidate_selection events with discovery completion, eligible count,
+  popup-displayed, candidate-selected, duration, status, and sanitized failure
+  category.
+- Added candidate_reverification start/completed/failed events with only safe
+  proof booleans for availability, Inbox membership, unread state, exact
+  identity match, and exactly one supported document.
+- Extended the Prefect stage adapter with explicit allowlisted fields. Normal
+  production enumeration, application business logic, durable state,
+  idempotency, uncertain-write handling, and mailbox completion ordering were
+  unchanged.
+
+Verification:
+
+- Modified Python compiled successfully.
+- Focused acceptance-popup, Prefect adapter, Graph metadata, and manual guard
+  checks: 32 passed, 0 failed; synthetic deterministic/mock.
+- Affected orchestration, handling, persistent idempotency, durable recovery,
+  Smartsheet reconciliation, readiness, worker-boundary, and deployment checks:
+  90 passed, 0 failed; synthetic deterministic/mock/local-state.
+- Protected synthetic identities were absent from events, logs, results, and
+  repr output. No live mailbox, popup, worker, flow, OCR, Ollama, or production
+  Smartsheet operation ran.
+- Registered the updated source through the documented manual deployment
+  command. Read-only metadata verification found empty parameters/schema, no
+  schedule or automations, concurrency one with CANCEL_NEW, one application
+  task, and zero retries. Deployment run count remained three. PostgreSQL and
+  the Prefect server were stopped afterward.
+
+Files:
+
+- src/models/mailbox_acceptance.py
+- src/ui/mailbox_acceptance_selection.py
+- src/graph/mailbox_processor.py
+- src/orchestration/prefect_mailbox_workflow.py
+- tests/test_mailbox_acceptance_selection.py
+- tests/test_mailbox_prefect_readiness.py
+- tests/test_prefect_manual_acceptance_guard.py
+- PROJECT_MEMORY.md
+- update_project_tracker.py
+
+Exact next starting point:
+
+Perform a read-only architecture checkpoint for the smallest PHI-safe
+same-boundary pre-invocation candidate handoff. Specify how an operator can
+designate one Inbox candidate and prove it remains available, unread, in Inbox,
+and contains exactly one supported document before a deployment invocation is
+consumed, while binding a later guarded acceptance to that exact candidate
+without placing its identity in Prefect parameters, logs/results, tracked or
+ignored configuration, or durable project truth. Preserve the popup-only
+acceptance path, newest-ten boundary, exact re-verification, no fallback,
+one-task/zero-retry deployment, and unchanged production enumeration. Do not
+access the live mailbox or trigger another flow without separate explicit
+authorization.
+
 """
 
 

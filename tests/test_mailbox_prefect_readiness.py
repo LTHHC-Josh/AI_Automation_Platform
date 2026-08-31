@@ -364,7 +364,8 @@ def test_adapter_logs_only_allowlisted_aggregate_metadata():
     class SyntheticService:
         def run_selected_acceptance(self, **kwargs):
             for stage in (
-                "mailbox_discovery", "attachment_download", "ocr",
+                "mailbox_discovery", "candidate_selection",
+                "candidate_reverification", "attachment_download", "ocr",
                 "classification", "subtype_classification", "extraction",
                 "validation", "business_rules", "smartsheet_row_write",
                 "attachment_upload", "mailbox_completion",
@@ -375,6 +376,15 @@ def test_adapter_logs_only_allowlisted_aggregate_metadata():
                     status="completed",
                     duration_seconds=0.01,
                     attempt_count=1,
+                    discovery_completed=True,
+                    eligible_candidate_count=1,
+                    popup_displayed=True,
+                    candidate_selected=True,
+                    candidate_available=True,
+                    unread_state_proven=True,
+                    inbox_membership_proven=True,
+                    exact_identity_match_proven=True,
+                    exactly_one_supported_document_proven=True,
                 )
             return build_result()
 
@@ -404,12 +414,25 @@ def test_adapter_logs_only_allowlisted_aggregate_metadata():
     assert "pending_document_count=0" in rendered
     assert "completed_document_count=1" in rendered
     for stage in (
-        "mailbox_discovery", "attachment_download", "ocr", "classification",
+        "mailbox_discovery", "candidate_selection", "candidate_reverification",
+        "attachment_download", "ocr", "classification",
         "subtype_classification", "extraction", "validation", "business_rules",
         "smartsheet_row_write", "attachment_upload", "mailbox_completion",
         "downstream_review", "completed",
     ):
         assert f"stage={stage}" in rendered
+    for safe_field in (
+        "discovery_completed=True",
+        "eligible_candidate_count=1",
+        "popup_displayed=True",
+        "candidate_selected=True",
+        "candidate_available=True",
+        "unread_state_proven=True",
+        "inbox_membership_proven=True",
+        "exact_identity_match_proven=True",
+        "exactly_one_supported_document_proven=True",
+    ):
+        assert safe_field in rendered
     assert private_marker not in rendered
 
 

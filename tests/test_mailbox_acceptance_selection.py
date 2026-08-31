@@ -7,6 +7,7 @@ from src.graph.mailbox_processor import (
     MailboxAcceptanceGuardError,
     MailboxProcessor,
 )
+from src.models.mailbox_acceptance import MailboxAcceptanceSelectionResult
 from src.ui.mailbox_acceptance_selection import (
     LocalMailboxAcceptanceSelector,
     safe_candidate_display_values,
@@ -61,13 +62,21 @@ class SyntheticAttachments:
 
 
 class RecordingSelector:
-    def __init__(self, selection):
+    def __init__(self, selection, *, disposition=None, popup_displayed=True):
         self.selection = selection
+        self.disposition = disposition or (
+            "selected" if selection is not None else "cancelled"
+        )
+        self.popup_displayed = popup_displayed
         self.calls = []
 
     def select(self, candidates):
         self.calls.append(candidates)
-        return self.selection
+        return MailboxAcceptanceSelectionResult(
+            candidate_number=self.selection,
+            popup_displayed=self.popup_displayed,
+            disposition=self.disposition,
+        )
 
 
 def message(identity, *, is_read=False, received="2026-08-31T15:45:00Z"):
@@ -169,6 +178,27 @@ def test_cancel_and_invalid_selection_fail_closed():
         assert processed == []
 
 
+def test_close_and_no_selection_fail_closed_with_distinct_safe_categories():
+    for disposition, category in (
+        ("closed", "acceptance_selection_closed"),
+        ("no_selection", "acceptance_selection_no_selection"),
+    ):
+        processor, email, attachments, processed = build_processor(
+            [message(PROTECTED_ID)],
+            {PROTECTED_ID: [1]},
+            exact_message=message(PROTECTED_ID),
+        )
+        assert_guard(
+            lambda disposition=disposition: processor.process_selected_unread_message(
+                selector=RecordingSelector(None, disposition=disposition)
+            ),
+            category,
+        )
+        assert email.exact_calls == []
+        assert attachments.download_calls == 0
+        assert processed == []
+
+
 def test_no_eligible_or_unprovable_discovery_blocks_before_popup():
     for count in (0, 2, None, True):
         processor, email, attachments, processed = build_processor(
@@ -187,21 +217,26 @@ def test_no_eligible_or_unprovable_discovery_blocks_before_popup():
 
 
 def test_selected_candidate_unavailable_or_moved_never_falls_back():
-    processor, email, attachments, processed = build_processor(
-        [message(PROTECTED_ID), message("newest-unread-fallback")],
-        {PROTECTED_ID: [1], "newest-unread-fallback": [1]},
-        exact_error=RuntimeError("protected provider detail"),
+    cases = (
+        {"exact_message": None},
+        {"exact_error": RuntimeError("protected provider detail")},
     )
-    assert_guard(
-        lambda: processor.process_selected_unread_message(
-            selector=RecordingSelector(1)
-        ),
-        "acceptance_selected_candidate_unavailable",
-    )
-    assert email.list_tops == [10]
-    assert email.exact_calls == [PROTECTED_ID]
-    assert attachments.download_calls == 0
-    assert processed == []
+    for exact_options in cases:
+        processor, email, attachments, processed = build_processor(
+            [message(PROTECTED_ID), message("newest-unread-fallback")],
+            {PROTECTED_ID: [1], "newest-unread-fallback": [1]},
+            **exact_options,
+        )
+        assert_guard(
+            lambda: processor.process_selected_unread_message(
+                selector=RecordingSelector(1)
+            ),
+            "acceptance_selected_candidate_unavailable",
+        )
+        assert email.list_tops == [10]
+        assert email.exact_calls == [PROTECTED_ID]
+        assert attachments.download_calls == 0
+        assert processed == []
 
 
 def test_selected_candidate_read_or_identity_mismatch_blocks():
@@ -245,6 +280,107 @@ def test_selected_document_count_is_reverified_and_must_equal_one():
         assert email.exact_calls == [PROTECTED_ID]
         assert attachments.download_calls == 0
         assert processed == []
+
+
+def test_selection_and_reverification_events_are_complete_and_phi_safe():
+    processor, _, _, processed = build_processor(
+        [message(PROTECTED_ID)],
+        {PROTECTED_ID: [1, 1]},
+        exact_message=message(PROTECTED_ID),
+    )
+    events = []
+    processor.process_selected_unread_message(
+        selector=RecordingSelector(1),
+        stage_observer=lambda **event: events.append(event),
+    )
+
+    selection_events = [event for event in events if event["stage"] == "candidate_selection"]
+    reverification_events = [
+        event for event in events if event["stage"] == "candidate_reverification"
+    ]
+    assert [event["status"] for event in selection_events] == ["started", "completed"]
+    assert selection_events[-1]["discovery_completed"] is True
+    assert selection_events[-1]["eligible_candidate_count"] == 1
+    assert selection_events[-1]["popup_displayed"] is True
+    assert selection_events[-1]["candidate_selected"] is True
+    assert [event["status"] for event in reverification_events] == [
+        "started", "completed"
+    ]
+    completed = reverification_events[-1]
+    for proof in (
+        "candidate_available",
+        "unread_state_proven",
+        "inbox_membership_proven",
+        "exact_identity_match_proven",
+        "exactly_one_supported_document_proven",
+    ):
+        assert completed[proof] is True
+    assert len(processed) == 1
+
+    rendered = repr(events)
+    for protected in (
+        PROTECTED_ID,
+        PROTECTED_SUBJECT,
+        PROTECTED_SENDER,
+        PROTECTED_FILENAME,
+    ):
+        assert protected not in rendered
+
+
+def test_guard_failures_emit_safe_terminal_stage_events():
+    cases = (
+        (
+            [],
+            {},
+            None,
+            RecordingSelector(1),
+            "candidate_selection",
+            "acceptance_no_eligible_candidate",
+        ),
+        (
+            [message(PROTECTED_ID)],
+            {PROTECTED_ID: [1]},
+            message(PROTECTED_ID),
+            RecordingSelector(None),
+            "candidate_selection",
+            "acceptance_selection_cancelled",
+        ),
+        (
+            [message(PROTECTED_ID)],
+            {PROTECTED_ID: [1]},
+            None,
+            RecordingSelector(1),
+            "candidate_reverification",
+            "acceptance_selected_candidate_unavailable",
+        ),
+        (
+            [message(PROTECTED_ID)],
+            {PROTECTED_ID: [1]},
+            message(PROTECTED_ID, is_read=True),
+            RecordingSelector(1),
+            "candidate_reverification",
+            "acceptance_selected_candidate_read",
+        ),
+    )
+    for messages, counts, exact_message, selector, stage, category in cases:
+        processor, _, _, processed = build_processor(
+            messages,
+            counts,
+            exact_message=exact_message,
+        )
+        events = []
+        assert_guard(
+            lambda: processor.process_selected_unread_message(
+                selector=selector,
+                stage_observer=lambda **event: events.append(event),
+            ),
+            category,
+        )
+        terminal = [event for event in events if event["stage"] == stage][-1]
+        assert terminal["failure_category"] == category
+        assert terminal["status"] in {"failed", "cancelled"}
+        assert processed == []
+        assert PROTECTED_ID not in repr(events)
 
 
 def test_selector_failure_is_sanitized_and_identity_is_not_output():

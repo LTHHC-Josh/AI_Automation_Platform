@@ -30,13 +30,31 @@ def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
     logger = get_run_logger()
 
     def observe_stage(*, stage, status, duration_seconds=None, attempt_count=None,
-                      candidate_message_count=None, candidate_document_count=None):
+                      candidate_message_count=None, candidate_document_count=None,
+                      discovery_completed=None, eligible_candidate_count=None,
+                      popup_displayed=None, candidate_selected=None,
+                      candidate_available=None, unread_state_proven=None,
+                      inbox_membership_proven=None,
+                      exact_identity_match_proven=None,
+                      exactly_one_supported_document_proven=None,
+                      failure_category=None):
         logger.info(
             "stage=%s status=%s duration_seconds=%s attempt_count=%s "
             "candidate_message_count=%s candidate_document_count=%s "
-            "retryable=false failure_category=none",
+            "discovery_completed=%s eligible_candidate_count=%s "
+            "popup_displayed=%s candidate_selected=%s "
+            "candidate_available=%s unread_state_proven=%s "
+            "inbox_membership_proven=%s exact_identity_match_proven=%s "
+            "exactly_one_supported_document_proven=%s "
+            "retryable=false failure_category=%s",
             stage, status, duration_seconds, attempt_count,
             candidate_message_count, candidate_document_count,
+            discovery_completed, eligible_candidate_count,
+            popup_displayed, candidate_selected,
+            candidate_available, unread_state_proven,
+            inbox_membership_proven, exact_identity_match_proven,
+            exactly_one_supported_document_proven,
+            failure_category or "none",
         )
 
     try:

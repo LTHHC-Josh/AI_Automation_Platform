@@ -108,8 +108,22 @@ Prefect state Failed. The popup was not displayed, no candidate was selected,
 and no attachment download, OCR, Ollama, Smartsheet operation, mailbox
 completion, retry, fallback, or retrigger occurred. PostgreSQL, the Prefect
 server, and the worker were stopped afterward. Prefect exposed the discovery
-and terminal guard category, but dedicated candidate-selection and
-candidate-reverification stage visibility remains absent from the adapter.
+and terminal guard category. Dedicated PHI-safe `candidate_selection` and
+`candidate_reverification` lifecycle events are now implemented. Selection
+events expose only discovery completion, eligible count, popup-displayed and
+candidate-selected booleans, duration, status, and sanitized category.
+Re-verification events expose only availability and proof booleans for Inbox
+membership, unread state, exact identity match, and exactly one supported
+document. Candidate identity remains local to the application process and is
+absent from events, logs, results, and repr output.
+
+The updated popup source is registered as the same parameterless
+`lthhc-bounded-mailbox/manual-local` deployment. Read-only metadata verification
+found empty parameters and schema, no schedule or automations, concurrency one
+with `CANCEL_NEW`, one application task, and zero retries. Registration created
+no flow run; no worker, mailbox enumeration, popup, OCR, Ollama, or production
+Smartsheet operation ran. PostgreSQL and the Prefect server were stopped after
+verification.
 
 A later explicitly authorized guarded acceptance stopped at preflight without
 triggering the deployment. The same-boundary worker Graph authentication gate
@@ -778,12 +792,14 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Add PHI-safe `candidate_selection` and `candidate_reverification` stage events
-to the existing acceptance-only application boundary without exposing the
-selected identity or changing production enumeration. Cover popup display,
-selection/cancel, exact re-verification success/failure, and no-fallback
-behavior with synthetic/mock tests; then register and read-only verify the
-unchanged parameterless, one-task, zero-retry, concurrency-one `CANCEL_NEW`
-deployment. Do not perform another live mailbox acceptance without separate
-explicit authorization and an operator-provided eligible unread Inbox
-candidate containing exactly one supported document.
+Perform a read-only architecture checkpoint for the smallest PHI-safe
+same-boundary pre-invocation candidate handoff. Specify how an operator can
+designate one Inbox candidate and prove it remains available, unread, in Inbox,
+and contains exactly one supported document before a deployment invocation is
+consumed, while binding a later guarded acceptance to that exact candidate
+without placing its identity in Prefect parameters, logs/results, tracked or
+ignored configuration, or durable project truth. Preserve the popup-only
+acceptance path, newest-ten boundary, exact re-verification, no fallback,
+one-task/zero-retry deployment, and unchanged production enumeration. Do not
+access the live mailbox or trigger another flow without separate explicit
+authorization.

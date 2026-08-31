@@ -6,7 +6,10 @@ from src.document_processing.document_processor import (
     DocumentProcessor,
 )
 from src.models.document import Document
-from src.models.mailbox_acceptance import MailboxAcceptanceCandidate
+from src.models.mailbox_acceptance import (
+    MailboxAcceptanceCandidate,
+    MailboxAcceptanceSelectionResult,
+)
 from src.services.mailbox_processing_state_service import (
     MailboxProcessingStateService,
 )
@@ -263,7 +266,30 @@ class MailboxProcessor:
             started_at,
             candidate_message_count=len(safe_candidates),
         )
+        selection_started_at = __import__("time").perf_counter()
+        self._observe(
+            stage_observer,
+            "candidate_selection",
+            "started",
+            selection_started_at,
+            discovery_completed=True,
+            eligible_candidate_count=len(safe_candidates),
+            popup_displayed=False,
+            candidate_selected=False,
+            failure_category=None,
+        )
         if not safe_candidates:
+            self._observe(
+                stage_observer,
+                "candidate_selection",
+                "failed",
+                selection_started_at,
+                discovery_completed=True,
+                eligible_candidate_count=0,
+                popup_displayed=False,
+                candidate_selected=False,
+                failure_category="acceptance_no_eligible_candidate",
+            )
             raise MailboxAcceptanceGuardError(
                 "acceptance_no_eligible_candidate",
                 message_count=0,
@@ -271,31 +297,125 @@ class MailboxProcessor:
             )
 
         try:
-            selected_number = selector.select(tuple(safe_candidates))
+            selection = selector.select(tuple(safe_candidates))
         except Exception:
+            self._observe(
+                stage_observer,
+                "candidate_selection",
+                "failed",
+                selection_started_at,
+                discovery_completed=True,
+                eligible_candidate_count=len(safe_candidates),
+                popup_displayed=False,
+                candidate_selected=False,
+                failure_category="acceptance_selection_unavailable",
+            )
             raise MailboxAcceptanceGuardError(
                 "acceptance_selection_unavailable"
             ) from None
-        if selected_number is None:
-            raise MailboxAcceptanceGuardError(
-                "acceptance_selection_cancelled"
+
+        if not isinstance(selection, MailboxAcceptanceSelectionResult):
+            self._observe(
+                stage_observer,
+                "candidate_selection",
+                "failed",
+                selection_started_at,
+                discovery_completed=True,
+                eligible_candidate_count=len(safe_candidates),
+                popup_displayed=False,
+                candidate_selected=False,
+                failure_category="acceptance_selection_invalid",
             )
-        if (
-            not isinstance(selected_number, int)
-            or isinstance(selected_number, bool)
-            or selected_number < 1
-            or selected_number > len(selected_identities)
-        ):
             raise MailboxAcceptanceGuardError(
                 "acceptance_selection_invalid"
             )
 
+        selection_categories = {
+            "cancelled": "acceptance_selection_cancelled",
+            "closed": "acceptance_selection_closed",
+            "no_selection": "acceptance_selection_no_selection",
+        }
+        if selection.disposition in selection_categories:
+            category = selection_categories[selection.disposition]
+            self._observe(
+                stage_observer,
+                "candidate_selection",
+                "cancelled" if selection.disposition != "no_selection" else "failed",
+                selection_started_at,
+                discovery_completed=True,
+                eligible_candidate_count=len(safe_candidates),
+                popup_displayed=selection.popup_displayed is True,
+                candidate_selected=False,
+                failure_category=category,
+            )
+            raise MailboxAcceptanceGuardError(category)
+
+        selected_number = selection.candidate_number
+        if (
+            selection.disposition != "selected"
+            or selection.popup_displayed is not True
+            or not isinstance(selected_number, int)
+            or isinstance(selected_number, bool)
+            or selected_number < 1
+            or selected_number > len(selected_identities)
+        ):
+            self._observe(
+                stage_observer,
+                "candidate_selection",
+                "failed",
+                selection_started_at,
+                discovery_completed=True,
+                eligible_candidate_count=len(safe_candidates),
+                popup_displayed=selection.popup_displayed is True,
+                candidate_selected=False,
+                failure_category="acceptance_selection_invalid",
+            )
+            raise MailboxAcceptanceGuardError(
+                "acceptance_selection_invalid"
+            )
+
+        self._observe(
+            stage_observer,
+            "candidate_selection",
+            "completed",
+            selection_started_at,
+            discovery_completed=True,
+            eligible_candidate_count=len(safe_candidates),
+            popup_displayed=True,
+            candidate_selected=True,
+            failure_category=None,
+        )
+
         selected_identity = selected_identities[selected_number - 1]
+        reverification_started_at = __import__("time").perf_counter()
+        reverification = {
+            "candidate_available": False,
+            "unread_state_proven": False,
+            "inbox_membership_proven": False,
+            "exact_identity_match_proven": False,
+            "exactly_one_supported_document_proven": False,
+        }
+        self._observe(
+            stage_observer,
+            "candidate_reverification",
+            "started",
+            reverification_started_at,
+            failure_category=None,
+            **reverification,
+        )
         try:
             selected_message = self.email_service.get_unread_inbox_message(
                 selected_identity
             )
         except Exception:
+            self._observe(
+                stage_observer,
+                "candidate_reverification",
+                "failed",
+                reverification_started_at,
+                failure_category="acceptance_selected_candidate_unavailable",
+                **reverification,
+            )
             raise MailboxAcceptanceGuardError(
                 "acceptance_selected_candidate_unavailable"
             ) from None
@@ -303,14 +423,38 @@ class MailboxProcessor:
             not isinstance(selected_message, dict)
             or selected_message.get("id") != selected_identity
         ):
+            if isinstance(selected_message, dict):
+                reverification["inbox_membership_proven"] = True
+            self._observe(
+                stage_observer,
+                "candidate_reverification",
+                "failed",
+                reverification_started_at,
+                failure_category="acceptance_selected_candidate_unavailable",
+                **reverification,
+            )
             raise MailboxAcceptanceGuardError(
                 "acceptance_selected_candidate_unavailable"
             )
+        reverification.update(
+            candidate_available=True,
+            inbox_membership_proven=True,
+            exact_identity_match_proven=True,
+        )
         if selected_message.get("isRead") is not False:
+            self._observe(
+                stage_observer,
+                "candidate_reverification",
+                "failed",
+                reverification_started_at,
+                failure_category="acceptance_selected_candidate_read",
+                **reverification,
+            )
             raise MailboxAcceptanceGuardError(
                 "acceptance_selected_candidate_read",
                 message_count=1,
             )
+        reverification["unread_state_proven"] = True
 
         count_result = self.attachment_service.count_supported_file_attachments(
             selected_identity,
@@ -322,16 +466,44 @@ class MailboxProcessor:
             or not isinstance(document_count, int)
             or isinstance(document_count, bool)
         ):
+            self._observe(
+                stage_observer,
+                "candidate_reverification",
+                "failed",
+                reverification_started_at,
+                failure_category="acceptance_count_unproven",
+                candidate_document_count=None,
+                **reverification,
+            )
             raise MailboxAcceptanceGuardError(
                 "acceptance_count_unproven",
                 message_count=1,
             )
         if document_count != 1:
+            self._observe(
+                stage_observer,
+                "candidate_reverification",
+                "failed",
+                reverification_started_at,
+                failure_category="acceptance_document_count_invalid",
+                candidate_document_count=document_count,
+                **reverification,
+            )
             raise MailboxAcceptanceGuardError(
                 "acceptance_document_count_invalid",
                 message_count=1,
                 document_count=document_count,
             )
+        reverification["exactly_one_supported_document_proven"] = True
+        self._observe(
+            stage_observer,
+            "candidate_reverification",
+            "completed",
+            reverification_started_at,
+            failure_category=None,
+            candidate_document_count=1,
+            **reverification,
+        )
 
         self._observe(
             stage_observer,

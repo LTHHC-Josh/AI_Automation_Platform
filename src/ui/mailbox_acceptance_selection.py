@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Callable, Protocol
 
-from src.models.mailbox_acceptance import MailboxAcceptanceCandidate
+from src.models.mailbox_acceptance import (
+    MailboxAcceptanceCandidate,
+    MailboxAcceptanceSelectionResult,
+)
 
 
 class MailboxAcceptanceSelectionUnavailableError(RuntimeError):
@@ -14,7 +17,7 @@ class MailboxAcceptanceSelectionView(Protocol):
         self,
         *,
         candidates: tuple[MailboxAcceptanceCandidate, ...],
-    ) -> int | None:
+    ) -> MailboxAcceptanceSelectionResult:
         ...
 
 
@@ -57,12 +60,14 @@ class TkinterMailboxAcceptanceSelectionView:
         self,
         *,
         candidates: tuple[MailboxAcceptanceCandidate, ...],
-    ) -> int | None:
+    ) -> MailboxAcceptanceSelectionResult:
         window = self._tk.Tk()
         window.title("Select Manual Mailbox Acceptance Candidate")
         window.geometry("720x420")
         window.minsize(560, 300)
         selected_number: int | None = None
+        disposition = "no_selection"
+        popup_displayed = True
 
         container = self._ttk.Frame(window, padding=12)
         container.pack(fill="both", expand=True)
@@ -94,14 +99,29 @@ class TkinterMailboxAcceptanceSelectionView:
             )
 
         def choose() -> None:
-            nonlocal selected_number
+            nonlocal selected_number, disposition
             selection = tree.selection()
             if len(selection) != 1:
+                disposition = "no_selection"
+                window.destroy()
                 return
             try:
                 selected_number = int(selection[0])
             except (TypeError, ValueError):
+                disposition = "no_selection"
+                window.destroy()
                 return
+            disposition = "selected"
+            window.destroy()
+
+        def cancel() -> None:
+            nonlocal disposition
+            disposition = "cancelled"
+            window.destroy()
+
+        def close() -> None:
+            nonlocal disposition
+            disposition = "closed"
             window.destroy()
 
         actions = self._ttk.Frame(container)
@@ -109,7 +129,7 @@ class TkinterMailboxAcceptanceSelectionView:
         self._ttk.Button(
             actions,
             text="Cancel",
-            command=window.destroy,
+            command=cancel,
         ).pack(side="right")
         self._ttk.Button(
             actions,
@@ -117,9 +137,13 @@ class TkinterMailboxAcceptanceSelectionView:
             command=choose,
         ).pack(side="right", padx=(0, 8))
         tree.bind("<Double-1>", lambda _event: choose())
-        window.protocol("WM_DELETE_WINDOW", window.destroy)
+        window.protocol("WM_DELETE_WINDOW", close)
         window.mainloop()
-        return selected_number
+        return MailboxAcceptanceSelectionResult(
+            candidate_number=selected_number,
+            popup_displayed=popup_displayed,
+            disposition=disposition,
+        )
 
 
 class LocalMailboxAcceptanceSelector:
@@ -135,7 +159,7 @@ class LocalMailboxAcceptanceSelector:
     def select(
         self,
         candidates: tuple[MailboxAcceptanceCandidate, ...],
-    ) -> int | None:
+    ) -> MailboxAcceptanceSelectionResult:
         try:
             view = self._view_factory()
             return view.show(candidates=candidates)

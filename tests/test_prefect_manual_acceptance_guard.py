@@ -142,6 +142,8 @@ def test_stage_observability_is_allowlisted_and_contains_no_protected_content():
     assert "mailbox_discovery" in rendered
     assert "acceptance_guard" in rendered
     assert "attachment_download" in rendered
+    assert "candidate_selection" not in rendered
+    assert "candidate_reverification" not in rendered
     for protected in (
         "synthetic-0", "subject", "filename", "source_text", "row_id",
         "submission_key", "provider", "patient",
