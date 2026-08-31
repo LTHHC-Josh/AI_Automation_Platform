@@ -26,6 +26,7 @@ data/smartsheet_feedback/
 
 # Local Mailbox Processing State
 data/mailbox_processing_state/
+data/mailbox_acceptance_handoff/
 
 # Local Business Reference Cache
 data/reference_cache/

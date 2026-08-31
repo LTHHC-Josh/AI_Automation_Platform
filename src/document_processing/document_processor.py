@@ -154,18 +154,19 @@ class DocumentProcessor:
             perf_counter()
             - ocr_started_at
         )
-        self._observe(
-            stage_observer, "ocr", "completed",
-            duration_seconds=document.processing_metrics["ocr_wall_seconds"],
-        )
-
         get_ocr_diagnostics = getattr(self.ocr, "get_last_diagnostics", None)
+        safe_ocr_diagnostics = {}
         if callable(get_ocr_diagnostics):
             safe_ocr_diagnostics = get_ocr_diagnostics()
             if isinstance(safe_ocr_diagnostics, dict):
                 document.processing_metrics["ocr_diagnostics"] = (
                     safe_ocr_diagnostics
                 )
+        self._observe(
+            stage_observer, "ocr", "completed",
+            duration_seconds=document.processing_metrics["ocr_wall_seconds"],
+            **self._get_ocr_visibility_metrics(safe_ocr_diagnostics),
+        )
 
         concept_service = getattr(self, "document_concepts", None)
         if concept_service is None:
@@ -185,14 +186,16 @@ class DocumentProcessor:
             perf_counter()
             - classification_started_at
         )
-        self._observe(
-            stage_observer, "classification", "completed",
-            duration_seconds=document.processing_metrics["classification_wall_seconds"],
-        )
-
         document.processing_metrics[
             "classification_ollama"
         ] = self._get_last_llm_metrics()
+        self._observe(
+            stage_observer, "classification", "completed",
+            duration_seconds=document.processing_metrics["classification_wall_seconds"],
+            **self._get_llm_visibility_metrics(
+                document.processing_metrics["classification_ollama"]
+            ),
+        )
 
         if not isinstance(
             classification,
@@ -265,11 +268,19 @@ class DocumentProcessor:
             text=document.raw_text,
             document_type=document.document_type,
             attempt=1,
+            stage_observer=stage_observer,
         )
 
         first_candidate = self._build_validated_candidate(
             template_document=document,
             extraction_result=first_result,
+        )
+        self._observe(
+            stage_observer, "validation_attempt_1", "completed",
+            duration_seconds=first_candidate.processing_metrics.get(
+                "validation_wall_seconds", 0.0
+            ),
+            attempt=1,
         )
 
         extraction_attempts: list[dict[str, Any]] = [
@@ -302,6 +313,12 @@ class DocumentProcessor:
             raw_retry_required
             or validated_retry_required
         )
+        self._observe(
+            stage_observer, "extraction_retry_decision", "completed",
+            retry_triggered=retry_required,
+            raw_retry_required=raw_retry_required,
+            validated_retry_required=validated_retry_required,
+        )
 
         second_candidate: Document | None = None
 
@@ -314,11 +331,19 @@ class DocumentProcessor:
                 text=document.raw_text,
                 document_type=document.document_type,
                 attempt=2,
+                stage_observer=stage_observer,
             )
 
             second_candidate = self._build_validated_candidate(
                 template_document=document,
                 extraction_result=second_result,
+            )
+            self._observe(
+                stage_observer, "validation_attempt_2", "completed",
+                duration_seconds=second_candidate.processing_metrics.get(
+                    "validation_wall_seconds", 0.0
+                ),
+                attempt=2,
             )
 
             extraction_attempts.append(
@@ -341,6 +366,11 @@ class DocumentProcessor:
         ) = self._select_validated_candidate(
             first_candidate=first_candidate,
             second_candidate=second_candidate,
+        )
+        self._observe(
+            stage_observer, "extraction_candidate_selection", "completed",
+            selected_attempt=selected_attempt,
+            attempt_count=len(extraction_attempts),
         )
 
         document.field_evidence = dict(
@@ -502,12 +532,31 @@ class DocumentProcessor:
         document.minimum_field_confidence = (
             review_decision.minimum_field_confidence
         )
+        self._observe(
+            stage_observer,
+            "review_determination",
+            "review_required" if document.needs_human_review else "completed",
+            duration_seconds=perf_counter() - review_started_at,
+            review_required=bool(document.needs_human_review),
+        )
 
         document.processing_metrics[
             "total_wall_seconds"
         ] = (
             perf_counter()
             - total_started_at
+        )
+        self._observe(
+            stage_observer, "document_processing", "completed",
+            duration_seconds=document.processing_metrics["total_wall_seconds"],
+            extraction_wall_seconds=document.processing_metrics[
+                "extraction_wall_seconds"
+            ],
+            validation_wall_seconds=document.processing_metrics[
+                "validation_wall_seconds"
+            ],
+            attempt_count=len(extraction_attempts),
+            selected_attempt=selected_attempt,
         )
 
         self._attach_review_output(
@@ -541,6 +590,7 @@ class DocumentProcessor:
         text: str,
         document_type: str,
         attempt: int,
+        stage_observer=None,
     ) -> tuple[
         dict[str, Any],
         float,
@@ -551,6 +601,10 @@ class DocumentProcessor:
         """
 
         started_at = perf_counter()
+        self._observe(
+            stage_observer, f"extraction_attempt_{attempt}", "started",
+            attempt=attempt,
+        )
 
         extraction_result = self.llm.extract(
             text,
@@ -571,11 +625,60 @@ class DocumentProcessor:
         else:
             normalized_result = {}
 
+        metrics = self._get_last_llm_metrics()
+        self._observe(
+            stage_observer, f"extraction_attempt_{attempt}", "completed",
+            duration_seconds=wall_seconds,
+            attempt=attempt,
+            **self._get_llm_visibility_metrics(metrics),
+        )
+
         return (
             normalized_result,
             wall_seconds,
-            self._get_last_llm_metrics(),
+            metrics,
         )
+
+    @staticmethod
+    def _get_llm_visibility_metrics(metrics: Any) -> dict[str, Any]:
+        if not isinstance(metrics, dict):
+            return {}
+        mapping = {
+            "total_duration_seconds": "ollama_total_duration_seconds",
+            "load_duration_seconds": "ollama_load_duration_seconds",
+            "prompt_eval_duration_seconds": "ollama_prompt_eval_duration_seconds",
+            "eval_duration_seconds": "ollama_eval_duration_seconds",
+            "prompt_eval_count": "prompt_token_count",
+            "eval_count": "generated_token_count",
+        }
+        return {
+            target: metrics[source]
+            for source, target in mapping.items()
+            if source in metrics
+        }
+
+    @staticmethod
+    def _get_ocr_visibility_metrics(diagnostics: Any) -> dict[str, Any]:
+        if not isinstance(diagnostics, dict):
+            return {}
+        mapping = {
+            "fingerprint_seconds": "ocr_fingerprint_seconds",
+            "engine_init_seconds": "ocr_engine_init_seconds",
+            "predict_return_seconds": "ocr_predict_return_seconds",
+            "result_consumption_seconds": "ocr_result_consumption_seconds",
+            "result_conversion_seconds": "ocr_result_conversion_seconds",
+            "recognized_text_traversal_seconds": "ocr_text_traversal_seconds",
+            "page_block_construction_seconds": "ocr_page_block_construction_seconds",
+            "predict_call_count": "ocr_predict_call_count",
+            "document_submission_count": "ocr_document_submission_count",
+            "result_count": "ocr_result_count",
+            "recognized_block_count": "ocr_recognized_block_count",
+        }
+        return {
+            target: diagnostics[source]
+            for source, target in mapping.items()
+            if source in diagnostics
+        }
 
     def _should_retry_extraction(
         self,

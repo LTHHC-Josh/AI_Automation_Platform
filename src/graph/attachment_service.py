@@ -4,6 +4,7 @@ import hashlib
 import os
 from pathlib import Path
 import tempfile
+from urllib.parse import urlsplit
 
 from .client import GraphClient
 from .config import load_graph_config
@@ -35,6 +36,8 @@ class SupportedAttachmentCountResult:
 
     count: int | None
     success: bool
+    unsupported_document_type_count: int = 0
+    unprovable_reason: str | None = None
 
 
 class AttachmentService:
@@ -69,35 +72,113 @@ class AttachmentService:
             f"/users/{self.config.mailbox}"
             f"/messages/{message_id}/attachments"
         )
-        try:
-            response = self.client.get(
-                endpoint,
-                params={"$select": "id,name,isInline,@odata.type"},
-                operation_category="attachment_enumeration",
-            )
-        except Exception:
-            return SupportedAttachmentCountResult(count=None, success=False)
-
-        attachments = response.get("value") if isinstance(response, dict) else None
-        if not isinstance(attachments, list):
-            return SupportedAttachmentCountResult(count=None, success=False)
-
         count = 0
-        for attachment in attachments:
-            if not isinstance(attachment, dict):
-                return SupportedAttachmentCountResult(count=None, success=False)
-            if (
-                attachment.get("@odata.type") != "#microsoft.graph.fileAttachment"
-                or attachment.get("isInline", False) is not False
-            ):
-                continue
-            name = attachment.get("name")
-            if not isinstance(name, str) or not name.strip():
-                return SupportedAttachmentCountResult(count=None, success=False)
-            if Path(Path(name).name).suffix.lower() in supported_extensions:
-                count += 1
+        unsupported_document_type_count = 0
+        request_endpoint = endpoint
+        request_params = {"$select": "id,name,isInline"}
+        seen_continuations: set[str] = set()
 
-        return SupportedAttachmentCountResult(count=count, success=True)
+        while True:
+            try:
+                response = self.client.get(
+                    request_endpoint,
+                    params=request_params,
+                    operation_category="attachment_enumeration",
+                )
+            except Exception:
+                reason = (
+                    "attachment_metadata_request_failed"
+                    if not seen_continuations
+                    else "attachment_metadata_pagination_request_failed"
+                )
+                return SupportedAttachmentCountResult(
+                    count=None, success=False, unprovable_reason=reason
+                )
+
+            attachments = response.get("value") if isinstance(response, dict) else None
+            if not isinstance(attachments, list):
+                return SupportedAttachmentCountResult(
+                    count=None, success=False,
+                    unprovable_reason="attachment_metadata_response_invalid",
+                )
+
+            for attachment in attachments:
+                if not isinstance(attachment, dict):
+                    return SupportedAttachmentCountResult(
+                        count=None, success=False,
+                        unprovable_reason="attachment_metadata_item_invalid",
+                    )
+                attachment_type = attachment.get("@odata.type")
+                if not isinstance(attachment_type, str):
+                    return SupportedAttachmentCountResult(
+                        count=None, success=False,
+                        unprovable_reason="attachment_metadata_type_unprovable",
+                    )
+                normalized_type = attachment_type.removeprefix("#")
+                if normalized_type not in {
+                    "microsoft.graph.fileAttachment",
+                    "microsoft.graph.itemAttachment",
+                    "microsoft.graph.referenceAttachment",
+                }:
+                    return SupportedAttachmentCountResult(
+                        count=None, success=False,
+                        unprovable_reason="attachment_metadata_type_unprovable",
+                    )
+                if normalized_type != "microsoft.graph.fileAttachment":
+                    continue
+                is_inline = attachment.get("isInline")
+                if not isinstance(is_inline, bool):
+                    return SupportedAttachmentCountResult(
+                        count=None, success=False,
+                        unprovable_reason="attachment_metadata_inline_state_unprovable",
+                    )
+                if is_inline:
+                    continue
+                name = attachment.get("name")
+                if not isinstance(name, str) or not name.strip():
+                    return SupportedAttachmentCountResult(
+                        count=None, success=False,
+                        unprovable_reason="attachment_metadata_name_unprovable",
+                    )
+                if Path(Path(name).name).suffix.lower() in supported_extensions:
+                    count += 1
+                else:
+                    unsupported_document_type_count += 1
+
+            next_link = response.get("@odata.nextLink")
+            if next_link is None:
+                break
+            continuation = self._attachment_continuation_endpoint(next_link)
+            if continuation is None or continuation in seen_continuations:
+                return SupportedAttachmentCountResult(
+                    count=None, success=False,
+                    unprovable_reason="attachment_metadata_pagination_invalid",
+                )
+            seen_continuations.add(continuation)
+            request_endpoint = continuation
+            request_params = None
+
+        return SupportedAttachmentCountResult(
+            count=count,
+            success=True,
+            unsupported_document_type_count=unsupported_document_type_count,
+        )
+
+    @staticmethod
+    def _attachment_continuation_endpoint(value) -> str | None:
+        """Accept only an opaque Microsoft Graph v1.0 continuation URL."""
+        if not isinstance(value, str) or not value:
+            return None
+        parsed = urlsplit(value)
+        if parsed.scheme != "https" or parsed.netloc.lower() != "graph.microsoft.com":
+            return None
+        prefix = "/v1.0"
+        if not parsed.path.startswith(f"{prefix}/"):
+            return None
+        endpoint = parsed.path[len(prefix):]
+        if parsed.query:
+            endpoint = f"{endpoint}?{parsed.query}"
+        return endpoint
 
     def download_file_attachments(self, message_id: str) -> list[Path]:
         attachments = self.get_attachments(message_id)
@@ -143,9 +224,14 @@ class AttachmentService:
 
         for attachment in attachments:
             result.examined_count += 1
+            attachment_type = attachment.get("@odata.type")
+            normalized_type = (
+                attachment_type.removeprefix("#")
+                if isinstance(attachment_type, str)
+                else ""
+            )
             if (
-                attachment.get("@odata.type")
-                != "#microsoft.graph.fileAttachment"
+                normalized_type != "microsoft.graph.fileAttachment"
                 or attachment.get("isInline", False)
             ):
                 result.skipped_count += 1

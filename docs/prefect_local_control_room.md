@@ -12,6 +12,106 @@ the Prefect server, and the single process worker remain manually operated.
 Do not create a scheduled task, login-start item, firewall rule, unattended
 flow schedule, or always-on Windows service configuration.
 
+## Routine operator workflow
+
+### Daily commands
+
+Install the current-user commands once from the repository root. This preserves
+the existing PowerShell profile, replaces only the delimited LTHHC section, and
+uses current-user `RemoteSigned` only when the effective policy is `Restricted`:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+& '.\scripts\install_prefect_control_room_commands.ps1'
+```
+
+Open a new PowerShell window, then use these commands from any directory:
+
+```powershell
+startui
+status
+preparerun
+runonce
+stopworker
+restartui
+stopui
+```
+
+To make the commands available immediately in the installing window, add
+`-LoadCurrentSession` to the one-time install command. No administrator rights,
+system PATH change, service, scheduled task, startup task, worker, or flow is
+created by installation.
+
+Use the single control-room wrapper from a repository-root PowerShell terminal:
+
+```powershell
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'StartUI'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'Status'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'PrepareRun'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'RunOnce'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'StopWorker'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'StopControlRoom'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'RestartControlRoom'
+```
+
+`Status` is read-only and reports only PostgreSQL running state, localhost
+server reachability, pool readiness, fresh online-worker count, mailbox-run
+conflict state, and manual-deployment readiness. `StartUI` starts the single
+PostgreSQL service only when needed and launches the server through the
+existing PostgreSQL launcher only when the localhost API is not already
+reachable. It opens the localhost Prefect UI by default and never starts a
+worker or deployment.
+
+`PrepareRun` requires the PostgreSQL-backed server, safe pool
+configuration, and parameterless deployment to be ready, with zero active
+mailbox runs and zero fresh workers. It launches the
+existing mailbox worker script with `-PrepareAcceptanceHandoff`, preserving its
+same-boundary Graph gate, local popup, DPAPI handoff, exact-candidate proof,
+cleanup, and fail-closed behavior. It waits for exactly one fresh worker and
+does not invoke the deployment.
+
+`RunOnce` reruns the unchanged boolean-only full readiness probe, requires
+exactly one fresh worker and no conflicting mailbox run, then issues exactly
+one parameterless watched invocation of `lthhc-bounded-mailbox/manual-local`.
+It has no retry, fallback, custom parameter, run name, tag, or delayed start.
+
+`StopWorker` cleans the acceptance handoff and terminates only the worker PID
+whose wrapper ownership and command line are proven. It leaves PostgreSQL and
+the Prefect server/UI running. A fresh worker without ownership proof causes a
+PHI-safe failure and must be stopped in its owning terminal.
+
+`StopControlRoom` is maintenance-only. It refuses to proceed while a fresh or
+wrapper-owned worker remains, stops only the proven wrapper-owned server, and
+then stops the single PostgreSQL service through the documented boundary. It
+also fails closed when a reachable server is externally owned.
+
+`RestartControlRoom` applies the same worker and ownership guards, stops the
+wrapper-owned server and PostgreSQL, then restarts PostgreSQL, one server, and
+the localhost UI. It never starts a worker, prepares a handoff, or invokes a
+deployment. Stale or mismatched PIDs are removed without termination. Wrapper
+state contains only component names, PIDs, process-creation timestamps, start
+timestamps, and ownership booleans
+under `%LOCALAPPDATA%\LTHHC\Prefect\control-room`; it is not tracked and
+contains no mailbox identity, document data, credential, path, payload, or
+destination identifier.
+
+Owned process-tree shutdown validates the root PID, creation identity, launcher
+marker, and complete descendant ancestry. It stops validated children before
+their parents. Graceful termination is attempted first; Windows `/F` fallback
+is allowed only after the same PID/creation identity is immediately revalidated.
+Legacy or stale state without creation identity cannot authorize termination.
+
+PostgreSQL and the Prefect server/UI are intended to remain continuously
+available on the local AI host; no startup task or service is created.
+`StartUI` is primarily for reboot/crash recovery. The worker remains manual:
+`PrepareRun` starts the guarded worker/handoff path, `RunOnce` invokes one run,
+and `StopWorker` is the routine post-run action. `StopControlRoom` and
+`RestartControlRoom` are maintenance actions. One-terminal operation is
+supported: the server remains hidden and the worker opens its own interactive
+PowerShell window for the existing acceptance popup. The explicit `PrepareRun`
+and `RunOnce` actions remain separate. The UI remains a PHI-safe lifecycle
+surface, not an approval or PHI-review surface.
+
 ## One-time native PostgreSQL installation
 
 Run the inspected installer from an elevated repository-root PowerShell
@@ -97,7 +197,7 @@ deployment and inspect the resulting server metadata. These commands do not
 create a flow run:
 
 ```powershell
-& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deploy 'src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow' --name 'manual-local' --description 'Manual-only popup-selected one-message/one-document acceptance with PHI-safe operational output.' --tag 'manual' --tag 'phi-safe' --pool 'lthhc-local-process' --concurrency-limit 1 --collision-strategy 'CANCEL_NEW' --no-prompt
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deploy 'src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow' --name 'manual-local' --description 'Manual-only sealed-handoff one-message/one-document acceptance with PHI-safe operational output.' --tag 'manual' --tag 'phi-safe' --pool 'lthhc-local-process' --concurrency-limit 1 --collision-strategy 'CANCEL_NEW' --no-prompt
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment inspect 'lthhc-bounded-mailbox/manual-local' --output json
 ```
 
@@ -135,13 +235,30 @@ worker terminal's process-local environment or ignored local configuration.
 Never paste its value into documentation, Prefect parameters, commands, logs,
 or tracked files.
 
+When a prior preparation reports `acceptance_no_eligible_candidate`, a
+separately authorized metadata-only diagnostic can be run without starting a
+worker, displaying the popup, creating a handoff, or triggering Prefect:
+
+```powershell
+$previousPythonPath=$env:PYTHONPATH; try { $env:PYTHONPATH=(Get-Location).Path; & '.\.venv\Scripts\python.exe' '.\scripts\prepare_mailbox_acceptance_handoff.py' --diagnostic-only } finally { $env:PYTHONPATH=$previousPythonPath }
+```
+
+Its JSON output is limited to eligible count and aggregate message counts for
+not-unread state, no supported document, multiple supported documents,
+unsupported non-inline document type, and unprovable document count. An
+unprovable count also includes aggregate-only allowlisted reason counts for
+request, response, item, attachment-type, inline-state, name, continuation-
+link, and continuation-request failures. It never outputs identity, sender,
+subject, attachment name, filename, continuation URL, Graph payload, or
+content.
+
 Use only the documented mailbox worker-launch command below. Its boolean-only Graph
 authentication check runs in the same process and network boundary that
 launches the worker, and the worker is not started when that boundary cannot
 prove authentication readiness.
 
 ```powershell
-& '.\scripts\invoke_prefect_mailbox_worker.ps1'
+& '.\scripts\invoke_prefect_mailbox_worker.ps1' -PrepareAcceptanceHandoff
 ```
 
 The readiness command returns only Graph auth/config, Smartsheet destination,
@@ -186,17 +303,41 @@ enumeration remains unchanged.
 ```
 
 The UI should show flow `lthhc-bounded-mailbox`, deployment `manual-local`, one
-`bounded-mailbox-application-run` task, zero Prefect retries, worker health,
-native timestamps/durations, and one allowlisted log record containing stage,
-status, failure category, retryable, and aggregate message/document/write/
-failure/row-attempt/attachment-attempt/pending/completed counts. The same
-single application task also emits allowlisted stage status/timing events for
-mailbox discovery, attachment download, OCR, classification, subtype
-classification, extraction, validation, business rules, Smartsheet row write,
-attachment upload, mailbox completion, downstream review, and completion where
-the application boundary reaches those stages. Application
+authoritative `bounded-mailbox-application-run` task, zero Prefect retries,
+worker health, native timestamps/durations, and PHI-safe lifecycle child task
+runs. The child task-run names expose acceptance handoff, candidate
+re-verification, document acquisition, OCR, document classification, subtype
+classification, extraction attempt 1 start/completion, validation attempt 1,
+retry decision, conditional extraction/validation attempt 2, candidate
+selection, aggregate document processing, extraction, deterministic validation, business rules,
+Smartsheet write and attachment handling, review determination/state, mailbox
+finalization, and workflow completion where the application reaches those
+boundaries. Started, completed, failed, skipped, cancelled, passed, and
+review-required are semantic status suffixes; the lifecycle recorder itself
+does not own or retry business work.
+
+Slow-stage lifecycle parameters additionally expose wall time; real Ollama
+total/load/prompt-evaluation/generation durations and prompt/generated token
+counts when the provider returns them; selected attempt and retry booleans;
+aggregate extraction/validation/document-processing wall time; and selected
+existing OCR timing/count diagnostics. Missing provider metrics remain absent.
+Lifecycle logs omit unpopulated fields. All parameters remain restricted to
+the fixed operational allowlist. The protected handoff identity never
+enters Prefect. The authoritative application task also retains its aggregate
+log record containing stage, status, failure category, retryable, and aggregate
+message/document/write/failure/row-attempt/attachment-attempt/pending/completed
+counts. Application
 success, including `no_documents`, reaches Completed; application failure
 reaches Failed with only the sanitized failure category.
+
+After exact-candidate proof, acquisition skip markers distinguish only fixed
+safe causes: `message_already_handled`, `message_attachment_flag_false`, or
+`attachment_download_no_candidates`. An exact one-document proof overrides a
+contradictory message-level attachment flag and proceeds to the attachment
+boundary. If that proven document cannot produce a downloadable candidate,
+the message remains unread and the application fails safely rather than
+returning successful `no_documents`. Already-handled state remains an
+idempotent mark-read reconciliation and does not repeat document processing.
 
 The UI, state, logs, exceptions, names, and parameters must never expose a
 patient/member name, sender, subject, filename or protected path, OCR or source

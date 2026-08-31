@@ -1,5 +1,8 @@
 import contextlib
+import base64
 import io
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -120,6 +123,127 @@ def test_attachment_listing_uses_allowlisted_operation_category():
     assert len(client.calls) == 1
     assert client.calls[0]["operation_category"] == "attachment_enumeration"
     assert client.calls[0]["params"] is None
+
+
+def build_attachment_service(client):
+    service = AttachmentService.__new__(AttachmentService)
+    service.client = client
+    service.config = SimpleNamespace(mailbox="synthetic-mailbox@example.invalid")
+    return service
+
+
+def test_attachment_metadata_count_follows_graph_continuation_without_content():
+    class PagedClient:
+        def __init__(self):
+            self.calls = []
+
+        def get(self, endpoint, params=None, operation_category=None):
+            self.calls.append((endpoint, params, operation_category))
+            if len(self.calls) == 1:
+                return {
+                    "value": [{"@odata.type": "microsoft.graph.itemAttachment"}],
+                    "@odata.nextLink": (
+                        "https://graph.microsoft.com/v1.0/users/synthetic/messages/"
+                        "synthetic/attachments?$skiptoken=opaque"
+                    ),
+                }
+            return {"value": [{
+                "@odata.type": "#microsoft.graph.fileAttachment",
+                "isInline": False,
+                "name": "PROTECTED.pdf",
+            }]}
+
+    client = PagedClient()
+    result = build_attachment_service(client).count_supported_file_attachments(
+        PROTECTED_MESSAGE_MARKER, supported_extensions={".pdf"}
+    )
+    assert result.success is True and result.count == 1
+    assert client.calls[0][1] == {"$select": "id,name,isInline"}
+    assert client.calls[1][1] is None
+    assert all(call[2] == "attachment_enumeration" for call in client.calls)
+    assert "contentBytes" not in repr(client.calls)
+    assert "PROTECTED" not in repr(result)
+
+
+def test_download_accepts_same_graph_file_type_spellings_as_metadata_proof():
+    content = b"synthetic non-PHI document"
+
+    class FixedClient:
+        def get(self, *args, **kwargs):
+            return {"value": [{
+                "@odata.type": "microsoft.graph.fileAttachment",
+                "id": "synthetic-attachment",
+                "isInline": False,
+                "name": "synthetic.pdf",
+                "contentBytes": base64.b64encode(content).decode("ascii"),
+            }]}
+
+    with TemporaryDirectory() as directory:
+        service = build_attachment_service(FixedClient())
+        service.download_dir = Path(directory)
+        result = service.download_supported_file_attachments(
+            PROTECTED_MESSAGE_MARKER,
+            supported_extensions={".pdf"},
+        )
+        assert len(result.candidate_outcomes) == 1
+        assert result.candidate_outcomes[0].status == "downloaded"
+        assert len(result.downloaded_files) == 1
+
+
+def test_attachment_metadata_unprovable_reasons_are_allowlisted_and_fail_closed():
+    cases = (
+        (RuntimeError(PROVIDER_MARKER), "attachment_metadata_request_failed"),
+        ({"value": "invalid"}, "attachment_metadata_response_invalid"),
+        ({"value": ["invalid"]}, "attachment_metadata_item_invalid"),
+        ({"value": [{}]}, "attachment_metadata_type_unprovable"),
+        ({"value": [{"@odata.type": "microsoft.graph.fileAttachment"}]},
+         "attachment_metadata_inline_state_unprovable"),
+        ({"value": [{"@odata.type": "microsoft.graph.fileAttachment",
+                     "isInline": False}]}, "attachment_metadata_name_unprovable"),
+        ({"value": [], "@odata.nextLink": "https://example.invalid/private"},
+         "attachment_metadata_pagination_invalid"),
+    )
+    for response, reason in cases:
+        class FixedClient:
+            def get(self, *args, **kwargs):
+                if isinstance(response, Exception):
+                    raise response
+                return response
+
+        result = build_attachment_service(FixedClient()).count_supported_file_attachments(
+            PROTECTED_MESSAGE_MARKER, supported_extensions={".pdf"}
+        )
+        assert result.success is False and result.count is None
+        assert result.unprovable_reason == reason
+        rendered = repr(result)
+        assert PROTECTED_MESSAGE_MARKER not in rendered
+        assert PROVIDER_MARKER not in rendered
+
+
+def test_attachment_metadata_continuation_failure_is_distinguished_and_closed():
+    class FailingContinuationClient:
+        calls = 0
+
+        def get(self, *args, **kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return {
+                    "value": [],
+                    "@odata.nextLink": (
+                        "https://graph.microsoft.com/v1.0/users/synthetic/messages/"
+                        "synthetic/attachments?$skiptoken=opaque"
+                    ),
+                }
+            raise RuntimeError(PROVIDER_MARKER)
+
+    result = build_attachment_service(
+        FailingContinuationClient()
+    ).count_supported_file_attachments(
+        PROTECTED_MESSAGE_MARKER, supported_extensions={".pdf"}
+    )
+    assert result.success is False and result.count is None
+    assert result.unprovable_reason == "attachment_metadata_pagination_request_failed"
+    assert PROVIDER_MARKER not in repr(result)
 
 
 def test_mailbox_listing_uses_allowlisted_operation_category():
@@ -268,6 +392,10 @@ def test_authorization_failure_remains_sanitized():
 def main():
     tests = [
         test_attachment_listing_uses_allowlisted_operation_category,
+        test_attachment_metadata_count_follows_graph_continuation_without_content,
+        test_download_accepts_same_graph_file_type_spellings_as_metadata_proof,
+        test_attachment_metadata_unprovable_reasons_are_allowlisted_and_fail_closed,
+        test_attachment_metadata_continuation_failure_is_distinguished_and_closed,
         test_mailbox_listing_uses_allowlisted_operation_category,
         test_http_failure_retains_only_safe_attachment_diagnostics,
         test_response_decoding_failure_retains_safe_response_diagnostics,

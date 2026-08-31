@@ -13,7 +13,9 @@ from src.graph.mailbox_processor import MessageProcessingResult
 from src.orchestration.prefect_mailbox_workflow import (
     PREFECT_MAILBOX_RUN_TYPE,
     SanitizedMailboxRunError,
+    _normalize_stage_visibility,
     bounded_mailbox_flow,
+    record_mailbox_lifecycle_stage,
     run_bounded_mailbox_application,
 )
 from src.services.mailbox_complete_review_smartsheet_service import (
@@ -302,7 +304,7 @@ def test_adapter_is_parameterless_and_calls_only_full_boundary_once():
     calls = []
 
     class SyntheticService:
-        def run_selected_acceptance(self, **kwargs):
+        def run_handoff_acceptance(self, **kwargs):
             calls.append(kwargs)
             return build_result()
 
@@ -316,7 +318,6 @@ def test_adapter_is_parameterless_and_calls_only_full_boundary_once():
 
     assert result.success is True
     assert calls == [{
-        "discovery_top": 10,
         "review_mode": MailboxClassificationReviewMode.DOWNSTREAM,
         "run_type": PREFECT_MAILBOX_RUN_TYPE,
         "acceptance_max_messages": 1,
@@ -338,9 +339,23 @@ def test_adapter_is_parameterless_and_calls_only_full_boundary_once():
     assert application_imports == {
         "src.services.mailbox_full_review_orchestration_service"
     }
+    orchestration_functions = {
+        node.name: node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name in {
+            "run_bounded_mailbox_application",
+            "bounded_mailbox_flow",
+        }
+    }
+    assert set(orchestration_functions) == {
+        "run_bounded_mailbox_application",
+        "bounded_mailbox_flow",
+    }
     assert not any(
         isinstance(node, (ast.For, ast.AsyncFor, ast.While))
-        for node in ast.walk(tree)
+        for function in orchestration_functions.values()
+        for node in ast.walk(function)
     )
 
 
@@ -351,6 +366,49 @@ def test_adapter_options_disable_prefect_retries_and_result_capture():
     assert run_bounded_mailbox_application.retries == 0
     assert run_bounded_mailbox_application.persist_result is False
     assert run_bounded_mailbox_application.log_prints is False
+    assert record_mailbox_lifecycle_stage.retries == 0
+    assert record_mailbox_lifecycle_stage.persist_result is False
+    assert record_mailbox_lifecycle_stage.log_prints is False
+
+
+def test_prefect_visibility_metadata_is_strictly_allowlisted():
+    private_marker = "PRIVATE-SYNTHETIC-IDENTITY"
+    metadata = _normalize_stage_visibility(
+        stage=private_marker,
+        status=private_marker,
+        duration_seconds=private_marker,
+        attempt_count=private_marker,
+        candidate_message_count=private_marker,
+        candidate_document_count=private_marker,
+        review_required=private_marker,
+        failure_category=private_marker,
+    )
+    expected_populated = {
+        "stage": "workflow-status",
+        "status": "failed",
+        "failure_category": "sanitized_failure",
+    }
+    assert {
+        key: value for key, value in metadata.items() if value is not None
+    } == expected_populated
+    assert set(metadata) == {
+        "stage", "status", "duration_seconds", "attempt_count",
+        "message_count", "document_count", "review_required",
+        "failure_category", "attempt", "selected_attempt",
+        "retry_triggered", "raw_retry_required",
+        "validated_retry_required", "extraction_wall_seconds",
+        "validation_wall_seconds", "ollama_total_duration_seconds",
+        "ollama_load_duration_seconds",
+        "ollama_prompt_eval_duration_seconds",
+        "ollama_eval_duration_seconds", "prompt_token_count",
+        "generated_token_count", "ocr_fingerprint_seconds",
+        "ocr_engine_init_seconds", "ocr_predict_return_seconds",
+        "ocr_result_consumption_seconds", "ocr_result_conversion_seconds",
+        "ocr_text_traversal_seconds", "ocr_page_block_construction_seconds",
+        "ocr_predict_call_count", "ocr_document_submission_count",
+        "ocr_result_count", "ocr_recognized_block_count",
+    }
+    assert private_marker not in repr(metadata)
 
 
 def test_adapter_logs_only_allowlisted_aggregate_metadata():
@@ -362,13 +420,12 @@ def test_adapter_logs_only_allowlisted_aggregate_metadata():
             logged.append(template % arguments)
 
     class SyntheticService:
-        def run_selected_acceptance(self, **kwargs):
+        def run_handoff_acceptance(self, **kwargs):
             for stage in (
-                "mailbox_discovery", "candidate_selection",
-                "candidate_reverification", "attachment_download", "ocr",
+                "acceptance_handoff", "candidate_reverification", "attachment_download", "ocr",
                 "classification", "subtype_classification", "extraction",
                 "validation", "business_rules", "smartsheet_row_write",
-                "attachment_upload", "mailbox_completion",
+                "attachment_upload", "review_determination", "mailbox_completion",
                 "downstream_review", "completed",
             ):
                 kwargs["stage_observer"](
@@ -385,6 +442,7 @@ def test_adapter_logs_only_allowlisted_aggregate_metadata():
                     inbox_membership_proven=True,
                     exact_identity_match_proven=True,
                     exactly_one_supported_document_proven=True,
+                    review_required=False,
                 )
             return build_result()
 
@@ -414,25 +472,26 @@ def test_adapter_logs_only_allowlisted_aggregate_metadata():
     assert "pending_document_count=0" in rendered
     assert "completed_document_count=1" in rendered
     for stage in (
-        "mailbox_discovery", "candidate_selection", "candidate_reverification",
-        "attachment_download", "ocr", "classification",
-        "subtype_classification", "extraction", "validation", "business_rules",
-        "smartsheet_row_write", "attachment_upload", "mailbox_completion",
-        "downstream_review", "completed",
+        "acceptance-handoff", "candidate-reverification", "document-acquisition",
+        "ocr", "document-classification", "subtype-classification", "extraction",
+        "deterministic-validation", "business-rules", "smartsheet-write",
+        "smartsheet-attachment", "review-determination", "mailbox-finalization",
+        "review-state", "workflow-completion",
     ):
         assert f"stage={stage}" in rendered
     for safe_field in (
-        "discovery_completed=True",
+        "discovery_completed=true",
         "eligible_candidate_count=1",
-        "popup_displayed=True",
-        "candidate_selected=True",
-        "candidate_available=True",
-        "unread_state_proven=True",
-        "inbox_membership_proven=True",
-        "exact_identity_match_proven=True",
-        "exactly_one_supported_document_proven=True",
+        "popup_displayed=true",
+        "candidate_selected=true",
+        "candidate_available=true",
+        "unread_state_proven=true",
+        "inbox_membership_proven=true",
+        "exact_identity_match_proven=true",
+        "exactly_one_supported_document_proven=true",
     ):
         assert safe_field in rendered
+    assert "=None" not in rendered
     assert private_marker not in rendered
 
 
@@ -440,7 +499,7 @@ def test_adapter_failure_is_sanitized_and_nonretrying():
     private_marker = "PRIVATE-SYNTHETIC-PATIENT"
 
     class FailingService:
-        def run_selected_acceptance(self, **kwargs):
+        def run_handoff_acceptance(self, **kwargs):
             raise RuntimeError(private_marker)
 
     original = prefect_adapter.MailboxFullReviewOrchestrationService

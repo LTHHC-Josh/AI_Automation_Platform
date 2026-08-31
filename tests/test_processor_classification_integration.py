@@ -61,6 +61,12 @@ class SyntheticLLM:
         self.last_metrics = {
             "request_type": "classification",
             "seed": 42,
+            "total_duration_seconds": 0.8,
+            "load_duration_seconds": 0.1,
+            "prompt_eval_duration_seconds": 0.2,
+            "eval_duration_seconds": 0.5,
+            "prompt_eval_count": 10,
+            "eval_count": 6,
         }
 
         return dict(self.classification)
@@ -83,6 +89,12 @@ class SyntheticLLM:
             "attempt": attempt,
             "seed": 41 + attempt,
             "retry_prompt_applied": attempt > 1,
+            "total_duration_seconds": 1.0 + attempt,
+            "load_duration_seconds": 0.1,
+            "prompt_eval_duration_seconds": 0.3,
+            "eval_duration_seconds": 0.6 + attempt,
+            "prompt_eval_count": 20,
+            "eval_count": 10 + attempt,
         }
 
         return {
@@ -131,7 +143,7 @@ def build_processor(classification, *, ocr_text=None):
     return processor
 
 
-def process_classification(classification, *, ocr_text=None):
+def process_classification(classification, *, ocr_text=None, stage_observer=None):
     with TemporaryDirectory() as directory:
         file_path = (
             Path(directory)
@@ -149,7 +161,8 @@ def process_classification(classification, *, ocr_text=None):
         )
 
         document = processor.process(
-            file_path
+            file_path,
+            stage_observer=stage_observer,
         )
 
         return processor, document
@@ -382,6 +395,93 @@ def test_no_real_local_ai_provider_is_initialized():
     )
 
 
+def test_one_attempt_lifecycle_exposes_safe_metrics_and_selection():
+    events = []
+    process_classification(
+        classification(
+            category="referral", subtype="unknown", document_type="referral"
+        ),
+        stage_observer=lambda **event: events.append(event),
+    )
+    names = [(event["stage"], event["status"]) for event in events]
+    assert ("extraction_attempt_1", "started") in names
+    assert ("extraction_attempt_1", "completed") in names
+    assert ("validation_attempt_1", "completed") in names
+    assert ("extraction_retry_decision", "completed") in names
+    assert ("extraction_attempt_2", "started") not in names
+    selection = next(
+        event for event in events
+        if event["stage"] == "extraction_candidate_selection"
+    )
+    assert selection["selected_attempt"] == 1
+    assert selection["attempt_count"] == 1
+    completion = next(
+        event for event in events if event["stage"] == "document_processing"
+    )
+    assert completion["extraction_wall_seconds"] >= 0
+    assert completion["validation_wall_seconds"] >= 0
+    extraction = next(
+        event for event in events
+        if event["stage"] == "extraction_attempt_1"
+        and event["status"] == "completed"
+    )
+    assert extraction["prompt_token_count"] == 20
+    assert extraction["generated_token_count"] == 11
+    protected_keys = {
+        "text", "source_text", "prompt", "filename", "row_id", "patient"
+    }
+    assert protected_keys.isdisjoint(
+        key for event in events for key in event
+    )
+
+
+def test_two_attempt_lifecycle_validates_each_attempt_and_selects_second():
+    events = []
+    processor = build_processor(
+        classification(
+            category="authorization",
+            subtype="initial",
+            document_type="authorization",
+        )
+    )
+    original_select = processor._select_validated_candidate
+    processor._select_validated_candidate = lambda **kwargs: (
+        kwargs["second_candidate"], 2
+    )
+    try:
+        with TemporaryDirectory() as directory:
+            file_path = Path(directory) / "synthetic-document.txt"
+            file_path.write_text("Synthetic file content.", encoding="utf-8")
+            document = processor.process(
+                file_path, stage_observer=lambda **event: events.append(event)
+            )
+    finally:
+        processor._select_validated_candidate = original_select
+    names = [(event["stage"], event["status"]) for event in events]
+    for expected in (
+        ("extraction_attempt_2", "started"),
+        ("extraction_attempt_2", "completed"),
+        ("validation_attempt_2", "completed"),
+    ):
+        assert expected in names
+    decision = next(
+        event for event in events if event["stage"] == "extraction_retry_decision"
+    )
+    assert decision["retry_triggered"] is True
+    assert decision["raw_retry_required"] is True
+    selection = next(
+        event for event in events
+        if event["stage"] == "extraction_candidate_selection"
+    )
+    assert selection == {
+        "stage": "extraction_candidate_selection",
+        "status": "completed",
+        "selected_attempt": 2,
+        "attempt_count": 2,
+    }
+    assert document.processing_metrics["extraction_selected_attempt"] == 2
+
+
 print("=" * 60)
 print("Testing Processor Classification Integration")
 print("=" * 60)
@@ -429,6 +529,14 @@ run_test(
 run_test(
     "no real local AI provider is initialized",
     test_no_real_local_ai_provider_is_initialized,
+)
+run_test(
+    "one-attempt lifecycle exposes safe metrics and selection",
+    test_one_attempt_lifecycle_exposes_safe_metrics_and_selection,
+)
+run_test(
+    "two-attempt lifecycle validates each attempt and selects second",
+    test_two_attempt_lifecycle_validates_each_attempt_and_selects_second,
 )
 
 print()

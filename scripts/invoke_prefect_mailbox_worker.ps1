@@ -1,5 +1,7 @@
 [CmdletBinding()]
-param()
+param(
+    [switch]$PrepareAcceptanceHandoff
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -23,10 +25,20 @@ try {
         throw 'Worker authentication readiness failed.'
     }
 
+    if ($PrepareAcceptanceHandoff) {
+        & $python (Join-Path $PSScriptRoot 'prepare_mailbox_acceptance_handoff.py')
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Mailbox acceptance handoff preparation failed.'
+        }
+    }
+
     & $prefect --profile 'lthhc-local' worker start --pool 'lthhc-local-process' --name 'lthhc-local-worker' --limit 1 --with-healthcheck --install-policy 'never' --no-create-pool-if-not-found
     if ($LASTEXITCODE -ne 0) {
         throw 'Prefect mailbox worker failed.'
     }
 } finally {
+    if ($PrepareAcceptanceHandoff) {
+        & $python -c "from src.services.mailbox_acceptance_handoff_service import MailboxAcceptanceHandoffService; MailboxAcceptanceHandoffService().cleanup()"
+    }
     Set-Location -LiteralPath $previousLocation
 }

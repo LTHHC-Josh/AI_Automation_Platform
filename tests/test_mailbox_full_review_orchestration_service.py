@@ -457,6 +457,36 @@ def test_no_documents_skips_downstream_review():
     assert len(complete.calls) == 1
 
 
+def test_no_documents_with_acquisition_error_is_not_successful_noop():
+    message_result = build_message_results()[0]
+    message_result.errors.append("Proven attachment could not be acquired.")
+    complete = MailboxCompleteReviewSmartsheetResult(
+        message_count=1,
+        document_count=0,
+        approved_count=0,
+        written_count=0,
+        rejected_count=0,
+        cancelled_count=0,
+        failed_count=0,
+        success=True,
+        status="no_documents",
+    )
+    service = MailboxFullReviewOrchestrationService(
+        mailbox_processor=RecordingMailboxProcessor(results=[message_result]),
+        classification_review_session=RecordingClassificationSession(
+            MailboxReviewSessionResult(0, 0, 0, 0, 0, True, "no_documents")
+        ),
+        complete_review_smartsheet_service=RecordingCompleteReviewService(
+            complete
+        ),
+    )
+    result = service.run()
+    assert result.success is False
+    assert result.status == "mailbox_items_failed"
+    assert result.failure_category == "mailbox_item_failed"
+    assert result.document_count == 0
+
+
 def test_automatic_submission_completion_is_preserved():
     complete_result = (
         MailboxCompleteReviewSmartsheetResult(
@@ -801,6 +831,10 @@ run_test(
 run_test(
     "no documents skips downstream review",
     test_no_documents_skips_downstream_review,
+)
+run_test(
+    "acquisition error cannot become successful no documents",
+    test_no_documents_with_acquisition_error_is_not_successful_noop,
 )
 
 run_test(

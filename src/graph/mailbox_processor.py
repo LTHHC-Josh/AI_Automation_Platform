@@ -196,7 +196,7 @@ class MailboxProcessor:
 
         return results
 
-    def process_selected_unread_message(
+    def _prepare_selected_acceptance(
         self,
         *,
         selector,
@@ -204,8 +204,8 @@ class MailboxProcessor:
         acceptance_max_messages: int = 1,
         acceptance_max_documents: int = 1,
         stage_observer=None,
-    ) -> list[MessageProcessingResult]:
-        """Select and re-verify one manual acceptance candidate in memory."""
+    ) -> tuple[str, dict]:
+        """Select and prove one candidate, returning its identity only in memory."""
         if (
             not isinstance(discovery_top, int)
             or isinstance(discovery_top, bool)
@@ -226,6 +226,26 @@ class MailboxProcessor:
 
         safe_candidates: list[MailboxAcceptanceCandidate] = []
         selected_identities: list[str] = []
+        exclusion_counts = {
+            "not_unread_count": 0,
+            "no_supported_document_count": 0,
+            "multiple_supported_documents_count": 0,
+            "unsupported_document_type_count": 0,
+            "document_count_unprovable_count": 0,
+        }
+        unprovable_reason_counts = {
+            f"{reason}_count": 0
+            for reason in (
+                "attachment_metadata_request_failed",
+                "attachment_metadata_response_invalid",
+                "attachment_metadata_item_invalid",
+                "attachment_metadata_type_unprovable",
+                "attachment_metadata_inline_state_unprovable",
+                "attachment_metadata_name_unprovable",
+                "attachment_metadata_pagination_invalid",
+                "attachment_metadata_pagination_request_failed",
+            )
+        }
         for message in messages:
             if not isinstance(message, dict):
                 raise MailboxAcceptanceGuardError("acceptance_count_unproven")
@@ -233,6 +253,7 @@ class MailboxProcessor:
             if not isinstance(message_id, str) or not message_id:
                 raise MailboxAcceptanceGuardError("acceptance_count_unproven")
             if message.get("isRead") is not False:
+                exclusion_counts["not_unread_count"] += 1
                 continue
             count_result = self.attachment_service.count_supported_file_attachments(
                 message_id,
@@ -244,8 +265,26 @@ class MailboxProcessor:
                 or not isinstance(count, int)
                 or isinstance(count, bool)
             ):
+                exclusion_counts["document_count_unprovable_count"] += 1
+                reason_key = f"{getattr(count_result, 'unprovable_reason', '')}_count"
+                if reason_key in unprovable_reason_counts:
+                    unprovable_reason_counts[reason_key] += 1
                 continue
-            if count != 1:
+            if count == 0:
+                unsupported_count = getattr(
+                    count_result, "unsupported_document_type_count", 0
+                )
+                if (
+                    isinstance(unsupported_count, int)
+                    and not isinstance(unsupported_count, bool)
+                    and unsupported_count > 0
+                ):
+                    exclusion_counts["unsupported_document_type_count"] += 1
+                else:
+                    exclusion_counts["no_supported_document_count"] += 1
+                continue
+            if count > 1:
+                exclusion_counts["multiple_supported_documents_count"] += 1
                 continue
             candidate_number = len(safe_candidates) + 1
             safe_candidates.append(
@@ -277,6 +316,8 @@ class MailboxProcessor:
             popup_displayed=False,
             candidate_selected=False,
             failure_category=None,
+            **exclusion_counts,
+            **unprovable_reason_counts,
         )
         if not safe_candidates:
             self._observe(
@@ -289,6 +330,8 @@ class MailboxProcessor:
                 popup_displayed=False,
                 candidate_selected=False,
                 failure_category="acceptance_no_eligible_candidate",
+                **exclusion_counts,
+                **unprovable_reason_counts,
             )
             raise MailboxAcceptanceGuardError(
                 "acceptance_no_eligible_candidate",
@@ -309,6 +352,8 @@ class MailboxProcessor:
                 popup_displayed=False,
                 candidate_selected=False,
                 failure_category="acceptance_selection_unavailable",
+                **exclusion_counts,
+                **unprovable_reason_counts,
             )
             raise MailboxAcceptanceGuardError(
                 "acceptance_selection_unavailable"
@@ -325,6 +370,8 @@ class MailboxProcessor:
                 popup_displayed=False,
                 candidate_selected=False,
                 failure_category="acceptance_selection_invalid",
+                **exclusion_counts,
+                **unprovable_reason_counts,
             )
             raise MailboxAcceptanceGuardError(
                 "acceptance_selection_invalid"
@@ -347,6 +394,8 @@ class MailboxProcessor:
                 popup_displayed=selection.popup_displayed is True,
                 candidate_selected=False,
                 failure_category=category,
+                **exclusion_counts,
+                **unprovable_reason_counts,
             )
             raise MailboxAcceptanceGuardError(category)
 
@@ -369,6 +418,8 @@ class MailboxProcessor:
                 popup_displayed=selection.popup_displayed is True,
                 candidate_selected=False,
                 failure_category="acceptance_selection_invalid",
+                **exclusion_counts,
+                **unprovable_reason_counts,
             )
             raise MailboxAcceptanceGuardError(
                 "acceptance_selection_invalid"
@@ -384,6 +435,8 @@ class MailboxProcessor:
             popup_displayed=True,
             candidate_selected=True,
             failure_category=None,
+            **exclusion_counts,
+            **unprovable_reason_counts,
         )
 
         selected_identity = selected_identities[selected_number - 1]
@@ -513,12 +566,116 @@ class MailboxProcessor:
             candidate_message_count=1,
             candidate_document_count=1,
         )
-        return [
-            self.process_message(
-                selected_message,
-                stage_observer=stage_observer,
-            )
-        ]
+        return selected_identity, selected_message
+
+    def prepare_selected_acceptance(
+        self,
+        *,
+        selector,
+        discovery_top: int = 10,
+        acceptance_max_messages: int = 1,
+        acceptance_max_documents: int = 1,
+        stage_observer=None,
+    ) -> str:
+        """Prepare a preflight handoff without retaining mailbox content."""
+        identity, _ = self._prepare_selected_acceptance(
+            selector=selector,
+            discovery_top=discovery_top,
+            acceptance_max_messages=acceptance_max_messages,
+            acceptance_max_documents=acceptance_max_documents,
+            stage_observer=stage_observer,
+        )
+        return identity
+
+    def process_selected_unread_message(
+        self,
+        *,
+        selector,
+        discovery_top: int = 10,
+        acceptance_max_messages: int = 1,
+        acceptance_max_documents: int = 1,
+        stage_observer=None,
+    ) -> list[MessageProcessingResult]:
+        """Preserve the same-process popup acceptance entrypoint."""
+        _, selected_message = self._prepare_selected_acceptance(
+            selector=selector,
+            discovery_top=discovery_top,
+            acceptance_max_messages=acceptance_max_messages,
+            acceptance_max_documents=acceptance_max_documents,
+            stage_observer=stage_observer,
+        )
+        return [self.process_message(
+            selected_message,
+            stage_observer=stage_observer,
+            proven_supported_document_count=1,
+        )]
+
+    def process_preselected_acceptance(
+        self,
+        message_identity: str,
+        *,
+        acceptance_max_messages: int = 1,
+        acceptance_max_documents: int = 1,
+        stage_observer=None,
+    ) -> list[MessageProcessingResult]:
+        """Re-verify only the handed-off exact identity, with no enumeration fallback."""
+        if (
+            not isinstance(message_identity, str) or not message_identity
+            or acceptance_max_messages != 1 or acceptance_max_documents != 1
+            or isinstance(acceptance_max_messages, bool)
+            or isinstance(acceptance_max_documents, bool)
+        ):
+            raise MailboxAcceptanceGuardError("acceptance_policy_invalid")
+        started_at = __import__("time").perf_counter()
+        proof = {
+            "candidate_available": False,
+            "unread_state_proven": False,
+            "inbox_membership_proven": False,
+            "exact_identity_match_proven": False,
+            "exactly_one_supported_document_proven": False,
+        }
+        self._observe(stage_observer, "candidate_reverification", "started", started_at,
+                      failure_category=None, **proof)
+        try:
+            message = self.email_service.get_unread_inbox_message(message_identity)
+        except Exception:
+            message = None
+        if not isinstance(message, dict) or message.get("id") != message_identity:
+            self._observe(stage_observer, "candidate_reverification", "failed", started_at,
+                          failure_category="acceptance_selected_candidate_unavailable", **proof)
+            raise MailboxAcceptanceGuardError("acceptance_selected_candidate_unavailable")
+        proof.update(candidate_available=True, inbox_membership_proven=True,
+                     exact_identity_match_proven=True)
+        if message.get("isRead") is not False:
+            self._observe(stage_observer, "candidate_reverification", "failed", started_at,
+                          failure_category="acceptance_selected_candidate_read", **proof)
+            raise MailboxAcceptanceGuardError("acceptance_selected_candidate_read", message_count=1)
+        proof["unread_state_proven"] = True
+        count_result = self.attachment_service.count_supported_file_attachments(
+            message_identity, supported_extensions=SUPPORTED_FILE_EXTENSIONS)
+        count = getattr(count_result, "count", None)
+        if (not getattr(count_result, "success", False) or not isinstance(count, int)
+                or isinstance(count, bool)):
+            self._observe(stage_observer, "candidate_reverification", "failed", started_at,
+                          failure_category="acceptance_count_unproven",
+                          candidate_document_count=None, **proof)
+            raise MailboxAcceptanceGuardError("acceptance_count_unproven", message_count=1)
+        if count != 1:
+            self._observe(stage_observer, "candidate_reverification", "failed", started_at,
+                          failure_category="acceptance_document_count_invalid",
+                          candidate_document_count=count, **proof)
+            raise MailboxAcceptanceGuardError("acceptance_document_count_invalid",
+                                              message_count=1, document_count=count)
+        proof["exactly_one_supported_document_proven"] = True
+        self._observe(stage_observer, "candidate_reverification", "completed", started_at,
+                      failure_category=None, candidate_document_count=1, **proof)
+        self._observe(stage_observer, "acceptance_guard", "passed", started_at,
+                      candidate_message_count=1, candidate_document_count=1)
+        return [self.process_message(
+            message,
+            stage_observer=stage_observer,
+            proven_supported_document_count=1,
+        )]
 
     @staticmethod
     def _safe_received_timestamp(value) -> str | None:
@@ -541,6 +698,7 @@ class MailboxProcessor:
         message: dict,
         *,
         stage_observer=None,
+        proven_supported_document_count: int | None = None,
     ) -> MessageProcessingResult:
         message_id = message.get(
             "id",
@@ -580,16 +738,36 @@ class MailboxProcessor:
             return result
 
         if state_result.handled:
+            self._observe(
+                stage_observer,
+                "attachment_download",
+                "skipped",
+                __import__("time").perf_counter(),
+                candidate_document_count=(
+                    proven_supported_document_count
+                    if proven_supported_document_count == 1
+                    else None
+                ),
+                failure_category="message_already_handled",
+            )
             self._mark_as_read(
                 result
             )
 
             return result
 
-        if not message.get(
-            "hasAttachments",
-            False,
+        if (
+            proven_supported_document_count != 1
+            and not message.get("hasAttachments", False)
         ):
+            self._observe(
+                stage_observer,
+                "attachment_download",
+                "skipped",
+                __import__("time").perf_counter(),
+                candidate_document_count=0,
+                failure_category="message_attachment_flag_false",
+            )
             self._complete_handled_message(
                 result
             )
@@ -603,9 +781,6 @@ class MailboxProcessor:
                 supported_extensions=SUPPORTED_FILE_EXTENSIONS,
             )
             result.downloaded_files.extend(download_result.downloaded_files)
-            self._observe(stage_observer, "attachment_download", "completed",
-                          download_started_at,
-                          candidate_document_count=len(download_result.candidate_outcomes))
         except Exception:
             result.errors.append(
                 "Attachment download failed."
@@ -616,8 +791,28 @@ class MailboxProcessor:
             result.errors.append("Mailbox job identity could not be derived.")
             return result
         if not download_result.candidate_outcomes:
+            self._observe(
+                stage_observer,
+                "attachment_download",
+                "skipped",
+                download_started_at,
+                candidate_document_count=0,
+                failure_category="attachment_download_no_candidates",
+            )
+            if proven_supported_document_count == 1:
+                result.errors.append(
+                    "Proven attachment could not be acquired."
+                )
+                return result
             self._complete_handled_message(result)
             return result
+        self._observe(
+            stage_observer,
+            "attachment_download",
+            "completed",
+            download_started_at,
+            candidate_document_count=len(download_result.candidate_outcomes),
+        )
         for candidate in download_result.candidate_outcomes:
             if candidate.status not in {"downloaded", "reused_identical", "identical_collision"}:
                 result.errors.append("Attachment source collision blocked processing.")

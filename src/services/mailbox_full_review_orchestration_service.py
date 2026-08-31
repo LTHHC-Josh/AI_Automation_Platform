@@ -13,6 +13,10 @@ from src.services.mailbox_review_session_service import (
     MailboxReviewSessionResult,
     MailboxReviewSessionService,
 )
+from src.services.mailbox_acceptance_handoff_service import (
+    MailboxAcceptanceHandoffError,
+    MailboxAcceptanceHandoffService,
+)
 
 
 @dataclass(frozen=True)
@@ -81,6 +85,7 @@ class MailboxFullReviewOrchestrationService:
             MailboxCompleteReviewSmartsheetService
             | None
         ) = None,
+        acceptance_handoff_service: MailboxAcceptanceHandoffService | None = None,
     ) -> None:
         self.mailbox_processor = (
             mailbox_processor
@@ -96,6 +101,9 @@ class MailboxFullReviewOrchestrationService:
             complete_review_smartsheet_service
             or MailboxCompleteReviewSmartsheetService()
         )
+        self.acceptance_handoff_service = (
+            acceptance_handoff_service or MailboxAcceptanceHandoffService()
+        )
 
     def run(
         self,
@@ -109,6 +117,7 @@ class MailboxFullReviewOrchestrationService:
         acceptance_max_messages: int | None = None,
         acceptance_max_documents: int | None = None,
         acceptance_selector=None,
+        acceptance_identity: str | None = None,
         acceptance_discovery_top: int = 10,
         stage_observer=None,
     ) -> MailboxFullReviewOrchestrationResult:
@@ -137,7 +146,12 @@ class MailboxFullReviewOrchestrationService:
                 )
             if stage_observer is not None:
                 processing_options["stage_observer"] = stage_observer
-            if acceptance_selector is None:
+            if acceptance_identity is not None:
+                message_results = self.mailbox_processor.process_preselected_acceptance(
+                    acceptance_identity,
+                    **processing_options,
+                )
+            elif acceptance_selector is None:
                 message_results = self.mailbox_processor.process_unread_messages(
                     top=normalized_top,
                     **processing_options,
@@ -429,6 +443,45 @@ class MailboxFullReviewOrchestrationService:
             acceptance_max_documents=acceptance_max_documents,
             acceptance_selector=selector,
             acceptance_discovery_top=discovery_top,
+            stage_observer=stage_observer,
+        )
+
+    def run_handoff_acceptance(
+        self,
+        *,
+        created_at: Any = None,
+        review_mode: MailboxClassificationReviewMode = MailboxClassificationReviewMode.DOWNSTREAM,
+        run_type: str = "",
+        acceptance_max_messages: int = 1,
+        acceptance_max_documents: int = 1,
+        stage_observer=None,
+    ) -> MailboxFullReviewOrchestrationResult:
+        """Atomically claim a sealed identity and run only that exact candidate."""
+        handoff_started_at = __import__("time").perf_counter()
+        self._observe(stage_observer, "acceptance_handoff", "started", handoff_started_at)
+        try:
+            handoff = self.acceptance_handoff_service.claim()
+        except MailboxAcceptanceHandoffError as error:
+            self._observe(
+                stage_observer, "acceptance_handoff", "failed", handoff_started_at,
+                failure_category=error.category,
+            )
+            return self._failure(error.category, stage="acceptance_handoff")
+        except Exception:
+            self._observe(
+                stage_observer, "acceptance_handoff", "failed", handoff_started_at,
+                failure_category="handoff_claim_failed",
+            )
+            return self._failure("handoff_claim_failed", stage="acceptance_handoff")
+        self._observe(stage_observer, "acceptance_handoff", "completed", handoff_started_at)
+        return self.run(
+            top=1,
+            created_at=created_at,
+            review_mode=review_mode,
+            run_type=run_type,
+            acceptance_max_messages=acceptance_max_messages,
+            acceptance_max_documents=acceptance_max_documents,
+            acceptance_identity=handoff.message_identity,
             stage_observer=stage_observer,
         )
 

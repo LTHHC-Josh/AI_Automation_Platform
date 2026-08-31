@@ -169,13 +169,34 @@ def test_document_count_uses_metadata_only_and_fails_closed_on_invalid_shape():
         "synthetic-message", supported_extensions={".pdf"})
     assert result.success is True and result.count == 1
     assert calls == [(
-        {"$select": "id,name,isInline,@odata.type"}, "attachment_enumeration")]
+        {"$select": "id,name,isInline"}, "attachment_enumeration")]
     assert "contentBytes" not in repr(calls)
 
     service.client.get = lambda *args, **kwargs: {"value": "unproven"}
     result = service.count_supported_file_attachments(
         "synthetic-message", supported_extensions={".pdf"})
     assert result.success is False and result.count is None
+
+
+def test_document_count_reports_unsupported_type_count_without_names():
+    class MetadataClient:
+        def get(self, endpoint, *, params, operation_category):
+            return {"value": [
+                {"@odata.type": "#microsoft.graph.fileAttachment",
+                 "isInline": False, "name": "PROTECTED.unsupported", "id": "safe"},
+                {"@odata.type": "#microsoft.graph.fileAttachment",
+                 "isInline": True, "name": "PROTECTED.png", "id": "safe-inline"},
+            ]}
+
+    service = AttachmentService.__new__(AttachmentService)
+    service.client = MetadataClient()
+    service.config = SimpleNamespace(mailbox="configured-mailbox")
+    result = service.count_supported_file_attachments(
+        "synthetic-message", supported_extensions={".pdf"})
+    assert result.success is True
+    assert result.count == 0
+    assert result.unsupported_document_type_count == 1
+    assert "PROTECTED" not in repr(result)
 
 
 if __name__ == "__main__":

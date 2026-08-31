@@ -792,14 +792,286 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Perform a read-only architecture checkpoint for the smallest PHI-safe
-same-boundary pre-invocation candidate handoff. Specify how an operator can
-designate one Inbox candidate and prove it remains available, unread, in Inbox,
-and contains exactly one supported document before a deployment invocation is
-consumed, while binding a later guarded acceptance to that exact candidate
-without placing its identity in Prefect parameters, logs/results, tracked or
-ignored configuration, or durable project truth. Preserve the popup-only
-acceptance path, newest-ten boundary, exact re-verification, no fallback,
-one-task/zero-retry deployment, and unchanged production enumeration. Do not
-access the live mailbox or trigger another flow without separate explicit
-authorization.
+Perform one fresh guarded live mailbox run using the simplified operator
+workflow (`preparerun`, `runonce`, `stopworker`) with a newly eligible document,
+observe the Prefect slow-stage performance lifecycle through terminal state,
+and evaluate PHI-safe OCR/Ollama timing data for optimization opportunities.
+Do not perform that live run as part of this checkpoint.
+
+Completed live acceptance and operator-command verification checkpoint:
+
+- A real guarded mailbox run reached terminal `Completed` after exact-candidate
+  re-verification and acquisition proof, OCR, classification, extraction,
+  deterministic validation, business rules, production Smartsheet row write
+  and attachment upload, review-required state, mailbox finalization, and
+  workflow completion. Only PHI-safe lifecycle/status evidence is retained in
+  project truth.
+- The DPAPI-sealed single-use handoff, Graph attachment metadata boundary,
+  exact-candidate acquisition proof, Prefect lifecycle visibility, and
+  slow-stage OCR/Ollama observability were exercised through the reviewed
+  guarded acceptance path.
+- The current-user PowerShell profile exposes `startui`, `status`, `preparerun`,
+  `runonce`, `stopworker`, `restartui`, and `stopui`. After reboot, the operator
+  manually verified `startui`, `restartui`, `status`, `stopui`, stopped-state
+  `status`, and restoration with `startui` in Windows PowerShell 5.1.
+- The Prefect UI/control plane is intended to remain running continuously and
+  the worker remains manual. Normal operation is `preparerun`, `runonce`, then
+  `stopworker`; `startui` is for reboot/crash recovery, while `restartui` and
+  `stopui` are maintenance commands.
+- Windows PowerShell 5.1 compatibility and wrapper-owned process-tree shutdown
+  are corrected and covered by isolated real-host and synthetic/mock checks.
+
+Control-room wrapper checkpoint:
+
+- Replaced tree-wide `taskkill /T` shutdown after a live Windows failure where
+  nested Prefect children prevented non-forceful parent termination. New state
+  records the safe root creation timestamp in addition to PID/start time.
+  Shutdown proves the current root marker and creation identity, snapshots and
+  validates descendant PID/parent/creation identity, stops deepest children
+  first, attempts graceful exact-PID termination, and uses `/F` only after
+  immediate identity revalidation. Stale/reused PIDs cannot authorize a kill.
+- Windows PowerShell 5.1 isolated testing passed a root, multiple children,
+  nested grandchild, already-exited child, forced fallback, stale identity, and
+  unrelated-process survival. Read-only diagnosis found the live failed restart
+  left legacy stale server state that cannot safely authorize orphan cleanup;
+  the wrapper intentionally treats that reachable server as externally owned.
+- Corrected the Windows PowerShell 5.1 ownership-check defect: .NET Framework
+  does not provide `String.Contains(string, StringComparison)`. The wrapper now
+  uses the supported `IndexOf(string, StringComparison) -ge 0` equivalent, so
+  case-insensitive command-line ownership proof remains strict for worker,
+  stop, and restart paths. A real Windows PowerShell 5.1 isolated function test
+  passed match, mismatch, and missing-PID cases without touching live state.
+- Added an idempotent current-user PowerShell-profile installer for the exact
+  single-word commands `startui`, `status`, `preparerun`, `runonce`,
+  `stopworker`, `restartui`, and `stopui`. Each function delegates once to the
+  authoritative wrapper by verified absolute repository path and works from
+  any directory. Existing profile content is preserved; only a delimited LTHHC
+  section is replaced. Installation starts no control-plane or mailbox action.
+- Added `scripts/invoke_prefect_control_room.ps1` with approved `StartUI`,
+  `Status`, `PrepareRun`, `RunOnce`, `StopWorker`, `StopControlRoom`, and
+  `RestartControlRoom` actions.
+- It orchestrates the existing PostgreSQL launcher, worker/auth/handoff
+  launcher, full readiness probe, and unchanged parameterless deployment.
+  Preparation and invocation remain separate guarded operator actions.
+  PostgreSQL and the server/UI are intended to remain available continuously;
+  worker stop is routine while control-room stop/restart are maintenance-only.
+- Local ignored ownership state contains only component names, PIDs,
+  timestamps, and ownership booleans. Stop validates both owned PID and
+  expected command-line marker and does not terminate unowned processes.
+- Static/synthetic checks cover syntax, action separation, duplicate/stale PID
+  guards, exact one-run invocation, PHI-safe state/output allowlists, and
+  conservative stop behavior. No live mailbox/Graph, worker, deployment, OCR,
+  Ollama, production Smartsheet document operation, attachment upload, or
+  mailbox mutation occurred.
+
+Implemented checkpoint:
+
+- Added a fixed-name, current-user DPAPI-sealed handoff outside Git and
+  configuration. It is exclusive, expires after exactly 15 minutes, is
+  atomically claimed by one consumer, and is deleted on claim or launcher
+  cleanup.
+- Separated popup preparation from exact preselected-candidate processing.
+  Preparation retains newest-ten metadata discovery and the existing PHI-safe
+  popup; the worker-created flow performs no mailbox enumeration or fallback.
+- Added the handoff-backed application entrypoint and changed the unchanged
+  parameterless one-task/zero-retry Prefect adapter to use it.
+- Added optional worker-launch preparation and unconditional cleanup. Normal
+  production enumeration, durable state, idempotency, uncertain-write
+  handling, and mailbox completion ordering remain unchanged.
+- Synthetic deterministic/mock focused and affected checks passed. A real
+  current-user Windows DPAPI synthetic roundtrip passed outside the restricted
+  sandbox. No live mailbox, popup, flow, OCR, Ollama, Smartsheet, or mailbox
+  completion operation ran.
+
+Lifecycle visibility checkpoint:
+
+- Projected the existing authoritative application stage callbacks into
+  Prefect lifecycle child task runs. Business operations remain inside their
+  existing services and the application boundary is still invoked exactly
+  once.
+- Operator-facing task names now cover acceptance handoff, exact candidate
+  re-verification, document acquisition, OCR, document classification,
+  subtype classification, extraction, deterministic validation, business
+  rules, Smartsheet write/attachment, review determination/state, mailbox
+  finalization, and workflow completion.
+- Lifecycle inputs are strictly normalized to safe names, statuses, durations,
+  attempts, aggregate counts, review-required boolean, and sanitized failure
+  category. Visibility failure cannot replace the authoritative application
+  failure path.
+- A synthetic/mock local Prefect flow completed against an isolated temporary
+  server and its API contained the application task plus every expected
+  lifecycle task-run name. No Graph, protected document, OCR, Ollama,
+  production Smartsheet, mailbox mutation, popup, or DPAPI identity was used.
+- The deployment remains parameterless with concurrency one and `CANCEL_NEW`.
+  Runtime task shape changed from one task total to one authoritative
+  application task plus lifecycle-only child task runs; all tasks have zero
+  retries and disabled result persistence.
+
+Lifecycle-visible deployment registration checkpoint:
+
+- Registered the reviewed current source as
+  `lthhc-bounded-mailbox/manual-local` through the established PostgreSQL-
+  backed local Prefect procedure.
+- Read-only API and source verification proved the exact flow/deployment and
+  entrypoint, zero parameters and empty parameter-schema properties, zero job
+  variables, zero schedules, zero automations/triggers, concurrency one with
+  `CANCEL_NEW`, zero flow/task retries, disabled flow/task result persistence,
+  exactly one authoritative application invocation, and all expected
+  lifecycle child-task definitions.
+- The deployment retained three historical runs before and after registration,
+  proving registration created no flow run. The existing worker record was
+  offline and online-worker count remained zero.
+- Deployment metadata contained none of the prohibited protected-identity or
+  payload markers checked. No worker, mailbox/Graph access, popup, handoff
+  preparation, OCR, Ollama, production Smartsheet operation, mailbox mutation,
+  or deployment run occurred.
+- Only PostgreSQL and the localhost Prefect server were started; both were
+  stopped after verification.
+
+Acceptance eligibility diagnostic checkpoint:
+
+- Confirmed newest-ten discovery includes only messages returned by the
+  unread Inbox query and requires a valid message mapping/identity, exact
+  `isRead is False`, a provable metadata-only supported-document count, and
+  exactly one supported non-inline file attachment with extension PDF, PNG,
+  JPG/JPEG, TIF, or TIFF.
+- Zero eligible candidates previously collapsed four actual per-message
+  exclusions: state not exactly unread, zero supported documents, multiple
+  supported documents, or unprovable document count. Exact-candidate
+  unavailable/read/Inbox/identity failures occur only after selection and
+  cannot explain zero discovery candidates.
+- Added aggregate candidate-selection diagnostics for not-unread, no supported
+  document, multiple supported documents, unsupported non-inline document
+  type, and unprovable count. Attachment names and identities are never
+  retained in the diagnostic result.
+- Added `--diagnostic-only` preparation mode. It uses a noninteractive selector,
+  creates no handoff, and returns only the allowlisted aggregate JSON. Normal
+  eligibility, popup preparation, production enumeration, exact re-
+  verification, and no-fallback behavior are unchanged.
+- Focused and affected tests were synthetic deterministic/mock only. No live
+  mailbox/Graph access, popup, handoff, Prefect run, OCR, Ollama, production
+  Smartsheet operation, or mailbox mutation occurred.
+- An affected concurrent-consumer regression exposed a separate Windows lock
+  contention race in the uncommitted handoff service; transient permission
+  contention now follows the existing bounded lock retry and the one-consumer
+  test passes.
+
+Attachment metadata proof diagnostic checkpoint:
+
+- The observed live aggregate narrowed the sole candidate to an unprovable
+  attachment count. Before this checkpoint that could mean initial request
+  failure, invalid response collection, invalid attachment item, or invalid
+  non-inline file name; the existing aggregate could not distinguish them.
+- Added aggregate-only counts for request, response, item, type, inline-state,
+  name, pagination-link, and pagination-request failures. Only fixed category
+  names and integer counts reach diagnostic output.
+- Corrected the metadata request to select only declared properties, accept
+  both Graph type-annotation spellings, validate required type/inline metadata,
+  and consume validated same-host v1.0 continuation links until the exact count
+  is proven. Invalid or failed continuation remains ineligible.
+- Eligibility, exactly-one enforcement, production enumeration, no fallback,
+  protected-identity handling, and processing/write semantics are unchanged.
+- Compilation and focused/affected synthetic deterministic/mock regressions
+  passed. An isolated synthetic Prefect lifecycle regression also passed with
+  no external integration; it emitted a non-fatal Windows temporary-file
+  cleanup warning after completion. No live mailbox/Graph, popup, handoff,
+  OCR, Ollama, production Smartsheet, or mailbox mutation occurred in this
+  checkpoint.
+
+Slow-stage Prefect performance visibility checkpoint:
+
+- Reused the existing `stage_observer` boundary; OCR, LLM, validation,
+  candidate selection, business rules, review, writes, and mailbox logic remain
+  authoritative in the application and visibility remains best-effort.
+- Added fixed child-task markers for extraction attempt 1 start/completion,
+  validation attempt 1, retry decision, conditional extraction/validation
+  attempt 2, candidate selection, and aggregate document-processing completion.
+- OCR completion exposes wall time plus selected existing safe OCR timing/count
+  diagnostics. Classification and extraction completions expose wall time plus
+  real Ollama total/load/prompt-evaluation/generation durations and prompt/
+  generated token counts when present. Retry booleans, selected attempt,
+  attempt count, total extraction/validation wall time, and total document wall
+  time are visible through fixed allowlisted fields.
+- Unavailable provider metrics remain absent. Lifecycle logging now omits
+  unpopulated fields instead of emitting repeated `field=None` noise.
+- Synthetic deterministic/mock one- and two-attempt processing checks passed,
+  including validation per attempt, both selected-attempt outcomes, retry
+  behavior, metric mapping, aggregate timing, protected-key exclusion, and
+  unchanged processing semantics. An isolated synthetic local Prefect flow
+  completed and exposed the expected task names; its known non-fatal Windows
+  temporary-database cleanup warning occurred after completion.
+- No live Graph/mailbox, protected-document OCR, local Ollama, production
+  Smartsheet write, attachment upload, popup, handoff, worker, or mailbox
+  mutation occurred.
+
+Slow-stage deployment registration checkpoint:
+
+- Registered the updated `lthhc-bounded-mailbox/manual-local` source through
+  the documented PostgreSQL-backed local Prefect procedure. Registration
+  succeeded without invoking the deployment.
+- Read-only metadata verified the exact name/entrypoint, zero parameters and
+  parameter-schema properties, zero job variables, no schedule or automations,
+  concurrency one with `CANCEL_NEW`, and no protected metadata markers.
+- Static/current-source verification proved zero flow/application/lifecycle
+  retries, disabled result persistence, exactly one authoritative application
+  invocation, all new slow-stage lifecycle names, and the existing aggregate
+  extraction and deterministic-validation names.
+- Deployment count remained one and flow-run count remained four before and
+  after registration. Zero workers had a fresh heartbeat; one historical
+  worker record retained a stale `ONLINE` label with a roughly five-hour-old
+  heartbeat. No worker was started or stopped.
+- Focused control-plane, readiness, and worker-boundary checks passed 24/24;
+  synthetic deterministic/mock plus real local Prefect/PostgreSQL read-only
+  metadata. No handoff, Graph/mailbox, OCR, Ollama, production Smartsheet, flow
+  run, attachment upload, or mailbox mutation occurred. PostgreSQL was stopped
+  after verification; a pre-existing localhost Prefect process was not
+  terminated.
+
+Post-reverification zero-document diagnosis checkpoint:
+
+- The PHI-safe `handsome-wolverine` evidence proves exact reverification
+  succeeded with one supported document but processing exited before the
+  attachment lifecycle boundary. Current source had exactly two successful
+  zero-document exits there: durable `already_handled` reconciliation or a
+  false/missing message-level `hasAttachments` flag. Existing logs did not
+  distinguish them, and the protected identity was intentionally unavailable,
+  so the historical leaf cause cannot be proven. Aggregate local state confirms
+  handled markers exist but cannot safely bind one to this run.
+- Fixed the proven defect that discarded the exact one-document proof before
+  `process_message`. The preselected and same-process selected paths now carry
+  the proof into normal processing, where it overrides a contradictory message
+  attachment flag without weakening the one-document guard or no-fallback rule.
+- Aligned download filtering with metadata proof by accepting both Graph file-
+  attachment type spellings. A proven document that produces no download
+  candidate now returns a sanitized acquisition error and remains unread rather
+  than being marked handled and converted to successful `no_documents`.
+- Added PHI-safe `document-acquisition-skipped` reasons for
+  `message_already_handled`, `message_attachment_flag_false`, and
+  `attachment_download_no_candidates`. Identity, names, content, paths, and
+  provider detail remain excluded.
+
+Corrected-source deployment registration checkpoint:
+
+- Registered the corrected current workspace source as
+  `lthhc-bounded-mailbox/manual-local` through the documented localhost,
+  PostgreSQL-backed Prefect procedure. Registration succeeded and did not
+  invoke the deployment; its deployment flow-run count remained one before and
+  after registration.
+- Read-only metadata verified the exact flow/deployment name and entrypoint,
+  zero parameters/schema properties/job variables, no schedule or automation,
+  concurrency one with `CANCEL_NEW`, and zero checked protected metadata
+  markers. Current registered-path source retains zero flow/application/
+  lifecycle retries, disabled result persistence, exactly one authoritative
+  application call, every lifecycle/performance definition, and the corrected
+  exact-candidate acquisition behavior.
+- Contrary to the requested zero-worker precondition, one pre-existing local
+  worker process had a fresh ONLINE heartbeat before registration and remained
+  online afterward. This checkpoint did not start, stop, or mutate that worker.
+  The no-schedule/no-trigger deployment and unchanged run count prove
+  registration itself created no execution.
+- Compilation and 85 focused synthetic deterministic/mock/local-safe tests
+  passed. The synthetic Prefect lifecycle test produced its known non-fatal
+  Windows temporary-database cleanup warning after successful completion. No
+  handoff, Graph/mailbox, protected OCR, Ollama, production document
+  Smartsheet operation, attachment upload, mailbox mutation, or deployment run
+  occurred.

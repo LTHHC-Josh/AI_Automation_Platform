@@ -123,6 +123,31 @@ def test_schema_requires_service_lines() -> None:
     assert "service_lines" in required_fields
 
 
+def test_provider_metrics_map_real_ollama_fields_without_content() -> None:
+    provider = build_provider_without_connection()
+    metrics = provider._extract_safe_metrics({
+        "total_duration": 2_000_000_000,
+        "load_duration": 100_000_000,
+        "prompt_eval_duration": 400_000_000,
+        "eval_duration": 1_500_000_000,
+        "prompt_eval_count": 40,
+        "eval_count": 30,
+        "prompt": "PROTECTED",
+        "response": "PROTECTED",
+        "source_text": "PROTECTED",
+    })
+    assert metrics["total_duration_seconds"] == 2.0
+    assert metrics["load_duration_seconds"] == 0.1
+    assert metrics["prompt_eval_duration_seconds"] == 0.4
+    assert metrics["eval_duration_seconds"] == 1.5
+    assert metrics["prompt_eval_count"] == 40
+    assert metrics["eval_count"] == 30
+    assert metrics["generation_tokens_per_second"] == 20.0
+    assert "prompt" not in metrics
+    assert "response" not in metrics
+    assert "source_text" not in metrics
+
+
 def test_learning_schema_and_prompt_are_value_free_and_open_ended() -> None:
     provider = build_provider_without_connection()
     schema = OllamaProvider.LEARNING_ANALYSIS_SCHEMA
@@ -565,6 +590,10 @@ def main() -> None:
         (
             "retry prompt addendum is generic",
             test_retry_prompt_addendum_is_generic,
+        ),
+        (
+            "provider metrics map real Ollama fields without content",
+            test_provider_metrics_map_real_ollama_fields_without_content,
         ),
     ]
 

@@ -128,6 +128,8 @@ class RecordingDocumentProcessor:
     def process(
         self,
         file_path,
+        *,
+        stage_observer=None,
     ):
         self.calls.append(
             file_path
@@ -445,6 +447,71 @@ def test_already_handled_skips_processing():
     ]
 
 
+def test_already_handled_emits_phi_safe_acquisition_skip_reason():
+    events = []
+    processor = build_processor(
+        state=RecordingProcessingStateService(handled=True),
+    )
+    result = processor.process_message(
+        message(has_attachments=True),
+        stage_observer=lambda **event: events.append(event),
+        proven_supported_document_count=1,
+    )
+    assert result.errors == []
+    assert events == [{
+        "stage": "attachment_download",
+        "status": "skipped",
+        "duration_seconds": events[0]["duration_seconds"],
+        "candidate_document_count": 1,
+        "failure_category": "message_already_handled",
+    }]
+    assert set(events[0]) == {
+        "stage", "status", "duration_seconds", "candidate_document_count",
+        "failure_category",
+    }
+
+
+def test_proven_document_bypasses_false_message_attachment_flag():
+    events = []
+    attachments = RecordingAttachmentService(files=[Path("synthetic.pdf")])
+    documents = RecordingDocumentProcessor()
+    processor = build_processor(attachments=attachments, documents=documents)
+    result = processor.process_message(
+        message(has_attachments=False),
+        stage_observer=lambda **event: events.append(event),
+        proven_supported_document_count=1,
+    )
+    assert result.errors == []
+    assert documents.calls == [Path("synthetic.pdf")]
+    acquisition = [
+        event for event in events if event["stage"] == "attachment_download"
+    ]
+    assert len(acquisition) == 1
+    assert acquisition[0]["status"] == "completed"
+    assert acquisition[0]["candidate_document_count"] == 1
+
+
+def test_empty_download_after_proof_emits_safe_skip_reason():
+    events = []
+    processor = build_processor(
+        attachments=RecordingAttachmentService(files=[]),
+    )
+    result = processor.process_message(
+        message(has_attachments=True),
+        stage_observer=lambda **event: events.append(event),
+        proven_supported_document_count=1,
+    )
+    assert result.errors == ["Proven attachment could not be acquired."]
+    assert result.marked_as_read is False
+    assert events == [{
+        "stage": "attachment_download",
+        "status": "skipped",
+        "duration_seconds": events[0]["duration_seconds"],
+        "candidate_document_count": 0,
+        "failure_category": "attachment_download_no_candidates",
+    }]
+
+
 def test_state_check_failure_blocks_processing():
     email = RecordingEmailService()
 
@@ -736,6 +803,18 @@ run_test(
 run_test(
     "already handled message skips processing",
     test_already_handled_skips_processing,
+)
+run_test(
+    "already handled emits safe acquisition skip reason",
+    test_already_handled_emits_phi_safe_acquisition_skip_reason,
+)
+run_test(
+    "proven document bypasses false message attachment flag",
+    test_proven_document_bypasses_false_message_attachment_flag,
+)
+run_test(
+    "empty download after proof emits safe skip reason",
+    test_empty_download_after_proof_emits_safe_skip_reason,
 )
 run_test(
     "state check failure blocks processing",

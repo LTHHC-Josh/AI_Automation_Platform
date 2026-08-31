@@ -79,6 +79,10 @@ def test_launcher_is_fail_closed_and_deployment_stays_secret_free_parameterless(
     assert launcher.index("check_mailbox_worker_auth_readiness.py") < launcher.index("worker start")
     assert "Worker authentication readiness failed." in launcher
     assert "--limit 1" in launcher
+    assert "[switch]$PrepareAcceptanceHandoff" in launcher
+    assert "prepare_mailbox_acceptance_handoff.py" in launcher
+    assert launcher.index("prepare_mailbox_acceptance_handoff.py") < launcher.index("worker start")
+    assert "MailboxAcceptanceHandoffService().cleanup()" in launcher
     assert "parameters: {}" in deployment
     assert "job_variables: {}" in deployment
     prohibited = ("GRAPH_TENANT_ID", "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET", "GRAPH_MAILBOX")

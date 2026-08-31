@@ -52,9 +52,18 @@ class SyntheticAttachments:
     def count_supported_file_attachments(self, message_id, *, supported_extensions):
         self.count_calls.append(message_id)
         value = self.counts[message_id].pop(0)
+        if isinstance(value, SupportedAttachmentCountResult):
+            return value
+        unsupported_count = 0
+        if isinstance(value, tuple):
+            value, unsupported_count = value
         if value is None:
             return SupportedAttachmentCountResult(count=None, success=False)
-        return SupportedAttachmentCountResult(count=value, success=True)
+        return SupportedAttachmentCountResult(
+            count=value,
+            success=True,
+            unsupported_document_type_count=unsupported_count,
+        )
 
     def download_supported_file_attachments(self, *args, **kwargs):
         self.download_calls += 1
@@ -101,9 +110,19 @@ def build_processor(messages, counts, *, exact_message=None, exact_error=None):
         job_state_service=SimpleNamespace(),
     )
     processed = []
-    processor.process_message = lambda selected, stage_observer=None: processed.append(
-        selected
-    ) or SimpleNamespace(processed_documents=[])
+
+    def process_message(
+        selected,
+        stage_observer=None,
+        proven_supported_document_count=None,
+    ):
+        processed.append(selected)
+        return SimpleNamespace(
+            processed_documents=[],
+            proven_supported_document_count=proven_supported_document_count,
+        )
+
+    processor.process_message = process_message
     return processor, email, attachments, processed
 
 
@@ -135,6 +154,7 @@ def test_popup_receives_only_eligible_phi_safe_candidates():
     assert email.list_tops == [10]
     assert email.exact_calls == [PROTECTED_ID]
     assert len(processed) == 1
+    assert results[0].proven_supported_document_count == 1
     assert len(selector.calls[0]) == 1
     candidate = selector.calls[0][0]
     assert candidate.candidate_number == 1
@@ -214,6 +234,94 @@ def test_no_eligible_or_unprovable_discovery_blocks_before_popup():
         assert email.exact_calls == []
         assert attachments.download_calls == 0
         assert processed == []
+
+
+def test_zero_eligible_discovery_reports_only_aggregate_exclusion_counts():
+    identities = (
+        "PRIVATE-ID-A", "PRIVATE-ID-B", "PRIVATE-ID-C", "PRIVATE-ID-D", "PRIVATE-ID-E"
+    )
+    messages = [
+        message(identities[0], is_read=True),
+        *(message(identity) for identity in identities[1:]),
+    ]
+    processor, _, attachments, processed = build_processor(
+        messages,
+        {
+            identities[0]: [],
+            identities[1]: [0],
+            identities[2]: [(0, 1)],
+            identities[3]: [2],
+            identities[4]: [None],
+        },
+    )
+    events = []
+    assert_guard(
+        lambda: processor.process_selected_unread_message(
+            selector=RecordingSelector(1),
+            stage_observer=lambda **event: events.append(event),
+        ),
+        "acceptance_no_eligible_candidate",
+    )
+    terminal = [event for event in events if event["stage"] == "candidate_selection"][-1]
+    assert terminal == {
+        "stage": "candidate_selection",
+        "status": "failed",
+        "duration_seconds": terminal["duration_seconds"],
+        "discovery_completed": True,
+        "eligible_candidate_count": 0,
+        "popup_displayed": False,
+        "candidate_selected": False,
+        "failure_category": "acceptance_no_eligible_candidate",
+        "not_unread_count": 1,
+        "no_supported_document_count": 1,
+        "multiple_supported_documents_count": 1,
+        "unsupported_document_type_count": 1,
+        "document_count_unprovable_count": 1,
+        "attachment_metadata_request_failed_count": 0,
+        "attachment_metadata_response_invalid_count": 0,
+        "attachment_metadata_item_invalid_count": 0,
+        "attachment_metadata_type_unprovable_count": 0,
+        "attachment_metadata_inline_state_unprovable_count": 0,
+        "attachment_metadata_name_unprovable_count": 0,
+        "attachment_metadata_pagination_invalid_count": 0,
+        "attachment_metadata_pagination_request_failed_count": 0,
+    }
+    assert attachments.download_calls == 0
+    assert processed == []
+    rendered = repr(events)
+    for protected in identities + (
+        PROTECTED_SUBJECT, PROTECTED_SENDER, PROTECTED_FILENAME,
+    ):
+        assert protected not in rendered
+
+
+def test_unprovable_reason_is_reported_only_as_an_allowlisted_aggregate_count():
+    processor, _, attachments, processed = build_processor(
+        [message(PROTECTED_ID)],
+        {PROTECTED_ID: [SupportedAttachmentCountResult(
+            count=None,
+            success=False,
+            unprovable_reason="attachment_metadata_request_failed",
+        )]},
+    )
+    events = []
+    assert_guard(
+        lambda: processor.process_selected_unread_message(
+            selector=RecordingSelector(1),
+            stage_observer=lambda **event: events.append(event),
+        ),
+        "acceptance_no_eligible_candidate",
+    )
+    terminal = [event for event in events if event["stage"] == "candidate_selection"][-1]
+    assert terminal["document_count_unprovable_count"] == 1
+    assert terminal["attachment_metadata_request_failed_count"] == 1
+    assert sum(
+        value for key, value in terminal.items()
+        if key.startswith("attachment_metadata_") and key.endswith("_count")
+    ) == 1
+    assert PROTECTED_ID not in repr(terminal)
+    assert attachments.download_calls == 0
+    assert processed == []
 
 
 def test_selected_candidate_unavailable_or_moved_never_falls_back():
@@ -420,6 +528,19 @@ def test_acceptance_policy_cannot_broaden_one_message_one_document_limits():
             ),
             "acceptance_policy_invalid",
         )
+
+
+def test_preselected_acceptance_refetches_only_exact_identity_without_enumeration():
+    processor, email, _, processed = build_processor(
+        [message("unrelated")],
+        {PROTECTED_ID: [1]},
+        exact_message=message(PROTECTED_ID),
+    )
+    results = processor.process_preselected_acceptance(PROTECTED_ID)
+    assert len(results) == 1
+    assert email.list_tops == []
+    assert email.exact_calls == [PROTECTED_ID]
+    assert len(processed) == 1
 
 
 def test_acceptance_orchestration_entrypoint_keeps_selection_inside_application():
