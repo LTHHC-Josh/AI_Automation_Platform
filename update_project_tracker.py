@@ -9345,6 +9345,43 @@ document-processor-live. Then install and verify the updated current-user
 command mappings without starting the DP. Obtain separate authorization before
 the first guarded live startdp acceptance.
 
+Standardized deployment registration and command installation checkpoint
+(2026-09-01):
+
+- Started only the repository-owned PostgreSQL-backed Prefect control room and
+  registered prefect-control-room-test, document-processor-manual, and
+  document-processor-live through the reviewed deploy-all configuration. No
+  worker or deployment run was started; production-server flow-run count stayed
+  unchanged at eleven.
+- Read-only inspection verified exact qualified flow/deployment mappings,
+  lthhc-local-process, zero parameters, zero schedules, zero automations, zero
+  active runs, and zero fresh workers. Manual/live concurrency is one with
+  CANCEL_NEW. Static/current-source checks preserve zero retries, disabled
+  result persistence, the synthetic-only test boundary, manual popup/handoff
+  behavior, and operator-owned unattended polling.
+- Deleted only the replaced manual-local and phi-safe-local deployment
+  registrations. Historical run records were retained. Exactly the three
+  standardized deployment names remain active.
+- Installed all ten operator functions into the single managed current-user
+  profile section. Fresh Windows PowerShell 5.1 resolution proved each exact
+  wrapper action. Hash comparison proved all content outside the managed
+  section remained byte-for-byte unchanged, including the existing automatic
+  Set-Location customization.
+- Read-only statusdp reported the DP stopped, no proven DP ownership, stopped
+  polling, zero active bounded runs, and zero fresh workers. Focused synthetic
+  deterministic, isolated-profile, mock, and isolated local Prefect tests
+  passed 21/21. The isolated control-room flow used a temporary server and
+  fixed PHI-safe in-memory data only.
+- No registered deployment run, live mailbox/Graph discovery, protected OCR,
+  Ollama, production document Smartsheet operation, attachment upload, or
+  mailbox mutation occurred.
+
+Exact next start: perform the first controlled live unattended Document
+Processor acceptance using startdp/statusdp/stopdp, with one newly eligible
+unread test document, observe one complete automatic Prefect workflow through
+terminal state, verify automatic polling returns to waiting state afterward,
+then stop the DP cleanly.
+
 """
 
 
@@ -9510,8 +9547,9 @@ updates = [
             "implemented with one bounded candidate per watched invocation, "
             "five-minute polling, bounded failure backoff, explicit startdp/"
             "statusdp/stopdp controls, and manual/live conflict guards. Its "
-            "renamed deployments still require registration and guarded "
-            "read-only verification before live acceptance. Prefect retries, "
+            "three standardized deployments are now registered and passed "
+            "guarded PHI-safe read-only verification before live acceptance. "
+            "Prefect retries, "
             "server-side scheduling, and silent automatic startup remain "
             "disabled. The "
             "pinned Prefect 3.8.4 offline dry-run defect now has a version-bounded "

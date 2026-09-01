@@ -792,14 +792,38 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Register the renamed parameterless Prefect deployments from reviewed committed
-source and perform PHI-safe read-only metadata verification for
-`prefect-control-room-test`, `document-processor-manual`, and
-`document-processor-live`. Then install/verify the updated current-user command
-mappings without starting the unattended DP. Obtain separate authorization
-before the first guarded live `startdp` acceptance; do not run a live mailbox,
-OCR/Ollama, production document Smartsheet, or mailbox-mutation operation as
-part of registration or command installation.
+Perform the first controlled live unattended Document Processor acceptance
+using startdp/statusdp/stopdp, with one newly eligible unread test document,
+observe one complete automatic Prefect workflow through terminal state, verify
+automatic polling returns to waiting state afterward, then stop the DP cleanly.
+
+Deployment registration and operator-command installation checkpoint:
+
+- Started only the repository-owned PostgreSQL-backed Prefect control room;
+  no worker or document flow was started. Registered all three reviewed
+  parameterless sources as `prefect-control-room-test`,
+  `document-processor-manual`, and `document-processor-live` through the
+  repository `prefect deploy --all --no-prompt` mechanism.
+- Read-only metadata verified the exact qualified flow/deployment names, the
+  `lthhc-local-process` work pool, zero parameters, zero schedules, zero
+  automations, and no active flow runs. Manual/live concurrency is one with
+  `CANCEL_NEW`; source retains zero retries, disabled result persistence, and
+  the separate manual versus operator-owned unattended entrypoints.
+- Removed only the replaced `manual-local` and `phi-safe-local` deployment
+  registrations. Exactly the three standardized names remain. Historical flow
+  runs were retained, and production-server run count remained unchanged.
+- Installed the current-user profile mappings for startui/status/restartui/
+  stopui, preparerun/runonce/stopworker, and startdp/statusdp/stopdp. A fresh
+  Windows PowerShell 5.1 process resolved every function to its exact wrapper
+  action. The pre-existing Set-Location customization and all content outside
+  the single installer-managed section were preserved byte-for-byte.
+- Exercised statusdp read-only: the DP was stopped, ownership absent, polling
+  stopped, no bounded run active, and no fresh worker present. Focused
+  deployment/installer/worker-boundary tests passed; the control-room test used
+  only its isolated temporary Prefect server and fixed synthetic in-memory
+  flow. No registered deployment run, mailbox/Graph discovery, protected OCR,
+  Ollama, production document Smartsheet operation, attachment upload, or
+  mailbox mutation occurred.
 
 Unattended Document Processor implementation checkpoint:
 
