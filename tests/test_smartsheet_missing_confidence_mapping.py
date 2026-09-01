@@ -32,10 +32,10 @@ def map_output(review_output, *, supports_text):
 
 def test_supported_value_maps_actual_confidence():
     result = map_output(
-        output(ReviewField("service_codes", ["SYNTHETIC-CODE"], 0.82, "Synthetic evidence"), []),
+        output(ReviewField("service_codes", ["SYNTHETIC-CODE"], 0.85, "Synthetic evidence"), []),
         supports_text=False,
     )
-    assert result.values["Service Codes Conf."] == 0.82
+    assert result.values["Service Codes Conf."] == 0.85
 
 
 def test_explicit_missing_reason_maps_text_only_when_supported():
@@ -57,15 +57,24 @@ def test_explicit_cleared_reason_maps_status_without_replacing_internal_zero():
     assert review_output.fields[0].confidence_available is True
 
 
-def test_numeric_only_cleared_field_uses_actual_zero_not_text():
+def test_numeric_only_cleared_field_leaves_production_confidence_blank():
     field = ReviewField("service_codes", None, 0.0, "", confidence_available=True)
     result = map_output(
         output(field, ["Unsupported service code evidence was cleared."]),
         supports_text=False,
     )
-    assert result.values["Service Codes Conf."] == 0.0
+    assert "Service Codes Conf." not in result.values
     assert "Unsupported/Cleared" not in result.values.values()
     assert "confidence_status_destination_constraint" in result.warnings
+
+
+def test_below_threshold_candidate_confidence_is_not_a_production_confidence():
+    result = map_output(
+        output(ReviewField("service_codes", ["SYNTHETIC-CODE"], 0.84, "Synthetic evidence"), []),
+        supports_text=False,
+    )
+    assert "Service Codes" not in result.values
+    assert "Service Codes Conf." not in result.values
 
 
 def test_blank_field_with_unrelated_reason_does_not_infer_cause_or_zero():

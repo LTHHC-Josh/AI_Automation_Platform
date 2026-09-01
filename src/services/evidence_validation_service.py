@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from copy import deepcopy
 from datetime import datetime
 from typing import Any
 
@@ -975,6 +976,18 @@ class EvidenceValidationService:
                 )
                 continue
 
+            if not service_line.candidate_evidence:
+                service_line.candidate_evidence = {
+                    "service_code": deepcopy(service_line.service_code),
+                    "modifier": deepcopy(service_line.modifier),
+                    "quantity": deepcopy(service_line.quantity),
+                    "start_date": deepcopy(service_line.start_date),
+                    "end_date": deepcopy(service_line.end_date),
+                    "status": deepcopy(service_line.status),
+                    "confidence": self._normalize_confidence(service_line.confidence),
+                    "source_text": str(service_line.source_text or ""),
+                }
+
             source_text = str(
                 service_line.source_text
                 or ""
@@ -1568,6 +1581,12 @@ class EvidenceValidationService:
         ):
             return
 
+        evidence.setdefault("candidate_value", deepcopy(evidence.get("value")))
+        evidence.setdefault(
+            "candidate_confidence",
+            self._normalize_confidence(evidence.get("confidence", 0.0)),
+        )
+
         evidence["value"] = None
         evidence["confidence"] = 0.0
 
@@ -1590,6 +1609,12 @@ class EvidenceValidationService:
             dict,
         ):
             return
+
+        evidence.setdefault("candidate_value", deepcopy(evidence.get("value")))
+        evidence.setdefault(
+            "candidate_confidence",
+            self._normalize_confidence(evidence.get("confidence", 0.0)),
+        )
 
         current_confidence = self._normalize_confidence(
             evidence.get(

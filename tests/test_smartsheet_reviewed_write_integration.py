@@ -33,7 +33,7 @@ class RecordingSmartsheetClient:
         self.add_calls.append(
             cells
         )
-        return object()
+        return type("SyntheticRow", (), {"id": 7001})()
 
 
 def run_test(

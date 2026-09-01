@@ -74,6 +74,25 @@ def test_known_business_rule_maps_to_exact_phi_safe_code():
     ) == "authorization_quantity_requires_verification"
 
 
+def test_service_line_reasons_preserve_scope_and_do_not_become_document_details():
+    summary = ReviewReasonSummaryService().summarize([
+        "Service line 1 modifier is not supported by its source evidence",
+        "Service line 1 quantity is not supported by its source evidence",
+        "Service line 1 start date is not supported by its source evidence",
+        "Service line 1 status is not supported by its source evidence",
+        "Service line 1 confidence requires verification",
+        "Service-line modifier relationship requires verification",
+    ])
+    assert summary == (
+        "service_line_modifier_unclear_source_support; "
+        "service_line_quantity_unclear_source_support; "
+        "service_line_date_unclear_source_support; "
+        "service_line_status_unclear_source_support; "
+        "service_line_low_confidence; modifier_ownership_unresolved"
+    )
+    assert "document_details" not in summary
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

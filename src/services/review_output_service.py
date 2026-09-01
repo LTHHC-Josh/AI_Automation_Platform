@@ -23,6 +23,8 @@ class ReviewField:
     confidence: float = 0.0
     source_text: str = ""
     confidence_available: bool | None = None
+    candidate_value: Any = field(default=None, repr=False)
+    candidate_confidence: float | None = None
 
     def __post_init__(self) -> None:
         if self.confidence_available is not None:
@@ -53,6 +55,7 @@ class ReviewServiceLine:
     status: str | None = None
     confidence: float = 0.0
     source_text: str = ""
+    candidate_evidence: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @dataclass
@@ -277,6 +280,12 @@ class ReviewOutputService:
                     if "confidence" in evidence
                     else None
                 )
+                candidate_value = deepcopy(
+                    evidence.get("candidate_value", evidence.get("value"))
+                )
+                candidate_confidence = self._normalize_confidence(
+                    evidence.get("candidate_confidence", evidence.get("confidence"))
+                )
             else:
                 value = deepcopy(
                     document.extracted_data.get(
@@ -295,6 +304,8 @@ class ReviewOutputService:
                         document.field_confidences.get(field_name)
                     )
                 )
+                candidate_value = deepcopy(value)
+                candidate_confidence = confidence
 
             fields.append(
                 ReviewField(
@@ -303,6 +314,8 @@ class ReviewOutputService:
                     confidence=confidence,
                     source_text=source_text,
                     confidence_available=confidence_available,
+                    candidate_value=candidate_value,
+                    candidate_confidence=candidate_confidence,
                 )
             )
 
@@ -367,6 +380,7 @@ class ReviewOutputService:
                     source_text=self._normalize_text(
                         service_line.source_text
                     ),
+                    candidate_evidence=deepcopy(service_line.candidate_evidence),
                 )
             )
 

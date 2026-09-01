@@ -274,14 +274,7 @@ class SmartsheetReviewRowMappingService:
             < ReviewDecisionService.FIELD_CONFIDENCE_THRESHOLD
         ):
             return False
-        return self._confidence_status(
-            field_name=review_field.name,
-            reasons=(
-                list(review_output.review_reasons)
-                + list(review_output.validation_actions)
-                + list(review_output.rule_actions)
-            ),
-        ) is None
+        return True
 
     def _map_unavailable_confidence(
         self,
@@ -314,14 +307,9 @@ class SmartsheetReviewRowMappingService:
                 "confidence_status_destination_constraint"
             )
 
-        if (
-            review_field is not None
-            and review_field.confidence_available
-            and isinstance(review_field.confidence, (int, float))
-            and not isinstance(review_field.confidence, bool)
-        ):
-            result.values[column_name] = review_field.confidence
-            displayed_confidences.append(float(review_field.confidence))
+        # Numeric confidence columns describe accepted production values only.
+        # Candidate confidence remains in the protected review payload and must
+        # not appear as though an unavailable value passed validation.
 
     @staticmethod
     def _confidence_status(*, field_name: str, reasons: list[str]) -> str | None:
@@ -335,6 +323,8 @@ class SmartsheetReviewRowMappingService:
         matching = []
         for reason in reasons:
             text = str(reason or "").strip().lower()
+            if text.startswith("service line "):
+                continue
             if text and any(alias in text for alias in aliases):
                 matching.append(text)
 

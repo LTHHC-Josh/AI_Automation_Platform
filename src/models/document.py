@@ -25,6 +25,7 @@ class AuthorizationServiceLine:
     status: str | None = None
     confidence: float = 0.0
     source_text: str = ""
+    candidate_evidence: dict[str, Any] = field(default_factory=dict, repr=False)
 
 
 @dataclass

@@ -9526,6 +9526,38 @@ if required, then perform one controlled live unattended document run to verify
 the intended Smartsheet attachment filename, PHI-safe specific review reason
 output, Workflow Summary, and clean return to waiting state.
 
+Validated confidence/source-support consistency checkpoint (2026-09-01):
+
+- Confirmed the committed scalar-field production threshold is >=0.85 and the
+  0.95 constant is the extraction-confidence cap, not the review threshold.
+  Exact equality at any configured threshold passes. Classification confidence
+  remains separate and is never substituted for field confidence.
+- Deterministic invalidation now retains original candidate evidence only in
+  the protected review contract while validated value/confidence become
+  null/zero. Unsupported service-line components retain protected candidate
+  evidence but remain null in validated row state.
+- Production mapping now emits numeric confidence only beside an accepted
+  validated value. Missing, unsupported, invalidated, and below-threshold
+  values leave production value/confidence blank; displayed minimum confidence
+  uses only mapped validated fields.
+- Service-line review reasons now retain component scope instead of collapsing
+  to misleading top-level or document-details categories. Modifier ownership
+  has its own fixed safe code. Quantity-meaning verification remains independent
+  of source support and confidence.
+- Added PHI-safe field and filename-readiness diagnostics containing only
+  categories, booleans, confidences, thresholds, statuses, and safe reason
+  codes. Unsupported required filename evidence still produces the technical
+  fallback; restart-safe naming reconciliation is unchanged.
+- Focused/affected synthetic deterministic/mock tests passed without live
+  mailbox/Graph, protected OCR/Ollama, deployment execution, production
+  document Smartsheet write/upload, or mailbox mutation.
+
+Exact next start: refresh registration/source if required, then perform one
+controlled unattended live document run to verify validated Smartsheet values
+and confidences are internally consistent with deterministic source-support/
+review reasons, verify business filename versus technical fallback behavior,
+verify Workflow Summary, and confirm clean return to waiting before stopdp.
+
 """
 
 
@@ -9579,9 +9611,10 @@ updates = [
         "Completed",
         (
             "Implemented configured confidence evaluation, deterministic review "
-            "routing, null-safe clearing, and generic omission of low-confidence "
-            "Smartsheet values while protected evidence and downstream review "
-            "metadata remain preserved."
+            "routing, candidate-preserving null-safe validation, and omission of "
+            "unsupported or low-confidence production values/confidences while "
+            "protected evidence and scoped downstream review metadata remain "
+            "preserved."
         ),
     ),
     (

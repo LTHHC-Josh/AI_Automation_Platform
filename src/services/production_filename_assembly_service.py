@@ -22,6 +22,17 @@ class ProductionFilenameAssemblyResult:
     status: str = "unresolved"
 
 
+@dataclass(frozen=True)
+class FilenameReadinessDiagnostic:
+    person_components_ready: bool
+    payer_lookup_ready: bool
+    service_lookup_ready: bool
+    dates_ready: bool
+    workflow_ready: bool
+    qualifier_status: str
+    filename_result: str
+
+
 class ProductionFilenameAssemblyService:
     """Assemble a filename only from independently supported evidence."""
 
@@ -93,6 +104,56 @@ class ProductionFilenameAssemblyService:
             policy_result=policy,
             business_name_resolved=policy.complete,
             status=policy.status,
+        )
+
+    def diagnose(self, *, document: Any, source_extension: Any) -> FilenameReadinessDiagnostic:
+        if not isinstance(document, Document):
+            return FilenameReadinessDiagnostic(False, False, False, False, False, "Unresolved", "Technical Fallback")
+        try:
+            tables = self.tables_provider()
+        except Exception:
+            tables = None
+        first = self._supported_scalar(document, "person_first")
+        last = self._supported_scalar(document, "person_last")
+        person_ready = first is not None and last is not None
+        payer = self._supported_scalar(document, "payer")
+        payer_ready = bool(
+            isinstance(tables, ReferenceTables)
+            and payer is not None
+            and tables.payors.lookup(payer, "").resolved
+        )
+        service_applicable = str(document.document_category or "").strip().lower() == "authorization"
+        service = self._single_service_identity(document) if service_applicable else None
+        service_ready = not service_applicable
+        dates_ready = False
+        if service_applicable and service is not None and isinstance(tables, ReferenceTables):
+            code, modifier, program, start, end = service
+            service_ready = tables.services.lookup(code, modifier, program).resolved
+            dates_ready = bool(start and end)
+        elif not service_applicable:
+            dates_ready = bool(
+                self._supported_scalar(document, "start_date", required=False)
+                or self._supported_scalar(document, "end_date", required=False)
+            )
+        workflow_ready = (
+            document.classification_support_status == "supported"
+            and document.subtype_support_status == "supported"
+        )
+        qualifier_evidence = document.field_evidence.get("renewal_qualifier")
+        qualifier_status = (
+            "Unresolved"
+            if isinstance(qualifier_evidence, dict) and qualifier_evidence.get("value") is not None
+            else "Not Required"
+        )
+        resolved = self.resolve(document=document, source_extension=source_extension)
+        return FilenameReadinessDiagnostic(
+            person_ready,
+            payer_ready,
+            service_ready,
+            dates_ready,
+            workflow_ready,
+            qualifier_status,
+            "Business" if resolved.business_name_resolved else "Technical Fallback",
         )
 
     def _single_service_identity(self, document: Document):

@@ -894,12 +894,52 @@ Production filename assembly checkpoint:
   live mailbox/Graph, OCR/Ollama, deployment, production Smartsheet write or
   attachment upload, or mailbox mutation occurred.
 
+Validated confidence/source-support consistency checkpoint:
+
+- Classification confidence, subtype evidence confidence, scalar extraction
+  confidence, service-line confidence, and displayed minimum field confidence
+  remain separate. The current production scalar-field acceptance threshold is
+  `>= 0.85`; exact equality passes. The deterministic 0.95 value is a cap on
+  model-reported extraction confidence, not the production review threshold.
+  Classification confidence is never substituted for a field confidence and
+  missing classification confidence is not assigned 1.0.
+- Deterministic invalidation now preserves the original candidate value and
+  confidence inside the protected review contract while setting the validated
+  production value to null and validated confidence to zero. Service-line
+  candidate evidence is likewise preserved while unsupported individual row
+  components remain null. Neither candidate values nor candidate confidence
+  are mapped into validated production columns.
+- Numeric Smartsheet confidence columns now describe only mapped, validated
+  production values. Missing, invalidated, unsupported, or below-threshold
+  values leave both production value and numeric confidence blank unless an
+  explicitly text-capable confidence destination carries a fixed safe status.
+  `AI Minimum Field Confidence` is calculated only from displayed validated
+  field confidences. Classification confidence remains confined to its own
+  column.
+- Review-reason summarization now preserves service-line scope. Unsupported
+  modifier, quantity, date, status, and service-code row components receive
+  `service_line_*` reason codes; low row confidence becomes
+  `service_line_low_confidence`; unresolved top-level modifier ownership becomes
+  `modifier_ownership_unresolved`. These no longer collapse into misleading
+  top-level or `document_details_low_confidence` categories.
+- A reusable PHI-safe field diagnostic exposes only category, candidate
+  confidence, threshold result, source-support proof, validated-value presence,
+  validation result, review trigger, and safe reason code. Filename diagnostics
+  expose only person/payer/service/date/workflow readiness, qualifier state,
+  and Business versus Technical Fallback. Unsupported required naming evidence
+  continues to fail closed to the deterministic technical filename.
+- Quantity meaning remains a separate business-rule concern:
+  `authorization_quantity_requires_verification` remains valid even when a
+  quantity is confidently extracted and source-supported. Retry/attempt 2 and
+  successful authorized-units reconciliation remain non-review triggers.
+
 ## CURRENT NEXT START
 
-Register/refresh any affected deployment/source registration if required, then
-perform one controlled live unattended document run to verify the intended
-Smartsheet attachment filename, PHI-safe specific review reason output,
-Workflow Summary, and clean return to waiting state.
+Refresh registration/source if required, then perform one controlled unattended
+live document run to verify validated Smartsheet values and confidences are
+internally consistent with deterministic source-support/review reasons, verify
+business filename versus technical fallback behavior, verify Workflow Summary,
+and confirm clean return to waiting before stopdp.
 
 First unattended start failure diagnosis and correction checkpoint:
 

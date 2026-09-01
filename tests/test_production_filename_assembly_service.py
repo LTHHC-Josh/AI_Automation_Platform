@@ -183,6 +183,25 @@ def test_recovery_persists_exact_business_name_before_external_write():
         assert source.read_bytes() == b"SYNTHETIC"
 
 
+def test_filename_readiness_diagnostics_are_phi_safe_and_match_result():
+    service = ProductionFilenameAssemblyService(tables_provider=tables)
+    ready = service.diagnose(document=document(), source_extension=".pdf")
+    assert ready.person_components_ready is True
+    assert ready.payer_lookup_ready is True
+    assert ready.service_lookup_ready is True
+    assert ready.dates_ready is True
+    assert ready.workflow_ready is True
+    assert ready.qualifier_status == "Not Required"
+    assert ready.filename_result == "Business"
+
+    unresolved = document()
+    unresolved.field_evidence["person_first"]["value"] = None
+    fallback = service.diagnose(document=unresolved, source_extension=".pdf")
+    assert fallback.person_components_ready is False
+    assert fallback.filename_result == "Technical Fallback"
+    assert "EXAMPLE" not in repr(fallback)
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

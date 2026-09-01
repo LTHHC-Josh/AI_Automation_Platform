@@ -44,7 +44,20 @@ class ReviewReasonSummaryService:
         "document classification has no supporting reason.": (
             "classification_support_reason_missing"
         ),
+        "service-line modifier relationship requires verification": (
+            "modifier_ownership_unresolved"
+        ),
     }
+
+    SERVICE_LINE_RULES = (
+        (r"service line \d+ modifier .*source evidence", "service_line_modifier_unclear_source_support"),
+        (r"service line \d+ quantity .*source evidence", "service_line_quantity_unclear_source_support"),
+        (r"service line \d+ (start|end) date .*source evidence", "service_line_date_unclear_source_support"),
+        (r"service line \d+ status .*source evidence", "service_line_status_unclear_source_support"),
+        (r"service line \d+ service code .*source evidence", "service_line_service_code_unclear_source_support"),
+        (r"service line \d+ .*confidence", "service_line_low_confidence"),
+        (r"service line \d+ has no source evidence", "service_line_source_unavailable"),
+    )
 
     CATEGORY_RULES = (
         ("service codes", ("service code", "hcpcs", "bill code")),
@@ -76,6 +89,13 @@ class ReviewReasonSummaryService:
             exact = self.EXACT_REASON_CODES.get(reason)
             if exact:
                 codes.append(exact)
+                continue
+            service_line_code = next(
+                (code for pattern, code in self.SERVICE_LINE_RULES if re.search(pattern, reason)),
+                None,
+            )
+            if service_line_code:
+                codes.append(service_line_code)
                 continue
             categories = [
                 label.replace(" ", "_")
