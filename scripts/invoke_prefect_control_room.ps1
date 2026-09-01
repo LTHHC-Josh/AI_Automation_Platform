@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('StartUI', 'Status', 'PrepareRun', 'RunOnce', 'StopWorker', 'StopControlRoom', 'RestartControlRoom')]
+    [ValidateSet('StartUI', 'Status', 'PrepareRun', 'RunOnce', 'StopWorker', 'StartDP', 'StatusDP', 'StopDP', 'StopControlRoom', 'RestartControlRoom')]
     [string]$Action
 )
 
@@ -13,12 +13,14 @@ $prefect = Join-Path $repositoryRoot '.venv\Scripts\prefect.exe'
 $python = Join-Path $repositoryRoot '.venv\Scripts\python.exe'
 $postgresLauncher = Join-Path $PSScriptRoot 'invoke_prefect_postgresql.ps1'
 $workerLauncher = Join-Path $PSScriptRoot 'invoke_prefect_mailbox_worker.ps1'
+$dpLauncher = Join-Path $PSScriptRoot 'invoke_prefect_document_processor.ps1'
 $readinessProbe = Join-Path $PSScriptRoot 'check_mailbox_prefect_readiness.py'
 $stateDirectory = Join-Path $env:LOCALAPPDATA 'LTHHC\Prefect\control-room'
 $statePath = Join-Path $stateDirectory 'owned-processes.json'
 $apiUrl = 'http://127.0.0.1:4200/api'
 $poolName = 'lthhc-local-process'
-$deploymentName = 'lthhc-bounded-mailbox/manual-local'
+$deploymentName = 'lthhc-bounded-mailbox/document-processor-manual'
+$unattendedDeploymentName = 'lthhc-unattended-mailbox/document-processor-live'
 $freshHeartbeatSeconds = 90
 
 function Read-ControlState {
@@ -128,11 +130,42 @@ function Test-ControlPlaneConfiguration {
     } catch { return $false }
 }
 
+function Get-UnattendedDeployment {
+    try { return Invoke-PrefectJson -Arguments @('deployment', 'inspect', $unattendedDeploymentName, '--output', 'json') } catch { return $null }
+}
+
+function Test-UnattendedDeploymentConfiguration {
+    $deployment = Get-UnattendedDeployment
+    if ($null -eq $deployment) { return $false }
+    $schema = Get-OptionalProperty $deployment 'parameter_openapi_schema'
+    $properties = Get-OptionalProperty $schema 'properties'
+    $required = Get-OptionalProperty $schema 'required'
+    $directLimit = Get-OptionalProperty $deployment 'concurrency_limit'
+    $globalLimit = Get-OptionalProperty $deployment 'global_concurrency_limit'
+    $limit = if ($null -ne $directLimit) { $directLimit } else { Get-OptionalProperty $globalLimit 'limit' }
+    $options = Get-OptionalProperty $deployment 'concurrency_options'
+    $schedules = Get-OptionalProperty $deployment 'schedules'
+    $propertiesEmpty = $null -eq $properties -or @($properties.PSObject.Properties).Count -eq 0
+    $requiredEmpty = $null -eq $required -or @($required).Count -eq 0
+    $schedulesEmpty = $null -eq $schedules -or @($schedules).Count -eq 0
+    return ($deployment.work_pool_name -eq $poolName -and $propertiesEmpty -and $requiredEmpty -and $limit -eq 1 -and (Get-OptionalProperty $options 'collision_strategy') -eq 'CANCEL_NEW' -and $schedulesEmpty)
+}
+
+function Get-DeploymentRunConflict($Deployment) {
+    if ($null -eq $Deployment -or $null -eq $Deployment.id) { return $true }
+    $body = @{ deployments = @{ id = @{ any_ = @($Deployment.id) } }; limit = 200; offset = 0 } | ConvertTo-Json -Depth 5 -Compress
+    $runs = Invoke-RestMethod -Method Post -Uri "$apiUrl/flow_runs/filter" -ContentType 'application/json' -Body $body -TimeoutSec 5
+    $terminal = @('COMPLETED', 'FAILED', 'CANCELLED', 'CRASHED')
+    return @($runs | Where-Object { $_.state_type -notin $terminal }).Count -gt 0
+}
+
 function Get-ControlPlaneStatus {
     $result = [ordered]@{
         postgresql_running = $false; prefect_server_reachable = $false
         work_pool_ready = $false; fresh_online_worker_count = 0
         mailbox_run_conflict = $false; manual_deployment_ready = $false
+        unattended_deployment_ready = $false
+        unattended_run_active = $false
     }
     try { $result.postgresql_running = (Get-PostgreSqlService).Status -eq 'Running' } catch {}
     $result.prefect_server_reachable = Test-PrefectServerReachable
@@ -142,6 +175,9 @@ function Get-ControlPlaneStatus {
         $result.work_pool_ready = ($pool.type -eq 'process' -and $pool.status -eq 'READY' -and $pool.concurrency_limit -eq 1 -and $pool.is_paused -eq $false)
         $deployment = Invoke-PrefectJson -Arguments @('deployment', 'inspect', $deploymentName, '--output', 'json')
         $result.manual_deployment_ready = Test-ControlPlaneConfiguration
+        $unattended = Get-UnattendedDeployment
+        $result.unattended_deployment_ready = Test-UnattendedDeploymentConfiguration
+        if ($null -ne $unattended) { $result.unattended_run_active = Get-DeploymentRunConflict $unattended }
         $workers = Invoke-RestMethod -Method Post -Uri "$apiUrl/work_pools/$poolName/workers/filter" -ContentType 'application/json' -Body '{"limit":50,"offset":0}' -TimeoutSec 5
         $cutoff = [DateTimeOffset]::UtcNow.AddSeconds(-$freshHeartbeatSeconds)
         $result.fresh_online_worker_count = @($workers | Where-Object { $_.status -eq 'ONLINE' -and $null -ne $_.last_heartbeat_time -and [DateTimeOffset]::Parse($_.last_heartbeat_time) -ge $cutoff }).Count
@@ -151,6 +187,45 @@ function Get-ControlPlaneStatus {
         $result.mailbox_run_conflict = @($runs | Where-Object { $_.state_type -notin $terminal }).Count -gt 0
     } catch {}
     return $result
+}
+
+function Get-DocumentProcessorStatus {
+    $control = Get-ControlPlaneStatus
+    $state = Read-ControlState
+    $owned = $state.ContainsKey('dp') -and (Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1')
+    $recordedExited = $state.ContainsKey('dp') -and (Test-RecordedOwnedProcessExited $state.dp)
+    $readyPath = Join-Path $stateDirectory 'dp-ready.json'
+    $pollingState = 'stopped'
+    $lastCheckUtc = $null
+    $nextCheckUtc = $null
+    $consecutiveFailures = 0
+    if ($owned -and (Test-Path -LiteralPath $readyPath -PathType Leaf)) {
+        try {
+            $pollState = Get-Content -LiteralPath $readyPath -Raw | ConvertFrom-Json
+            $pollingState = [string]$pollState.polling_state
+            $lastCheckUtc = $pollState.last_check_utc
+            $nextCheckUtc = $pollState.next_check_utc
+            $failureValue = $pollState.consecutive_failures
+            if ($null -ne $failureValue) { $consecutiveFailures = [int]$failureValue }
+        } catch { $pollingState = 'state_unreadable' }
+    } elseif ($owned) { $pollingState = 'starting' }
+    $polling = $owned -and $pollingState -notin @('starting', 'state_unreadable', 'stopped')
+    $degraded = ($owned -and (-not $polling -or -not $control.prefect_server_reachable -or -not $control.work_pool_ready -or -not $control.unattended_deployment_ready -or $control.fresh_online_worker_count -ne 1)) -or ($state.ContainsKey('dp') -and -not $owned -and -not $recordedExited)
+    return [ordered]@{
+        dp_running = $owned
+        dp_process_ownership_proven = $owned
+        control_room_reachable = $control.prefect_server_reachable
+        work_pool_ready = $control.work_pool_ready
+        unattended_deployment_ready = $control.unattended_deployment_ready
+        polling_active = $polling
+        polling_state = $pollingState
+        current_bounded_run_active = $control.unattended_run_active
+        last_check_utc = $lastCheckUtc
+        next_check_utc = $nextCheckUtc
+        consecutive_failures = $consecutiveFailures
+        fresh_online_worker_count = $control.fresh_online_worker_count
+        degraded = $degraded
+    }
 }
 
 function Start-OwnedComponent([string]$Name, [string]$Script, [string[]]$Arguments, [string]$Marker, [switch]$Interactive) {
@@ -290,10 +365,96 @@ function Stop-ControlRoomWorker {
     return 'worker_stopped'
 }
 
+function Start-DocumentProcessor {
+    $mutex = New-Object System.Threading.Mutex($false, 'Local\LTHHC-Prefect-DocumentProcessor-Control')
+    $mutexAcquired = $false
+    try {
+        $mutexAcquired = $mutex.WaitOne(0)
+        if (-not $mutexAcquired) { throw 'Another Document Processor control action is active.' }
+    $state = Read-ControlState
+    if ($state.ContainsKey('dp') -and (Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1')) {
+        return 'dp_already_running'
+    }
+    $status = Get-ControlPlaneStatus
+    if (-not ($status.postgresql_running -and $status.prefect_server_reachable -and (Test-PrefectServerBackendSafe) -and $status.manual_deployment_ready -and $status.unattended_deployment_ready)) {
+        throw 'Document Processor control-plane prerequisites are not ready.'
+    }
+    if ($status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 0) {
+        throw 'Document Processor startup conflict detected.'
+    }
+    Start-OwnedComponent -Name 'dp' -Script $dpLauncher -Arguments @() -Marker 'invoke_prefect_document_processor.ps1'
+    try {
+        $deadline = [DateTimeOffset]::UtcNow.AddSeconds(90)
+        while ([DateTimeOffset]::UtcNow -lt $deadline) {
+            $state = Read-ControlState
+            if (-not $state.ContainsKey('dp') -or -not (Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1')) {
+                throw 'Unattended Document Processor worker startup failed.'
+            }
+            if ((Get-ControlPlaneStatus).fresh_online_worker_count -eq 1) { break }
+            Start-Sleep -Milliseconds 500
+        }
+        if ((Get-ControlPlaneStatus).fresh_online_worker_count -ne 1) { throw 'Unattended Document Processor worker did not become ready.' }
+        $previousPythonPath = $env:PYTHONPATH
+        try {
+            $env:PYTHONPATH = $repositoryRoot
+            & $python $readinessProbe
+            if ($LASTEXITCODE -ne 0) { throw 'Document Processor application readiness failed.' }
+        } finally { $env:PYTHONPATH = $previousPythonPath }
+        $activationPath = Join-Path $stateDirectory 'dp-activate.signal'
+        'activate' | Set-Content -LiteralPath $activationPath -Encoding ASCII
+        $readyPath = Join-Path $stateDirectory 'dp-ready.json'
+        while ([DateTimeOffset]::UtcNow -lt $deadline -and -not (Test-Path -LiteralPath $readyPath -PathType Leaf)) {
+            Start-Sleep -Milliseconds 500
+        }
+        if (-not (Test-Path -LiteralPath $readyPath -PathType Leaf)) { throw 'Document Processor readiness confirmation failed.' }
+        return 'dp_started'
+    } catch {
+        Stop-OwnedComponent -Name 'dp' -Marker 'invoke_prefect_document_processor.ps1'
+        throw
+    }
+    } finally {
+        if ($mutexAcquired) { $mutex.ReleaseMutex() }
+        $mutex.Dispose()
+    }
+}
+
+function Stop-DocumentProcessor {
+    $mutex = New-Object System.Threading.Mutex($false, 'Local\LTHHC-Prefect-DocumentProcessor-Control')
+    $mutexAcquired = $false
+    try {
+    $mutexAcquired = $mutex.WaitOne(0)
+    if (-not $mutexAcquired) { throw 'Another Document Processor control action is active.' }
+    $state = Read-ControlState
+    $owned = $state.ContainsKey('dp') -and (Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1')
+    if (-not (Test-PrefectServerReachable)) { throw 'The control room must be reachable to stop the unattended Document Processor safely.' }
+    if ((Get-ControlPlaneStatus).unattended_run_active) {
+        if (-not $owned) { throw 'An unattended run is active but Document Processor ownership cannot be proven.' }
+        $stopPath = Join-Path $stateDirectory 'dp-stop.signal'
+        'stop' | Set-Content -LiteralPath $stopPath -Encoding ASCII
+        return 'dp_stop_requested_active_run'
+    }
+    if ($owned) {
+        Stop-OwnedComponent -Name 'dp' -Marker 'invoke_prefect_document_processor.ps1'
+        return 'dp_stopped'
+    }
+    $recordedExited = $state.ContainsKey('dp') -and (Test-RecordedOwnedProcessExited $state.dp)
+    if ((Get-ControlPlaneStatus).fresh_online_worker_count -gt 0 -and -not $recordedExited) {
+        throw 'A fresh worker is active but unattended ownership cannot be proven.'
+    }
+    if ($state.ContainsKey('dp')) { $state.Remove('dp'); Write-ControlState $state }
+    if ($recordedExited) { return 'dp_already_exited_prefect_heartbeat_settling' }
+    return 'dp_already_stopped'
+    } finally {
+        if ($mutexAcquired) { $mutex.ReleaseMutex() }
+        $mutex.Dispose()
+    }
+}
+
 function Stop-ControlRoomInfrastructure {
     $state = Read-ControlState
     $ownedWorker = $state.ContainsKey('worker') -and (Test-OwnedProcess $state.worker 'invoke_prefect_mailbox_worker.ps1')
-    if ($ownedWorker -or (Get-ControlPlaneStatus).fresh_online_worker_count -gt 0) {
+    $ownedDp = $state.ContainsKey('dp') -and (Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1')
+    if ($ownedWorker -or $ownedDp -or (Get-ControlPlaneStatus).fresh_online_worker_count -gt 0) {
         throw 'Stop the worker before control-room maintenance.'
     }
     $serverReachable = Test-PrefectServerReachable
@@ -310,13 +471,16 @@ switch ($Action) {
     'Status' {
         Get-ControlPlaneStatus | ConvertTo-Json -Compress
     }
+    'StatusDP' {
+        Get-DocumentProcessorStatus | ConvertTo-Json -Compress
+    }
     'StartUI' {
         Start-ControlRoom
         Write-Output 'control_room_started'
     }
     'PrepareRun' {
         $status = Get-ControlPlaneStatus
-        if (-not ($status.postgresql_running -and $status.prefect_server_reachable -and (Test-PrefectServerBackendSafe) -and $status.manual_deployment_ready -and (Test-ControlPlaneConfiguration)) -or $status.mailbox_run_conflict -or $status.fresh_online_worker_count -ne 0) {
+        if (-not ($status.postgresql_running -and $status.prefect_server_reachable -and (Test-PrefectServerBackendSafe) -and $status.manual_deployment_ready -and (Test-ControlPlaneConfiguration)) -or $status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 0) {
             throw 'Acceptance preparation control-plane guard failed.'
         }
         Start-OwnedComponent -Name 'worker' -Script $workerLauncher -Arguments @('-PrepareAcceptanceHandoff') -Marker 'invoke_prefect_mailbox_worker.ps1' -Interactive
@@ -340,12 +504,20 @@ switch ($Action) {
             if ($LASTEXITCODE -ne 0) { throw 'Mailbox Prefect readiness failed.' }
         } finally { $env:PYTHONPATH = $previousPythonPath }
         $status = Get-ControlPlaneStatus
-        if ($status.mailbox_run_conflict -or $status.fresh_online_worker_count -ne 1) { throw 'Run-once conflict guard failed.' }
+        $state = Read-ControlState
+        $manualOwned = $state.ContainsKey('worker') -and (Test-OwnedProcess $state.worker 'invoke_prefect_mailbox_worker.ps1')
+        if (-not $manualOwned -or $status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 1) { throw 'Run-once conflict guard failed.' }
         & $prefect --profile 'lthhc-local' deployment run $deploymentName --watch
         if ($LASTEXITCODE -ne 0) { throw 'Manual bounded mailbox Prefect run failed.' }
     }
     'StopWorker' {
         Write-Output (Stop-ControlRoomWorker)
+    }
+    'StartDP' {
+        Write-Output (Start-DocumentProcessor)
+    }
+    'StopDP' {
+        Write-Output (Stop-DocumentProcessor)
     }
     'StopControlRoom' {
         Stop-ControlRoomInfrastructure

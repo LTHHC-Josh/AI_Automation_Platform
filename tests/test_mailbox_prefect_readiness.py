@@ -12,11 +12,14 @@ import src.orchestration.prefect_mailbox_workflow as prefect_adapter
 from src.graph.mailbox_processor import MessageProcessingResult
 from src.orchestration.prefect_mailbox_workflow import (
     PREFECT_MAILBOX_RUN_TYPE,
+    PREFECT_UNATTENDED_MAILBOX_RUN_TYPE,
     SanitizedMailboxRunError,
     _normalize_stage_visibility,
     bounded_mailbox_flow,
     record_mailbox_lifecycle_stage,
     run_bounded_mailbox_application,
+    run_unattended_mailbox_application,
+    unattended_mailbox_flow,
 )
 from src.services.mailbox_complete_review_smartsheet_service import (
     MailboxCompleteReviewSmartsheetResult,
@@ -327,6 +330,28 @@ def test_adapter_is_parameterless_and_calls_only_full_boundary_once():
     assert callable(calls[0]["stage_observer"])
     assert not run_bounded_mailbox_application.fn.__code__.co_argcount
 
+
+def test_unattended_adapter_is_parameterless_bounded_and_no_popup():
+    calls = []
+
+    class SyntheticService:
+        def run_unattended_once(self, **kwargs):
+            calls.append(kwargs)
+            return build_result(status="no_eligible_candidate", document_count=0)
+
+    original = prefect_adapter.MailboxFullReviewOrchestrationService
+    prefect_adapter.MailboxFullReviewOrchestrationService = SyntheticService
+    try:
+        with disable_run_logger():
+            result = run_unattended_mailbox_application.fn()
+    finally:
+        prefect_adapter.MailboxFullReviewOrchestrationService = original
+    assert result.success is True
+    assert calls[0]["run_type"] == PREFECT_UNATTENDED_MAILBOX_RUN_TYPE
+    assert calls[0]["discovery_top"] == 10
+    assert callable(calls[0]["stage_observer"])
+    assert not run_unattended_mailbox_application.fn.__code__.co_argcount
+
     source = (ROOT / "src/orchestration/prefect_mailbox_workflow.py").read_text(
         encoding="utf-8-sig"
     )
@@ -369,6 +394,10 @@ def test_adapter_options_disable_prefect_retries_and_result_capture():
     assert record_mailbox_lifecycle_stage.retries == 0
     assert record_mailbox_lifecycle_stage.persist_result is False
     assert record_mailbox_lifecycle_stage.log_prints is False
+    assert unattended_mailbox_flow.retries == 0
+    assert unattended_mailbox_flow.persist_result is False
+    assert run_unattended_mailbox_application.retries == 0
+    assert run_unattended_mailbox_application.persist_result is False
 
 
 def test_prefect_visibility_metadata_is_strictly_allowlisted():

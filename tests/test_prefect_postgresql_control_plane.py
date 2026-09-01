@@ -68,7 +68,7 @@ def test_documented_operator_commands_are_one_physical_line():
         "work-pool set-concurrency-limit 'lthhc-local-process' 1",
         "deploy --all",
         "deploy 'src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow'",
-        "deployment inspect 'lthhc-bounded-mailbox/manual-local'",
+        "deployment inspect 'lthhc-bounded-mailbox/document-processor-manual'",
         "invoke_prefect_mailbox_worker.ps1",
         "worker start --pool 'lthhc-local-process'",
         "Start-Process 'http://127.0.0.1:4200'",
@@ -82,21 +82,23 @@ def test_documented_operator_commands_are_one_physical_line():
         assert not matches[0].rstrip().endswith("`")
 
 
-def test_synthetic_and_manual_mailbox_deployments_are_conservative():
+def test_synthetic_manual_and_unattended_deployments_are_conservative():
     deployment = read(ROOT / "prefect.yaml")
-    assert deployment.count("entrypoint:") == 2
+    assert deployment.count("entrypoint:") == 3
     assert "prefect_control_room.py:phi_safe_control_room_flow" in deployment
     assert "prefect_mailbox_workflow.py:bounded_mailbox_flow" in deployment
-    assert deployment.count("schedule: null") == 2
-    assert deployment.count("parameters: {}") == 2
-    assert "name: manual-local" in deployment
+    assert deployment.count("schedule: null") == 3
+    assert deployment.count("parameters: {}") == 3
+    assert "name: document-processor-manual" in deployment
     assert "limit: 1" in deployment
     assert "collision_strategy: CANCEL_NEW" in deployment
+    assert "name: document-processor-live" in deployment
+    assert "prefect_mailbox_workflow.py:unattended_mailbox_flow" in deployment
     assert "retries" not in deployment
     parsed = yaml.safe_load(deployment)
     mailbox = parsed["deployments"][1]
     assert mailbox == {
-        "name": "manual-local",
+        "name": "document-processor-manual",
         "description": (
             "Manual-only sealed-handoff one-message/one-document acceptance "
             "with PHI-safe operational output."
@@ -113,6 +115,13 @@ def test_synthetic_and_manual_mailbox_deployments_are_conservative():
             "work_queue_name": None,
             "job_variables": {},
         },
+    }
+    unattended = parsed["deployments"][2]
+    assert unattended["schedule"] is None
+    assert unattended["parameters"] == {}
+    assert unattended["concurrency_limit"] == {
+        "limit": 1,
+        "collision_strategy": "CANCEL_NEW",
     }
 
 

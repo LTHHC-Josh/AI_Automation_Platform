@@ -1,16 +1,17 @@
 # Prefect Local Control Room
 
-This manual development control room contains one PHI-safe synthetic
-deployment and one manual-only bounded mailbox deployment against a
+This local control room contains one PHI-safe synthetic deployment, one
+manual-only bounded mailbox deployment, and one inactive-by-default unattended
+mailbox deployment against a
 self-hosted Prefect 3.8.4 server whose control-plane database is native
 PostgreSQL 17.11-1. Registering or inspecting the mailbox deployment does not
 execute it. Microsoft Graph, Smartsheet, OCR/Paddle, Ollama, patient documents,
 and the mailbox application remain behind a separate explicit authorization.
 
 The Prefect API/UI and PostgreSQL are bound only to localhost. PostgreSQL,
-the Prefect server, and the single process worker remain manually operated.
-Do not create a scheduled task, login-start item, firewall rule, unattended
-flow schedule, or always-on Windows service configuration.
+the Prefect server, and the single process worker remain operator controlled.
+Do not create a Windows scheduled task, login-start item, firewall rule, or
+always-on Windows service configuration.
 
 ## Routine operator workflow
 
@@ -33,6 +34,9 @@ status
 preparerun
 runonce
 stopworker
+startdp
+statusdp
+stopdp
 restartui
 stopui
 ```
@@ -50,6 +54,9 @@ Use the single control-room wrapper from a repository-root PowerShell terminal:
 & '.\scripts\invoke_prefect_control_room.ps1' -Action 'PrepareRun'
 & '.\scripts\invoke_prefect_control_room.ps1' -Action 'RunOnce'
 & '.\scripts\invoke_prefect_control_room.ps1' -Action 'StopWorker'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'StartDP'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'StatusDP'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'StopDP'
 & '.\scripts\invoke_prefect_control_room.ps1' -Action 'StopControlRoom'
 & '.\scripts\invoke_prefect_control_room.ps1' -Action 'RestartControlRoom'
 ```
@@ -72,13 +79,52 @@ does not invoke the deployment.
 
 `RunOnce` reruns the unchanged boolean-only full readiness probe, requires
 exactly one fresh worker and no conflicting mailbox run, then issues exactly
-one parameterless watched invocation of `lthhc-bounded-mailbox/manual-local`.
+one parameterless watched invocation of
+`lthhc-bounded-mailbox/document-processor-manual`.
 It has no retry, fallback, custom parameter, run name, tag, or delayed start.
 
 `StopWorker` cleans the acceptance handoff and terminates only the worker PID
 whose wrapper ownership and command line are proven. It leaves PostgreSQL and
 the Prefect server/UI running. A fresh worker without ownership proof causes a
 PHI-safe failure and must be stopped in its owning terminal.
+
+`StartDP` requires the localhost PostgreSQL/Prefect control room, both reviewed
+parameterless deployments, zero active manual or unattended runs, and zero
+fresh workers. It starts exactly one separately owned unattended launcher. The
+launcher starts one worker, runs the existing boolean-only Graph and full
+application readiness gates, then enters its five-minute polling loop.
+It never creates a popup or DPAPI handoff. `StatusDP` is read-only and exposes
+only ownership, control-plane/deployment/pool readiness, polling/run state,
+safe last/next-check timestamps, consecutive failure count, fresh-worker count,
+and a degraded boolean. If one bounded run is active, `StopDP` records an owned
+stop request and returns `dp_stop_requested_active_run`. The current bounded run
+is not interrupted; the launcher exits after that run reaches a terminal state.
+Otherwise it stops only the proven unattended process tree. A missing process
+with wrapper ownership state settles cleanly; an unowned or PID-reused process
+fails closed.
+
+The operator-owned launcher invokes one parameterless flow, waits for its
+terminal result, and normally waits 300 seconds before the next attempt.
+Nonzero invocation outcomes use bounded exponential delays of 600, 1200, then
+at most 1800 seconds; a successful bounded invocation resets the delay. Each
+run inspects the newest ten unread Inbox messages through the existing metadata
+rules, deterministically chooses candidate one from the newest-first eligible
+list, re-fetches that exact identity from Inbox, and processes at most one
+supported document. No eligible candidate is a successful no-op. There is no
+fallback after selection. Deployment `CANCEL_NEW`, deployment concurrency one,
+pool concurrency one, and worker limit one prevent overlap. A failed unread
+candidate can be reconsidered only on a later polling tick; durable job
+state, leases, uncertain-write blocks, and submission-key reconciliation remain
+authoritative against duplicate business actions.
+
+Graph authentication is compatible with this operator-launched unattended
+mode: the existing authenticator is an MSAL confidential-client application
+using client credentials and `acquire_token_for_client`, with no interactive
+user prompt. Each process can acquire and renew app-only tokens from the
+existing ignored environment/configuration boundary. Credentials and tokens
+remain absent from Prefect parameters, wrapper state, logs, and tracked files.
+If the ignored configuration or outbound authentication path is unavailable
+after restart, the launcher fails before starting the worker.
 
 `StopControlRoom` is maintenance-only. It refuses to proceed while a fresh or
 wrapper-owned worker remains, stops only the proven wrapper-owned server, and
@@ -102,7 +148,13 @@ is allowed only after the same PID/creation identity is immediately revalidated.
 Legacy or stale state without creation identity cannot authorize termination.
 
 PostgreSQL and the Prefect server/UI are intended to remain continuously
-available on the local AI host; no startup task or service is created.
+available on the local AI host; no startup task or service is created. No
+server-side Prefect schedule is used, so a stopped worker or Windows reboot
+cannot accumulate scheduled flow runs. The
+unattended worker does not automatically restart after Windows reboot in this
+checkpoint: run `startui`, verify the control room, then run `startdp`. After a
+worker crash or ambiguous ownership state, use `statusdp`, then `stopdp` to
+settle the owned process state before starting again.
 `StartUI` is primarily for reboot/crash recovery. The worker remains manual:
 `PrepareRun` starts the guarded worker/handoff path, `RunOnce` invokes one run,
 and `StopWorker` is the routine post-run action. `StopControlRoom` and
@@ -197,8 +249,8 @@ deployment and inspect the resulting server metadata. These commands do not
 create a flow run:
 
 ```powershell
-& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deploy 'src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow' --name 'manual-local' --description 'Manual-only sealed-handoff one-message/one-document acceptance with PHI-safe operational output.' --tag 'manual' --tag 'phi-safe' --pool 'lthhc-local-process' --concurrency-limit 1 --collision-strategy 'CANCEL_NEW' --no-prompt
-& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment inspect 'lthhc-bounded-mailbox/manual-local' --output json
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deploy 'src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow' --name 'document-processor-manual' --description 'Manual-only sealed-handoff one-message/one-document acceptance with PHI-safe operational output.' --tag 'manual' --tag 'phi-safe' --pool 'lthhc-local-process' --concurrency-limit 1 --collision-strategy 'CANCEL_NEW' --no-prompt
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment inspect 'lthhc-bounded-mailbox/document-processor-manual' --output json
 ```
 
 The mailbox deployment has no schedule, trigger, or parameters. Its deployment
@@ -207,6 +259,15 @@ limit also remain one. Its flow and task have zero Prefect retries, disabled
 print logging, and disabled result persistence. Registration must stop here
 until the operator separately authorizes a real dependency preflight and one
 mailbox run.
+
+The unattended deployment is also parameterless, has concurrency one with
+`CANCEL_NEW`, and has no server-side schedule. Registration does not start a
+worker or flow. Confirm its metadata before the first separately authorized
+`startdp`:
+
+```powershell
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment inspect 'lthhc-unattended-mailbox/document-processor-live' --output json
+```
 
 Start exactly one worker:
 
@@ -218,7 +279,7 @@ $env:PYTHONIOENCODING='UTF-8'; $env:DO_NOT_TRACK='1'; & '.\.venv\Scripts\prefect
 
 ```powershell
 Start-Process 'http://127.0.0.1:4200'
-1..5 | ForEach-Object { & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment run 'lthhc-phi-safe-control-room/phi-safe-local' --watch; if($LASTEXITCODE -ne 0){throw "Synthetic Prefect run $_ failed."} }
+1..5 | ForEach-Object { & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment run 'lthhc-phi-safe-control-room/prefect-control-room-test' --watch; if($LASTEXITCODE -ne 0){throw "Synthetic Prefect run $_ failed."} }
 ```
 
 Confirm API/UI health, worker health, a ready work pool with concurrency one,
@@ -299,10 +360,11 @@ fallback, Prefect retry, or automatic retrigger. Normal unattended mailbox
 enumeration remains unchanged.
 
 ```powershell
-& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment run 'lthhc-bounded-mailbox/manual-local' --watch; if($LASTEXITCODE -ne 0){throw 'Manual bounded mailbox Prefect run failed.'}
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment run 'lthhc-bounded-mailbox/document-processor-manual' --watch; if($LASTEXITCODE -ne 0){throw 'Manual bounded mailbox Prefect run failed.'}
 ```
 
-The UI should show flow `lthhc-bounded-mailbox`, deployment `manual-local`, one
+The UI should show flow `lthhc-bounded-mailbox`, deployment
+`document-processor-manual`, one
 authoritative `bounded-mailbox-application-run` task, zero Prefect retries,
 worker health, native timestamps/durations, and PHI-safe lifecycle child task
 runs. The child task-run names expose acceptance handoff, candidate

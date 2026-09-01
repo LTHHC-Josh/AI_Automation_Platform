@@ -9303,6 +9303,48 @@ Exact next start: design and implement the unattended Document Processor
 operating mode with operator commands startdp, statusdp, and stopdp while
 preserving preparerun/runonce/stopworker as the manual recovery/test path.
 
+Unattended Document Processor implementation checkpoint (2026-09-01):
+
+- Implemented a separate parameterless one-candidate unattended Prefect flow,
+  application entrypoint, and operator-owned Windows polling launcher. It
+  reuses production mailbox processing, exact Inbox re-verification, durable
+  idempotency/leases, explicit Smartsheet mappings, review state, mailbox
+  finalization, stage visibility, and the PHI-safe Workflow Summary.
+- Added startdp/statusdp/stopdp through the existing wrapper and profile
+  installer. Named control locking, proven PID/creation/marker ownership,
+  manual/live active-run guards, pool/deployment concurrency one, and worker
+  limit one prevent duplicate runtimes and overlap. Active-run stop is graceful;
+  PostgreSQL, Prefect server/UI, manual workers, and external processes remain
+  independent.
+- Polling is bounded at one watched invocation followed by five minutes on
+  success/no candidate. Nonzero outcomes back off to ten, twenty, then at most
+  thirty minutes. Status exposes only safe ownership/readiness/poll state,
+  last/next timestamps, failure count, and active/degraded booleans.
+- Confirmed existing Graph authentication uses noninteractive MSAL
+  confidential-client credentials and can reacquire app-only tokens. The
+  boolean-only same-boundary readiness check fails before worker activation;
+  no token or credential is persisted in Prefect or wrapper state.
+- Renamed active source/config/docs references to prefect-control-room-test,
+  document-processor-manual, and document-processor-live. Historical evidence
+  was retained. Registered deployments were not mutated in this checkpoint.
+- Compiled modified Python and passed focused/affected synthetic deterministic,
+  mock, isolated-profile, and isolated local Prefect regressions for selection,
+  exact re-verification/no fallback, sequential candidates, no-candidate wait,
+  idempotency/recovery, manual/live conflicts, launcher/installer contracts,
+  lifecycle visibility, and Workflow Summary safety. All modified PowerShell
+  parsed with zero errors in Windows PowerShell 5.1. Twenty wrapper checks
+  passed; one real-host process-tree check could not begin because CIM returned
+  no identity for its new synthetic root twice (exit 21).
+- No live mailbox/Graph, protected OCR, Ollama, production document Smartsheet,
+  worker/deployment, attachment, or mailbox mutation operation occurred.
+
+Exact next start: register the renamed parameterless deployments from reviewed
+committed source and perform PHI-safe read-only metadata verification for
+prefect-control-room-test, document-processor-manual, and
+document-processor-live. Then install and verify the updated current-user
+command mappings without starting the DP. Obtain separate authorization before
+the first guarded live startdp acceptance.
+
 """
 
 
@@ -9464,8 +9506,13 @@ updates = [
             "document enforcement, no newest-unread fallback, and PHI-safe "
             "stage visibility. That popup-selected source is now registered "
             "and passed read-only deployment-metadata verification without a "
-            "worker or flow. Prefect retries, scheduling, and "
-            "automatic startup remain "
+            "worker or flow. A separate operator-owned unattended mode is now "
+            "implemented with one bounded candidate per watched invocation, "
+            "five-minute polling, bounded failure backoff, explicit startdp/"
+            "statusdp/stopdp controls, and manual/live conflict guards. Its "
+            "renamed deployments still require registration and guarded "
+            "read-only verification before live acceptance. Prefect retries, "
+            "server-side scheduling, and silent automatic startup remain "
             "disabled. The "
             "pinned Prefect 3.8.4 offline dry-run defect now has a version-bounded "
             "operational exception backed by online migration, exact head, "

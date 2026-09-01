@@ -17,6 +17,24 @@ from src.services.mailbox_acceptance_handoff_service import (
     MailboxAcceptanceHandoffError,
     MailboxAcceptanceHandoffService,
 )
+from src.models.mailbox_acceptance import MailboxAcceptanceSelectionResult
+
+
+class FirstEligibleMailboxCandidateSelector:
+    """Choose only candidate one from the existing newest-first safe list."""
+
+    def select(self, candidates):
+        if not candidates:
+            return MailboxAcceptanceSelectionResult(
+                candidate_number=None,
+                popup_displayed=False,
+                disposition="no_selection",
+            )
+        return MailboxAcceptanceSelectionResult(
+            candidate_number=1,
+            popup_displayed=False,
+            disposition="selected",
+        )
 
 
 @dataclass(frozen=True)
@@ -119,6 +137,7 @@ class MailboxFullReviewOrchestrationService:
         acceptance_selector=None,
         acceptance_identity: str | None = None,
         acceptance_discovery_top: int = 10,
+        acceptance_require_popup: bool = True,
         stage_observer=None,
     ) -> MailboxFullReviewOrchestrationResult:
         normalized_top = self._normalize_top(
@@ -161,6 +180,7 @@ class MailboxFullReviewOrchestrationService:
                     self.mailbox_processor.process_selected_unread_message(
                         selector=acceptance_selector,
                         discovery_top=acceptance_discovery_top,
+                        require_popup=acceptance_require_popup,
                         **processing_options,
                     )
                 )
@@ -483,6 +503,38 @@ class MailboxFullReviewOrchestrationService:
             acceptance_max_documents=acceptance_max_documents,
             acceptance_identity=handoff.message_identity,
             stage_observer=stage_observer,
+        )
+
+    def run_unattended_once(
+        self,
+        *,
+        review_mode: MailboxClassificationReviewMode = MailboxClassificationReviewMode.DOWNSTREAM,
+        run_type: str = "",
+        discovery_top: int = 10,
+        stage_observer=None,
+    ) -> MailboxFullReviewOrchestrationResult:
+        """Process at most the newest eligible candidate without a popup."""
+        result = self.run(
+            top=1,
+            review_mode=review_mode,
+            run_type=run_type,
+            acceptance_max_messages=1,
+            acceptance_max_documents=1,
+            acceptance_selector=FirstEligibleMailboxCandidateSelector(),
+            acceptance_discovery_top=discovery_top,
+            acceptance_require_popup=False,
+            stage_observer=stage_observer,
+        )
+        if result.failure_category != "acceptance_no_eligible_candidate":
+            return result
+        return self._build_result(
+            message_results=[],
+            message_count=0,
+            document_count=0,
+            failed_count=0,
+            success=True,
+            status="no_eligible_candidate",
+            stage="completed",
         )
 
     @staticmethod

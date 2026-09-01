@@ -16,6 +16,7 @@ from src.services.mailbox_full_review_orchestration_service import (
 
 
 PREFECT_MAILBOX_RUN_TYPE = "Prefect bounded mailbox orchestration"
+PREFECT_UNATTENDED_MAILBOX_RUN_TYPE = "Prefect unattended mailbox orchestration"
 PREFECT_MANUAL_MAILBOX_MESSAGE_LIMIT = 1
 PREFECT_MANUAL_MAILBOX_DOCUMENT_LIMIT = 1
 PREFECT_MANUAL_MAILBOX_DISCOVERY_LIMIT = 10
@@ -282,13 +283,7 @@ def _record_stage_visibility(metadata) -> None:
         return
 
 
-@task(
-    name="bounded-mailbox-application-run",
-    retries=0,
-    log_prints=False,
-    persist_result=False,
-)
-def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
+def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrationResult:
     """Call the complete application boundary exactly once."""
     logger = get_run_logger()
     running_stages = _RunningStageVisibility()
@@ -356,13 +351,22 @@ def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
         )
 
     try:
-        result = MailboxFullReviewOrchestrationService().run_handoff_acceptance(
-            review_mode=MailboxClassificationReviewMode.DOWNSTREAM,
-            run_type=PREFECT_MAILBOX_RUN_TYPE,
-            acceptance_max_messages=PREFECT_MANUAL_MAILBOX_MESSAGE_LIMIT,
-            acceptance_max_documents=PREFECT_MANUAL_MAILBOX_DOCUMENT_LIMIT,
-            stage_observer=observe_stage,
-        )
+        service = MailboxFullReviewOrchestrationService()
+        if unattended:
+            result = service.run_unattended_once(
+                review_mode=MailboxClassificationReviewMode.DOWNSTREAM,
+                run_type=PREFECT_UNATTENDED_MAILBOX_RUN_TYPE,
+                discovery_top=PREFECT_MANUAL_MAILBOX_DISCOVERY_LIMIT,
+                stage_observer=observe_stage,
+            )
+        else:
+            result = service.run_handoff_acceptance(
+                review_mode=MailboxClassificationReviewMode.DOWNSTREAM,
+                run_type=PREFECT_MAILBOX_RUN_TYPE,
+                acceptance_max_messages=PREFECT_MANUAL_MAILBOX_MESSAGE_LIMIT,
+                acceptance_max_documents=PREFECT_MANUAL_MAILBOX_DOCUMENT_LIMIT,
+                stage_observer=observe_stage,
+            )
     except Exception:
         try:
             running_stages.fail_open_stages()
@@ -440,6 +444,28 @@ def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
     return result
 
 
+@task(
+    name="bounded-mailbox-application-run",
+    retries=0,
+    log_prints=False,
+    persist_result=False,
+)
+def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
+    """Call the sealed-handoff manual application boundary exactly once."""
+    return _run_mailbox_application(unattended=False)
+
+
+@task(
+    name="unattended-mailbox-application-run",
+    retries=0,
+    log_prints=False,
+    persist_result=False,
+)
+def run_unattended_mailbox_application() -> MailboxFullReviewOrchestrationResult:
+    """Discover, re-verify, and process at most one eligible candidate."""
+    return _run_mailbox_application(unattended=True)
+
+
 @flow(
     name="lthhc-bounded-mailbox",
     retries=0,
@@ -449,3 +475,14 @@ def run_bounded_mailbox_application() -> MailboxFullReviewOrchestrationResult:
 def bounded_mailbox_flow() -> MailboxFullReviewOrchestrationResult:
     """Run one bounded application invocation with no internal polling loop."""
     return run_bounded_mailbox_application()
+
+
+@flow(
+    name="lthhc-unattended-mailbox",
+    retries=0,
+    log_prints=False,
+    persist_result=False,
+)
+def unattended_mailbox_flow() -> MailboxFullReviewOrchestrationResult:
+    """Run one scheduled, bounded, no-popup mailbox check."""
+    return run_unattended_mailbox_application()

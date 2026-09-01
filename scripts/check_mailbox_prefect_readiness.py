@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PREFECT = ROOT / ".venv" / "Scripts" / "prefect.exe"
 API_URL = "http://127.0.0.1:4200/api"
 POOL_NAME = "lthhc-local-process"
-DEPLOYMENT_NAME = "lthhc-bounded-mailbox/manual-local"
+DEPLOYMENT_NAME = "lthhc-bounded-mailbox/document-processor-manual"
 TERMINAL_FLOW_RUN_STATE_TYPES = frozenset(
     {"COMPLETED", "FAILED", "CANCELLED", "CRASHED"}
 )

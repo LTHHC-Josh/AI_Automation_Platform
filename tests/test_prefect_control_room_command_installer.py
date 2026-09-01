@@ -11,6 +11,9 @@ COMMANDS = {
     "preparerun": "PrepareRun",
     "runonce": "RunOnce",
     "stopworker": "StopWorker",
+    "startdp": "StartDP",
+    "statusdp": "StatusDP",
+    "stopdp": "StopDP",
     "restartui": "RestartControlRoom",
     "stopui": "StopControlRoom",
 }

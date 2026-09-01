@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PREFLIGHT = ROOT / "scripts" / "check_mailbox_prefect_readiness.py"
 WORKER_CHECK = ROOT / "scripts" / "check_mailbox_worker_auth_readiness.py"
 WORKER_LAUNCHER = ROOT / "scripts" / "invoke_prefect_mailbox_worker.ps1"
+DP_LAUNCHER = ROOT / "scripts" / "invoke_prefect_document_processor.ps1"
 DEPLOYMENT = ROOT / "prefect.yaml"
 
 
@@ -88,6 +89,27 @@ def test_launcher_is_fail_closed_and_deployment_stays_secret_free_parameterless(
     prohibited = ("GRAPH_TENANT_ID", "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET", "GRAPH_MAILBOX")
     assert all(marker not in launcher for marker in prohibited)
     assert all(marker not in deployment for marker in prohibited)
+
+
+def test_unattended_launcher_uses_same_noninteractive_auth_boundary():
+    launcher = DP_LAUNCHER.read_text(encoding="utf-8-sig")
+    assert "check_mailbox_worker_auth_readiness.py" in launcher
+    assert launcher.index("check_mailbox_worker_auth_readiness.py") < launcher.index("$workerArguments")
+    assert "Start-Process -FilePath $prefect" in launcher
+    assert "lthhc-unattended-dp-worker" in launcher
+    assert "'--limit','1'" in launcher
+    assert "$basePollSeconds = 300" in launcher
+    assert "$maximumBackoffSeconds = 1800" in launcher
+    assert "consecutive_failures" in launcher
+    assert "deployment run $deploymentName --watch" in launcher
+    assert "while (-not $worker.HasExited)" in launcher
+    assert launcher.index("deployment run $deploymentName --watch") < launcher.index("Start-Sleep -Seconds $waitSeconds")
+    assert launcher.index("$activationPath") < launcher.index("deployment run $deploymentName --watch")
+    assert "Document Processor activation timed out." in launcher
+    assert "dp-stop.signal" in launcher
+    assert "PrepareAcceptanceHandoff" not in launcher
+    for marker in ("GRAPH_TENANT_ID", "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET", "GRAPH_MAILBOX"):
+        assert marker not in launcher
 
 
 def test_worker_check_public_contract_is_boolean_only():

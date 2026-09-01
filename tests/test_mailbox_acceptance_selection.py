@@ -13,6 +13,7 @@ from src.ui.mailbox_acceptance_selection import (
     safe_candidate_display_values,
 )
 from src.services.mailbox_full_review_orchestration_service import (
+    FirstEligibleMailboxCandidateSelector,
     MailboxClassificationReviewMode,
     MailboxFullReviewOrchestrationService,
 )
@@ -133,6 +134,70 @@ def assert_guard(operation, category):
         assert error.category == category
         return error
     raise AssertionError("Expected the acceptance guard to block.")
+
+
+def test_unattended_selector_processes_only_newest_eligible_with_exact_reverification():
+    first = "synthetic-newest"
+    second = "synthetic-older"
+    processor, email, _, processed = build_processor(
+        [message(first), message(second)],
+        {first: [1, 1], second: [1]},
+        exact_message=message(first),
+    )
+    results = processor.process_selected_unread_message(
+        selector=FirstEligibleMailboxCandidateSelector(),
+        discovery_top=10,
+        require_popup=False,
+    )
+    assert len(results) == 1
+    assert email.exact_calls == [first]
+    assert len(processed) == 1
+    assert processed[0]["id"] == first
+    assert results[0].proven_supported_document_count == 1
+
+
+def test_unattended_exact_candidate_loss_never_falls_back():
+    first = "synthetic-newest"
+    second = "synthetic-older"
+    processor, email, attachments, processed = build_processor(
+        [message(first), message(second)],
+        {first: [1], second: [1]},
+        exact_message=None,
+    )
+    error = assert_guard(
+        lambda: processor.process_selected_unread_message(
+            selector=FirstEligibleMailboxCandidateSelector(),
+            discovery_top=10,
+            require_popup=False,
+        ),
+        "acceptance_selected_candidate_unavailable",
+    )
+    assert error.message_count is None
+    assert email.exact_calls == [first]
+    assert attachments.download_calls == 0
+    assert processed == []
+
+
+def test_unattended_invocations_process_sequential_candidates_one_at_a_time():
+    first = "synthetic-newest"
+    second = "synthetic-older"
+    processor, email, _, processed = build_processor(
+        [message(first), message(second)],
+        {first: [1, 1], second: [1, 1, 1]},
+        exact_message=message(first),
+    )
+    selector = FirstEligibleMailboxCandidateSelector()
+    first_results = processor.process_selected_unread_message(
+        selector=selector, discovery_top=10, require_popup=False
+    )
+    email.messages = [message(second)]
+    email.exact_message = message(second)
+    second_results = processor.process_selected_unread_message(
+        selector=selector, discovery_top=10, require_popup=False
+    )
+    assert len(first_results) == len(second_results) == 1
+    assert [item["id"] for item in processed] == [first, second]
+    assert email.exact_calls == [first, second]
 
 
 def test_popup_receives_only_eligible_phi_safe_candidates():
@@ -569,6 +634,28 @@ def test_acceptance_orchestration_entrypoint_keeps_selection_inside_application(
         "acceptance_discovery_top": 10,
         "stage_observer": None,
     }]
+
+
+def test_unattended_orchestration_no_candidate_is_successful_noop():
+    service = MailboxFullReviewOrchestrationService.__new__(
+        MailboxFullReviewOrchestrationService
+    )
+    service.mailbox_processor = SimpleNamespace(job_state_service=None)
+    calls = []
+    service.run = lambda **kwargs: calls.append(kwargs) or service._failure(
+        "acceptance_no_eligible_candidate",
+        stage="acceptance_guard",
+        message_count=0,
+        document_count=0,
+    )
+    result = service.run_unattended_once(run_type="safe-unattended")
+    assert result.success is True
+    assert result.status == "no_eligible_candidate"
+    assert result.message_count == 0 and result.document_count == 0
+    assert calls[0]["acceptance_require_popup"] is False
+    assert isinstance(calls[0]["acceptance_selector"], FirstEligibleMailboxCandidateSelector)
+    assert calls[0]["acceptance_max_messages"] == 1
+    assert calls[0]["acceptance_max_documents"] == 1
 
 
 if __name__ == "__main__":

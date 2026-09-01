@@ -792,9 +792,49 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Design and implement the unattended Document Processor operating mode with
-operator commands startdp, statusdp, and stopdp while preserving
-preparerun/runonce/stopworker as the manual recovery/test path.
+Register the renamed parameterless Prefect deployments from reviewed committed
+source and perform PHI-safe read-only metadata verification for
+`prefect-control-room-test`, `document-processor-manual`, and
+`document-processor-live`. Then install/verify the updated current-user command
+mappings without starting the unattended DP. Obtain separate authorization
+before the first guarded live `startdp` acceptance; do not run a live mailbox,
+OCR/Ollama, production document Smartsheet, or mailbox-mutation operation as
+part of registration or command installation.
+
+Unattended Document Processor implementation checkpoint:
+
+- Added a separate parameterless `lthhc-unattended-mailbox` flow and
+  `document-processor-live` deployment. Each invocation uses the existing
+  production orchestration path, discovers newest-first eligible unread Inbox
+  metadata, selects at most one supported document, and preserves exact Inbox
+  re-verification with no fallback. An empty discovery is a successful no-op.
+- Added operator-owned `startdp`, `statusdp`, and `stopdp` controls while
+  preserving `preparerun`, `runonce`, and `stopworker` as the manual recovery/
+  test path. Named control locking, ownership PID/creation/marker proof, pool
+  and deployment concurrency one, and active-run checks prevent duplicate or
+  overlapping unattended/manual work. Stop requests allow an active bounded
+  run to finish and never stop PostgreSQL, the Prefect server, or manual/
+  external workers.
+- The Windows launcher owns one process worker and invokes one watched bounded
+  deployment at a time. Normal empty/success polling waits five minutes;
+  nonzero outcomes back off to ten, twenty, then at most thirty minutes.
+  Status exposes only safe ownership/readiness/poll state, last/next timestamps,
+  failure count, and active-run/degraded booleans.
+- Graph authentication is noninteractive MSAL confidential-client application
+  authentication using the existing client-credentials configuration boundary.
+  Readiness fails closed before worker activation; credentials and tokens do
+  not enter Prefect parameters, state, logs, or tracked files.
+- Standardized active source/config/documentation names to
+  `prefect-control-room-test`, `document-processor-manual`, and
+  `document-processor-live`. Historical checkpoint names remain unchanged.
+  No deployments were registered or removed in this implementation checkpoint.
+- Compiled modified Python; all modified PowerShell parsed in Windows
+  PowerShell 5.1. Focused/affected synthetic deterministic, mock, isolated
+  profile, and isolated local Prefect checks passed. Twenty wrapper checks
+  passed; one isolated real-host process-tree check could not begin because
+  the host CIM lookup returned no process identity twice (exit 21). No live
+  mailbox/Graph, protected OCR, Ollama, production document Smartsheet,
+  worker/deployment, attachment, or mailbox mutation operation occurred.
 
 Prefect stage-duration and worker-settlement checkpoint:
 

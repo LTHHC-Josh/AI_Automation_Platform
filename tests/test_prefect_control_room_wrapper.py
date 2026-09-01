@@ -13,10 +13,119 @@ def source():
 
 def test_actions_and_safe_local_state_contract():
     text = source()
-    assert "[ValidateSet('StartUI', 'Status', 'PrepareRun', 'RunOnce', 'StopWorker', 'StopControlRoom', 'RestartControlRoom')]" in text
+    assert "'StartDP', 'StatusDP', 'StopDP'" in text
     assert "LTHHC\\Prefect\\control-room" in text
     for prohibited in ("message_id", "subject", "sender", "filename", "row_id", "token", "payload"):
         assert prohibited not in text.lower()
+
+
+def test_unattended_commands_are_separate_owned_polling_controls():
+    text = source()
+    start = text.split("function Start-DocumentProcessor {", 1)[1].split("function Stop-DocumentProcessor", 1)[0]
+    stop = text.split("function Stop-DocumentProcessor {", 1)[1].split("function Stop-ControlRoomInfrastructure", 1)[0]
+    status = text.split("function Get-DocumentProcessorStatus {", 1)[1].split("function Start-OwnedComponent", 1)[0]
+    assert "invoke_prefect_document_processor.ps1" in start
+    assert "invoke_prefect_document_processor.ps1" in start
+    assert "fresh_online_worker_count -ne 0" in start
+    assert "mailbox_run_conflict" in start and "unattended_run_active" in start
+    assert "System.Threading.Mutex" in start and "WaitOne(0)" in start
+    assert "dp_stop_requested_active_run" in stop
+    assert "dp-stop.signal" in stop
+    assert "Stop-OwnedComponent -Name 'dp'" in stop
+    assert "Stop-Service" not in stop and "Stop-OwnedComponent -Name 'server'" not in stop
+    assert "dp_process_ownership_proven" in status
+    assert "current_bounded_run_active" in status
+    assert "subject" not in status and "filename" not in status and "row_id" not in status
+
+
+def test_manual_prepare_refuses_unattended_conflicts():
+    block = source().split("'PrepareRun' {", 1)[1].split("'RunOnce' {", 1)[0]
+    assert "$status.unattended_run_active" in block
+
+
+def test_start_dp_duplicate_is_idempotent_in_windows_powershell_51():
+    wrapper_path = str(WRAPPER).replace("'", "''")
+    command = r"""
+$tokens=$null;$errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
+$node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq 'Start-DocumentProcessor'},$true)
+Invoke-Expression $node.Extent.Text
+function Read-ControlState { return @{dp=@{pid=42;owned=$true;process_created_utc='synthetic'}} }
+function Test-OwnedProcess { return $true }
+if((Start-DocumentProcessor) -ne 'dp_already_running'){exit 51}
+Write-Output $PSVersionTable.PSVersion.Major
+""".replace("__WRAPPER__", wrapper_path)
+    completed = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "5"
+
+
+def test_status_dp_reports_running_and_degraded_states_in_windows_powershell_51():
+    wrapper_path = str(WRAPPER).replace("'", "''")
+    command = r"""
+$tokens=$null;$errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
+$node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq 'Get-DocumentProcessorStatus'},$true)
+Invoke-Expression $node.Extent.Text
+function Get-ControlPlaneStatus { return @{prefect_server_reachable=$true;work_pool_ready=$true;unattended_deployment_ready=$true;unattended_run_active=$false;fresh_online_worker_count=1} }
+function Read-ControlState { return @{dp=@{pid=42;owned=$true;process_created_utc='synthetic'}} }
+function Test-OwnedProcess { return $global:owned }
+function Test-RecordedOwnedProcessExited { return $global:exited }
+function Test-Path { param([string]$LiteralPath,[object]$PathType) return $global:active }
+function Get-Content { return '{"polling_state":"waiting","last_check_utc":null,"next_check_utc":null,"consecutive_failures":0}' }
+$stateDirectory='synthetic'
+$global:owned=$true;$global:exited=$false;$global:active=$true;$running=Get-DocumentProcessorStatus
+if(-not $running.dp_running -or $running.degraded){exit 52}
+$global:owned=$false;$global:exited=$false;$global:active=$true;$degraded=Get-DocumentProcessorStatus
+if($degraded.dp_running -or -not $degraded.degraded){exit 53}
+Write-Output $PSVersionTable.PSVersion.Major
+""".replace("__WRAPPER__", wrapper_path)
+    completed = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "5"
+
+
+def test_stop_dp_owned_and_unowned_paths_are_separate():
+    text = source()
+    stop = text.split("function Stop-DocumentProcessor {", 1)[1].split("function Stop-ControlRoomInfrastructure", 1)[0]
+    assert "Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1'" in stop
+    assert "Stop-OwnedComponent -Name 'dp'" in stop
+    assert "fresh worker is active but unattended ownership cannot be proven" in stop
+    assert "Stop-ControlRoomWorker" not in stop
+
+
+def test_stop_dp_owned_and_already_exited_behavior_in_windows_powershell_51():
+    wrapper_path = str(WRAPPER).replace("'", "''")
+    command = r"""
+$tokens=$null;$errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
+$node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq 'Stop-DocumentProcessor'},$true)
+Invoke-Expression $node.Extent.Text
+function Test-PrefectServerReachable { return $true }
+function Get-ControlPlaneStatus { return @{unattended_run_active=$false;fresh_online_worker_count=1} }
+function Read-ControlState { return @{dp=@{pid=42;owned=$true;process_created_utc='synthetic'}} }
+function Test-OwnedProcess { return $global:owned }
+function Test-RecordedOwnedProcessExited { return $global:exited }
+function Stop-OwnedComponent { $global:stopped=$true }
+function Write-ControlState { $global:written=$true }
+$global:owned=$true;$global:exited=$false;$global:stopped=$false
+if((Stop-DocumentProcessor) -ne 'dp_stopped' -or -not $global:stopped){exit 54}
+$global:owned=$false;$global:exited=$true;$global:written=$false
+if((Stop-DocumentProcessor) -ne 'dp_already_exited_prefect_heartbeat_settling' -or -not $global:written){exit 55}
+Write-Output $PSVersionTable.PSVersion.Major
+""".replace("__WRAPPER__", wrapper_path)
+    completed = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "5"
 
 
 def test_start_ui_neither_starts_worker_nor_runs_deployment_and_opens_ui():
@@ -44,6 +153,8 @@ def test_run_once_contains_exactly_one_parameterless_watched_invocation():
     assert "deployment run $deploymentName --watch" in block
     for prohibited in ("--param", "--run-name", "--tag", "--start-in", "--start-at"):
         assert prohibited not in block
+    assert "$status.unattended_run_active" in block
+    assert "$manualOwned" in block
 
 
 def test_stop_worker_requires_ownership_and_does_not_stop_infrastructure():

@@ -204,6 +204,7 @@ class MailboxProcessor:
         acceptance_max_messages: int = 1,
         acceptance_max_documents: int = 1,
         stage_observer=None,
+        require_popup: bool = True,
     ) -> tuple[str, dict]:
         """Select and prove one candidate, returning its identity only in memory."""
         if (
@@ -216,6 +217,7 @@ class MailboxProcessor:
             or not isinstance(acceptance_max_documents, int)
             or isinstance(acceptance_max_documents, bool)
             or acceptance_max_documents != 1
+            or not isinstance(require_popup, bool)
         ):
             raise MailboxAcceptanceGuardError("acceptance_policy_invalid")
 
@@ -402,7 +404,7 @@ class MailboxProcessor:
         selected_number = selection.candidate_number
         if (
             selection.disposition != "selected"
-            or selection.popup_displayed is not True
+            or (require_popup and selection.popup_displayed is not True)
             or not isinstance(selected_number, int)
             or isinstance(selected_number, bool)
             or selected_number < 1
@@ -432,7 +434,7 @@ class MailboxProcessor:
             selection_started_at,
             discovery_completed=True,
             eligible_candidate_count=len(safe_candidates),
-            popup_displayed=True,
+            popup_displayed=selection.popup_displayed is True,
             candidate_selected=True,
             failure_category=None,
             **exclusion_counts,
@@ -595,6 +597,7 @@ class MailboxProcessor:
         acceptance_max_messages: int = 1,
         acceptance_max_documents: int = 1,
         stage_observer=None,
+        require_popup: bool = True,
     ) -> list[MessageProcessingResult]:
         """Preserve the same-process popup acceptance entrypoint."""
         _, selected_message = self._prepare_selected_acceptance(
@@ -603,6 +606,7 @@ class MailboxProcessor:
             acceptance_max_messages=acceptance_max_messages,
             acceptance_max_documents=acceptance_max_documents,
             stage_observer=stage_observer,
+            require_popup=require_popup,
         )
         return [self.process_message(
             selected_message,
