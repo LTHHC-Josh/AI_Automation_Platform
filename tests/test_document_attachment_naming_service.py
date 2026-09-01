@@ -27,7 +27,7 @@ def run_test(name, test):
         )
 
 
-def test_temporary_copy_uses_test_convention():
+def test_temporary_copy_uses_collision_safe_technical_fallback():
     service = DocumentAttachmentNamingService()
 
     with tempfile.TemporaryDirectory() as directory:
@@ -45,7 +45,7 @@ def test_temporary_copy_uses_test_convention():
 
         assert (
             result.temporary_path.name.startswith(
-                "LTHHC_AUTH_TEST_"
+                "LTHHC_TECHNICAL_DOCUMENT_"
             )
         )
 
@@ -107,7 +107,7 @@ def test_unresolved_policy_preserves_safe_fallback_and_flags_review():
         result = service.prepare(source_path=source, filename_policy_result=policy)
         assert result.success is True
         assert result.status == "prepared_naming_fallback_review"
-        assert result.temporary_path.name.startswith("LTHHC_AUTH_TEST_")
+        assert result.temporary_path.name.startswith("LTHHC_TECHNICAL_DOCUMENT_")
         assert service.cleanup(result.temporary_path) is True
 
 
@@ -116,8 +116,8 @@ print("Testing Document Attachment Naming")
 print("=" * 60)
 
 run_test(
-    "temporary copy uses test convention",
-    test_temporary_copy_uses_test_convention,
+    "temporary copy uses collision-safe technical fallback",
+    test_temporary_copy_uses_collision_safe_technical_fallback,
 )
 
 run_test(

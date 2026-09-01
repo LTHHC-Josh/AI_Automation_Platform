@@ -43,6 +43,9 @@ class EvidenceValidationService:
     }
 
     REQUIRED_SOURCE_FIELDS = {
+        "person_first",
+        "person_middle",
+        "person_last",
         "member_id",
         "authorization_number",
         "authorization_status",
@@ -58,6 +61,7 @@ class EvidenceValidationService:
         "member_dob",
         "provider_npi",
         "diagnosis_code",
+        "program",
     }
 
     EXACT_ALPHANUMERIC_FIELDS = {

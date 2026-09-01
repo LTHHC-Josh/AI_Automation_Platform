@@ -47,6 +47,8 @@ class MailboxDocumentJobState:
     lease_token: str | None = field(default=None, repr=False)
     lease_expires_at: str | None = None
     updated_at: str = ""
+    attachment_filename: str | None = field(default=None, repr=False)
+    attachment_naming_status: str | None = None
 
 
 @dataclass(frozen=True)
@@ -186,7 +188,9 @@ class MailboxDocumentJobStateService:
                    lease_token: str | None = None, smartsheet_row_id: int | None = None,
                    failure_category: str | None = None, retryable: bool | None = None,
                    increment_row_attempt: bool = False,
-                   increment_attachment_attempt: bool = False) -> MailboxDocumentJobStateResult:
+                   increment_attachment_attempt: bool = False,
+                   attachment_filename: str | None = None,
+                   attachment_naming_status: str | None = None) -> MailboxDocumentJobStateResult:
         if stage not in STAGES or not expected_stages or not expected_stages <= STAGES:
             return self._failure("invalid_transition")
         def change(current: MailboxDocumentJobState):
@@ -198,12 +202,22 @@ class MailboxDocumentJobStateService:
             if row_id is not None and (isinstance(row_id, bool) or not isinstance(row_id, int) or row_id <= 0):
                 return "invalid_row_reference"
             values = asdict(current)
+            filename = current.attachment_filename
+            naming_status = current.attachment_naming_status
+            if attachment_filename is not None:
+                candidate = str(attachment_filename)
+                if candidate != Path(candidate).name or any(c in candidate for c in "\\/\r\n"):
+                    return "invalid_attachment_filename"
+                filename = candidate
+                naming_status = self._safe_category(attachment_naming_status)
             values.update(stage=stage, smartsheet_row_id=row_id,
                           last_failure_category=self._safe_category(failure_category),
                           retryable=current.retryable if retryable is None else bool(retryable),
                           lease_token=None, lease_expires_at=None, updated_at=self._utc_now(),
                           row_attempt_count=current.row_attempt_count + int(increment_row_attempt),
-                          attachment_attempt_count=current.attachment_attempt_count + int(increment_attachment_attempt))
+                          attachment_attempt_count=current.attachment_attempt_count + int(increment_attachment_attempt),
+                          attachment_filename=filename,
+                          attachment_naming_status=naming_status)
             return MailboxDocumentJobState(**values)
         return self._mutate(job_key, change)
 
@@ -319,8 +333,12 @@ class MailboxDocumentJobStateService:
 
     def _decode(self, payload: Any, *, expected_job_key: str) -> MailboxDocumentJobStateResult:
         expected = {field.name for field in __import__("dataclasses").fields(MailboxDocumentJobState)}
-        if not isinstance(payload, dict) or set(payload) != expected:
+        legacy = expected - {"attachment_filename", "attachment_naming_status"}
+        keys = frozenset(payload) if isinstance(payload, dict) else frozenset()
+        if not isinstance(payload, dict) or keys not in {frozenset(expected), frozenset(legacy)}:
             return self._failure("state_corrupt")
+        if keys == frozenset(legacy):
+            payload = dict(payload, attachment_filename=None, attachment_naming_status=None)
         try: state = MailboxDocumentJobState(**payload)
         except TypeError: return self._failure("state_corrupt")
         if state.schema_version != self.SCHEMA_VERSION:

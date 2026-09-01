@@ -14,8 +14,9 @@ def test_summary_groups_duplicate_technical_reasons_without_mutation():
 
     assert reasons == original
     assert summary == (
-        "Manual review needed for service codes and modifiers due to "
-        "low confidence or unclear source support."
+        "service_codes_unclear_source_support; "
+        "service_codes_low_confidence; "
+        "modifiers_unclear_source_support"
     )
 
 
@@ -31,8 +32,8 @@ def test_summary_excludes_patient_values_source_text_and_internal_wording():
     assert marker not in summary
     assert "source_text" not in summary
     assert "checkbox" not in summary.lower()
-    assert "quantity" in summary
-    assert "authorization status" in summary
+    assert "quantity_unclear_source_support" in summary
+    assert "authorization_status_unclear_source_support" in summary
 
 
 def test_mapper_uses_summary_but_preserves_review_output():
@@ -62,10 +63,15 @@ def test_mapper_uses_summary_but_preserves_review_output():
 
     assert output.review_reasons == original
     assert result.values["AI Review Reasons"] == (
-        "Manual review needed for service codes due to low confidence or "
-        "unclear source support."
+        "service_codes_unclear_source_support; service_codes_low_confidence"
     )
     assert result.values["AI Review Required"] is True
+
+
+def test_known_business_rule_maps_to_exact_phi_safe_code():
+    assert ReviewReasonSummaryService().summarize(
+        ["Authorization quantity requires verification"]
+    ) == "authorization_quantity_requires_verification"
 
 
 if __name__ == "__main__":

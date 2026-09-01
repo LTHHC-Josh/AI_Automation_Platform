@@ -552,8 +552,8 @@ def test_review_reasons_are_mapped_without_values_or_source_text():
             "AI Review Reasons"
         ]
         == (
-            "Manual review needed for quantity and request type due to "
-            "unclear source support."
+            "authorization_quantity_requires_verification; "
+            "authorization_subtype_requires_verification"
         )
     )
 

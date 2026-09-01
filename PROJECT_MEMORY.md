@@ -815,15 +815,91 @@ Startdp progress and bounded-startup checkpoint:
   access, protected OCR/Ollama, production document Smartsheet operation, or
   mailbox mutation occurred.
 
+First unattended document-result diagnosis checkpoint:
+
+- Read-only Prefect/control-state evidence proved one completed unattended
+  document workflow with retry, extraction attempt 2, review required,
+  automatic row/attachment success, mailbox finalization, and return to
+  waiting. Durable job state retained only safe completion/attempt counts; it
+  does not persist the historical review reason list.
+- The attachment name equaled the AI Submission Key because the durable
+  Smartsheet recovery service intentionally used `job_key + extension` as both
+  the row reconciliation key and technical attachment name. Manual and
+  unattended processing share this same recovery path.
+- The intended evidence-driven filename policy and temporary naming service
+  are implemented and synthetic-tested, but production filename assembly is
+  still intentionally unwired. Current production extraction does not supply
+  the policy's separately supported person-name parts and authoritative payer,
+  service, and optional workflow reference lookups. Those values must not be
+  reconstructed from a combined name, sender, payer context, filename, or
+  unsupported evidence.
+- Retry triggered, attempt count, and selected attempt are copied only as
+  operational metadata. They are not inputs to `ReviewDecisionService` and do
+  not cause review. Classification, subtype, populated-field confidence,
+  validation, and business rules remain separate.
+- For an authorization with any positive quantity, the committed conservative
+  business rule adds the safe deterministic category
+  `authorization_quantity_requires_verification`; this is intentional because
+  quantity meaning and sufficient approval remain unresolved. A 100%
+  classification confidence and all displayed field confidences above the
+  field threshold can therefore coexist with recommended review.
+- The historical run's complete reason set cannot be proven from retained
+  PHI-safe evidence: Prefect persisted only the review boolean and the row
+  mapping stored a generalized summary. Do not infer whether quantity was the
+  only reason or whether additional validation/business-rule reasons existed.
+- Corrected two proven defects for future results. The recognized successful
+  authorized-units reconciliation action no longer creates review by itself,
+  and Smartsheet `AI Review Reasons` now receives deduplicated fixed PHI-safe
+  reason codes instead of generalized `manual review needed` prose. Unknown
+  reasons become safe category/cause codes without carrying source text or
+  values.
+- Focused/affected synthetic deterministic/mock/local-file tests passed for
+  review decisions, retry/attempt-2 independence, classification/field-
+  confidence separation, reason-code mapping, filename policy/input/builder,
+  attachment naming, durable recovery, explicit Smartsheet mapping, and
+  orchestration. No live mailbox/Graph, OCR/Ollama, deployment, production
+  Smartsheet write/upload, or mailbox mutation occurred.
+
+Production filename assembly checkpoint:
+
+- The shared manual/unattended recovery boundary now assembles the existing
+  filename policy from separately extracted and deterministically supported
+  first/middle/last name components, exact authoritative payer and service
+  workbook lookups, supported service-period dates, and supported
+  classification workflow context. Combined patient name, sender, mailbox
+  metadata, source filename, and payer context are not naming inputs.
+- The extraction contract now exposes separate optional person components and
+  program evidence. Each component must carry its own source evidence and
+  sufficient configured field confidence; production code never parses the
+  combined patient name. Unsupported, low-confidence, ambiguous, invalid, or
+  unreferenced input leaves the business filename unresolved.
+- Complete authorization evidence retains the established format
+  `<LAST FIRST [MIDDLE]>_<PAYER>_<SERVICE>_<AUTH INIT|RENEW AUTH>_<MMDDYY[-MMDDYY]>.pdf`.
+  Existing optional form/workflow/qualifier policy behavior remains unchanged
+  and unresolved optional evidence fails closed.
+- Unresolved naming uses
+  `LTHHC_TECHNICAL_DOCUMENT_<full-document-SHA256>.<safe-extension>`; unknown or
+  unsupported extensions become `.bin`. The fallback contains no submission
+  key or document-derived business value. The original protected source is
+  never renamed; only a temporary upload copy receives the resolved name.
+- The exact resolved attachment name and a safe naming category are persisted
+  before external row creation in ignored protected mailbox job state. Legacy
+  states load compatibly. Restart reconciliation compares the same exact name,
+  preserving uncertain-outcome and duplicate-upload protection. The AI
+  Submission Key remains solely the row/idempotency/reconciliation key.
+- Focused and affected synthetic deterministic/mock/local-file checks passed
+  for policy composition, authoritative lookup ambiguity, technical fallback,
+  extraction schema/prompt safeguards, temporary-copy safety, durable recovery,
+  duplicate prevention, and the preserved review-decision/reason changes. No
+  live mailbox/Graph, OCR/Ollama, deployment, production Smartsheet write or
+  attachment upload, or mailbox mutation occurred.
+
 ## CURRENT NEXT START
 
-In the owning operator terminal, first use statusdp to verify the interrupted
-runtime remains proven-owned and use stopdp to stop it cleanly; do not create a
-second runtime. Update the installed command mapping to the new committed
-wrapper if required, then perform a controlled no-document startdp acceptance.
-Verify all five progress stages appear in real time, the DP reaches waiting,
-status/statusdp and `-Json` remain correct, and stopdp ends it cleanly. Defer
-the one-document acceptance until that startup/stop proof passes.
+Register/refresh any affected deployment/source registration if required, then
+perform one controlled live unattended document run to verify the intended
+Smartsheet attachment filename, PHI-safe specific review reason output,
+Workflow Summary, and clean return to waiting state.
 
 First unattended start failure diagnosis and correction checkpoint:
 

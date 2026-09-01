@@ -10,6 +10,8 @@ from src.services.smartsheet_review_configuration_service import SmartsheetRevie
 from src.services.smartsheet_review_row_mapping_service import SmartsheetReviewRowMappingService
 from src.services.smartsheet_reviewed_write_service import SmartsheetReviewedWriteService
 from src.services.smartsheet_submission_key_configuration_service import SmartsheetSubmissionKeyConfigurationService
+from src.services.document_attachment_naming_service import DocumentAttachmentNamingService
+from src.services.production_filename_assembly_service import ProductionFilenameAssemblyService
 
 
 @dataclass(frozen=True)
@@ -26,7 +28,8 @@ class MailboxDocumentSmartsheetRecoveryService:
 
     def __init__(self, *, job_state_service=None, submission_key_configuration_service=None,
                  configuration_service=None, mapping_service=None,
-                 destination_validation_service=None, write_service=None):
+                 destination_validation_service=None, write_service=None,
+                 filename_assembly_service=None, attachment_naming_service=None):
         self.job_state_service = job_state_service or MailboxDocumentJobStateService()
         self.submission_key_configuration_service = (
             submission_key_configuration_service or SmartsheetSubmissionKeyConfigurationService())
@@ -34,6 +37,8 @@ class MailboxDocumentSmartsheetRecoveryService:
         self.mapping_service = mapping_service or SmartsheetReviewRowMappingService()
         self.destination_validation_service = destination_validation_service or SmartsheetDestinationValidationService()
         self.write_service = write_service or SmartsheetReviewedWriteService()
+        self.filename_assembly_service = filename_assembly_service or ProductionFilenameAssemblyService()
+        self.attachment_naming_service = attachment_naming_service or DocumentAttachmentNamingService()
 
     def run(self, *, work_item: MailboxDocumentWorkItem, run_type: str = ""):
         if not isinstance(work_item, MailboxDocumentWorkItem):
@@ -46,6 +51,10 @@ class MailboxDocumentSmartsheetRecoveryService:
             return MailboxDocumentSmartsheetRecoveryResult(True, True, True, True, "completed")
         if state.stage == "blocked_permanent":
             return self._failure("blocked_permanent")
+        if state.stage != "row_write_uncertain":
+            state, naming_status = self._ensure_attachment_name(work_item, state)
+            if state is None:
+                return self._failure(naming_status)
         key_configuration = self.submission_key_configuration_service.resolve()
         if not key_configuration.success or key_configuration.column_title is None:
             return self._failure(key_configuration.status)
@@ -124,15 +133,20 @@ class MailboxDocumentSmartsheetRecoveryService:
 
         if state is None or state.smartsheet_row_id is None:
             return self._failure("row_reference_unavailable")
+        if state.attachment_filename is None:
+            state, naming_status = self._ensure_attachment_name(work_item, state)
+            if state is None:
+                return self._failure(naming_status)
         row_id = state.smartsheet_row_id
-        extension = Path(work_item.local_path).suffix.lower() or ".bin"
-        technical_name = f"{work_item.job_key}{extension}"
+        expected_name = state.attachment_filename
+        if expected_name is None:
+            return self._failure("attachment_filename_unavailable")
         names = self._attachment_names(row_id)
         if names is None:
             if state.stage == "attachment_write_uncertain":
                 return self._failure("attachment_write_uncertain")
             names = []
-        count = sum(name == technical_name for name in names)
+        count = sum(name == expected_name for name in names)
         if count > 1:
             return self._block(work_item.job_key, state.stage, "duplicate_attachment_conflict")
         if count == 0 and state.stage == "attachment_write_uncertain":
@@ -140,10 +154,10 @@ class MailboxDocumentSmartsheetRecoveryService:
         if count == 0:
             operation = self.write_service.attach_to_existing_row(
                 row_id=row_id, attachment_source_path=work_item.local_path,
-                technical_attachment_name=technical_name)
+                technical_attachment_name=expected_name)
             if not operation.success:
                 names = self._attachment_names(row_id)
-                if names is None or sum(name == technical_name for name in names) != 1:
+                if names is None or sum(name == expected_name for name in names) != 1:
                     self.job_state_service.transition(
                         work_item.job_key, expected_stages={state.stage}, stage="attachment_write_uncertain",
                         failure_category="attachment_write_outcome_unknown", retryable=False,
@@ -155,6 +169,36 @@ class MailboxDocumentSmartsheetRecoveryService:
         if not stored.success:
             return self._failure(stored.status)
         return MailboxDocumentSmartsheetRecoveryResult(True, True, True, True, "completed")
+
+    def _ensure_attachment_name(self, work_item, state):
+        if state.attachment_filename is not None:
+            return state, "ready"
+        assembly = self.filename_assembly_service.resolve(
+            document=work_item.document,
+            source_extension=Path(work_item.local_path).suffix.lower() or ".bin",
+        )
+        preparation = self.attachment_naming_service.prepare(
+            source_path=work_item.local_path,
+            filename_policy_result=assembly.policy_result,
+        )
+        if not preparation.success or preparation.temporary_path is None:
+            return None, preparation.status
+        expected_name = preparation.temporary_path.name
+        if not self.attachment_naming_service.cleanup(preparation.temporary_path):
+            return None, "attachment_preparation_cleanup_failed"
+        stored = self.job_state_service.transition(
+            work_item.job_key,
+            expected_stages={state.stage},
+            stage=state.stage,
+            attachment_filename=expected_name,
+            attachment_naming_status=(
+                "business_filename" if assembly.business_name_resolved
+                else "technical_fallback"
+            ),
+        )
+        if not stored.success or stored.state is None:
+            return None, stored.status
+        return stored.state, "ready"
 
     def _find_rows(self, column_id, key, *, title):
         try:

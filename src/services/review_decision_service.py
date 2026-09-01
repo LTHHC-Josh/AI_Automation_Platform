@@ -60,6 +60,10 @@ class ReviewDecisionService:
         "Authorization validated successfully",
     }
 
+    SUCCESS_VALIDATION_ACTIONS = {
+        "Authorized units were reconciled from supported service-line evidence",
+    }
+
     UNKNOWN_CATEGORY_REASON = (
         "Document category could not be determined."
     )
@@ -194,9 +198,10 @@ class ReviewDecisionService:
             )
 
         for action in document.validation_actions:
-            reasons.append(
-                action
-            )
+            if action not in self.SUCCESS_VALIDATION_ACTIONS:
+                reasons.append(
+                    action
+                )
 
         for action in document.rule_actions:
             if action not in self.SUCCESS_ACTIONS:

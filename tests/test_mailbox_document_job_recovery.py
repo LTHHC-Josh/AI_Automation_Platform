@@ -17,12 +17,23 @@ from src.services.smartsheet_reviewed_write_service import (
     SmartsheetAttachmentWriteOperationResult,
     SmartsheetRowWriteOperationResult,
 )
+from src.services.document_attachment_naming_service import DocumentAttachmentNamingService
 from src.graph.mailbox_processor import MailboxProcessor, MessageProcessingResult
 from src.services.mailbox_processing_state_service import MailboxProcessingStateResult
 
 
 def digest(character):
     return character * 64
+
+
+def technical_source(tmp_path):
+    source = tmp_path / "synthetic.txt"
+    source.write_bytes(b"SYNTHETIC")
+    naming = DocumentAttachmentNamingService()
+    prepared = naming.prepare(source_path=source)
+    name = prepared.temporary_path.name
+    naming.cleanup(prepared.temporary_path)
+    return source, name
 
 
 def discovered(service):
@@ -185,7 +196,7 @@ def test_lost_row_response_reconciles_exactly_one_without_duplicate_create(tmp_p
         stage="row_write_pending",
         lease_token=lease.lease_token,
     )
-    technical_name = f"{state.job_key}.txt"
+    source, technical_name = technical_source(tmp_path)
     client = SequencedReconciliationClient(
         row_matches=[[], [7001]],
         attachment_names=[[technical_name]],
@@ -205,7 +216,7 @@ def test_lost_row_response_reconciles_exactly_one_without_duplicate_create(tmp_p
         digest("a"),
         digest("b"),
         digest("c"),
-        Path("synthetic.txt"),
+        source,
         "row_write_pending",
         SimpleNamespace(review_output=ReviewOutput(document_type="synthetic")),
     )
@@ -266,7 +277,7 @@ def test_lost_attachment_response_reconciles_without_duplicate_upload(tmp_path):
         stage="row_written",
         smartsheet_row_id=7001,
     )
-    technical_name = f"{state.job_key}.txt"
+    source, technical_name = technical_source(tmp_path)
     client = SequencedReconciliationClient(
         row_matches=[],
         attachment_names=[[], [technical_name]],
@@ -284,7 +295,7 @@ def test_lost_attachment_response_reconciles_without_duplicate_upload(tmp_path):
         digest("a"),
         digest("b"),
         digest("c"),
-        Path("synthetic.txt"),
+        source,
         "row_written",
     )
 
@@ -298,6 +309,10 @@ def test_lost_attachment_response_reconciles_without_duplicate_upload(tmp_path):
     assert write_service.attachment_calls == 1
     assert client.attachment_reads == 2
     assert calls_after_completion == (client.attachment_reads, write_service.attachment_calls)
+    stored = state_service.load(state.job_key).state
+    assert stored.attachment_filename == technical_name
+    assert stored.attachment_naming_status == "technical_fallback"
+    assert state.job_key not in technical_name
     assert state.job_key not in repr(result)
     assert "7001" not in repr(result)
 

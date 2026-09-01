@@ -21,14 +21,14 @@ class DocumentAttachmentNamingService:
     """
     Creates a temporary locally renamed copy for Smartsheet attachment.
 
-    TEST CONVENTION ONLY:
-    LTHHC_AUTH_TEST_<fingerprint-prefix>.<extension>
+    Deterministic technical fallback:
+    LTHHC_TECHNICAL_DOCUMENT_<full-document-fingerprint>.<extension>
 
     The original source file is never renamed or modified.
     """
 
-    PREFIX = "LTHHC_AUTH_TEST"
-    FINGERPRINT_LENGTH = 12
+    PREFIX = "LTHHC_TECHNICAL_DOCUMENT"
+    SAFE_EXTENSIONS = {".pdf", ".tif", ".tiff", ".png", ".jpg", ".jpeg"}
 
     def __init__(
         self,
@@ -77,17 +77,11 @@ class DocumentAttachmentNamingService:
                 "fingerprint_failed"
             )
 
-        extension = (
-            path.suffix.lower()
-            if path.suffix
-            else ".bin"
-        )
+        extension = path.suffix.lower()
+        if extension not in self.SAFE_EXTENSIONS:
+            extension = ".bin"
 
-        fallback_name = (
-            f"{self.PREFIX}_"
-            f"{fingerprint_result.fingerprint[:self.FINGERPRINT_LENGTH]}"
-            f"{extension}"
-        )
+        fallback_name = f"{self.PREFIX}_{fingerprint_result.fingerprint}{extension}"
 
         safe_name = fallback_name
         preparation_status = "prepared"

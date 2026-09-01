@@ -9459,6 +9459,73 @@ no-document startdp acceptance and verify real-time five-stage progress,
 waiting status, readable/JSON status compatibility, and clean stopdp. Defer the
 one-document acceptance until that startup/stop proof passes.
 
+First unattended document-result diagnosis checkpoint (2026-09-01):
+
+- Read-only safe evidence proved the first unattended document workflow
+  completed retry/attempt 2, row and attachment writes, review state, mailbox
+  finalization, and return to waiting. Durable state does not retain the
+  historical review reason list.
+- The attachment matched the AI Submission Key because durable recovery uses
+  job_key plus extension as both its exact row key and technical attachment
+  reconciliation name. Manual and unattended modes share that path.
+- The intended filename policy exists but production assembly remains unwired.
+  Current runtime lacks separately validated person-name parts and approved
+  payer/service/optional workflow reference lookups. No combined name, sender,
+  payer context, or unsupported evidence was reinterpreted to enable it.
+- Retry and attempt 2 are operational metadata, not review inputs.
+  Classification and field confidence remain separate. Authorization quantity
+  independently produces authorization_quantity_requires_verification under
+  the existing conservative quantity rule, so 100% classification and high
+  field confidence can coexist with recommended review.
+- The historical run's full exact reason set cannot be recovered from retained
+  safe metadata, so this checkpoint does not claim quantity was its only
+  reason.
+- Successful authorized-units reconciliation no longer triggers review by
+  itself. Smartsheet review reasons now map to fixed, deduplicated PHI-safe
+  reason codes rather than generalized manual-review prose; unknown reasons
+  reduce to category/cause codes without values or source evidence.
+- Focused/affected synthetic deterministic/mock/local-file regressions passed
+  for review decisions, retry/confidence independence, reason mapping, filename
+  policy/input/builder, naming, recovery, explicit Smartsheet mapping, and
+  orchestration. No live mailbox/Graph, OCR/Ollama, deployment, production
+  Smartsheet write/upload, or mailbox mutation occurred.
+
+Exact next start: design and implement the production filename-policy assembler
+using only independently validated name components and authoritative reference
+lookups. Keep the AI Submission Key solely for row/idempotency reconciliation,
+provide a deterministic non-PHI fallback, and prove manual/unattended parity
+plus restart-safe attachment reconciliation synthetically. Do not perform
+another live document run before review and separate authorization.
+
+Production filename assembly checkpoint (2026-09-01):
+
+- Wired the shared manual/unattended recovery path to the existing filename
+  policy. It accepts only separately evidenced person components, exact
+  authoritative payer/service workbook results, supported dates, and supported
+  workflow classification. It never parses combined patient name or uses
+  sender, mailbox, filename, or payer context as document meaning.
+- Extended extraction with optional separate person components and program;
+  prompt and deterministic boundaries require independent source support and
+  prohibit combined-name splitting or context inference.
+- Complete authorization input preserves the established component ordering
+  and date normalization. Unresolved input now produces a clearly labeled,
+  full-fingerprint technical fallback with a safe extension. The durable AI
+  Submission Key is no longer the normal attachment name.
+- Persisted the exact expected attachment name before external row creation in
+  ignored protected job state. Legacy state remains readable; restart and
+  uncertain-outcome reconciliation compare the same exact name and retain
+  duplicate-upload prevention. Only temporary upload copies are renamed.
+- Preserved quantity-review, successful-reconciliation, retry/attempt-2,
+  classification-confidence, and PHI-safe review-reason corrections.
+- Compilation and focused/affected synthetic deterministic/mock/local-file
+  regressions passed. No live mailbox/Graph, OCR/Ollama, deployment, production
+  Smartsheet write/upload, or mailbox mutation occurred.
+
+Exact next start: register/refresh any affected deployment/source registration
+if required, then perform one controlled live unattended document run to verify
+the intended Smartsheet attachment filename, PHI-safe specific review reason
+output, Workflow Summary, and clean return to waiting state.
+
 """
 
 
@@ -9634,6 +9701,18 @@ updates = [
             "but buffered its operator output; startup now flushes five PHI-safe "
             "stages, bounds Prefect/Graph checks, reports fixed failure categories, "
             "and cleans proven owned processes on interruption. "
+            "The first unattended document completed and exposed submission-key "
+            "attachment naming. The shared production assembler now uses only "
+            "separately supported person components, exact authoritative payer/"
+            "service lookups, supported dates, and supported workflow context; "
+            "unresolved evidence receives a full-fingerprint technical fallback. "
+            "Expected attachment identity is persisted in ignored protected job "
+            "state before external row creation for restart-safe reconciliation, "
+            "while the submission key remains the row/idempotency key. "
+            "Retry/attempt 2 is not a review trigger; conservative quantity rules "
+            "can require review independently of 100% classification confidence. "
+            "Successful quantity reconciliation no longer triggers review by "
+            "itself, and mapped review reasons now use fixed PHI-safe codes. "
             "Prefect retries, "
             "server-side scheduling, and silent automatic startup remain "
             "disabled. The "

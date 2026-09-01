@@ -43,6 +43,9 @@ class OllamaProvider(LLMProvider):
 
     FIELD_NAMES = [
         "patient_name",
+        "person_first",
+        "person_middle",
+        "person_last",
         "member_id",
         "payer",
         "authorization_number",
@@ -51,6 +54,7 @@ class OllamaProvider(LLMProvider):
         "service_code",
         "service_codes",
         "service_description",
+        "program",
         "modifier",
         "authorized_units",
         "approved_visits",
@@ -902,6 +906,22 @@ Lower confidence when:
 - the relationship between a label and value is weak.
 
 IDENTIFIERS
+
+PERSON NAME COMPONENTS
+
+Keep patient_name as the complete supported display name. Return
+person_first, person_middle, and person_last only when each component is
+independently and unambiguously supported by the document evidence. Each
+non-null component must appear verbatim in its own source_text. Do not split,
+reorder, or infer components from patient_name, a filename, sender, payer, or
+mailbox context. Use null with confidence 0 for unavailable or ambiguous
+components.
+
+PROGRAM
+
+Return program only when the document explicitly labels and supports the
+program value. Do not infer program from payer, service code, modifier,
+sender, filename, or template.
 
 Do not confuse:
 

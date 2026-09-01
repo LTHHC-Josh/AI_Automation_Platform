@@ -340,6 +340,38 @@ def test_success_action_does_not_trigger_review() -> None:
     assert decision.reasons == []
 
 
+def test_successful_reconciliation_action_does_not_trigger_review() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+    document.validation_actions = [
+        "Authorized units were reconciled from supported service-line evidence"
+    ]
+
+    decision = service.evaluate(document)
+
+    assert decision.needs_human_review is False
+    assert decision.review_status == "Verified by AI"
+    assert decision.reasons == []
+
+
+def test_retry_and_second_attempt_do_not_trigger_review_or_conflate_confidence() -> None:
+    service = ReviewDecisionService()
+    document = build_document()
+    document.confidence = 1.0
+    document.processing_metrics = {
+        "extraction_attempt_count": 2,
+        "extraction_retry_triggered": True,
+        "extraction_selected_attempt": 2,
+    }
+
+    decision = service.evaluate(document)
+
+    assert decision.needs_human_review is False
+    assert decision.classification_confidence == 1.0
+    assert decision.minimum_field_confidence == 0.95
+    assert decision.reasons == []
+
+
 def test_business_rule_failure_triggers_review() -> None:
     service = ReviewDecisionService()
     document = build_document()
@@ -559,6 +591,14 @@ def main() -> None:
         (
             "success action does not trigger review",
             test_success_action_does_not_trigger_review,
+        ),
+        (
+            "successful reconciliation does not trigger review",
+            test_successful_reconciliation_action_does_not_trigger_review,
+        ),
+        (
+            "retry and second attempt do not trigger review",
+            test_retry_and_second_attempt_do_not_trigger_review_or_conflate_confidence,
         ),
         (
             "business rule failure triggers review",
