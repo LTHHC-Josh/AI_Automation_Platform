@@ -9,6 +9,7 @@ PREFLIGHT = ROOT / "scripts" / "check_mailbox_prefect_readiness.py"
 WORKER_CHECK = ROOT / "scripts" / "check_mailbox_worker_auth_readiness.py"
 WORKER_LAUNCHER = ROOT / "scripts" / "invoke_prefect_mailbox_worker.ps1"
 DP_LAUNCHER = ROOT / "scripts" / "invoke_prefect_document_processor.ps1"
+DP_START_CHECK = ROOT / "scripts" / "check_unattended_dp_start_readiness.py"
 DEPLOYMENT = ROOT / "prefect.yaml"
 
 
@@ -110,6 +111,28 @@ def test_unattended_launcher_uses_same_noninteractive_auth_boundary():
     assert "PrepareAcceptanceHandoff" not in launcher
     for marker in ("GRAPH_TENANT_ID", "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET", "GRAPH_MAILBOX"):
         assert marker not in launcher
+
+
+def test_unattended_start_readiness_is_lightweight_categorized_and_phi_safe():
+    from scripts.check_unattended_dp_start_readiness import check_start_readiness
+
+    ready = check_start_readiness(lambda: True, lambda: True)
+    assert ready.all_ready is True and ready.failure_category == "none"
+    graph_failed = check_start_readiness(lambda: False, lambda: True)
+    assert graph_failed.all_ready is False
+    assert graph_failed.failure_category == "graph_auth_unavailable"
+    storage_failed = check_start_readiness(lambda: True, lambda: False)
+    assert storage_failed.all_ready is False
+    assert storage_failed.failure_category == "local_state_storage_unavailable"
+    source = DP_START_CHECK.read_text(encoding="utf-8-sig")
+    for prohibited in (
+        "PaddleOCR",
+        "LLMFactory",
+        "SmartsheetDestinationSchemaService",
+        "process_unread_messages",
+        "deployment run",
+    ):
+        assert prohibited not in source
 
 
 def test_worker_check_public_contract_is_boolean_only():

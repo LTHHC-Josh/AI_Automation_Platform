@@ -1,5 +1,6 @@
 import contextlib
 from dataclasses import fields
+from datetime import datetime, timedelta, timezone
 import importlib.util
 import io
 import json
@@ -168,7 +169,18 @@ def test_prefect_probe_uses_running_server_backend_and_preserves_manual_contract
         def post(url, **kwargs):
             if url.endswith("/flow_runs/filter"):
                 return Response([])
-            return Response([{"status": "ONLINE"}])
+            return Response([
+                {
+                    "status": "ONLINE",
+                    "last_heartbeat_time": datetime.now(timezone.utc).isoformat(),
+                },
+                {
+                    "status": "OFFLINE",
+                    "last_heartbeat_time": (
+                        datetime.now(timezone.utc) - timedelta(hours=1)
+                    ).isoformat(),
+                },
+            ])
 
     original_requests = module.requests
     original_run = module._run_prefect
@@ -208,6 +220,13 @@ def test_prefect_probe_uses_running_server_backend_and_preserves_manual_contract
         for name, value in saved.items():
             if value is not None:
                 os.environ[name] = value
+
+
+def test_prefect_probe_requires_one_fresh_online_worker_not_one_history_record():
+    source = SCRIPT.read_text(encoding="utf-8-sig")
+    assert "len(worker_items) == 1" not in source
+    assert "len(fresh_online_workers) == 1" in source
+    assert "FRESH_WORKER_HEARTBEAT_SECONDS = 90" in source
 
 
 def test_terminal_mailbox_history_is_allowed_and_active_or_unknown_is_blocked():

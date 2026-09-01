@@ -61,9 +61,11 @@ Use the single control-room wrapper from a repository-root PowerShell terminal:
 & '.\scripts\invoke_prefect_control_room.ps1' -Action 'RestartControlRoom'
 ```
 
-`Status` is read-only and reports only PostgreSQL running state, localhost
+`Status` is read-only and reports a stable multi-line operator view containing
+only PostgreSQL running state, localhost
 server reachability, pool readiness, fresh online-worker count, mailbox-run
-conflict state, and manual-deployment readiness. `StartUI` starts the single
+conflict state, and deployment readiness. Use the wrapper's `-Json` switch for
+the unchanged machine-readable field names and values. `StartUI` starts the single
 PostgreSQL service only when needed and launches the server through the
 existing PostgreSQL launcher only when the localhost API is not already
 reachable. It opens the localhost Prefect UI by default and never starts a
@@ -91,12 +93,17 @@ PHI-safe failure and must be stopped in its owning terminal.
 `StartDP` requires the localhost PostgreSQL/Prefect control room, both reviewed
 parameterless deployments, zero active manual or unattended runs, and zero
 fresh workers. It starts exactly one separately owned unattended launcher. The
-launcher starts one worker, runs the existing boolean-only Graph and full
-application readiness gates, then enters its five-minute polling loop.
+wrapper first runs a lightweight PHI-safe startup check for Graph token
+acquisition and protected local-state writability. It does not enumerate the
+mailbox, initialize Paddle, contact Ollama, or inspect Smartsheet. Only after
+that succeeds can the launcher start one worker; the launcher repeats the
+boolean-only Graph gate in the worker's process/network boundary before worker
+creation, then enters its five-minute polling loop.
 It never creates a popup or DPAPI handoff. `StatusDP` is read-only and exposes
-only ownership, control-plane/deployment/pool readiness, polling/run state,
+the same stable multi-line Yes/No presentation for only ownership,
+control-plane/deployment/pool readiness, polling/run state,
 safe last/next-check timestamps, consecutive failure count, fresh-worker count,
-and a degraded boolean. If one bounded run is active, `StopDP` records an owned
+and a degraded boolean; `-Json` preserves machine-readable output. If one bounded run is active, `StopDP` records an owned
 stop request and returns `dp_stop_requested_active_run`. The current bounded run
 is not interrupted; the launcher exits after that run reaches a terminal state.
 Otherwise it stops only the proven unattended process tree. A missing process
@@ -124,7 +131,10 @@ user prompt. Each process can acquire and renew app-only tokens from the
 existing ignored environment/configuration boundary. Credentials and tokens
 remain absent from Prefect parameters, wrapper state, logs, and tracked files.
 If the ignored configuration or outbound authentication path is unavailable
-after restart, the launcher fails before starting the worker.
+after restart, startup fails before creating the worker with a fixed PHI-safe
+failure category. OCR, Ollama, and Smartsheet are deferred until an eligible
+document reaches the existing production path, where unavailable dependencies
+remain fail-closed and the document remains recoverable.
 
 `StopControlRoom` is maintenance-only. It refuses to proceed while a fresh or
 wrapper-owned worker remains, stops only the proven wrapper-owned server, and

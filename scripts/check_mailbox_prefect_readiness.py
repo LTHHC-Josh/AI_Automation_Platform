@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
 import io
 import json
 import os
@@ -30,6 +31,7 @@ TERMINAL_FLOW_RUN_STATE_TYPES = frozenset(
     {"COMPLETED", "FAILED", "CANCELLED", "CRASHED"}
 )
 FLOW_RUN_PAGE_SIZE = 200
+FRESH_WORKER_HEARTBEAT_SECONDS = 90
 
 
 @dataclass(frozen=True)
@@ -276,11 +278,25 @@ def _prefect_ready() -> bool:
     if workers.status_code != 200:
         return False
     worker_items = workers.json()
-    return (
-        isinstance(worker_items, list)
-        and len(worker_items) == 1
-        and worker_items[0].get("status") == "ONLINE"
+    if not isinstance(worker_items, list):
+        return False
+    cutoff = datetime.now(timezone.utc) - timedelta(
+        seconds=FRESH_WORKER_HEARTBEAT_SECONDS
     )
+    fresh_online_workers = []
+    for item in worker_items:
+        if not isinstance(item, dict) or item.get("status") != "ONLINE":
+            continue
+        value = item.get("last_heartbeat_time")
+        if not isinstance(value, str):
+            continue
+        try:
+            heartbeat = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if heartbeat.tzinfo is not None and heartbeat >= cutoff:
+            fresh_online_workers.append(item)
+    return len(fresh_online_workers) == 1
 
 
 def default_probes() -> ReadinessProbes:

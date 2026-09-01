@@ -2,7 +2,8 @@
 param(
     [Parameter(Mandatory)]
     [ValidateSet('StartUI', 'Status', 'PrepareRun', 'RunOnce', 'StopWorker', 'StartDP', 'StatusDP', 'StopDP', 'StopControlRoom', 'RestartControlRoom')]
-    [string]$Action
+    [string]$Action,
+    [switch]$Json
 )
 
 Set-StrictMode -Version Latest
@@ -15,6 +16,7 @@ $postgresLauncher = Join-Path $PSScriptRoot 'invoke_prefect_postgresql.ps1'
 $workerLauncher = Join-Path $PSScriptRoot 'invoke_prefect_mailbox_worker.ps1'
 $dpLauncher = Join-Path $PSScriptRoot 'invoke_prefect_document_processor.ps1'
 $readinessProbe = Join-Path $PSScriptRoot 'check_mailbox_prefect_readiness.py'
+$dpStartReadinessProbe = Join-Path $PSScriptRoot 'check_unattended_dp_start_readiness.py'
 $stateDirectory = Join-Path $env:LOCALAPPDATA 'LTHHC\Prefect\control-room'
 $statePath = Join-Path $stateDirectory 'owned-processes.json'
 $apiUrl = 'http://127.0.0.1:4200/api'
@@ -210,7 +212,7 @@ function Get-DocumentProcessorStatus {
         } catch { $pollingState = 'state_unreadable' }
     } elseif ($owned) { $pollingState = 'starting' }
     $polling = $owned -and $pollingState -notin @('starting', 'state_unreadable', 'stopped')
-    $degraded = ($owned -and (-not $polling -or -not $control.prefect_server_reachable -or -not $control.work_pool_ready -or -not $control.unattended_deployment_ready -or $control.fresh_online_worker_count -ne 1)) -or ($state.ContainsKey('dp') -and -not $owned -and -not $recordedExited)
+    $degraded = ($owned -and (-not $polling -or -not $control.prefect_server_reachable -or -not $control.work_pool_ready -or -not $control.unattended_deployment_ready -or $control.fresh_online_worker_count -ne 1)) -or ($state.ContainsKey('dp') -and -not $owned -and -not $recordedExited) -or (-not $owned -and $control.fresh_online_worker_count -gt 0)
     return [ordered]@{
         dp_running = $owned
         dp_process_ownership_proven = $owned
@@ -226,6 +228,51 @@ function Get-DocumentProcessorStatus {
         fresh_online_worker_count = $control.fresh_online_worker_count
         degraded = $degraded
     }
+}
+
+function ConvertTo-OperatorYesNo($Value) {
+    if ($Value -eq $true) { return 'Yes' }
+    return 'No'
+}
+
+function Write-OperatorField([string]$Label, $Value) {
+    Write-Output ("{0,-28} {1}" -f ($Label + ':'), [string]$Value)
+}
+
+function Write-ControlPlaneOperatorStatus($Status) {
+    Write-Output 'Prefect Control Room Status'
+    Write-Output '---------------------------'
+    Write-OperatorField 'PostgreSQL Running' (ConvertTo-OperatorYesNo $Status.postgresql_running)
+    Write-OperatorField 'Prefect Server Reachable' (ConvertTo-OperatorYesNo $Status.prefect_server_reachable)
+    Write-OperatorField 'Work Pool Ready' (ConvertTo-OperatorYesNo $Status.work_pool_ready)
+    Write-OperatorField 'Fresh Workers' $Status.fresh_online_worker_count
+    Write-Output ''
+    Write-OperatorField 'Manual Deployment Ready' (ConvertTo-OperatorYesNo $Status.manual_deployment_ready)
+    Write-OperatorField 'Live Deployment Ready' (ConvertTo-OperatorYesNo $Status.unattended_deployment_ready)
+    Write-OperatorField 'Mailbox Run Conflict' (ConvertTo-OperatorYesNo $Status.mailbox_run_conflict)
+    Write-OperatorField 'Unattended Run Active' (ConvertTo-OperatorYesNo $Status.unattended_run_active)
+}
+
+function Write-DocumentProcessorOperatorStatus($Status) {
+    Write-Output 'Document Processor Status'
+    Write-Output '-------------------------'
+    Write-OperatorField 'DP Running' (ConvertTo-OperatorYesNo $Status.dp_running)
+    Write-OperatorField 'Ownership Proven' (ConvertTo-OperatorYesNo $Status.dp_process_ownership_proven)
+    Write-OperatorField 'Control Room Reachable' (ConvertTo-OperatorYesNo $Status.control_room_reachable)
+    Write-OperatorField 'Work Pool Ready' (ConvertTo-OperatorYesNo $Status.work_pool_ready)
+    Write-OperatorField 'Live Deployment Ready' (ConvertTo-OperatorYesNo $Status.unattended_deployment_ready)
+    Write-Output ''
+    Write-OperatorField 'Polling Active' (ConvertTo-OperatorYesNo $Status.polling_active)
+    Write-OperatorField 'Polling State' $Status.polling_state
+    Write-OperatorField 'Current Run Active' (ConvertTo-OperatorYesNo $Status.current_bounded_run_active)
+    Write-OperatorField 'Fresh Workers' $Status.fresh_online_worker_count
+    Write-OperatorField 'Degraded' (ConvertTo-OperatorYesNo $Status.degraded)
+    Write-Output ''
+    $lastCheck = if ($null -eq $Status.last_check_utc -or [string]::IsNullOrWhiteSpace([string]$Status.last_check_utc)) { 'Not yet' } else { [string]$Status.last_check_utc }
+    $nextCheck = if ($null -eq $Status.next_check_utc -or [string]::IsNullOrWhiteSpace([string]$Status.next_check_utc)) { 'Not scheduled' } else { [string]$Status.next_check_utc }
+    Write-OperatorField 'Last Check' $lastCheck
+    Write-OperatorField 'Next Check' $nextCheck
+    Write-OperatorField 'Consecutive Failures' $Status.consecutive_failures
 }
 
 function Start-OwnedComponent([string]$Name, [string]$Script, [string[]]$Arguments, [string]$Marker, [switch]$Interactive) {
@@ -382,6 +429,18 @@ function Start-DocumentProcessor {
     if ($status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 0) {
         throw 'Document Processor startup conflict detected.'
     }
+    $previousPythonPath = $env:PYTHONPATH
+    try {
+        $env:PYTHONPATH = $repositoryRoot
+        $readinessOutput = @(& $python $dpStartReadinessProbe 2>$null)
+        $readinessExitCode = $LASTEXITCODE
+    } finally { $env:PYTHONPATH = $previousPythonPath }
+    $readiness = $null
+    try { $readiness = ($readinessOutput | Select-Object -Last 1 | ConvertFrom-Json) } catch {}
+    if ($readinessExitCode -ne 0 -or $null -eq $readiness -or $readiness.all_ready -ne $true) {
+        $category = if ($null -ne $readiness -and [string]$readiness.failure_category -in @('graph_auth_unavailable', 'local_state_storage_unavailable')) { [string]$readiness.failure_category } else { 'startup_readiness_unavailable' }
+        throw "Document Processor startup readiness failed: $category."
+    }
     Start-OwnedComponent -Name 'dp' -Script $dpLauncher -Arguments @() -Marker 'invoke_prefect_document_processor.ps1'
     try {
         $deadline = [DateTimeOffset]::UtcNow.AddSeconds(90)
@@ -394,12 +453,6 @@ function Start-DocumentProcessor {
             Start-Sleep -Milliseconds 500
         }
         if ((Get-ControlPlaneStatus).fresh_online_worker_count -ne 1) { throw 'Unattended Document Processor worker did not become ready.' }
-        $previousPythonPath = $env:PYTHONPATH
-        try {
-            $env:PYTHONPATH = $repositoryRoot
-            & $python $readinessProbe
-            if ($LASTEXITCODE -ne 0) { throw 'Document Processor application readiness failed.' }
-        } finally { $env:PYTHONPATH = $previousPythonPath }
         $activationPath = Join-Path $stateDirectory 'dp-activate.signal'
         'activate' | Set-Content -LiteralPath $activationPath -Encoding ASCII
         $readyPath = Join-Path $stateDirectory 'dp-ready.json'
@@ -469,10 +522,12 @@ function Stop-ControlRoomInfrastructure {
 
 switch ($Action) {
     'Status' {
-        Get-ControlPlaneStatus | ConvertTo-Json -Compress
+        $status = Get-ControlPlaneStatus
+        if ($Json) { $status | ConvertTo-Json -Compress } else { Write-ControlPlaneOperatorStatus $status }
     }
     'StatusDP' {
-        Get-DocumentProcessorStatus | ConvertTo-Json -Compress
+        $status = Get-DocumentProcessorStatus
+        if ($Json) { $status | ConvertTo-Json -Compress } else { Write-DocumentProcessorOperatorStatus $status }
     }
     'StartUI' {
         Start-ControlRoom

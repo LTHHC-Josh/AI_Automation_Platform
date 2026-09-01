@@ -792,10 +792,54 @@ without the required separate approval.
 
 ## CURRENT NEXT START
 
-Perform the first controlled live unattended Document Processor acceptance
-using startdp/statusdp/stopdp, with one newly eligible unread test document,
-observe one complete automatic Prefect workflow through terminal state, verify
-automatic polling returns to waiting state afterward, then stop the DP cleanly.
+Perform a second controlled live startdp acceptance with no unread document
+required at startup. Verify the DP enters waiting/polling state, verify the
+readable status and statusdp output plus optional `-Json` compatibility, then
+introduce one newly eligible unread test document and observe exactly one
+automatic document-processing run through terminal state before stopping the
+DP cleanly.
+
+First unattended start failure diagnosis and correction checkpoint:
+
+- The first live startdp partially started the wrapper-owned unattended worker
+  before running the full manual application preflight. The fixed registered
+  worker name proves its provenance. That preflight's Prefect probe incorrectly
+  required exactly one total worker history record; Prefect contained the new
+  online unattended worker plus an older offline manual record, so
+  `postgresql_prefect_ready` deterministically failed and the wrapper reduced
+  it to the generic application-readiness error.
+- The full preflight also initialized Paddle and probed Ollama and Smartsheet
+  before unattended waiting began. No document was passed to OCR, but model
+  initialization was unnecessary for an empty/waiting inbox and caused the
+  observed Paddle/oneDNN startup messages.
+- Failure cleanup proved and stopped the wrapper-owned process tree and removed
+  the DP ownership record. The worker's last heartbeat remained fresh briefly,
+  explaining fresh worker count one while dp_running was false. Read-only
+  follow-up found the fixed worker record OFFLINE with a stale heartbeat and
+  found no matching live launcher or worker process; no cleanup was required or
+  performed during diagnosis.
+- StartDP now runs a lightweight categorized startup check before any DP
+  process or worker creation. It verifies only Graph token acquisition and
+  protected local-state writability, does not enumerate the mailbox or touch
+  document content, and returns only graph-auth, storage, or unavailable safe
+  categories. The launcher retains its same-process/network Graph check before
+  worker creation. OCR, Ollama, and Smartsheet remain deferred to the existing
+  production path and fail closed only when an eligible document requires them.
+- Corrected the shared full preflight to require exactly one fresh online
+  worker using the established 90-second heartbeat window while tolerating
+  historical offline records. Manual runonce readiness remains fail-closed for
+  zero, multiple, stale, malformed, or unproven workers.
+- Normal status and statusdp now render stable multi-line PHI-safe operator
+  views with Yes/No values and readable null timestamps. Explicit `-Json`
+  preserves the original machine-readable fields. A fresh heartbeat without a
+  proven DP now marks statusdp degraded during settlement.
+- Focused/affected synthetic deterministic, mock, isolated-profile, and
+  Windows PowerShell 5.1 checks passed. Twenty-two wrapper checks passed; the
+  known isolated real-host CIM test again could not obtain its disposable root
+  identity (exit 21) before exercising shutdown assertions. No startdp,
+  worker/deployment run, live mailbox/Graph document access, protected OCR,
+  Ollama, production document Smartsheet operation, attachment upload, or
+  mailbox mutation occurred during this correction.
 
 Deployment registration and operator-command installation checkpoint:
 

@@ -29,6 +29,10 @@ def test_unattended_commands_are_separate_owned_polling_controls():
     assert "fresh_online_worker_count -ne 0" in start
     assert "mailbox_run_conflict" in start and "unattended_run_active" in start
     assert "System.Threading.Mutex" in start and "WaitOne(0)" in start
+    assert "check_unattended_dp_start_readiness.py" in text
+    assert start.index("$dpStartReadinessProbe") < start.index("Start-OwnedComponent -Name 'dp'")
+    assert "Document Processor application readiness failed." not in start
+    assert "Document Processor startup readiness failed: $category." in start
     assert "dp_stop_requested_active_run" in stop
     assert "dp-stop.signal" in stop
     assert "Stop-OwnedComponent -Name 'dp'" in stop
@@ -63,6 +67,33 @@ Write-Output $PSVersionTable.PSVersion.Major
     assert completed.stdout.strip() == "5"
 
 
+def test_start_dp_readiness_failure_precedes_worker_and_surfaces_safe_category():
+    wrapper_path = str(WRAPPER).replace("'", "''")
+    command = r"""
+$tokens=$null;$errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
+$node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq 'Start-DocumentProcessor'},$true)
+Invoke-Expression $node.Extent.Text
+function Read-ControlState { return @{} }
+function Get-ControlPlaneStatus { return @{postgresql_running=$true;prefect_server_reachable=$true;manual_deployment_ready=$true;unattended_deployment_ready=$true;mailbox_run_conflict=$false;unattended_run_active=$false;fresh_online_worker_count=0} }
+function Test-PrefectServerBackendSafe { return $true }
+function SyntheticPython { $global:LASTEXITCODE=1; return '{"all_ready":false,"failure_category":"graph_auth_unavailable"}' }
+function Start-OwnedComponent { $global:workerCreated=$true }
+$python='SyntheticPython';$dpStartReadinessProbe='synthetic';$repositoryRoot='synthetic';$global:workerCreated=$false
+try { Start-DocumentProcessor; exit 56 } catch {
+  if($_.Exception.Message -ne 'Document Processor startup readiness failed: graph_auth_unavailable.'){exit 57}
+}
+if($global:workerCreated){exit 58}
+Write-Output $PSVersionTable.PSVersion.Major
+""".replace("__WRAPPER__", wrapper_path)
+    completed = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "5"
+
+
 def test_status_dp_reports_running_and_degraded_states_in_windows_powershell_51():
     wrapper_path = str(WRAPPER).replace("'", "''")
     command = r"""
@@ -81,6 +112,36 @@ $global:owned=$true;$global:exited=$false;$global:active=$true;$running=Get-Docu
 if(-not $running.dp_running -or $running.degraded){exit 52}
 $global:owned=$false;$global:exited=$false;$global:active=$true;$degraded=Get-DocumentProcessorStatus
 if($degraded.dp_running -or -not $degraded.degraded){exit 53}
+Write-Output $PSVersionTable.PSVersion.Major
+""".replace("__WRAPPER__", wrapper_path)
+    completed = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "5"
+
+
+def test_status_formatters_are_readable_stable_and_keep_json_mode():
+    text = source()
+    assert "[switch]$Json" in text
+    assert "if ($Json) { $status | ConvertTo-Json -Compress }" in text
+    wrapper_path = str(WRAPPER).replace("'", "''")
+    command = r"""
+$tokens=$null;$errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
+foreach($name in @('ConvertTo-OperatorYesNo','Write-OperatorField','Write-ControlPlaneOperatorStatus','Write-DocumentProcessorOperatorStatus')){
+  $node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq $name},$true)
+  Invoke-Expression $node.Extent.Text
+}
+$control=[ordered]@{postgresql_running=$true;prefect_server_reachable=$false;work_pool_ready=$true;fresh_online_worker_count=0;manual_deployment_ready=$true;unattended_deployment_ready=$true;mailbox_run_conflict=$false;unattended_run_active=$false}
+$dp=[ordered]@{dp_running=$false;dp_process_ownership_proven=$false;control_room_reachable=$true;work_pool_ready=$false;unattended_deployment_ready=$true;polling_active=$false;polling_state='stopped';current_bounded_run_active=$false;fresh_online_worker_count=0;degraded=$false;last_check_utc=$null;next_check_utc=$null;consecutive_failures=0}
+$controlText=(Write-ControlPlaneOperatorStatus $control)-join "`n"
+$dpText=(Write-DocumentProcessorOperatorStatus $dp)-join "`n"
+if($controlText.IndexOf('PostgreSQL Running:') -gt $controlText.IndexOf('Fresh Workers:')){exit 61}
+if($controlText -notmatch 'PostgreSQL Running:\s+Yes' -or $controlText -notmatch 'Prefect Server Reachable:\s+No'){exit 62}
+if($dpText.IndexOf('DP Running:') -gt $dpText.IndexOf('Polling Active:')){exit 63}
+if($dpText -notmatch 'Last Check:\s+Not yet' -or $dpText -notmatch 'Next Check:\s+Not scheduled'){exit 64}
 Write-Output $PSVersionTable.PSVersion.Major
 """.replace("__WRAPPER__", wrapper_path)
     completed = subprocess.run(
