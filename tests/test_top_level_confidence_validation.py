@@ -86,7 +86,7 @@ def test_lower_confidence_is_preserved() -> None:
     assert actions == []
 
 
-def test_empty_value_confidence_becomes_zero() -> None:
+def test_empty_value_has_no_validated_confidence() -> None:
     document = build_document(
         {
             "approved_visits": {
@@ -102,7 +102,8 @@ def test_empty_value_confidence_becomes_zero() -> None:
     )
 
     assert document.extracted_data["approved_visits"] is None
-    assert document.field_confidences["approved_visits"] == 0.0
+    assert "approved_visits" not in document.field_confidences
+    assert document.field_evidence["approved_visits"]["confidence"] is None
     assert actions == []
 
 
@@ -122,7 +123,7 @@ def test_unsupported_value_is_still_invalidated() -> None:
     )
 
     assert document.extracted_data["authorization_number"] is None
-    assert document.field_confidences["authorization_number"] == 0.0
+    assert "authorization_number" not in document.field_confidences
 
     assert (
         "authorization_number is not supported "
@@ -192,8 +193,8 @@ def main() -> None:
             test_lower_confidence_is_preserved,
         ),
         (
-            "empty value confidence becomes zero",
-            test_empty_value_confidence_becomes_zero,
+            "empty value has no validated confidence",
+            test_empty_value_has_no_validated_confidence,
         ),
         (
             "unsupported value is still invalidated",

@@ -251,7 +251,8 @@ class EvidenceValidationService:
             if self._is_empty_value(
                 value
             ):
-                evidence["confidence"] = 0.0
+                # Explicit structured absence is not a zero-confidence claim.
+                evidence["confidence"] = None
                 continue
 
             confidence = self._normalize_confidence(
@@ -1058,10 +1059,12 @@ class EvidenceValidationService:
                 actions=actions,
             )
 
-            if (
-                service_line.confidence
-                < self.SERVICE_LINE_LOW_CONFIDENCE_THRESHOLD
-            ):
+            candidate_confidence = self._normalize_confidence(
+                service_line.candidate_evidence.get(
+                    "confidence", service_line.confidence
+                )
+            )
+            if candidate_confidence < self.SERVICE_LINE_LOW_CONFIDENCE_THRESHOLD:
                 actions.append(
                     f"Service line {line_number} has low confidence"
                 )
@@ -1641,14 +1644,11 @@ class EvidenceValidationService:
         }
 
         document.field_confidences = {
-            field_name: self._normalize_confidence(
-                evidence.get(
-                    "confidence",
-                    0.0,
-                )
-            )
-            for field_name, evidence
-            in document.field_evidence.items()
+            field_name: self._normalize_confidence(evidence.get("confidence"))
+            for field_name, evidence in document.field_evidence.items()
+            if not self._is_empty_value(evidence.get("value"))
+            and not isinstance(evidence.get("confidence"), bool)
+            and isinstance(evidence.get("confidence"), (int, float))
         }
 
     def _parse_date(

@@ -16,6 +16,8 @@ from src.services.smartsheet_review_configuration_service import (
 from src.services.mailbox_document_smartsheet_recovery_service import (
     MailboxDocumentSmartsheetRecoveryService,
 )
+from src.services.production_filename_assembly_service import FilenameReadinessDiagnostic
+from src.services.review_reason_summary_service import ReviewReasonSummaryService
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,9 @@ class MailboxCompleteReviewSmartsheetResult:
     status: str
     row_action: str = "skipped"
     attachment_action: str = "skipped"
+    filename_readiness: FilenameReadinessDiagnostic | None = None
+    review_reason_count: int = 0
+    review_reason_categories: tuple[str, ...] = ()
 
 
 class MailboxCompleteReviewSmartsheetService:
@@ -136,6 +141,10 @@ class MailboxCompleteReviewSmartsheetService:
         partial_success_count = 0
         row_actions = []
         attachment_actions = []
+        filename_diagnostics = []
+        review_reason_categories = []
+        review_reason_count = 0
+        reason_summary = ReviewReasonSummaryService()
 
         for message_result in results:
             work_items = getattr(message_result, "work_items", [])
@@ -143,6 +152,17 @@ class MailboxCompleteReviewSmartsheetService:
                 message_complete = True
                 for work_item in work_items:
                     document_count += 1
+                    review_output = getattr(
+                        getattr(work_item, "document", None), "review_output", None)
+                    final_reasons = tuple(dict.fromkeys(
+                        str(reason) for reason in getattr(
+                            review_output, "review_reasons", ()) if str(reason).strip()
+                    ))
+                    review_reason_count += len(final_reasons)
+                    codes = reason_summary.summarize_codes(
+                        final_reasons)
+                    review_reason_categories.extend(
+                        code for code in codes.split("; ") if code)
                     try:
                         recovery_result = self.recovery_service.run(
                             work_item=work_item, run_type=run_type)
@@ -152,6 +172,8 @@ class MailboxCompleteReviewSmartsheetService:
                         written_count += int(recovery_result.row_action == "created")
                         row_actions.append(recovery_result.row_action)
                         attachment_actions.append(recovery_result.attachment_action)
+                        if recovery_result.filename_readiness is not None:
+                            filename_diagnostics.append(recovery_result.filename_readiness)
                     if recovery_result is not None and recovery_result.completed:
                         pass
                     else:
@@ -183,6 +205,14 @@ class MailboxCompleteReviewSmartsheetService:
                     "review_output",
                     None,
                 )
+                codes = reason_summary.summarize_codes(
+                    getattr(review_output, "review_reasons", ()))
+                review_reason_count += len(tuple(dict.fromkeys(
+                    str(reason) for reason in getattr(
+                        review_output, "review_reasons", ()) if str(reason).strip()
+                )))
+                review_reason_categories.extend(
+                    code for code in codes.split("; ") if code)
 
                 if not isinstance(
                     review_output,
@@ -289,6 +319,11 @@ class MailboxCompleteReviewSmartsheetService:
             status=status,
             row_action=self._aggregate_actions(row_actions),
             attachment_action=self._aggregate_actions(attachment_actions),
+            filename_readiness=(
+                filename_diagnostics[0] if len(filename_diagnostics) == 1 else None
+            ),
+            review_reason_count=review_reason_count,
+            review_reason_categories=tuple(dict.fromkeys(review_reason_categories)),
         )
 
     @staticmethod

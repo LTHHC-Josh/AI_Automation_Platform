@@ -74,12 +74,7 @@ def test_missing_source_text_clears_protected_field() -> None:
         is None
     )
 
-    assert (
-        document.field_confidences[
-            "authorization_number"
-        ]
-        == 0.0
-    )
+    assert "authorization_number" not in document.field_confidences
 
     assert (
         "authorization_number has no source evidence"
@@ -129,12 +124,7 @@ def test_unsupported_identifier_is_cleared() -> None:
         is None
     )
 
-    assert (
-        document.field_confidences[
-            "authorization_number"
-        ]
-        == 0.0
-    )
+    assert "authorization_number" not in document.field_confidences
 
     assert (
         document.field_evidence[
@@ -194,7 +184,7 @@ def test_unsupported_date_evidence_is_cleared() -> None:
     actions = service.validate(document)
 
     assert document.extracted_data["start_date"] is None
-    assert document.field_confidences["start_date"] == 0.0
+    assert "start_date" not in document.field_confidences
 
     assert (
         document.field_evidence[
@@ -295,7 +285,7 @@ def test_invalid_modifier_structure_is_cleared() -> None:
     actions = service.validate(document)
 
     assert document.extracted_data["modifier"] is None
-    assert document.field_confidences["modifier"] == 0.0
+    assert "modifier" not in document.field_confidences
 
     assert (
         document.field_evidence[
@@ -356,7 +346,7 @@ def test_ambiguous_request_type_is_cleared() -> None:
     actions = service.validate(document)
 
     assert document.extracted_data["request_type"] is None
-    assert document.field_confidences["request_type"] == 0.0
+    assert "request_type" not in document.field_confidences
 
     assert (
         document.field_evidence[
@@ -389,7 +379,7 @@ def test_requested_visits_are_not_approved_visits() -> None:
     actions = service.validate(document)
 
     assert document.extracted_data["approved_visits"] is None
-    assert document.field_confidences["approved_visits"] == 0.0
+    assert "approved_visits" not in document.field_confidences
 
     assert (
         document.field_evidence[
@@ -544,10 +534,7 @@ def test_service_line_unsupported_code_is_cleared() -> None:
         in actions
     )
 
-    assert (
-        "Service line 1 has low confidence"
-        in actions
-    )
+    assert "Service line 1 has low confidence" not in actions
 
 
 def test_service_line_invalid_modifier_is_cleared() -> None:

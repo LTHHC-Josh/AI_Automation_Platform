@@ -9585,6 +9585,37 @@ Smartsheet value/confidence consistency, business filename versus technical
 fallback, specific review reasons, Workflow Summary action states, and clean
 return to waiting before stopdp.
 
+Review-state and business-filename resolution checkpoint (2026-09-01):
+
+- Added deterministic accepted/not-present/missing-required/low-confidence/
+  unsupported/conflicting/ambiguous/invalid field states without treating all
+  extraction-schema fields as business-required. Existing authorization rules
+  remain the requiredness authority.
+- Optional absent evidence no longer receives a validated zero-confidence
+  entry or generates source-support/low-confidence review noise. Unsupported
+  candidates remain preserved only in the protected review contract.
+- Corrected service-line low-confidence review to use original candidate
+  confidence rather than the safety downgrade caused by an unsupported child.
+  Smartsheet review reasons now use concise human-readable PHI-safe phrases;
+  fixed technical categories remain available for diagnostics.
+- Added ambiguity-safe authoritative payer/service lookup across omitted
+  optional key/modifier/program dimensions and aligned date readiness with the
+  established single-date-or-range filename policy. The local ignored
+  reference cache passed count/boolean-only schema validation.
+- Workflow Summary now exposes only safe filename component readiness,
+  qualifier state, business/fallback result, review reason count, and fixed
+  reason categories. Focused and affected synthetic deterministic/mock/local-
+  file tests passed without live mailbox/Graph, protected OCR/Ollama,
+  deployment, production Smartsheet document write/upload, or mailbox mutation.
+
+Exact next start: refresh source/deployment registration if required, then
+perform one controlled unattended live run with a different document to verify
+optional absent fields do not trigger review, accepted confidence aligns with
+review reasons, Smartsheet AI Review Reason is human-readable and concise,
+filename readiness is visible, business filename resolves when all required
+evidence exists, Workflow Summary is accurate, and DP returns cleanly to
+waiting.
+
 """
 
 

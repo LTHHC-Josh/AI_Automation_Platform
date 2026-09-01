@@ -14,9 +14,9 @@ def test_summary_groups_duplicate_technical_reasons_without_mutation():
 
     assert reasons == original
     assert summary == (
-        "service_codes_unclear_source_support; "
-        "service_codes_low_confidence; "
-        "modifiers_unclear_source_support"
+        "Service code could not be verified from document evidence; "
+        "Service code confidence is below the required threshold; "
+        "Modifier could not be verified from document evidence"
     )
 
 
@@ -32,8 +32,8 @@ def test_summary_excludes_patient_values_source_text_and_internal_wording():
     assert marker not in summary
     assert "source_text" not in summary
     assert "checkbox" not in summary.lower()
-    assert "quantity_unclear_source_support" in summary
-    assert "authorization_status_unclear_source_support" in summary
+    assert "Quantity could not be verified" in summary
+    assert "Authorization status could not be verified" in summary
 
 
 def test_mapper_uses_summary_but_preserves_review_output():
@@ -63,7 +63,8 @@ def test_mapper_uses_summary_but_preserves_review_output():
 
     assert output.review_reasons == original
     assert result.values["AI Review Reasons"] == (
-        "service_codes_unclear_source_support; service_codes_low_confidence"
+        "Service code could not be verified from document evidence; "
+        "Service code confidence is below the required threshold"
     )
     assert result.values["AI Review Required"] is True
 
@@ -71,7 +72,7 @@ def test_mapper_uses_summary_but_preserves_review_output():
 def test_known_business_rule_maps_to_exact_phi_safe_code():
     assert ReviewReasonSummaryService().summarize(
         ["Authorization quantity requires verification"]
-    ) == "authorization_quantity_requires_verification"
+    ) == "Authorization quantity meaning requires verification"
 
 
 def test_service_line_reasons_preserve_scope_and_do_not_become_document_details():
@@ -84,13 +85,21 @@ def test_service_line_reasons_preserve_scope_and_do_not_become_document_details(
         "Service-line modifier relationship requires verification",
     ])
     assert summary == (
-        "service_line_modifier_unclear_source_support; "
-        "service_line_quantity_unclear_source_support; "
-        "service_line_date_unclear_source_support; "
-        "service_line_status_unclear_source_support; "
-        "service_line_low_confidence; modifier_ownership_unresolved"
+        "Service-line modifier could not be verified from document evidence; "
+        "Service-line quantity could not be verified from document evidence; "
+        "Service-line date could not be verified from document evidence; "
+        "Service-line status could not be verified from document evidence; "
+        "Service-line confidence is below the required threshold; "
+        "A modifier was found but could not be reliably assigned to a service line"
     )
-    assert "document_details" not in summary
+    assert "Document details" not in summary
+
+
+def test_internal_codes_remain_available_for_phi_safe_diagnostics():
+    codes = ReviewReasonSummaryService().summarize_codes([
+        "Service line 1 quantity is not supported by its source evidence"
+    ])
+    assert codes == "service_line_quantity_unclear_source_support"
 
 
 if __name__ == "__main__":

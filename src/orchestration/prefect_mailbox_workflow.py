@@ -152,6 +152,15 @@ def record_mailbox_workflow_summary(
     row_attempt_count: int = 0,
     attachment_attempt_count: int = 0,
     completed_document_count: int = 0,
+    filename_person_components: str = "Unresolved",
+    filename_payer_lookup: str = "Unresolved",
+    filename_service_lookup: str = "Unresolved",
+    filename_dates: str = "Unresolved",
+    filename_workflow: str = "Unresolved",
+    filename_qualifier: str = "Unresolved",
+    filename_result: str = "Technical Fallback",
+    review_reason_count: int = 0,
+    review_reason_categories: str = "none",
     review_required: bool | None = None,
     attempt_count: int | None = None,
     selected_attempt: int | None = None,
@@ -423,6 +432,7 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
     candidate_event = summary_events.get("extraction_candidate_selection", {})
     retry_event = summary_events.get("extraction_retry_decision", {})
     review_event = summary_events.get("review_determination", {})
+    filename = result.filename_readiness
     safe_summary = {
         "final_workflow_status": result.status,
         "document_count": result.document_count,
@@ -438,6 +448,32 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
         "row_attempt_count": result.row_attempt_count,
         "attachment_attempt_count": result.attachment_attempt_count,
         "completed_document_count": result.completed_document_count,
+        "filename_person_components": (
+            "Ready" if filename and filename.person_components_ready else "Unresolved"
+        ),
+        "filename_payer_lookup": (
+            "Ready" if filename and filename.payer_lookup_ready else "Unresolved"
+        ),
+        "filename_service_lookup": (
+            "Ready" if filename and filename.service_lookup_ready else "Unresolved"
+        ),
+        "filename_dates": (
+            "Ready" if filename and filename.dates_ready else "Unresolved"
+        ),
+        "filename_workflow": (
+            "Ready" if filename and filename.workflow_ready else "Unresolved"
+        ),
+        "filename_qualifier": (
+            filename.qualifier_status if filename else "Not Evaluated"
+        ),
+        "filename_result": (
+            filename.filename_result if filename else "Not Evaluated"
+        ),
+        "review_reason_count": result.review_reason_count,
+        "review_reason_categories": (
+            "; ".join(result.review_reason_categories)
+            if result.review_reason_categories else "none"
+        ),
         "review_required": review_event.get("review_required"),
         "attempt_count": extraction_event.get("attempt_count"),
         "selected_attempt": candidate_event.get("selected_attempt"),

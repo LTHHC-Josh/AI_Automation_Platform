@@ -957,13 +957,46 @@ Smartsheet action visibility checkpoint:
   tests passed without live mailbox/Graph, protected OCR/Ollama, deployment,
   production Smartsheet write/upload, or mailbox mutation.
 
+Review-state and business-filename resolution checkpoint:
+
+- Formalized the PHI-safe validation states `not_present`,
+  `missing_required`, `accepted`, `low_confidence`, `unsupported`,
+  `conflicting`, `ambiguous`, and `invalid`. Authorization requiredness remains
+  sourced from the existing business rule; optional extraction/service-line
+  fields are not promoted to required fields.
+- Explicitly absent optional evidence now has no validated confidence entry,
+  does not lower minimum displayed confidence, and does not create validation
+  or review noise. Unsupported candidates retain protected candidate evidence
+  but remain absent from validated production values/confidences.
+- Service-line low-confidence review now uses the original candidate line
+  confidence, not the post-validation 0.50 safety downgrade caused by rejecting
+  one child component. Specific source-support and modifier-ownership reasons
+  remain when their present candidate evidence actually fails validation.
+- Smartsheet AI Review Reasons are concise, deterministic, human-readable,
+  PHI-safe phrases. Fixed internal codes remain available separately for
+  diagnostics and Workflow Summary categories.
+- Authoritative payer lookup now tolerates an omitted optional key only when
+  one payer result remains. Service lookup tolerates absent optional modifier/
+  program dimensions only when all compatible rows yield one naming token;
+  ambiguity still fails closed. A single supported service date is correctly
+  marked naming-ready because the filename policy already supports a single
+  date or a range.
+- The ignored reference cache passed read-only schema validation with nonzero
+  payer and service tables. Workflow Summary now includes safe filename
+  component readiness, qualifier state, business/fallback result, review reason
+  count, and fixed reason categories. Historical live fallback component(s)
+  were not persisted before this checkpoint, so the prior run cannot be
+  retrospectively attributed to one specific component without exposing or
+  rerunning protected evidence.
+
 ## CURRENT NEXT START
 
-Perform one controlled unattended live run with a different document to verify
-full OCR/extraction/validation behavior, validated Smartsheet value/confidence
-consistency, business filename versus technical fallback, specific review
-reasons, Workflow Summary action states, and clean return to waiting before
-stopdp.
+Refresh source/deployment registration if required, then perform one controlled
+unattended live run with a different document to verify optional absent fields
+do not trigger review, accepted confidence aligns with review reasons,
+Smartsheet AI Review Reason is human-readable and concise, filename readiness
+is visible, business filename resolves when all required evidence exists,
+Workflow Summary is accurate, and DP returns cleanly to waiting.
 
 First unattended start failure diagnosis and correction checkpoint:
 

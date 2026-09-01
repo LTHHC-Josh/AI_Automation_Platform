@@ -1,9 +1,34 @@
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 from src.models.document import Document
 from src.services.review_decision_service import ReviewDecisionService
 from src.services.review_reason_summary_service import ReviewReasonSummaryService
+
+
+class FieldValidationState(str, Enum):
+    NOT_PRESENT = "not_present"
+    MISSING_REQUIRED = "missing_required"
+    ACCEPTED = "accepted"
+    LOW_CONFIDENCE = "low_confidence"
+    UNSUPPORTED = "unsupported"
+    CONFLICTING = "conflicting"
+    AMBIGUOUS = "ambiguous"
+    INVALID = "invalid"
+
+
+class DocumentFieldRequirementService:
+    """Expose only requiredness already enforced by committed business rules."""
+
+    AUTHORIZATION_REQUIRED_FIELDS = frozenset({
+        "patient_name", "authorization_number", "payer", "member_id",
+        "authorization_status", "start_date", "end_date",
+    })
+
+    def is_required(self, document: Any, field_name: str) -> bool:
+        category = str(getattr(document, "document_category", "") or "").lower()
+        return category == "authorization" and field_name in self.AUTHORIZATION_REQUIRED_FIELDS
 
 
 @dataclass(frozen=True)
@@ -16,14 +41,18 @@ class FieldValidationDiagnostic:
     validation_passed: bool
     review_triggered: bool
     reason_code: str | None
+    field_state: str = FieldValidationState.NOT_PRESENT.value
+    required: bool = False
 
 
 class FieldValidationDiagnosticService:
     """Build PHI-safe field-state diagnostics without returning field values."""
 
-    def __init__(self, *, threshold: float = ReviewDecisionService.FIELD_CONFIDENCE_THRESHOLD):
+    def __init__(self, *, threshold: float = ReviewDecisionService.FIELD_CONFIDENCE_THRESHOLD,
+                 requirement_service=None):
         self.threshold = float(threshold)
         self.reason_summary = ReviewReasonSummaryService()
+        self.requirement_service = requirement_service or DocumentFieldRequirementService()
 
     def build(self, document: Any, field_name: str) -> FieldValidationDiagnostic:
         evidence = (
@@ -41,12 +70,17 @@ class FieldValidationDiagnosticService:
             if str(action).lower().startswith(field_name.replace("_", " ").lower())
             or str(action).lower().startswith(field_name.lower())
         ]
-        reason_code = self.reason_summary.summarize(matching_actions) or None
+        reason_code = self.reason_summary.summarize_codes(matching_actions) or None
         threshold_passed = (
             candidate_confidence is not None
             and candidate_confidence >= self.threshold
         )
         validation_passed = value_present and not matching_actions
+        required = self.requirement_service.is_required(document, field_name)
+        state = self._state(
+            value_present=value_present, required=required,
+            threshold_passed=threshold_passed, actions=matching_actions,
+        )
         return FieldValidationDiagnostic(
             field_category=field_name,
             candidate_confidence=candidate_confidence,
@@ -54,8 +88,12 @@ class FieldValidationDiagnosticService:
             source_support_proven=validation_passed,
             validated_value_present=value_present,
             validation_passed=validation_passed,
-            review_triggered=bool(matching_actions) or (value_present and not threshold_passed),
+            review_triggered=state not in {
+                FieldValidationState.ACCEPTED, FieldValidationState.NOT_PRESENT,
+            },
             reason_code=reason_code,
+            field_state=state.value,
+            required=required,
         )
 
     def build_service_line(
@@ -85,7 +123,7 @@ class FieldValidationDiagnosticService:
             for action in getattr(document, "validation_actions", [])
             if str(action).lower().startswith(prefix)
         ]
-        reason_code = self.reason_summary.summarize(matching) or None
+        reason_code = self.reason_summary.summarize_codes(matching) or None
         threshold_passed = candidate_confidence is not None and candidate_confidence >= self.threshold
         validation_passed = value_present and not matching
         return FieldValidationDiagnostic(
@@ -97,7 +135,32 @@ class FieldValidationDiagnosticService:
             validation_passed=validation_passed,
             review_triggered=bool(matching) or (value_present and not threshold_passed),
             reason_code=reason_code,
+            field_state=self._state(
+                value_present=value_present, required=False,
+                threshold_passed=threshold_passed, actions=matching,
+            ).value,
+            required=False,
         )
+
+    @staticmethod
+    def _state(*, value_present, required, threshold_passed, actions):
+        text = " ".join(str(action).lower() for action in actions)
+        if actions:
+            if "conflict" in text or "multiple" in text:
+                return FieldValidationState.CONFLICTING
+            if "ambiguous" in text or "requires verification" in text:
+                return FieldValidationState.AMBIGUOUS
+            if "invalid" in text or "could not be normalized" in text:
+                return FieldValidationState.INVALID
+            return FieldValidationState.UNSUPPORTED
+        if not value_present:
+            return (
+                FieldValidationState.MISSING_REQUIRED
+                if required else FieldValidationState.NOT_PRESENT
+            )
+        if not threshold_passed:
+            return FieldValidationState.LOW_CONFIDENCE
+        return FieldValidationState.ACCEPTED
 
     @staticmethod
     def _confidence(value: Any) -> float | None:

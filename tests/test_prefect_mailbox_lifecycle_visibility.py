@@ -18,6 +18,7 @@ import src.orchestration.prefect_mailbox_workflow as workflow
 from src.services.mailbox_full_review_orchestration_service import (
     MailboxFullReviewOrchestrationResult,
 )
+from src.services.production_filename_assembly_service import FilenameReadinessDiagnostic
 
 
 VISIBLE_STAGES = (
@@ -73,6 +74,10 @@ def result():
         completed_document_count=1,
         row_action="created",
         attachment_action="uploaded",
+        filename_readiness=FilenameReadinessDiagnostic(
+            True, True, True, True, True, "Not Required", "Business"),
+        review_reason_count=1,
+        review_reason_categories=("authorization_quantity_requires_verification",),
     )
 
 
@@ -277,10 +282,16 @@ def test_summary_contract_excludes_protected_fields():
     source = Path(workflow.__file__).read_text(encoding="utf-8")
     summary_block = source.split("safe_summary = {", 1)[1].split("}\n    try:", 1)[0]
     for protected in (
-        "source_text", "message_identity", "filename", "attachment_name",
+        "source_text", "message_identity", "attachment_name", "document_name",
         "row_id", "payload", "mailbox_identity", "local_path", "credential",
     ):
         assert protected not in summary_block
+    for safe_readiness_field in (
+        "filename_person_components", "filename_payer_lookup",
+        "filename_service_lookup", "filename_dates", "filename_workflow",
+        "filename_qualifier", "filename_result",
+    ):
+        assert safe_readiness_field in summary_block
     try:
         workflow.record_mailbox_workflow_summary.fn(
             final_workflow_status="completed",
@@ -292,6 +303,15 @@ def test_summary_contract_excludes_protected_fields():
             row_attempt_count=1,
             attachment_attempt_count=1,
             completed_document_count=1,
+            filename_person_components="Ready",
+            filename_payer_lookup="Ready",
+            filename_service_lookup="Ready",
+            filename_dates="Ready",
+            filename_workflow="Ready",
+            filename_qualifier="Not Required",
+            filename_result="Business",
+            review_reason_count=1,
+            review_reason_categories="authorization_quantity_requires_verification",
             source_text="PROTECTED",
         )
     except TypeError:

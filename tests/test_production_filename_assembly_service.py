@@ -202,6 +202,25 @@ def test_filename_readiness_diagnostics_are_phi_safe_and_match_result():
     assert "EXAMPLE" not in repr(fallback)
 
 
+def test_unique_authoritative_service_resolves_when_modifier_and_program_are_absent():
+    subject = document()
+    subject.service_lines[0].modifier = None
+    result = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
+        document=subject, source_extension=".pdf")
+    assert result.business_name_resolved is True
+    assert "SERVICE" in result.policy_result.filename
+
+
+def test_single_supported_service_date_is_ready_and_policy_supported():
+    subject = document()
+    subject.service_lines[0].end_date = None
+    service = ProductionFilenameAssemblyService(tables_provider=tables)
+    diagnostic = service.diagnose(document=subject, source_extension=".pdf")
+    result = service.resolve(document=subject, source_extension=".pdf")
+    assert diagnostic.dates_ready is True
+    assert result.business_name_resolved is True
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

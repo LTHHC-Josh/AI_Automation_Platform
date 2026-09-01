@@ -161,13 +161,39 @@ def test_refresh_uses_version_cache_and_preserves_last_known_good():
         assert ReferenceTableLoader().load(service.workbook_path).success is True
 
 
-def test_missing_and_ambiguous_lookups_never_guess():
+def test_missing_lookup_fails_and_unique_optional_modifier_resolves():
     with TemporaryDirectory() as directory:
         path = Path(directory) / "synthetic.xlsx"; write_workbook(path, valid_sheets())
         tables = ReferenceTableLoader().load(path).tables
 
     assert tables.payors.lookup("UNKNOWN", "").resolved is False
-    assert tables.services.lookup("T0000", "", "SYNTHETIC PROGRAM").resolved is False
+    optional_modifier = tables.services.lookup("T0000", "", "SYNTHETIC PROGRAM")
+    assert optional_modifier.resolved is True
+    assert optional_modifier.value == "T0000U1"
+
+
+def test_blank_optional_dimensions_require_one_authoritative_result():
+    sheets = valid_sheets()
+    sheets["SERVICES LISTING"].append(
+        ["T0000", "U2", "SYNTHETIC PROGRAM", "Synthetic", "Group", "", "", "OTHER"]
+    )
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "synthetic.xlsx"; write_workbook(path, sheets)
+        services = ReferenceTableLoader().load(path).tables.services
+    lookup = services.lookup("T0000", "", "SYNTHETIC PROGRAM")
+    assert lookup.resolved is False
+    assert lookup.status == "ambiguous"
+
+
+def test_payer_name_resolves_across_optional_key_only_when_unique():
+    sheets = valid_sheets()
+    sheets["PAYOR LISTING"][1][1] = "SYNTHETIC KEY"
+    with TemporaryDirectory() as directory:
+        path = Path(directory) / "synthetic.xlsx"; write_workbook(path, sheets)
+        payors = ReferenceTableLoader().load(path).tables.payors
+    lookup = payors.lookup("SYNTHETIC PAYOR", "")
+    assert lookup.resolved is True
+    assert lookup.value == "SP"
 
 
 def test_conflicting_three_part_service_mappings_load_but_lookup_is_ambiguous():

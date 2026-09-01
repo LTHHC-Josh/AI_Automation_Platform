@@ -129,7 +129,7 @@ class ProductionFilenameAssemblyService:
         if service_applicable and service is not None and isinstance(tables, ReferenceTables):
             code, modifier, program, start, end = service
             service_ready = tables.services.lookup(code, modifier, program).resolved
-            dates_ready = bool(start and end)
+            dates_ready = bool(start or end)
         elif not service_applicable:
             dates_ready = bool(
                 self._supported_scalar(document, "start_date", required=False)

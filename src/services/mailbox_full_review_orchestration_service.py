@@ -18,6 +18,7 @@ from src.services.mailbox_acceptance_handoff_service import (
     MailboxAcceptanceHandoffService,
 )
 from src.models.mailbox_acceptance import MailboxAcceptanceSelectionResult
+from src.services.production_filename_assembly_service import FilenameReadinessDiagnostic
 
 
 class FirstEligibleMailboxCandidateSelector:
@@ -70,6 +71,9 @@ class MailboxFullReviewOrchestrationResult:
     completed_document_count: int = 0
     row_action: str = "skipped"
     attachment_action: str = "skipped"
+    filename_readiness: FilenameReadinessDiagnostic | None = None
+    review_reason_count: int = 0
+    review_reason_categories: tuple[str, ...] = ()
 
 
 class MailboxClassificationReviewMode(str, Enum):
@@ -444,6 +448,9 @@ class MailboxFullReviewOrchestrationService:
             failure_category=None if success else "workflow_failed",
             row_action=complete_result.row_action,
             attachment_action=complete_result.attachment_action,
+            filename_readiness=complete_result.filename_readiness,
+            review_reason_count=complete_result.review_reason_count,
+            review_reason_categories=complete_result.review_reason_categories,
         )
         if result.success:
             self._observe(stage_observer, "completed", "completed", action_started_at)
@@ -654,6 +661,9 @@ class MailboxFullReviewOrchestrationService:
         complete_review_cancelled_count: int = 0,
         row_action: str = "skipped",
         attachment_action: str = "skipped",
+        filename_readiness: FilenameReadinessDiagnostic | None = None,
+        review_reason_count: int = 0,
+        review_reason_categories: tuple[str, ...] = (),
     ) -> MailboxFullReviewOrchestrationResult:
         results = list(message_results)
         job_keys = [
@@ -707,6 +717,9 @@ class MailboxFullReviewOrchestrationService:
             completed_document_count=completed_document_count,
             row_action=row_action,
             attachment_action=attachment_action,
+            filename_readiness=filename_readiness,
+            review_reason_count=review_reason_count,
+            review_reason_categories=review_reason_categories,
         )
 
     @staticmethod

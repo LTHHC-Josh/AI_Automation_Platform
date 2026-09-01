@@ -71,7 +71,55 @@ class ReviewReasonSummaryService:
         ("extracted fields", ("extracted field", "structured data")),
     )
 
+    OPERATOR_REASONS = {
+        "authorization_quantity_requires_verification": "Authorization quantity meaning requires verification",
+        "authorization_subtype_requires_verification": "Authorization workflow requires verification",
+        "classification_confidence_below_required_threshold": "Document classification confidence is below the required threshold",
+        "classification_confidence_below_recommended_threshold": "Document classification confidence is below the recommended threshold",
+        "extraction_field_confidence_below_threshold": "An accepted extracted field is below the confidence threshold",
+        "structured_data_unavailable": "No supported structured information was found",
+        "document_type_unknown": "Document type could not be determined",
+        "document_category_unknown": "Document category could not be determined",
+        "document_category_unsupported": "Document category is not supported",
+        "authorization_subtype_unknown": "Authorization workflow could not be determined",
+        "termination_subtype_unknown": "Termination workflow could not be determined",
+        "classification_category_subtype_incompatible": "Document category and workflow are inconsistent",
+        "document_category_requires_confirmation": "Document category requires confirmation",
+        "classification_support_reason_missing": "Document classification evidence is incomplete",
+        "modifier_ownership_unresolved": "A modifier was found but could not be reliably assigned to a service line",
+        "service_line_modifier_unclear_source_support": "Service-line modifier could not be verified from document evidence",
+        "service_line_quantity_unclear_source_support": "Service-line quantity could not be verified from document evidence",
+        "service_line_date_unclear_source_support": "Service-line date could not be verified from document evidence",
+        "service_line_status_unclear_source_support": "Service-line status could not be verified from document evidence",
+        "service_line_service_code_unclear_source_support": "Service-line code could not be verified from document evidence",
+        "service_line_low_confidence": "Service-line confidence is below the required threshold",
+        "service_line_source_unavailable": "Service-line source evidence is unavailable",
+        "authorization_status_unclear_source_support": "Authorization status could not be verified from document evidence",
+        "modifiers_unclear_source_support": "Modifier could not be verified from document evidence",
+        "quantity_unclear_source_support": "Quantity could not be verified from document evidence",
+        "dates_unclear_source_support": "Date could not be verified from document evidence",
+        "identifiers_unclear_source_support": "Identifier could not be verified from document evidence",
+        "request_type_unclear_source_support": "Request type could not be verified from document evidence",
+        "service_codes_unclear_source_support": "Service code could not be verified from document evidence",
+        "service_codes_low_confidence": "Service code confidence is below the required threshold",
+        "modifiers_low_confidence": "Modifier confidence is below the required threshold",
+        "document_details_unclear_source_support": "Document information could not be verified",
+    }
+
     def summarize(self, reasons: Iterable[str]) -> str:
+        codes = self.summarize_codes(reasons)
+        if not codes:
+            return ""
+        operator_reasons = []
+        for code in codes.split("; "):
+            reason = self.OPERATOR_REASONS.get(code)
+            if reason is None:
+                reason = self._humanize_safe_code(code)
+            if reason not in operator_reasons:
+                operator_reasons.append(reason)
+        return "; ".join(operator_reasons)
+
+    def summarize_codes(self, reasons: Iterable[str]) -> str:
         normalized = [
             str(reason).strip().lower()
             for reason in reasons
@@ -82,6 +130,11 @@ class ReviewReasonSummaryService:
 
         codes = self._reason_codes(normalized)
         return "; ".join(codes)
+
+    @staticmethod
+    def _humanize_safe_code(code: str) -> str:
+        words = str(code or "unresolved_document_information").replace("_", " ")
+        return words[:1].upper() + words[1:]
 
     def _reason_codes(self, reasons: list[str]) -> list[str]:
         codes: list[str] = []

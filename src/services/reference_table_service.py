@@ -27,8 +27,20 @@ class LookupResult:
 class PayorReferenceTable:
     def __init__(self, values: dict[tuple[str, str], str]): self._values = dict(values)
     def lookup(self, payor_name: Any, key_field: Any) -> LookupResult:
-        value = self._values.get(_key(payor_name, key_field))
-        return LookupResult(value is not None, value, "resolved" if value is not None else "not_resolved")
+        lookup_key = _key(payor_name, key_field)
+        value = self._values.get(lookup_key)
+        if value is not None:
+            return LookupResult(True, value, "resolved")
+        if lookup_key[1]:
+            return LookupResult(False, None, "not_resolved")
+        values = {
+            result for (name, _), result in self._values.items()
+            if name == lookup_key[0]
+        }
+        if len(values) == 1:
+            return LookupResult(True, next(iter(values)), "resolved")
+        return LookupResult(
+            False, None, "ambiguous" if len(values) > 1 else "not_resolved")
 
 
 class ServiceReferenceTable:
@@ -39,7 +51,19 @@ class ServiceReferenceTable:
         }
 
     def lookup(self, code: Any, modifier: Any, program: Any) -> LookupResult:
-        values = self._values.get(_key(code, modifier, program))
+        lookup_key = _key(code, modifier, program)
+        values = self._values.get(lookup_key)
+        if not values and lookup_key[0]:
+            compatible = [
+                results
+                for (row_code, row_modifier, row_program), results in self._values.items()
+                if row_code == lookup_key[0]
+                and (not lookup_key[1] or row_modifier == lookup_key[1])
+                and (not lookup_key[2] or row_program == lookup_key[2])
+            ]
+            values = frozenset(
+                value for results in compatible for value in results
+            )
         if not values:
             return LookupResult(False, None, "not_resolved")
         if len(values) != 1:

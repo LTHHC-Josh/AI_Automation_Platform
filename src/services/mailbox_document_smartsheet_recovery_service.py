@@ -12,6 +12,7 @@ from src.services.smartsheet_reviewed_write_service import SmartsheetReviewedWri
 from src.services.smartsheet_submission_key_configuration_service import SmartsheetSubmissionKeyConfigurationService
 from src.services.document_attachment_naming_service import DocumentAttachmentNamingService
 from src.services.production_filename_assembly_service import ProductionFilenameAssemblyService
+from src.services.production_filename_assembly_service import FilenameReadinessDiagnostic
 
 
 @dataclass(frozen=True)
@@ -23,6 +24,7 @@ class MailboxDocumentSmartsheetRecoveryResult:
     status: str
     row_action: str = "skipped"
     attachment_action: str = "skipped"
+    filename_readiness: FilenameReadinessDiagnostic | None = None
 
 
 class MailboxDocumentSmartsheetRecoveryService:
@@ -51,7 +53,8 @@ class MailboxDocumentSmartsheetRecoveryService:
         state = loaded.state
         if state.stage == "attachment_written":
             return MailboxDocumentSmartsheetRecoveryResult(
-                True, True, True, True, "completed", "skipped", "skipped")
+                True, True, True, True, "completed", "skipped", "skipped",
+                self._filename_diagnostic(work_item))
         if state.stage == "blocked_permanent":
             return self._failure("blocked_permanent")
         if state.stage != "row_write_uncertain":
@@ -194,7 +197,21 @@ class MailboxDocumentSmartsheetRecoveryService:
                 stored.status, row_action=row_action,
                 attachment_action=attachment_action)
         return MailboxDocumentSmartsheetRecoveryResult(
-            True, True, True, True, "completed", row_action, attachment_action)
+            True, True, True, True, "completed", row_action, attachment_action,
+            self._filename_diagnostic(work_item))
+
+    def _filename_diagnostic(self, work_item):
+        diagnose = getattr(self.filename_assembly_service, "diagnose", None)
+        if not callable(diagnose):
+            return None
+        try:
+            result = diagnose(
+                document=work_item.document,
+                source_extension=Path(work_item.local_path).suffix.lower() or ".bin",
+            )
+        except Exception:
+            return None
+        return result if isinstance(result, FilenameReadinessDiagnostic) else None
 
     def _ensure_attachment_name(self, work_item, state):
         if state.attachment_filename is not None:

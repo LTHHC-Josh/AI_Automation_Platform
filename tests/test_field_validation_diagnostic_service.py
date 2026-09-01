@@ -36,7 +36,7 @@ def test_unsupported_high_confidence_candidate_becomes_validated_null_and_is_pre
     )
     review_field = ReviewOutputService().build(document).fields[0]
     assert document.extracted_data["authorization_status"] is None
-    assert document.field_confidences["authorization_status"] == 0.0
+    assert "authorization_status" not in document.field_confidences
     assert document.field_evidence["authorization_status"]["candidate_confidence"] == 0.95
     assert review_field.value is None
     assert review_field.candidate_value == "SYNTHETIC"
@@ -79,7 +79,7 @@ def test_unsupported_candidate_does_not_reach_production_value_or_confidence_col
     assert "Authorization Status" not in mapping.values
     assert "Authorization Status Confidence" not in mapping.values
     assert mapping.values["AI Review Required"] is True
-    assert "authorization_status_unclear_source_support" in mapping.values["AI Review Reasons"]
+    assert "Authorization status could not be verified" in mapping.values["AI Review Reasons"]
 
 
 def test_classification_confidence_cannot_replace_missing_field_confidence():
@@ -128,6 +128,31 @@ def test_classification_resolution_does_not_invent_full_confidence():
     )
     assert resolved["confidence"] is None
     assert resolved["family_evidence_confidence"] is None
+
+
+def test_optional_absence_is_not_present_without_zero_confidence_or_review():
+    document = Document(file_path=Path("synthetic.pdf"), document_category="authorization")
+    document.field_evidence = {
+        "modifier": {"value": None, "confidence": None, "source_text": ""}
+    }
+    document.validation_actions = EvidenceValidationService().validate(document)
+    diagnostic = FieldValidationDiagnosticService().build(document, "modifier")
+    assert diagnostic.field_state == "not_present"
+    assert diagnostic.required is False
+    assert diagnostic.candidate_confidence is None
+    assert diagnostic.review_triggered is False
+    assert "modifier" not in document.field_confidences
+
+
+def test_required_absence_is_distinguished_from_optional_absence():
+    document = Document(file_path=Path("synthetic.pdf"), document_category="authorization")
+    document.field_evidence = {
+        "authorization_status": {"value": None, "confidence": None, "source_text": ""}
+    }
+    diagnostic = FieldValidationDiagnosticService().build(
+        document, "authorization_status")
+    assert diagnostic.field_state == "missing_required"
+    assert diagnostic.required is True
 
 
 if __name__ == "__main__":
