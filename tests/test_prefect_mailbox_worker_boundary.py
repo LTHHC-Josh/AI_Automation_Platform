@@ -109,6 +109,10 @@ def test_unattended_launcher_uses_same_noninteractive_auth_boundary():
     assert "Document Processor activation timed out." in launcher
     assert "dp-stop.signal" in launcher
     assert "PrepareAcceptanceHandoff" not in launcher
+    assert "$startupCheckTimeoutSeconds = 30" in launcher
+    assert ".WaitForExit($startupCheckTimeoutSeconds * 1000)" in launcher
+    assert "authentication readiness timed out" in launcher
+    assert "$authCheck.Kill()" in launcher
     for marker in ("GRAPH_TENANT_ID", "GRAPH_CLIENT_ID", "GRAPH_CLIENT_SECRET", "GRAPH_MAILBOX"):
         assert marker not in launcher
 
@@ -133,6 +137,18 @@ def test_unattended_start_readiness_is_lightweight_categorized_and_phi_safe():
         "deployment run",
     ):
         assert prohibited not in source
+
+
+def test_control_room_bounds_startup_subprocesses_and_uses_fixed_safe_timeout_category():
+    wrapper = (ROOT / "scripts" / "invoke_prefect_control_room.ps1").read_text(encoding="utf-8-sig")
+    bounded = wrapper.split("function Invoke-BoundedProcess", 1)[1].split("function Invoke-PrefectJson", 1)[0]
+    start = wrapper.split("function Start-DocumentProcessor", 1)[1].split("function Stop-DocumentProcessor", 1)[0]
+    assert "$startupCheckTimeoutSeconds = 30" in wrapper
+    assert ".WaitForExit($TimeoutSeconds * 1000)" in bounded
+    assert "Stop-ProvenProcess $identity" in bounded
+    assert "throw 'startup_check_timeout'" in bounded
+    assert "Reason: {0}" in start and "startup_check_timeout" in start
+    assert "Stop-OwnedComponent -Name 'dp'" in start
 
 
 def test_worker_check_public_contract_is_boolean_only():

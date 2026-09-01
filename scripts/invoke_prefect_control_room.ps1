@@ -24,6 +24,7 @@ $poolName = 'lthhc-local-process'
 $deploymentName = 'lthhc-bounded-mailbox/document-processor-manual'
 $unattendedDeploymentName = 'lthhc-unattended-mailbox/document-processor-live'
 $freshHeartbeatSeconds = 90
+$startupCheckTimeoutSeconds = 30
 
 function Read-ControlState {
     if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) { return @{} }
@@ -100,10 +101,37 @@ function Test-PrefectServerBackendSafe {
     } catch { return $false }
 }
 
+function Invoke-BoundedProcess([string]$FilePath, [string[]]$Arguments, [int]$TimeoutSeconds) {
+    New-Item -ItemType Directory -Path $stateDirectory -Force | Out-Null
+    $identifier = [Guid]::NewGuid().ToString('N')
+    $stdoutPath = Join-Path $stateDirectory ('.startup-' + $identifier + '.stdout')
+    $stderrPath = Join-Path $stateDirectory ('.startup-' + $identifier + '.stderr')
+    $process = $null
+    $identity = $null
+    try {
+        $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        $identity = Get-ProcessIdentity $process.Id
+        if ($null -eq $identity) {
+            Invoke-TaskKill -ProcessId $process.Id -Force | Out-Null
+            throw 'startup_process_identity_unavailable'
+        }
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            Stop-ProvenProcess $identity
+            throw 'startup_check_timeout'
+        }
+        $output = if (Test-Path -LiteralPath $stdoutPath -PathType Leaf) { @(Get-Content -LiteralPath $stdoutPath) } else { @() }
+        return [ordered]@{ exit_code = [int]$process.ExitCode; output = $output }
+    } finally {
+        if ($null -ne $identity -and (Test-ProcessIdentity $identity)) { Stop-ProvenProcess $identity }
+        Remove-Item -LiteralPath $stdoutPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function Invoke-PrefectJson([string[]]$Arguments) {
-    $output = & $prefect --profile 'lthhc-local' @Arguments 2>$null
-    if ($LASTEXITCODE -ne 0) { throw 'A read-only Prefect inspection failed.' }
-    return ($output | Out-String | ConvertFrom-Json)
+    $result = Invoke-BoundedProcess -FilePath $prefect -Arguments (@('--profile', 'lthhc-local') + $Arguments) -TimeoutSeconds $startupCheckTimeoutSeconds
+    if ($result.exit_code -ne 0) { throw 'A read-only Prefect inspection failed.' }
+    return ($result.output | Out-String | ConvertFrom-Json)
 }
 
 function Get-OptionalProperty($Object, [string]$Name) {
@@ -129,11 +157,17 @@ function Test-ControlPlaneConfiguration {
         $propertiesEmpty = $null -eq $properties -or @($properties.PSObject.Properties).Count -eq 0
         $requiredEmpty = $null -eq $required -or @($required).Count -eq 0
         return ($pool.type -eq 'process' -and $pool.concurrency_limit -eq 1 -and $pool.is_paused -eq $false -and $deployment.work_pool_name -eq $poolName -and $schedulesEmpty -and $propertiesEmpty -and $requiredEmpty -and $limit -eq 1 -and (Get-OptionalProperty $options 'collision_strategy') -eq 'CANCEL_NEW')
-    } catch { return $false }
+    } catch {
+        if ($_.Exception.Message -eq 'startup_check_timeout') { throw }
+        return $false
+    }
 }
 
 function Get-UnattendedDeployment {
-    try { return Invoke-PrefectJson -Arguments @('deployment', 'inspect', $unattendedDeploymentName, '--output', 'json') } catch { return $null }
+    try { return Invoke-PrefectJson -Arguments @('deployment', 'inspect', $unattendedDeploymentName, '--output', 'json') } catch {
+        if ($_.Exception.Message -eq 'startup_check_timeout') { throw }
+        return $null
+    }
 }
 
 function Test-UnattendedDeploymentConfiguration {
@@ -161,6 +195,14 @@ function Get-DeploymentRunConflict($Deployment) {
     return @($runs | Where-Object { $_.state_type -notin $terminal }).Count -gt 0
 }
 
+function Get-FreshOnlineWorkerCount {
+    try {
+        $workers = Invoke-RestMethod -Method Post -Uri "$apiUrl/work_pools/$poolName/workers/filter" -ContentType 'application/json' -Body '{"limit":50,"offset":0}' -TimeoutSec 5
+        $cutoff = [DateTimeOffset]::UtcNow.AddSeconds(-$freshHeartbeatSeconds)
+        return @($workers | Where-Object { $_.status -eq 'ONLINE' -and $null -ne $_.last_heartbeat_time -and [DateTimeOffset]::Parse($_.last_heartbeat_time) -ge $cutoff }).Count
+    } catch { return 0 }
+}
+
 function Get-ControlPlaneStatus {
     $result = [ordered]@{
         postgresql_running = $false; prefect_server_reachable = $false
@@ -180,14 +222,14 @@ function Get-ControlPlaneStatus {
         $unattended = Get-UnattendedDeployment
         $result.unattended_deployment_ready = Test-UnattendedDeploymentConfiguration
         if ($null -ne $unattended) { $result.unattended_run_active = Get-DeploymentRunConflict $unattended }
-        $workers = Invoke-RestMethod -Method Post -Uri "$apiUrl/work_pools/$poolName/workers/filter" -ContentType 'application/json' -Body '{"limit":50,"offset":0}' -TimeoutSec 5
-        $cutoff = [DateTimeOffset]::UtcNow.AddSeconds(-$freshHeartbeatSeconds)
-        $result.fresh_online_worker_count = @($workers | Where-Object { $_.status -eq 'ONLINE' -and $null -ne $_.last_heartbeat_time -and [DateTimeOffset]::Parse($_.last_heartbeat_time) -ge $cutoff }).Count
+        $result.fresh_online_worker_count = Get-FreshOnlineWorkerCount
         $body = @{ deployments = @{ id = @{ any_ = @($deployment.id) } }; limit = 200; offset = 0 } | ConvertTo-Json -Depth 5 -Compress
         $runs = Invoke-RestMethod -Method Post -Uri "$apiUrl/flow_runs/filter" -ContentType 'application/json' -Body $body -TimeoutSec 5
         $terminal = @('COMPLETED', 'FAILED', 'CANCELLED', 'CRASHED')
         $result.mailbox_run_conflict = @($runs | Where-Object { $_.state_type -notin $terminal }).Count -gt 0
-    } catch {}
+    } catch {
+        if ($_.Exception.Message -eq 'startup_check_timeout') { throw }
+    }
     return $result
 }
 
@@ -273,6 +315,11 @@ function Write-DocumentProcessorOperatorStatus($Status) {
     Write-OperatorField 'Last Check' $lastCheck
     Write-OperatorField 'Next Check' $nextCheck
     Write-OperatorField 'Consecutive Failures' $Status.consecutive_failures
+}
+
+function Write-StartupProgress([string]$Message) {
+    [Console]::Out.WriteLine($Message)
+    [Console]::Out.Flush()
 }
 
 function Start-OwnedComponent([string]$Name, [string]$Script, [string[]]$Arguments, [string]$Marker, [switch]$Interactive) {
@@ -415,57 +462,96 @@ function Stop-ControlRoomWorker {
 function Start-DocumentProcessor {
     $mutex = New-Object System.Threading.Mutex($false, 'Local\LTHHC-Prefect-DocumentProcessor-Control')
     $mutexAcquired = $false
+    $startupOwnedDp = $false
+    $startupCompleted = $false
+    $startupStage = 'Initialization'
+    $failureCategory = 'startup_unavailable'
+    Write-StartupProgress 'Starting Document Processor...'
     try {
         $mutexAcquired = $mutex.WaitOne(0)
         if (-not $mutexAcquired) { throw 'Another Document Processor control action is active.' }
-    $state = Read-ControlState
-    if ($state.ContainsKey('dp') -and (Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1')) {
-        return 'dp_already_running'
-    }
-    $status = Get-ControlPlaneStatus
-    if (-not ($status.postgresql_running -and $status.prefect_server_reachable -and (Test-PrefectServerBackendSafe) -and $status.manual_deployment_ready -and $status.unattended_deployment_ready)) {
-        throw 'Document Processor control-plane prerequisites are not ready.'
-    }
-    if ($status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 0) {
-        throw 'Document Processor startup conflict detected.'
-    }
-    $previousPythonPath = $env:PYTHONPATH
-    try {
-        $env:PYTHONPATH = $repositoryRoot
-        $readinessOutput = @(& $python $dpStartReadinessProbe 2>$null)
-        $readinessExitCode = $LASTEXITCODE
-    } finally { $env:PYTHONPATH = $previousPythonPath }
-    $readiness = $null
-    try { $readiness = ($readinessOutput | Select-Object -Last 1 | ConvertFrom-Json) } catch {}
-    if ($readinessExitCode -ne 0 -or $null -eq $readiness -or $readiness.all_ready -ne $true) {
-        $category = if ($null -ne $readiness -and [string]$readiness.failure_category -in @('graph_auth_unavailable', 'local_state_storage_unavailable')) { [string]$readiness.failure_category } else { 'startup_readiness_unavailable' }
-        throw "Document Processor startup readiness failed: $category."
-    }
-    Start-OwnedComponent -Name 'dp' -Script $dpLauncher -Arguments @() -Marker 'invoke_prefect_document_processor.ps1'
-    try {
+        $state = Read-ControlState
+        if ($state.ContainsKey('dp') -and (Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1')) {
+            Write-StartupProgress 'Document Processor is already running.'
+            return 'dp_already_running'
+        }
+        $startupStage = 'Prefect control room'
+        $failureCategory = 'control_room_unavailable'
+        Write-StartupProgress '[1/5] Checking Prefect control room...'
+        if (-not (Test-PrefectServerReachable) -or -not (Test-PrefectServerBackendSafe)) { throw $failureCategory }
+
+        $startupStage = 'Deployment and conflict state'
+        $failureCategory = 'deployment_or_conflict_unavailable'
+        Write-StartupProgress '[2/5] Checking deployment and conflict state...'
+        $status = Get-ControlPlaneStatus
+        if (-not ($status.postgresql_running -and $status.prefect_server_reachable -and $status.manual_deployment_ready -and $status.unattended_deployment_ready)) { throw $failureCategory }
+        if ($status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 0) {
+            $failureCategory = 'startup_conflict'
+            throw $failureCategory
+        }
+
+        $startupStage = 'Graph authentication'
+        $failureCategory = 'startup_readiness_unavailable'
+        Write-StartupProgress '[3/5] Checking Graph authentication...'
+        $previousPythonPath = $env:PYTHONPATH
+        try {
+            $env:PYTHONPATH = $repositoryRoot
+            $readinessResult = Invoke-BoundedProcess -FilePath $python -Arguments @($dpStartReadinessProbe) -TimeoutSeconds $startupCheckTimeoutSeconds
+        } finally { $env:PYTHONPATH = $previousPythonPath }
+        $readiness = $null
+        try { $readiness = ($readinessResult.output | Select-Object -Last 1 | ConvertFrom-Json) } catch {}
+        if ($readinessResult.exit_code -ne 0 -or $null -eq $readiness -or $readiness.all_ready -ne $true) {
+            if ($null -ne $readiness -and [string]$readiness.failure_category -in @('graph_auth_unavailable', 'local_state_storage_unavailable')) { $failureCategory = [string]$readiness.failure_category }
+            throw $failureCategory
+        }
+
+        $startupStage = 'Document Processor runtime'
+        $failureCategory = 'runtime_start_failed'
+        Write-StartupProgress '[4/5] Starting Document Processor runtime...'
+        Start-OwnedComponent -Name 'dp' -Script $dpLauncher -Arguments @() -Marker 'invoke_prefect_document_processor.ps1'
+        $startupOwnedDp = $true
+
+        $startupStage = 'Prefect worker'
+        $failureCategory = 'worker_startup_failed'
+        Write-StartupProgress '[5/5] Starting Prefect worker...'
         $deadline = [DateTimeOffset]::UtcNow.AddSeconds(90)
+        $nextWaitingProgress = [DateTimeOffset]::UtcNow.AddSeconds(15)
         while ([DateTimeOffset]::UtcNow -lt $deadline) {
             $state = Read-ControlState
             if (-not $state.ContainsKey('dp') -or -not (Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1')) {
-                throw 'Unattended Document Processor worker startup failed.'
+                throw $failureCategory
             }
-            if ((Get-ControlPlaneStatus).fresh_online_worker_count -eq 1) { break }
+            if ((Get-FreshOnlineWorkerCount) -eq 1) { break }
+            if ([DateTimeOffset]::UtcNow -ge $nextWaitingProgress) {
+                Write-StartupProgress 'Still waiting for Prefect worker...'
+                $nextWaitingProgress = [DateTimeOffset]::UtcNow.AddSeconds(15)
+            }
             Start-Sleep -Milliseconds 500
         }
-        if ((Get-ControlPlaneStatus).fresh_online_worker_count -ne 1) { throw 'Unattended Document Processor worker did not become ready.' }
+        if ((Get-FreshOnlineWorkerCount) -ne 1) { $failureCategory = 'worker_startup_timeout'; throw $failureCategory }
         $activationPath = Join-Path $stateDirectory 'dp-activate.signal'
         'activate' | Set-Content -LiteralPath $activationPath -Encoding ASCII
         $readyPath = Join-Path $stateDirectory 'dp-ready.json'
         while ([DateTimeOffset]::UtcNow -lt $deadline -and -not (Test-Path -LiteralPath $readyPath -PathType Leaf)) {
             Start-Sleep -Milliseconds 500
         }
-        if (-not (Test-Path -LiteralPath $readyPath -PathType Leaf)) { throw 'Document Processor readiness confirmation failed.' }
+        if (-not (Test-Path -LiteralPath $readyPath -PathType Leaf)) { $failureCategory = 'runtime_readiness_timeout'; throw $failureCategory }
+        $startupCompleted = $true
+        Write-StartupProgress ''
+        Write-StartupProgress 'Document Processor started.'
+        Write-StartupProgress 'Polling state: Waiting'
         return 'dp_started'
     } catch {
-        Stop-OwnedComponent -Name 'dp' -Marker 'invoke_prefect_document_processor.ps1'
-        throw
-    }
+        if ($_.Exception.Message -eq 'startup_check_timeout') { $failureCategory = 'startup_check_timeout' }
+        Write-StartupProgress ''
+        Write-StartupProgress 'Document Processor startup failed.'
+        Write-StartupProgress ("Stage: {0}" -f $startupStage)
+        Write-StartupProgress ("Reason: {0}" -f $failureCategory)
+        throw "Document Processor startup failed at $startupStage ($failureCategory)."
     } finally {
+        if ($startupOwnedDp -and -not $startupCompleted) {
+            Stop-OwnedComponent -Name 'dp' -Marker 'invoke_prefect_document_processor.ps1'
+        }
         if ($mutexAcquired) { $mutex.ReleaseMutex() }
         $mutex.Dispose()
     }
@@ -569,7 +655,7 @@ switch ($Action) {
         Write-Output (Stop-ControlRoomWorker)
     }
     'StartDP' {
-        Write-Output (Start-DocumentProcessor)
+        Start-DocumentProcessor
     }
     'StopDP' {
         Write-Output (Stop-DocumentProcessor)

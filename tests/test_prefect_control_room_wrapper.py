@@ -1,6 +1,7 @@
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -32,7 +33,11 @@ def test_unattended_commands_are_separate_owned_polling_controls():
     assert "check_unattended_dp_start_readiness.py" in text
     assert start.index("$dpStartReadinessProbe") < start.index("Start-OwnedComponent -Name 'dp'")
     assert "Document Processor application readiness failed." not in start
-    assert "Document Processor startup readiness failed: $category." in start
+    assert "Document Processor startup failed at $startupStage ($failureCategory)." in start
+    assert "$startupCheckTimeoutSeconds = 30" in text
+    assert "[Console]::Out.Flush()" in text
+    assert text.index("'StartDP' {") < text.index("Start-DocumentProcessor", text.index("'StartDP' {"))
+    assert "Write-Output (Start-DocumentProcessor)" not in text
     assert "dp_stop_requested_active_run" in stop
     assert "dp-stop.signal" in stop
     assert "Stop-OwnedComponent -Name 'dp'" in stop
@@ -56,7 +61,8 @@ $node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.F
 Invoke-Expression $node.Extent.Text
 function Read-ControlState { return @{dp=@{pid=42;owned=$true;process_created_utc='synthetic'}} }
 function Test-OwnedProcess { return $true }
-if((Start-DocumentProcessor) -ne 'dp_already_running'){exit 51}
+function Write-StartupProgress { param([string]$Message) }
+if(@(Start-DocumentProcessor)[-1] -ne 'dp_already_running'){exit 51}
 Write-Output $PSVersionTable.PSVersion.Major
 """.replace("__WRAPPER__", wrapper_path)
     completed = subprocess.run(
@@ -76,14 +82,75 @@ $node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.F
 Invoke-Expression $node.Extent.Text
 function Read-ControlState { return @{} }
 function Get-ControlPlaneStatus { return @{postgresql_running=$true;prefect_server_reachable=$true;manual_deployment_ready=$true;unattended_deployment_ready=$true;mailbox_run_conflict=$false;unattended_run_active=$false;fresh_online_worker_count=0} }
+function Test-PrefectServerReachable { return $true }
 function Test-PrefectServerBackendSafe { return $true }
-function SyntheticPython { $global:LASTEXITCODE=1; return '{"all_ready":false,"failure_category":"graph_auth_unavailable"}' }
+function Invoke-BoundedProcess { return @{exit_code=1;output=@('{"all_ready":false,"failure_category":"graph_auth_unavailable"}')} }
+function Write-StartupProgress { param([string]$Message) $global:progress += @($Message) }
 function Start-OwnedComponent { $global:workerCreated=$true }
-$python='SyntheticPython';$dpStartReadinessProbe='synthetic';$repositoryRoot='synthetic';$global:workerCreated=$false
+$python='synthetic';$dpStartReadinessProbe='synthetic';$repositoryRoot='synthetic';$startupCheckTimeoutSeconds=30;$global:workerCreated=$false;$global:progress=@()
 try { Start-DocumentProcessor; exit 56 } catch {
-  if($_.Exception.Message -ne 'Document Processor startup readiness failed: graph_auth_unavailable.'){exit 57}
+  if($_.Exception.Message -ne 'Document Processor startup failed at Graph authentication (graph_auth_unavailable).'){exit 57}
 }
 if($global:workerCreated){exit 58}
+if(($global:progress -join '|') -notmatch '\[1/5\].*\[2/5\].*\[3/5\].*Stage: Graph authentication.*Reason: graph_auth_unavailable'){exit 59}
+Write-Output $PSVersionTable.PSVersion.Major
+""".replace("__WRAPPER__", wrapper_path)
+    completed = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert completed.stdout.strip() == "5"
+
+
+def test_start_dp_progress_is_flushed_before_slow_work_in_windows_powershell_51():
+    wrapper_path = str(WRAPPER).replace("'", "''")
+    command = r"""
+$tokens=$null;$errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
+$node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq 'Write-StartupProgress'},$true)
+Invoke-Expression $node.Extent.Text
+Write-StartupProgress 'visible-before-wait'
+Start-Sleep -Seconds 2
+Write-Output 'complete'
+""".replace("__WRAPPER__", wrapper_path)
+    started = time.monotonic()
+    process = subprocess.Popen(
+        ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert process.stdout is not None
+    assert process.stdout.readline().strip() == "visible-before-wait"
+    assert time.monotonic() - started < 1.5
+    stdout, stderr = process.communicate(timeout=10)
+    assert process.returncode == 0, stderr
+    assert stdout.strip() == "complete"
+
+
+def test_start_dp_interruption_path_cleans_only_recorded_owned_runtime():
+    wrapper_path = str(WRAPPER).replace("'", "''")
+    command = r"""
+$tokens=$null;$errors=$null
+$ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
+$node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq 'Start-DocumentProcessor'},$true)
+Invoke-Expression $node.Extent.Text
+function Write-StartupProgress { param([string]$Message) }
+function Read-ControlState { return @{} }
+function Test-OwnedProcess { return $false }
+function Test-PrefectServerReachable { return $true }
+function Test-PrefectServerBackendSafe { return $true }
+function Get-ControlPlaneStatus { return @{postgresql_running=$true;prefect_server_reachable=$true;manual_deployment_ready=$true;unattended_deployment_ready=$true;mailbox_run_conflict=$false;unattended_run_active=$false;fresh_online_worker_count=0} }
+function Invoke-BoundedProcess { return @{exit_code=0;output=@('{"all_ready":true,"failure_category":"none"}')} }
+function Start-OwnedComponent { $global:started=$true }
+function Get-FreshOnlineWorkerCount { throw [System.Management.Automation.PipelineStoppedException]::new() }
+function Stop-OwnedComponent { param([string]$Name,[string]$Marker) if($Name -eq 'dp' -and $Marker -eq 'invoke_prefect_document_processor.ps1'){$global:stopped=$true} }
+$python='synthetic';$dpStartReadinessProbe='synthetic';$repositoryRoot='synthetic';$startupCheckTimeoutSeconds=30;$global:started=$false;$global:stopped=$false
+try { Start-DocumentProcessor; exit 71 } catch {}
+if(-not $global:started -or -not $global:stopped){exit 72}
 Write-Output $PSVersionTable.PSVersion.Major
 """.replace("__WRAPPER__", wrapper_path)
     completed = subprocess.run(

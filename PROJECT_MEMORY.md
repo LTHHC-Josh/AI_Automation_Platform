@@ -790,14 +790,40 @@ safety review, commit and push, verify synchronization, and leave one exact
 next start. Neither procedure authorizes PHI-sensitive or external operations
 without the required separate approval.
 
+Startdp progress and bounded-startup checkpoint:
+
+- Read-only post-interruption evidence proved the silent start reached a
+  correctly owned DP runtime and descendant worker in healthy `waiting` state.
+  The operator saw no progress because the StartDP dispatch buffered the
+  function stream through an outer `Write-Output` expression.
+- Startup also had unbounded Prefect CLI inspections and parent/child Graph-
+  auth subprocess calls. Prefect CLI and Graph startup checks are now bounded
+  at 30 seconds, consistent with the existing Graph transport timeout; worker
+  readiness remains bounded at 90 seconds through five-second API requests.
+- StartDP now immediately flushes five fixed PHI-safe progress stages, a
+  periodic worker-wait indication, stable success output, and fixed failure
+  stage/category output. Readable status/statusdp and `-Json` are preserved.
+- An incomplete or interrupted startup after DP ownership is recorded now
+  cleans the proven owned process tree in `finally`. External/unproven and
+  PID-reused processes remain protected. The existing live runtime was not
+  stopped or otherwise mutated during this code checkpoint.
+- Modified Python/tests compiled, modified PowerShell parsed in Windows
+  PowerShell 5.1, and focused/affected synthetic deterministic, mock, isolated-
+  profile, and isolated local Prefect regressions passed. The known disposable
+  host-CIM fixture remained excluded after the real DP identity was separately
+  proven. No new startdp, worker/deployment start, live mailbox/Graph document
+  access, protected OCR/Ollama, production document Smartsheet operation, or
+  mailbox mutation occurred.
+
 ## CURRENT NEXT START
 
-Perform a second controlled live startdp acceptance with no unread document
-required at startup. Verify the DP enters waiting/polling state, verify the
-readable status and statusdp output plus optional `-Json` compatibility, then
-introduce one newly eligible unread test document and observe exactly one
-automatic document-processing run through terminal state before stopping the
-DP cleanly.
+In the owning operator terminal, first use statusdp to verify the interrupted
+runtime remains proven-owned and use stopdp to stop it cleanly; do not create a
+second runtime. Update the installed command mapping to the new committed
+wrapper if required, then perform a controlled no-document startdp acceptance.
+Verify all five progress stages appear in real time, the DP reaches waiting,
+status/statusdp and `-Json` remain correct, and stopdp ends it cleanly. Defer
+the one-document acceptance until that startup/stop proof passes.
 
 First unattended start failure diagnosis and correction checkpoint:
 

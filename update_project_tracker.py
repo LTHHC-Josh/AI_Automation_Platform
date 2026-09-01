@@ -9426,6 +9426,39 @@ then introduce one newly eligible unread test document and observe exactly one
 automatic document-processing run through terminal state before stopping the
 DP cleanly.
 
+Startdp progress and bounded-startup checkpoint (2026-09-01):
+
+- Read-only identity, descendant, heartbeat, and polling evidence proved the
+  interrupted attempt reached a correctly owned waiting DP runtime. It was not
+  an unowned orphan and was not stopped in this checkpoint.
+- StartDP's dispatch buffered its output through an outer Write-Output
+  expression. Prefect CLI inspections and both Graph-auth subprocess boundaries
+  also lacked explicit timeouts.
+- StartDP now flushes five PHI-safe stages before slow work, periodically
+  reports worker waiting, and emits stable success or fixed failure stage/
+  category output. Existing readable status/statusdp and -Json are preserved.
+- Prefect CLI and parent/child Graph startup checks are bounded at 30 seconds,
+  consistent with the existing Graph transport timeout. Parent cleanup proves
+  PID/creation identity. Worker readiness remains bounded at 90 seconds via
+  five-second API requests.
+- Incomplete/interrupted startup after ownership recording cleans the proven
+  DP tree in finally. External/unproven and stale/reused processes remain
+  protected.
+- Modified Python/tests compiled and modified PowerShell parsed in Windows
+  PowerShell 5.1. Focused/affected synthetic deterministic/mock, isolated-
+  profile, and isolated local Prefect checks passed. The known disposable host
+  CIM fixture remained excluded after the live identity was separately proven.
+  No new startdp, worker/deployment start, mailbox/Graph document access,
+  protected OCR/Ollama, production document Smartsheet operation, or mailbox
+  mutation occurred.
+
+Exact next start: in the owning operator terminal, verify the interrupted DP is
+still proven-owned with statusdp and stop it with stopdp before any new start.
+Install the committed wrapper mapping if needed, then perform one controlled
+no-document startdp acceptance and verify real-time five-stage progress,
+waiting status, readable/JSON status compatibility, and clean stopdp. Defer the
+one-document acceptance until that startup/stop proof passes.
+
 """
 
 
@@ -9597,6 +9630,10 @@ updates = [
             "worker counting plus an overbroad pre-worker readiness boundary; "
             "startup is now lightweight/categorized before worker creation and "
             "operator status is readable with preserved JSON compatibility. "
+            "A later controlled start reached a correctly owned waiting runtime "
+            "but buffered its operator output; startup now flushes five PHI-safe "
+            "stages, bounds Prefect/Graph checks, reports fixed failure categories, "
+            "and cleans proven owned processes on interruption. "
             "Prefect retries, "
             "server-side scheduling, and silent automatic startup remain "
             "disabled. The "

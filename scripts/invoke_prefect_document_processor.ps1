@@ -14,6 +14,7 @@ $stopPath = Join-Path $readyDirectory 'dp-stop.signal'
 $deploymentName = 'lthhc-unattended-mailbox/document-processor-live'
 $basePollSeconds = 300
 $maximumBackoffSeconds = 1800
+$startupCheckTimeoutSeconds = 30
 if (-not (Test-Path -LiteralPath $python -PathType Leaf) -or -not (Test-Path -LiteralPath $prefect -PathType Leaf)) {
     throw 'The repository document-processor runtime is unavailable.'
 }
@@ -35,8 +36,12 @@ try {
     $env:PYTHONPATH = $repositoryRoot
     $env:PYTHONIOENCODING = 'UTF-8'
     $env:DO_NOT_TRACK = '1'
-    & $python (Join-Path $PSScriptRoot 'check_mailbox_worker_auth_readiness.py')
-    if ($LASTEXITCODE -ne 0) { throw 'Document Processor authentication readiness failed.' }
+    $authCheck = Start-Process -FilePath $python -ArgumentList @((Join-Path $PSScriptRoot 'check_mailbox_worker_auth_readiness.py')) -WindowStyle Hidden -PassThru
+    if (-not $authCheck.WaitForExit($startupCheckTimeoutSeconds * 1000)) {
+        if (-not $authCheck.HasExited) { $authCheck.Kill(); $authCheck.WaitForExit() }
+        throw 'Document Processor authentication readiness timed out.'
+    }
+    if ($authCheck.ExitCode -ne 0) { throw 'Document Processor authentication readiness failed.' }
     New-Item -ItemType Directory -Path $readyDirectory -Force | Out-Null
     Remove-Item -LiteralPath $readyPath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $activationPath -Force -ErrorAction SilentlyContinue
