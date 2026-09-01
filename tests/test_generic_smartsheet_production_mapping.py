@@ -37,10 +37,15 @@ class StaticSchemaService:
         }
 
     def read(self):
+        column_types = {name: "TEXT_NUMBER" for name in self.columns}
+        if SmartsheetReviewRowMappingService.AI_CORRECTION_COLUMN in column_types:
+            column_types[
+                SmartsheetReviewRowMappingService.AI_CORRECTION_COLUMN
+            ] = "CHECKBOX"
         return SmartsheetDestinationSchemaResult(
             column_count=len(self.columns),
             columns=dict(self.columns),
-            column_types={name: "TEXT_NUMBER" for name in self.columns},
+            column_types=column_types,
             success=True,
             status="ready",
         )

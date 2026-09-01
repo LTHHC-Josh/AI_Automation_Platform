@@ -37,6 +37,7 @@ class SmartsheetReviewRowMappingService:
 
     REVIEW_STATUS_COLUMN = "AI Review Status"
     REVIEW_REQUIRED_COLUMN = "AI Review Required"
+    AI_CORRECTION_COLUMN = "AI Correction"
     DOCUMENT_CATEGORY_COLUMN = (
         "AI Document Category"
     )
@@ -65,6 +66,7 @@ class SmartsheetReviewRowMappingService:
     OPERATIONAL_METADATA_COLUMNS = (
         REVIEW_STATUS_COLUMN,
         REVIEW_REQUIRED_COLUMN,
+        AI_CORRECTION_COLUMN,
         DOCUMENT_CATEGORY_COLUMN,
         DOCUMENT_SUBTYPE_COLUMN,
         REVIEW_REASONS_COLUMN,
@@ -367,6 +369,13 @@ class SmartsheetReviewRowMappingService:
         result.values[
             self.REVIEW_REQUIRED_COLUMN
         ] = review_output.needs_human_review
+
+        # Human-owned feedback boundary: initialize a brand-new row to an
+        # unchecked checkbox. Reconciliation never remaps or updates an
+        # existing row, so a reviewer-owned value is preserved thereafter.
+        result.values[
+            self.AI_CORRECTION_COLUMN
+        ] = False
 
         result.values[
             self.DOCUMENT_CATEGORY_COLUMN

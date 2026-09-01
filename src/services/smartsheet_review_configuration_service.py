@@ -176,6 +176,14 @@ class SmartsheetReviewConfigurationService:
                 "policy_columns_missing"
             )
 
+        if schema_result.column_types.get(
+            SmartsheetReviewRowMappingService.AI_CORRECTION_COLUMN,
+            "",
+        ) != "CHECKBOX":
+            return self._failure(
+                "ai_correction_column_invalid"
+            )
+
         resolved_policies = tuple(
             SmartsheetColumnPolicy(
                 source_field=policy.source_field,

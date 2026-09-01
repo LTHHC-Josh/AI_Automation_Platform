@@ -59,6 +59,9 @@ class RecordingSchemaService:
                 columns[column_name] = next_id
                 column_types[column_name] = "TEXT_NUMBER"
                 next_id += 1
+            column_types[
+                SmartsheetReviewRowMappingService.AI_CORRECTION_COLUMN
+            ] = "CHECKBOX"
             result = SmartsheetDestinationSchemaResult(
                 column_count=len(columns),
                 columns=columns,
@@ -548,6 +551,32 @@ def test_extra_destination_columns_are_allowed():
     )
 
 
+def test_ai_correction_requires_checkbox_destination_type():
+    base = RecordingSchemaService(successful_schema_result()).result
+    column_types = dict(base.column_types)
+    column_types[
+        SmartsheetReviewRowMappingService.AI_CORRECTION_COLUMN
+    ] = "TEXT_NUMBER"
+    invalid_schema = SmartsheetDestinationSchemaResult(
+        column_count=base.column_count,
+        columns=dict(base.columns),
+        success=True,
+        status="ready",
+        column_types=column_types,
+    )
+    schema_service = type(
+        "StaticSchemaService",
+        (),
+        {"read": lambda self: invalid_schema},
+    )()
+    result = SmartsheetReviewConfigurationService(
+        policy_service=RecordingPolicyService(successful_policy_result()),
+        schema_service=schema_service,
+    ).resolve(document_type="authorization")
+    assert result.success is False
+    assert result.status == "ai_correction_column_invalid"
+
+
 def test_result_contract_is_phi_safe():
     field_names = {
         field.name
@@ -626,6 +655,11 @@ run_test(
 run_test(
     "extra destination columns are allowed",
     test_extra_destination_columns_are_allowed,
+)
+
+run_test(
+    "AI Correction requires checkbox destination type",
+    test_ai_correction_requires_checkbox_destination_type,
 )
 
 run_test(

@@ -323,6 +323,7 @@ def test_mapping_is_explicit_and_not_wholesale_serialization():
             "Authorization #",
             "AI Review Status",
             "AI Review Required",
+            "AI Correction",
             "AI Document Category",
             "AI Document Subtype",
             "AI Review Reasons",

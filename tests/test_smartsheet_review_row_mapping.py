@@ -309,6 +309,7 @@ def test_human_review_is_ready_for_automatic_write():
     )
 
     assert result.ready_for_write is True
+    assert result.values["AI Correction"] is False
     assert len(
         result.warnings
     ) == 1
@@ -327,6 +328,7 @@ def test_recommended_review_is_ready_without_approval():
     )
 
     assert result.ready_for_write is True
+    assert result.values["AI Correction"] is False
     assert (
         result.values[
             "AI Review Status"
@@ -354,6 +356,7 @@ def test_required_review_is_ready_without_approval():
     )
 
     assert result.ready_for_write is True
+    assert result.values["AI Correction"] is False
 
 
 def test_source_text_is_not_mapped():
@@ -506,6 +509,7 @@ def test_review_metadata_is_preserved():
         ]
         is True
     )
+    assert result.values["AI Correction"] is False
 
 
 def test_classification_labels_are_mapped_as_review_metadata():

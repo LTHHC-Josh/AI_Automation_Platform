@@ -989,14 +989,31 @@ Review-state and business-filename resolution checkpoint:
   retrospectively attributed to one specific component without exposing or
   rerunning protected evidence.
 
+AI Correction human-feedback mapping checkpoint:
+
+- The approved production row mapping explicitly initializes the Smartsheet
+  checkbox `AI Correction` to false only when creating a brand-new AI document
+  row. Its value is independent of review-required state, review status,
+  review reasons, and confidence.
+- Destination readiness requires the exact `AI Correction` column and proves
+  its schema type is `CHECKBOX`; no column identifier is hard-coded.
+- After creation the checkbox is human-owned. Durable exact-key row
+  reconciliation, restart recovery, completed-job no-op, and attachment-only
+  reconciliation do not update existing rows, so checked and unchecked human
+  feedback are preserved.
+- No Smartsheet Conversations/comments read, parse, or write behavior was
+  added. Focused and affected synthetic deterministic/mock tests passed with
+  no live Smartsheet, Graph/mailbox, protected OCR/Ollama, deployment, or
+  mailbox mutation.
+
 ## CURRENT NEXT START
 
 Refresh source/deployment registration if required, then perform one controlled
-unattended live run with a different document to verify optional absent fields
-do not trigger review, accepted confidence aligns with review reasons,
-Smartsheet AI Review Reason is human-readable and concise, filename readiness
-is visible, business filename resolves when all required evidence exists,
-Workflow Summary is accurate, and DP returns cleanly to waiting.
+unattended live run with a different document to verify AI Correction
+initializes unchecked, optional absent fields do not trigger review, accepted
+confidence aligns with review reasons, AI Review Reason is human-readable and
+concise, business filename resolves when supported, Workflow Summary is
+accurate, and DP returns cleanly to waiting.
 
 First unattended start failure diagnosis and correction checkpoint:
 

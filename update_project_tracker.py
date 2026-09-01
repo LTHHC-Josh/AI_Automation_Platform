@@ -9616,6 +9616,30 @@ filename readiness is visible, business filename resolves when all required
 evidence exists, Workflow Summary is accurate, and DP returns cleanly to
 waiting.
 
+AI Correction human-feedback mapping checkpoint (2026-09-01):
+
+- Added the exact `AI Correction` production mapping as a create-time false
+  checkbox. The value is deliberately independent of AI review status,
+  reasons, review-required state, and confidence.
+- Configuration now requires the destination column to exist and have
+  `CHECKBOX` type while continuing to resolve its identifier from live schema
+  metadata rather than source code.
+- Exact-row reconciliation, restart recovery, completed-state no-op, and
+  attachment reconciliation retain their existing no-row-update behavior and
+  therefore preserve both checked and unchecked human feedback. No comments or
+  Conversations API behavior was added.
+- Focused and affected synthetic deterministic/mock mapping, configuration,
+  destination, write, recovery, orchestration, and Prefect visibility tests
+  passed without live Smartsheet, Graph/mailbox, protected OCR/Ollama,
+  deployment, production attachment, or mailbox mutation.
+
+Exact next start: refresh source/deployment registration if required, then
+perform one controlled unattended live run with a different document to verify
+AI Correction initializes unchecked, optional absent fields do not trigger
+review, accepted confidence aligns with review reasons, AI Review Reason is
+human-readable and concise, business filename resolves when supported,
+Workflow Summary is accurate, and DP returns cleanly to waiting.
+
 """
 
 

@@ -271,12 +271,22 @@ class LostAttachmentResponseWriteService:
 class NoExternalWriteService:
     def __init__(self, client):
         self.client = client
+        self.row_update_calls = 0
+        self.comment_calls = 0
 
     def create_row(self, **kwargs):
         raise AssertionError("row create attempted during reconciliation")
 
     def attach_to_existing_row(self, **kwargs):
         raise AssertionError("attachment upload attempted during reconciliation")
+
+    def update_row(self, **kwargs):
+        self.row_update_calls += 1
+        raise AssertionError("human-owned row feedback was modified")
+
+    def read_or_write_comments(self, **kwargs):
+        self.comment_calls += 1
+        raise AssertionError("comments API was called")
 
 
 def test_existing_row_and_attachment_are_reconciled_without_attempts(tmp_path):
@@ -289,12 +299,13 @@ def test_existing_row_and_attachment_are_reconciled_without_attempts(tmp_path):
     source, technical_name = technical_source(tmp_path)
     client = SequencedReconciliationClient(
         row_matches=[[7001]], attachment_names=[[technical_name]])
+    write_service = NoExternalWriteService(client)
     recovery = MailboxDocumentSmartsheetRecoveryService(
         job_state_service=state_service,
         submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
             environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}),
         configuration_service=SyntheticConfigurationService(),
-        write_service=NoExternalWriteService(client),
+        write_service=write_service,
     )
     result = recovery.run(work_item=MailboxDocumentWorkItem(
         state.job_key, digest("a"), digest("b"), digest("c"), source,
@@ -307,6 +318,8 @@ def test_existing_row_and_attachment_are_reconciled_without_attempts(tmp_path):
     summary = state_service.summarize([state.job_key])
     assert summary.row_attempt_count == 0
     assert summary.attachment_attempt_count == 0
+    assert write_service.row_update_calls == 0
+    assert write_service.comment_calls == 0
 
 
 def test_lost_attachment_response_reconciles_without_duplicate_upload(tmp_path):
