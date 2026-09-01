@@ -35,8 +35,8 @@ VISIBLE_STAGES = (
     "extraction",
     "deterministic-validation",
     "business-rules",
-    "smartsheet-write",
-    "smartsheet-attachment",
+    "Smartsheet Row Created",
+    "Smartsheet Attachment Uploaded",
     "review-determination",
     "mailbox-finalization",
     "review-state",
@@ -71,6 +71,8 @@ def result():
         attachment_attempt_count=1,
         pending_document_count=0,
         completed_document_count=1,
+        row_action="created",
+        attachment_action="uploaded",
     )
 
 
@@ -92,8 +94,8 @@ class SyntheticApplication:
             "extraction",
             "validation",
             "business_rules",
-            "smartsheet_row_write",
-            "attachment_upload",
+            "smartsheet_row_created",
+            "smartsheet_attachment_uploaded",
             "review_determination",
             "mailbox_completion",
             "downstream_review",
@@ -257,6 +259,20 @@ def test_conditional_attempt_two_uses_real_stage_names():
     assert "extraction_candidate_selection" not in workflow._LONG_RUNNING_STAGES
 
 
+def test_smartsheet_action_stage_names_are_explicit_and_phi_safe():
+    expected = {
+        "smartsheet_row_created": "Smartsheet Row Created",
+        "smartsheet_row_reconciled_existing": "Smartsheet Row Reconciled",
+        "smartsheet_row_skipped": "Smartsheet Row Skipped",
+        "smartsheet_attachment_uploaded": "Smartsheet Attachment Uploaded",
+        "smartsheet_attachment_reconciled_existing": "Smartsheet Attachment Reconciled",
+        "smartsheet_attachment_skipped": "Smartsheet Attachment Skipped",
+    }
+    assert {key: workflow._STAGE_NAMES[key] for key in expected} == expected
+    assert "row_id" not in repr(expected)
+    assert "attachment_name" not in repr(expected)
+
+
 def test_summary_contract_excludes_protected_fields():
     source = Path(workflow.__file__).read_text(encoding="utf-8")
     summary_block = source.split("safe_summary = {", 1)[1].split("}\n    try:", 1)[0]
@@ -271,7 +287,11 @@ def test_summary_contract_excludes_protected_fields():
             document_count=1,
             written_count=1,
             failed_count=0,
+            row_action="created",
+            attachment_action="uploaded",
+            row_attempt_count=1,
             attachment_attempt_count=1,
+            completed_document_count=1,
             source_text="PROTECTED",
         )
     except TypeError:
@@ -298,9 +318,10 @@ if __name__ == "__main__":
     test_synthetic_flow_exposes_safe_lifecycle_task_runs()
     test_conditional_attempt_two_has_completed_duration_tasks()
     test_conditional_attempt_two_uses_real_stage_names()
+    test_smartsheet_action_stage_names_are_explicit_and_phi_safe()
     test_summary_contract_excludes_protected_fields()
     test_visibility_failure_remains_best_effort()
-    print("Passed: 6")
+    print("Passed: 7")
     print("Failed: 0")
     print("Classification: synthetic deterministic local Prefect workflow")
     print("External integrations: not called")

@@ -227,7 +227,11 @@ def test_lost_row_response_reconciles_exactly_one_without_duplicate_create(tmp_p
     repeated = recovery.run(work_item=work_item, run_type="Synthetic acceptance")
 
     assert result.success and result.completed and result.status == "completed"
+    assert result.row_action == "created"
+    assert result.attachment_action == "reconciled_existing"
     assert repeated.success and repeated.completed
+    assert repeated.row_action == "skipped"
+    assert repeated.attachment_action == "skipped"
     assert write_service.row_create_calls == 1
     assert write_service.attachment_calls == 0
     assert client.row_reads == 2
@@ -238,6 +242,9 @@ def test_lost_row_response_reconciles_exactly_one_without_duplicate_create(tmp_p
         write_service.row_create_calls,
         write_service.attachment_calls,
     )
+    summary = state_service.summarize([state.job_key])
+    assert summary.row_attempt_count == 1
+    assert summary.attachment_attempt_count == 0
     assert state.job_key not in repr(result)
     assert "7001" not in repr(result)
 
@@ -259,6 +266,47 @@ class LostAttachmentResponseWriteService:
             success=False,
             status="smartsheet_attachment_failed",
         )
+
+
+class NoExternalWriteService:
+    def __init__(self, client):
+        self.client = client
+
+    def create_row(self, **kwargs):
+        raise AssertionError("row create attempted during reconciliation")
+
+    def attach_to_existing_row(self, **kwargs):
+        raise AssertionError("attachment upload attempted during reconciliation")
+
+
+def test_existing_row_and_attachment_are_reconciled_without_attempts(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state = discovered(state_service).state
+    lease = state_service.acquire_processing_lease(state.job_key).state
+    state_service.transition(
+        state.job_key, expected_stages={"processing"}, stage="row_write_pending",
+        lease_token=lease.lease_token)
+    source, technical_name = technical_source(tmp_path)
+    client = SequencedReconciliationClient(
+        row_matches=[[7001]], attachment_names=[[technical_name]])
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
+            environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}),
+        configuration_service=SyntheticConfigurationService(),
+        write_service=NoExternalWriteService(client),
+    )
+    result = recovery.run(work_item=MailboxDocumentWorkItem(
+        state.job_key, digest("a"), digest("b"), digest("c"), source,
+        "row_write_pending", SimpleNamespace(
+            review_output=ReviewOutput(document_type="synthetic"))))
+
+    assert result.success and result.completed
+    assert result.row_action == "reconciled_existing"
+    assert result.attachment_action == "reconciled_existing"
+    summary = state_service.summarize([state.job_key])
+    assert summary.row_attempt_count == 0
+    assert summary.attachment_attempt_count == 0
 
 
 def test_lost_attachment_response_reconciles_without_duplicate_upload(tmp_path):
@@ -304,11 +352,18 @@ def test_lost_attachment_response_reconciles_without_duplicate_upload(tmp_path):
     repeated = recovery.run(work_item=work_item)
 
     assert result.success and result.completed and result.status == "completed"
+    assert result.row_action == "skipped"
+    assert result.attachment_action == "uploaded"
     assert repeated.success and repeated.completed
+    assert repeated.row_action == "skipped"
+    assert repeated.attachment_action == "skipped"
     assert write_service.row_create_calls == 0
     assert write_service.attachment_calls == 1
     assert client.attachment_reads == 2
     assert calls_after_completion == (client.attachment_reads, write_service.attachment_calls)
+    summary = state_service.summarize([state.job_key])
+    assert summary.row_attempt_count == 0
+    assert summary.attachment_attempt_count == 1
     stored = state_service.load(state.job_key).state
     assert stored.attachment_filename == technical_name
     assert stored.attachment_naming_status == "technical_fallback"

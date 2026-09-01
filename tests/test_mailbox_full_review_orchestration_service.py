@@ -770,6 +770,8 @@ def test_result_contract_is_phi_safe():
         "attachment_attempt_count",
         "pending_document_count",
         "completed_document_count",
+        "row_action",
+        "attachment_action",
     }
 
     prohibited_names = {

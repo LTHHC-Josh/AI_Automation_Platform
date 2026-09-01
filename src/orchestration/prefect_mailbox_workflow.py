@@ -41,8 +41,16 @@ _STAGE_NAMES = {
     "extraction": "extraction",
     "validation": "deterministic-validation",
     "business_rules": "business-rules",
-    "smartsheet_row_write": "smartsheet-write",
-    "attachment_upload": "smartsheet-attachment",
+    "smartsheet_row_created": "Smartsheet Row Created",
+    "smartsheet_row_reconciled_existing": "Smartsheet Row Reconciled",
+    "smartsheet_row_skipped": "Smartsheet Row Skipped",
+    "smartsheet_row_failed": "Smartsheet Row Failed",
+    "smartsheet_row_mixed": "Smartsheet Row Mixed Actions",
+    "smartsheet_attachment_uploaded": "Smartsheet Attachment Uploaded",
+    "smartsheet_attachment_reconciled_existing": "Smartsheet Attachment Reconciled",
+    "smartsheet_attachment_skipped": "Smartsheet Attachment Skipped",
+    "smartsheet_attachment_failed": "Smartsheet Attachment Failed",
+    "smartsheet_attachment_mixed": "Smartsheet Attachment Mixed Actions",
     "review_determination": "review-determination",
     "downstream_review": "review-state",
     "mailbox_completion": "mailbox-finalization",
@@ -71,6 +79,10 @@ _STAGE_STATUSES = {
     "review_required",
 }
 _SAFE_CATEGORY = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
+_SAFE_ROW_ACTIONS = {"created", "reconciled_existing", "skipped", "failed", "mixed"}
+_SAFE_ATTACHMENT_ACTIONS = {
+    "uploaded", "reconciled_existing", "skipped", "failed", "mixed",
+}
 
 
 class SanitizedMailboxRunError(RuntimeError):
@@ -135,7 +147,11 @@ def record_mailbox_workflow_summary(
     document_count: int,
     written_count: int,
     failed_count: int,
-    attachment_attempt_count: int,
+    row_action: str = "skipped",
+    attachment_action: str = "skipped",
+    row_attempt_count: int = 0,
+    attachment_attempt_count: int = 0,
+    completed_document_count: int = 0,
     review_required: bool | None = None,
     attempt_count: int | None = None,
     selected_attempt: int | None = None,
@@ -380,6 +396,7 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
     logger.info(
         "stage=%s status=%s failure_category=%s retryable=%s "
         "message_count=%s document_count=%s written_count=%s failed_count=%s "
+        "row_action=%s attachment_action=%s "
         "row_attempt_count=%s attachment_attempt_count=%s "
         "pending_document_count=%s completed_document_count=%s",
         result.stage,
@@ -390,6 +407,8 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
         result.document_count,
         result.written_count,
         result.failed_count,
+        result.row_action,
+        result.attachment_action,
         result.row_attempt_count,
         result.attachment_attempt_count,
         result.pending_document_count,
@@ -409,7 +428,16 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
         "document_count": result.document_count,
         "written_count": result.written_count,
         "failed_count": result.failed_count,
+        "row_action": (
+            result.row_action if result.row_action in _SAFE_ROW_ACTIONS else "failed"
+        ),
+        "attachment_action": (
+            result.attachment_action
+            if result.attachment_action in _SAFE_ATTACHMENT_ACTIONS else "failed"
+        ),
+        "row_attempt_count": result.row_attempt_count,
         "attachment_attempt_count": result.attachment_attempt_count,
+        "completed_document_count": result.completed_document_count,
         "review_required": review_event.get("review_required"),
         "attempt_count": extraction_event.get("attempt_count"),
         "selected_attempt": candidate_event.get("selected_attempt"),

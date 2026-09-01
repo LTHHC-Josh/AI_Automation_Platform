@@ -41,6 +41,8 @@ class MailboxCompleteReviewSmartsheetResult:
     failed_count: int
     success: bool
     status: str
+    row_action: str = "skipped"
+    attachment_action: str = "skipped"
 
 
 class MailboxCompleteReviewSmartsheetService:
@@ -132,6 +134,8 @@ class MailboxCompleteReviewSmartsheetService:
         cancelled_count = 0
         failed_count = 0
         partial_success_count = 0
+        row_actions = []
+        attachment_actions = []
 
         for message_result in results:
             work_items = getattr(message_result, "work_items", [])
@@ -144,11 +148,18 @@ class MailboxCompleteReviewSmartsheetService:
                             work_item=work_item, run_type=run_type)
                     except Exception:
                         recovery_result = None
+                    if recovery_result is not None:
+                        written_count += int(recovery_result.row_action == "created")
+                        row_actions.append(recovery_result.row_action)
+                        attachment_actions.append(recovery_result.attachment_action)
                     if recovery_result is not None and recovery_result.completed:
-                        written_count += 1
+                        pass
                     else:
                         failed_count += 1
                         message_complete = False
+                        if recovery_result is None:
+                            row_actions.append("failed")
+                            attachment_actions.append("skipped")
                 message_result.business_actions_completed = message_complete
                 continue
             documents = getattr(
@@ -221,6 +232,12 @@ class MailboxCompleteReviewSmartsheetService:
 
                 if submission_result.written:
                     written_count += 1
+                    row_actions.append("created")
+                    attachment_actions.append(
+                        "uploaded" if submission_result.success else "failed")
+                else:
+                    row_actions.append("failed")
+                    attachment_actions.append("skipped")
 
                 if (
                     submission_result.success
@@ -244,6 +261,8 @@ class MailboxCompleteReviewSmartsheetService:
                 failed_count=0,
                 success=True,
                 status="no_documents",
+                row_action="skipped",
+                attachment_action="skipped",
             )
 
         if failed_count:
@@ -268,7 +287,18 @@ class MailboxCompleteReviewSmartsheetService:
             failed_count=failed_count,
             success=success,
             status=status,
+            row_action=self._aggregate_actions(row_actions),
+            attachment_action=self._aggregate_actions(attachment_actions),
         )
+
+    @staticmethod
+    def _aggregate_actions(actions):
+        distinct = set(actions)
+        if not distinct:
+            return "skipped"
+        if len(distinct) == 1:
+            return next(iter(distinct))
+        return "mixed"
 
     @staticmethod
     def _failure(
@@ -284,4 +314,6 @@ class MailboxCompleteReviewSmartsheetService:
             failed_count=0,
             success=False,
             status=status,
+            row_action="failed",
+            attachment_action="skipped",
         )

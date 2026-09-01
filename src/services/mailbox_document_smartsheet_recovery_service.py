@@ -21,6 +21,8 @@ class MailboxDocumentSmartsheetRecoveryResult:
     attachment_known: bool
     success: bool
     status: str
+    row_action: str = "skipped"
+    attachment_action: str = "skipped"
 
 
 class MailboxDocumentSmartsheetRecoveryService:
@@ -48,7 +50,8 @@ class MailboxDocumentSmartsheetRecoveryService:
             return self._failure(loaded.status)
         state = loaded.state
         if state.stage == "attachment_written":
-            return MailboxDocumentSmartsheetRecoveryResult(True, True, True, True, "completed")
+            return MailboxDocumentSmartsheetRecoveryResult(
+                True, True, True, True, "completed", "skipped", "skipped")
         if state.stage == "blocked_permanent":
             return self._failure("blocked_permanent")
         if state.stage != "row_write_uncertain":
@@ -61,6 +64,8 @@ class MailboxDocumentSmartsheetRecoveryService:
         title = key_configuration.column_title
 
         row_id = state.smartsheet_row_id
+        row_action = "skipped"
+        row_create_attempted = False
         if state.stage in {"row_write_pending", "row_write_uncertain"}:
             document = work_item.document
             review_output = getattr(document, "review_output", None)
@@ -81,14 +86,15 @@ class MailboxDocumentSmartsheetRecoveryService:
             matches = self._find_rows(column_id, work_item.job_key, title=title)
             if matches is None:
                 if state.stage == "row_write_uncertain":
-                    return self._failure("row_write_uncertain")
+                    return self._failure("row_write_uncertain", row_action="failed")
                 matches = []
             if len(matches) > 1:
                 return self._block(work_item.job_key, state.stage, "duplicate_row_conflict")
             if len(matches) == 1:
                 row_id = matches[0]
+                row_action = "reconciled_existing"
             elif state.stage == "row_write_uncertain":
-                return self._failure("row_write_uncertain")
+                return self._failure("row_write_uncertain", row_action="failed")
             else:
                 mapping = self.mapping_service.map(
                     review_output=review_output,
@@ -109,13 +115,17 @@ class MailboxDocumentSmartsheetRecoveryService:
                 validation = self.destination_validation_service.validate(mapping, available)
                 if not validation.ready_for_write:
                     return self._block(work_item.job_key, state.stage, "destination_not_ready")
-                operation = self.write_service.create_row(mapping=mapping, destination_validation=validation)
+                row_create_attempted = True
+                operation = self.write_service.create_row(
+                    mapping=mapping, destination_validation=validation)
                 if operation.success:
                     row_id = operation.row_id
+                    row_action = "created"
                 else:
                     matches = self._find_rows(column_id, work_item.job_key, title=title)
                     if matches is not None and len(matches) == 1:
                         row_id = matches[0]
+                        row_action = "created"
                     elif matches is not None and len(matches) > 1:
                         return self._block(work_item.job_key, state.stage, "duplicate_row_conflict")
                     else:
@@ -123,12 +133,13 @@ class MailboxDocumentSmartsheetRecoveryService:
                             work_item.job_key, expected_stages={state.stage}, stage="row_write_uncertain",
                             failure_category="row_write_outcome_unknown", retryable=False,
                             increment_row_attempt=True)
-                        return self._failure("row_write_uncertain")
+                        return self._failure("row_write_uncertain", row_action="failed")
             stored = self.job_state_service.transition(
                 work_item.job_key, expected_stages={state.stage}, stage="row_written",
-                smartsheet_row_id=row_id, increment_row_attempt=(len(matches) == 0))
+                smartsheet_row_id=row_id,
+                increment_row_attempt=row_create_attempted)
             if not stored.success:
-                return self._failure(stored.status)
+                return self._failure(stored.status, row_action=row_action)
             state = stored.state
 
         if state is None or state.smartsheet_row_id is None:
@@ -144,14 +155,23 @@ class MailboxDocumentSmartsheetRecoveryService:
         names = self._attachment_names(row_id)
         if names is None:
             if state.stage == "attachment_write_uncertain":
-                return self._failure("attachment_write_uncertain")
+                return self._failure(
+                    "attachment_write_uncertain", row_action=row_action,
+                    attachment_action="failed")
             names = []
         count = sum(name == expected_name for name in names)
         if count > 1:
-            return self._block(work_item.job_key, state.stage, "duplicate_attachment_conflict")
+            return self._block(
+                work_item.job_key, state.stage, "duplicate_attachment_conflict",
+                row_action=row_action, attachment_action="failed")
         if count == 0 and state.stage == "attachment_write_uncertain":
-            return self._failure("attachment_write_uncertain")
+            return self._failure(
+                "attachment_write_uncertain", row_action=row_action,
+                attachment_action="failed")
+        attachment_action = "reconciled_existing" if count == 1 else "skipped"
+        attachment_upload_attempted = False
         if count == 0:
+            attachment_upload_attempted = True
             operation = self.write_service.attach_to_existing_row(
                 row_id=row_id, attachment_source_path=work_item.local_path,
                 technical_attachment_name=expected_name)
@@ -162,13 +182,19 @@ class MailboxDocumentSmartsheetRecoveryService:
                         work_item.job_key, expected_stages={state.stage}, stage="attachment_write_uncertain",
                         failure_category="attachment_write_outcome_unknown", retryable=False,
                         increment_attachment_attempt=True)
-                    return self._failure("attachment_write_uncertain")
+                    return self._failure(
+                        "attachment_write_uncertain", row_action=row_action,
+                        attachment_action="failed")
+            attachment_action = "uploaded"
         stored = self.job_state_service.transition(
             work_item.job_key, expected_stages={state.stage}, stage="attachment_written",
-            increment_attachment_attempt=(count == 0))
+            increment_attachment_attempt=attachment_upload_attempted)
         if not stored.success:
-            return self._failure(stored.status)
-        return MailboxDocumentSmartsheetRecoveryResult(True, True, True, True, "completed")
+            return self._failure(
+                stored.status, row_action=row_action,
+                attachment_action=attachment_action)
+        return MailboxDocumentSmartsheetRecoveryResult(
+            True, True, True, True, "completed", row_action, attachment_action)
 
     def _ensure_attachment_name(self, work_item, state):
         if state.attachment_filename is not None:
@@ -211,11 +237,16 @@ class MailboxDocumentSmartsheetRecoveryService:
         try: return list(self.write_service.client.list_row_attachment_names(row_id=row_id))
         except Exception: return None
 
-    def _block(self, job_key, stage, category):
+    def _block(
+        self, job_key, stage, category, *, row_action="failed",
+        attachment_action="skipped",
+    ):
         self.job_state_service.transition(job_key, expected_stages={stage}, stage="blocked_permanent",
                                           failure_category=category, retryable=False)
-        return self._failure(category)
+        return self._failure(
+            category, row_action=row_action, attachment_action=attachment_action)
 
     @staticmethod
-    def _failure(status):
-        return MailboxDocumentSmartsheetRecoveryResult(False, False, False, False, str(status))
+    def _failure(status, *, row_action="failed", attachment_action="skipped"):
+        return MailboxDocumentSmartsheetRecoveryResult(
+            False, False, False, False, str(status), row_action, attachment_action)

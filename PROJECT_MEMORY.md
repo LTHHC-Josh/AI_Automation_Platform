@@ -933,13 +933,37 @@ Validated confidence/source-support consistency checkpoint:
   quantity is confidently extracted and source-supported. Retry/attempt 2 and
   successful authorized-units reconciliation remain non-review triggers.
 
+Smartsheet action visibility checkpoint:
+
+- Durable recovery now reports fixed PHI-safe row actions (`created`,
+  `reconciled_existing`, `skipped`, or `failed`) and attachment actions
+  (`uploaded`, `reconciled_existing`, `skipped`, or `failed`). An already
+  completed durable job is an intentional skip; an existing row or attachment
+  proven during the current recovery attempt is reconciliation, not a new
+  external action.
+- Prefect lifecycle tasks use action-specific operator labels for row creation,
+  row reconciliation, row skips, attachment uploads, attachment
+  reconciliation, and attachment skips. The Workflow Summary includes both
+  actions, row/attachment attempt counts, written/failed counts, completed
+  document count, and final status. Visibility remains best effort.
+- `written_count` counts newly created rows and no longer increases for
+  reconciliation or an already-completed no-op. Durable row and attachment
+  attempt counters increase only when the corresponding external create or
+  upload call actually occurs, including a lost response later confirmed by
+  exact reconciliation.
+- Exact-key and exact-attachment reconciliation, restart safety, duplicate
+  prevention, mailbox completion ordering, and shared manual/unattended
+  semantics are unchanged. Focused and affected synthetic deterministic/mock
+  tests passed without live mailbox/Graph, protected OCR/Ollama, deployment,
+  production Smartsheet write/upload, or mailbox mutation.
+
 ## CURRENT NEXT START
 
-Refresh registration/source if required, then perform one controlled unattended
-live document run to verify validated Smartsheet values and confidences are
-internally consistent with deterministic source-support/review reasons, verify
-business filename versus technical fallback behavior, verify Workflow Summary,
-and confirm clean return to waiting before stopdp.
+Perform one controlled unattended live run with a different document to verify
+full OCR/extraction/validation behavior, validated Smartsheet value/confidence
+consistency, business filename versus technical fallback, specific review
+reasons, Workflow Summary action states, and clean return to waiting before
+stopdp.
 
 First unattended start failure diagnosis and correction checkpoint:
 

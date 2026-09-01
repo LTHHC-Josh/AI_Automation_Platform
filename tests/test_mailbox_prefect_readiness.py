@@ -75,6 +75,8 @@ def build_result(**overrides):
         "attachment_attempt_count": 1,
         "pending_document_count": 0,
         "completed_document_count": 1,
+        "row_action": "created",
+        "attachment_action": "uploaded",
     }
     values.update(overrides)
     return MailboxFullReviewOrchestrationResult(**values)
@@ -453,8 +455,8 @@ def test_adapter_logs_only_allowlisted_aggregate_metadata():
             for stage in (
                 "acceptance_handoff", "candidate_reverification", "attachment_download", "ocr",
                 "classification", "subtype_classification", "extraction",
-                "validation", "business_rules", "smartsheet_row_write",
-                "attachment_upload", "review_determination", "mailbox_completion",
+                "validation", "business_rules", "smartsheet_row_created",
+                "smartsheet_attachment_uploaded", "review_determination", "mailbox_completion",
                 "downstream_review", "completed",
             ):
                 kwargs["stage_observer"](
@@ -503,8 +505,8 @@ def test_adapter_logs_only_allowlisted_aggregate_metadata():
     for stage in (
         "acceptance-handoff", "candidate-reverification", "document-acquisition",
         "ocr", "document-classification", "subtype-classification", "extraction",
-        "deterministic-validation", "business-rules", "smartsheet-write",
-        "smartsheet-attachment", "review-determination", "mailbox-finalization",
+        "deterministic-validation", "business-rules", "Smartsheet Row Created",
+        "Smartsheet Attachment Uploaded", "review-determination", "mailbox-finalization",
         "review-state", "workflow-completion",
     ):
         assert f"stage={stage}" in rendered
@@ -561,6 +563,8 @@ def test_result_contract_contains_only_allowlisted_operational_fields():
         "attachment_attempt_count",
         "pending_document_count",
         "completed_document_count",
+        "row_action",
+        "attachment_action",
     } <= names
     prohibited = {
         "message_id", "subject", "filename", "file_path", "source_text",

@@ -8,6 +8,9 @@ from src.services.mailbox_complete_review_smartsheet_service import (
     MailboxCompleteReviewSmartsheetResult,
     MailboxCompleteReviewSmartsheetService,
 )
+from src.services.mailbox_document_smartsheet_recovery_service import (
+    MailboxDocumentSmartsheetRecoveryResult,
+)
 from src.services.review_output_service import ReviewField, ReviewOutput
 from src.services.smartsheet_review_configuration_service import (
     SmartsheetReviewConfigurationResult,
@@ -169,6 +172,8 @@ def test_configuration_and_attachment_reach_submission():
         run_type="Synthetic Mailbox Submission",
     )
     assert result.written_count == 1
+    assert result.row_action == "created"
+    assert result.attachment_action == "uploaded"
     assert submission.calls[0]["policy_count"] == 1
     assert submission.calls[0]["column_count"] == 1
     assert submission.calls[0]["attachment_supplied"] is True
@@ -257,6 +262,45 @@ def test_no_documents_is_successful_noop():
     assert submission.calls == []
 
 
+class FixedRecoveryService:
+    def __init__(self, result):
+        self.result = result
+
+    def run(self, **kwargs):
+        return self.result
+
+
+def test_reconciled_and_skipped_recovery_do_not_inflate_written_count():
+    for row_action, attachment_action in (
+        ("reconciled_existing", "reconciled_existing"),
+        ("skipped", "skipped"),
+    ):
+        recovery = FixedRecoveryService(MailboxDocumentSmartsheetRecoveryResult(
+            True, True, True, True, "completed", row_action, attachment_action))
+        service = MailboxCompleteReviewSmartsheetService(recovery_service=recovery)
+        message = build_message()
+        message.work_items = [object()]
+        result = service.run(message_results=[message])
+        assert result.success
+        assert result.written_count == 0
+        assert result.row_action == row_action
+        assert result.attachment_action == attachment_action
+
+
+def test_created_row_is_counted_when_attachment_action_fails():
+    recovery = FixedRecoveryService(MailboxDocumentSmartsheetRecoveryResult(
+        False, True, False, False, "attachment_write_uncertain",
+        "created", "failed"))
+    service = MailboxCompleteReviewSmartsheetService(recovery_service=recovery)
+    message = build_message()
+    message.work_items = [object()]
+    result = service.run(message_results=[message])
+    assert not result.success
+    assert result.written_count == 1
+    assert result.row_action == "created"
+    assert result.attachment_action == "failed"
+
+
 def test_invalid_collection_is_blocked():
     service, _, _ = build_service()
     result = service.run(message_results=None, run_type="Synthetic Mailbox Submission")
@@ -280,6 +324,8 @@ TESTS = [
     ("missing review output blocks downstream calls", test_missing_review_output_blocks_downstream_calls),
     ("submission exception is sanitized", test_submission_exception_is_sanitized),
     ("no documents is successful no-op", test_no_documents_is_successful_noop),
+    ("reconciliation and skips do not inflate writes", test_reconciled_and_skipped_recovery_do_not_inflate_written_count),
+    ("created row survives attachment failure count", test_created_row_is_counted_when_attachment_action_fails),
     ("invalid collection is blocked", test_invalid_collection_is_blocked),
     ("result contract remains PHI-safe", test_result_contract_remains_phi_safe),
 ]

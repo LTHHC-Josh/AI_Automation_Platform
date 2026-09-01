@@ -68,6 +68,8 @@ class MailboxFullReviewOrchestrationResult:
     attachment_attempt_count: int | None = None
     pending_document_count: int | None = None
     completed_document_count: int = 0
+    row_action: str = "skipped"
+    attachment_action: str = "skipped"
 
 
 class MailboxClassificationReviewMode(str, Enum):
@@ -206,12 +208,14 @@ class MailboxFullReviewOrchestrationService:
                 )
             )
             self._observe(
-                stage_observer, "smartsheet_row_write", "completed",
-                action_started_at, attempt_count=complete_result.written_count,
+                stage_observer, f"smartsheet_row_{complete_result.row_action}",
+                "failed" if complete_result.row_action == "failed" else "completed",
+                action_started_at,
             )
             self._observe(
-                stage_observer, "attachment_upload", "completed",
-                action_started_at, attempt_count=complete_result.written_count,
+                stage_observer, f"smartsheet_attachment_{complete_result.attachment_action}",
+                "failed" if complete_result.attachment_action == "failed" else "completed",
+                action_started_at,
             )
         except Exception:
             mailbox_summary = (
@@ -275,6 +279,8 @@ class MailboxFullReviewOrchestrationService:
                 status=complete_result.status,
                 stage="business_actions",
                 failure_category=complete_result.status,
+                row_action=complete_result.row_action,
+                attachment_action=complete_result.attachment_action,
             )
 
         for message_result in message_results:
@@ -293,6 +299,8 @@ class MailboxFullReviewOrchestrationService:
                         status="business_completion_incomplete",
                         stage="business_actions",
                         failure_category="business_completion_incomplete",
+                        row_action=complete_result.row_action,
+                        attachment_action=complete_result.attachment_action,
                     )
                 if not self.mailbox_processor.complete_message(message_result):
                     return self._build_result(
@@ -308,6 +316,8 @@ class MailboxFullReviewOrchestrationService:
                         status="mailbox_completion_failed",
                         stage="mailbox_completion",
                         failure_category="mailbox_completion_failed",
+                        row_action=complete_result.row_action,
+                        attachment_action=complete_result.attachment_action,
                     )
         self._observe(stage_observer, "mailbox_completion", "completed", action_started_at)
 
@@ -348,6 +358,8 @@ class MailboxFullReviewOrchestrationService:
                     status="completed_with_review_failures",
                     stage="downstream_review",
                     failure_category="interactive_review_failed",
+                    row_action=complete_result.row_action,
+                    attachment_action=complete_result.attachment_action,
                 )
 
         if not classification_result.success:
@@ -379,6 +391,8 @@ class MailboxFullReviewOrchestrationService:
                 status="completed_with_review_failures",
                 stage="downstream_review",
                 failure_category="interactive_review_failed",
+                row_action=complete_result.row_action,
+                attachment_action=complete_result.attachment_action,
             )
 
         failed_count = (
@@ -428,6 +442,8 @@ class MailboxFullReviewOrchestrationService:
             status=status,
             stage="completed" if success else "downstream_review",
             failure_category=None if success else "workflow_failed",
+            row_action=complete_result.row_action,
+            attachment_action=complete_result.attachment_action,
         )
         if result.success:
             self._observe(stage_observer, "completed", "completed", action_started_at)
@@ -636,6 +652,8 @@ class MailboxFullReviewOrchestrationService:
         written_count: int = 0,
         rejected_count: int = 0,
         complete_review_cancelled_count: int = 0,
+        row_action: str = "skipped",
+        attachment_action: str = "skipped",
     ) -> MailboxFullReviewOrchestrationResult:
         results = list(message_results)
         job_keys = [
@@ -687,6 +705,8 @@ class MailboxFullReviewOrchestrationService:
             attachment_attempt_count=attachment_attempt_count,
             pending_document_count=pending_document_count,
             completed_document_count=completed_document_count,
+            row_action=row_action,
+            attachment_action=attachment_action,
         )
 
     @staticmethod

@@ -9558,6 +9558,33 @@ and confidences are internally consistent with deterministic source-support/
 review reasons, verify business filename versus technical fallback behavior,
 verify Workflow Summary, and confirm clean return to waiting before stopdp.
 
+Smartsheet action visibility checkpoint (2026-09-01):
+
+- Added fixed PHI-safe row actions for created, reconciled-existing, skipped,
+  and failed outcomes, plus attachment actions for uploaded,
+  reconciled-existing, skipped, and failed outcomes. Already-completed durable
+  jobs now report intentional skips; exact existing-state matches found during
+  the current attempt report reconciliation.
+- Replaced generic Smartsheet lifecycle labels with action-specific Prefect
+  task labels. Workflow Summary now includes row/attachment actions, both
+  durable external-attempt counters, written/failed counts, completed document
+  count, and final status without external IDs or document data.
+- Corrected `written_count` so reconciliation/no-op does not count as a newly
+  created row. Corrected lost-response row reconciliation so the durable row
+  attempt counter records the create call that actually occurred. Attachment
+  attempts remain upload-call-only.
+- Focused and affected synthetic deterministic/mock tests covered new writes,
+  uploads, exact reconciliation, completed-state skips, lost responses,
+  counter behavior, PHI-safe Prefect visibility, and unchanged duplicate and
+  recovery protections. No live mailbox/Graph, protected OCR/Ollama,
+  deployment, production Smartsheet write/upload, or mailbox mutation ran.
+
+Exact next start: perform one controlled unattended live run with a different
+document to verify full OCR/extraction/validation behavior, validated
+Smartsheet value/confidence consistency, business filename versus technical
+fallback, specific review reasons, Workflow Summary action states, and clean
+return to waiting before stopdp.
+
 """
 
 
