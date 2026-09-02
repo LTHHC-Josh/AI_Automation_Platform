@@ -157,6 +157,7 @@ def record_mailbox_workflow_summary(
     filename_service_lookup: str = "Unresolved",
     filename_form: str = "Omitted",
     filename_dates: str = "Unresolved",
+    filename_extension: str = "Unresolved",
     filename_workflow: str = "Unresolved",
     filename_qualifier: str = "Unresolved",
     filename_result: str = "technical_fallback",
@@ -477,6 +478,10 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
         ),
         "filename_dates": (
             "Ready" if filename and filename.dates_ready else "Unresolved"
+        ),
+        "filename_extension": (
+            filename.extension_component_status
+            if filename else "Not Evaluated"
         ),
         "filename_workflow": (
             filename.workflow_component_status if filename else "Not Evaluated"

@@ -13,16 +13,6 @@ from src.services.reference_table_service import (
 
 
 @dataclass(frozen=True)
-class ProductionFilenameAssemblyResult:
-    policy_result: FilenamePolicyResult = field(repr=False)
-    business_name_resolved: bool = False
-    status: str = "unresolved"
-    business_filename_attempted: bool = True
-    required_component_failure_count: int = 0
-    optional_component_omission_count: int = 0
-
-
-@dataclass(frozen=True)
 class FilenameReadinessDiagnostic:
     person_components_ready: bool
     payer_lookup_ready: bool
@@ -38,6 +28,23 @@ class FilenameReadinessDiagnostic:
     service_component_status: str = "Omitted"
     form_component_status: str = "Omitted"
     workflow_component_status: str = "Omitted"
+    extension_ready: bool = False
+    extension_component_status: str = "Unresolved"
+    payer_lookup_status: str = "unresolved"
+
+
+@dataclass(frozen=True)
+class ProductionFilenameAssemblyResult:
+    policy_result: FilenamePolicyResult = field(repr=False)
+    business_name_resolved: bool = False
+    status: str = "unresolved"
+    business_filename_attempted: bool = True
+    required_component_failure_count: int = 0
+    optional_component_omission_count: int = 0
+    diagnostic: FilenameReadinessDiagnostic | None = field(
+        default=None,
+        repr=False,
+    )
 
 
 class ProductionFilenameAssemblyService:
@@ -53,27 +60,58 @@ class ProductionFilenameAssemblyService:
         self.policy_service = policy_service or FilenamePolicyService()
         self.diagnostic_service = diagnostic_service or FieldValidationDiagnosticService()
 
-    def resolve(self, *, document: Any, source_extension: Any) -> ProductionFilenameAssemblyResult:
+    def evaluate(
+        self,
+        *,
+        document: Any,
+        source_extension: Any,
+    ) -> ProductionFilenameAssemblyResult:
         if not isinstance(document, Document):
-            return self._failure("processed_document_unavailable", attempted=False)
+            diagnostic = FilenameReadinessDiagnostic(
+                False, False, False, False, False, "Not Required",
+                "technical_fallback", "processed_document_unavailable",
+                False, 0, 5,
+                extension_ready=False,
+                extension_component_status="Unresolved",
+                payer_lookup_status="unavailable",
+            )
+            return self._failure(
+                "processed_document_unavailable",
+                attempted=False,
+                required_failure_count=0,
+                diagnostic=diagnostic,
+            )
+
         try:
             tables = self.tables_provider()
         except Exception:
             tables = None
-        if not isinstance(tables, ReferenceTables):
-            return self._failure("authoritative_reference_unavailable")
+        tables_ready = isinstance(tables, ReferenceTables)
 
         first = self._accepted_scalar(document, "person_first")
         last = self._accepted_scalar(document, "person_last")
         middle = self._accepted_scalar(document, "person_middle")
-        if first is None or last is None:
-            return self._failure("person_components_unresolved")
+        person_ready = first is not None and last is not None
+
         payer = self._accepted_scalar(document, "payer")
+        payer_lookup = (
+            tables.payors.lookup(payer, "")
+            if tables_ready and payer is not None
+            else None
+        )
+        payer_ready = bool(
+            isinstance(payer_lookup, LookupResult) and payer_lookup.resolved
+        )
         if payer is None:
-            return self._failure("payer_evidence_unresolved")
-        payer_lookup = tables.payors.lookup(payer, "")
-        if not payer_lookup.resolved:
-            return self._failure("payer_reference_unresolved")
+            payer_lookup_status = "evidence_unresolved"
+        elif not tables_ready:
+            payer_lookup_status = "reference_unavailable"
+        elif isinstance(payer_lookup, LookupResult):
+            payer_lookup_status = (
+                "resolved" if payer_lookup.resolved else payer_lookup.status
+            )
+        else:
+            payer_lookup_status = "not_resolved"
 
         start_date = self._accepted_scalar(document, "start_date")
         end_date = self._accepted_scalar(document, "end_date")
@@ -84,9 +122,12 @@ class ProductionFilenameAssemblyService:
         service = self._single_service_identity(document)
         if service is not None:
             code, modifier, program, line_start, line_end = service
-            candidate_lookup = tables.services.lookup(code, modifier, program)
-            if candidate_lookup.resolved:
-                service_lookup = candidate_lookup
+            if tables_ready:
+                candidate_lookup = tables.services.lookup(
+                    code, modifier, program
+                )
+                if candidate_lookup.resolved:
+                    service_lookup = candidate_lookup
             start_date = start_date or line_start
             end_date = end_date or line_end
 
@@ -101,12 +142,27 @@ class ProductionFilenameAssemblyService:
         form_type = "2067" if policy_category == "2067" else None
         posted_date = self._accepted_scalar(document, "posted_date")
         workflow_ready = self._workflow_ready(policy_category, policy_subtype)
+        service_status = (
+            "Ready" if service_lookup is not None
+            else ("Unresolved" if service is not None else "Omitted")
+        )
+        form_status = "Ready" if form_type is not None else "Omitted"
+        workflow_status = "Ready" if workflow_ready else "Omitted"
+        qualifier_evidence = document.field_evidence.get("renewal_qualifier")
+        qualifier_claimed = bool(
+            isinstance(qualifier_evidence, dict)
+            and qualifier_evidence.get("value") is not None
+        )
+        qualifier_status = (
+            "Unresolved" if qualifier_claimed else "Not Required"
+        )
         omissions = self._optional_omission_count(
             middle=middle, service_ready=service_lookup is not None,
             form_ready=form_type is not None, workflow_ready=workflow_ready,
             qualifier_ready=False,
         )
-        policy = self.policy_service.resolve(FilenamePolicyRequest(
+
+        request = FilenamePolicyRequest(
             person_last=last, person_first=first, person_middle=middle,
             payer_lookup=payer_lookup,
             service_applicable=service_lookup is not None,
@@ -118,76 +174,106 @@ class ProductionFilenameAssemblyService:
             ),
             start_date=start_date, end_date=end_date,
             source_extension=source_extension,
-        ))
+        )
+        date_status = self.policy_service.date_status(request)
+        dates_ready = date_status == "resolved"
+        extension_ready = self.policy_service.extension_supported(
+            source_extension
+        )
+
+        # Invoke the approved policy for every valid new document. Component
+        # readiness is still evaluated independently so the operator receives
+        # a complete, PHI-safe explanation instead of only the first failure.
+        policy = self.policy_service.resolve(request)
+        required_failures = []
+        if not person_ready:
+            required_failures.append("person")
+        if not payer_ready:
+            required_failures.append("payer")
+        if not dates_ready:
+            required_failures.append("date")
+        if not extension_ready:
+            required_failures.append("extension")
+
+        if not tables_ready:
+            failure_category = "authoritative_reference_unavailable"
+        elif not person_ready:
+            failure_category = "person_components_unresolved"
+        elif payer is None:
+            failure_category = "payer_evidence_unresolved"
+        elif not payer_ready:
+            failure_category = "payer_reference_unresolved"
+        elif not dates_ready:
+            failure_category = date_status
+        elif not extension_ready:
+            failure_category = "source_extension_unsupported"
+        elif not policy.complete:
+            failure_category = policy.status
+            required_failures.append("safe_composition")
+        else:
+            failure_category = "none"
+
+        business_resolved = failure_category == "none" and policy.complete
+        effective_policy = (
+            policy
+            if business_resolved
+            else FilenamePolicyResult(
+                False, None, True, failure_category
+            )
+        )
+        diagnostic = FilenameReadinessDiagnostic(
+            person_ready,
+            payer_ready,
+            service_lookup is not None,
+            dates_ready,
+            workflow_ready,
+            qualifier_status,
+            "business" if business_resolved else "technical_fallback",
+            failure_category,
+            True,
+            len(required_failures),
+            omissions,
+            service_status,
+            form_status,
+            workflow_status,
+            extension_ready,
+            "Ready" if extension_ready else "Unresolved",
+            payer_lookup_status,
+        )
         return ProductionFilenameAssemblyResult(
-            policy, policy.complete, policy.status, True,
-            0 if policy.complete else 1, omissions,
+            effective_policy,
+            business_resolved,
+            effective_policy.status,
+            True,
+            len(required_failures),
+            omissions,
+            diagnostic,
+        )
+
+    def resolve(
+        self,
+        *,
+        document: Any,
+        source_extension: Any,
+    ) -> ProductionFilenameAssemblyResult:
+        return self.evaluate(
+            document=document,
+            source_extension=source_extension,
         )
 
     def diagnose(self, *, document: Any, source_extension: Any) -> FilenameReadinessDiagnostic:
-        if not isinstance(document, Document):
-            return FilenameReadinessDiagnostic(
-                False, False, False, False, False, "Not Required",
-                "technical_fallback", "processed_document_unavailable",
-                False, 1, 5,
-            )
-        try:
-            tables = self.tables_provider()
-        except Exception:
-            tables = None
-        first = self._accepted_scalar(document, "person_first")
-        last = self._accepted_scalar(document, "person_last")
-        middle = self._accepted_scalar(document, "person_middle")
-        person_ready = first is not None and last is not None
-        payer = self._accepted_scalar(document, "payer")
-        payer_ready = bool(
-            isinstance(tables, ReferenceTables) and payer is not None
-            and tables.payors.lookup(payer, "").resolved
+        result = self.evaluate(
+            document=document,
+            source_extension=source_extension,
         )
-        service = self._single_service_identity(document)
-        service_ready = bool(
-            service is not None and isinstance(tables, ReferenceTables)
-            and tables.services.lookup(*service[:3]).resolved
-        )
-        start = self._accepted_scalar(document, "start_date")
-        end = self._accepted_scalar(document, "end_date")
-        line_start, line_end = self._service_line_dates(document)
-        start = start or line_start
-        end = end or line_end
-        if service is not None:
-            start = start or service[3]
-            end = end or service[4]
-        dates_ready = bool(start or end)
-
-        category = str(document.document_category or "").strip().lower()
-        category_supported = document.classification_support_status == "supported"
-        subtype = str(document.document_subtype or "unknown").strip().lower()
-        workflow_ready = bool(
-            category_supported and document.subtype_support_status == "supported"
-            and category == "authorization" and subtype in {"initial", "renewal"}
-        )
-        form_ready = category_supported and category == "2067"
-        qualifier_evidence = document.field_evidence.get("renewal_qualifier")
-        qualifier_claimed = bool(
-            isinstance(qualifier_evidence, dict)
-            and qualifier_evidence.get("value") is not None
-        )
-        resolved = self.resolve(document=document, source_extension=source_extension)
-        omissions = self._optional_omission_count(
-            middle=middle, service_ready=service_ready, form_ready=form_ready,
-            workflow_ready=workflow_ready, qualifier_ready=False,
-        )
+        if result.diagnostic is not None:
+            return result.diagnostic
         return FilenameReadinessDiagnostic(
-            person_ready, payer_ready, service_ready, dates_ready, workflow_ready,
-            "Unresolved" if qualifier_claimed else "Not Required",
-            "business" if resolved.business_name_resolved else "technical_fallback",
-            "none" if resolved.business_name_resolved else resolved.status,
-            resolved.business_filename_attempted,
-            resolved.required_component_failure_count,
-            omissions,
-            "Ready" if service_ready else "Omitted",
-            "Ready" if form_ready else "Omitted",
-            "Ready" if workflow_ready else "Omitted",
+            False, False, False, False, False, "Not Required",
+            "technical_fallback", result.status,
+            result.business_filename_attempted,
+            result.required_component_failure_count,
+            result.optional_component_omission_count,
         )
 
     def _single_service_identity(self, document: Document):
@@ -300,8 +386,19 @@ class ProductionFilenameAssemblyService:
         return loaded.tables if loaded.success else None
 
     @staticmethod
-    def _failure(status: str, *, attempted: bool = True):
+    def _failure(
+        status: str,
+        *,
+        attempted: bool = True,
+        required_failure_count: int = 1,
+        diagnostic: FilenameReadinessDiagnostic | None = None,
+    ):
         return ProductionFilenameAssemblyResult(
             FilenamePolicyResult(False, None, True, status),
-            False, status, attempted, 1, 0,
+            False,
+            status,
+            attempted,
+            required_failure_count,
+            0,
+            diagnostic,
         )

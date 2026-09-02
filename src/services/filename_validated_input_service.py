@@ -4,6 +4,9 @@ import re
 from typing import Any
 
 from src.models.document import Document
+from src.services.field_validation_diagnostic_service import (
+    FieldValidationDiagnosticService,
+)
 from src.services.reference_table_service import LookupResult
 
 
@@ -51,15 +54,19 @@ class FilenameValidatedInputService:
         is_2067 = self._normalize_token(form_type) == self.FORM_2067
         reasons: list[str] = []
         posted_date = self._posted_date(document, required=is_2067)
-        if is_2067 and not posted_date.lookup.resolved:
-            reasons.append(f"posted_date_{posted_date.lookup.status}")
+        if (
+            is_2067
+            and not posted_date.lookup.resolved
+            and not self._alternative_naming_date_available(document)
+        ):
+            reasons.append("naming_date_unresolved")
 
         workflow = self._workflow_context(
             workflow_context,
             required=is_2067,
         )
-        if is_2067 and not workflow.lookup.resolved:
-            reasons.append(f"workflow_context_{workflow.lookup.status}")
+        # Workflow is an optional filename token. Preserve a supported value,
+        # but never make its absence a global filename-readiness failure.
 
         qualifier = self._renewal_qualifier(
             document,
@@ -77,6 +84,20 @@ class FilenameValidatedInputService:
             review_required=bool(reasons),
             review_reasons=tuple(dict.fromkeys(reasons)),
         )
+
+    @staticmethod
+    def _alternative_naming_date_available(document: Document) -> bool:
+        diagnostics = FieldValidationDiagnosticService()
+        for field_name in ("start_date", "end_date"):
+            if diagnostics.build(document, field_name).field_state == "accepted":
+                return True
+        for index, _ in enumerate(document.service_lines or []):
+            for component in ("start_date", "end_date"):
+                if diagnostics.build_service_line(
+                    document, index, component
+                ).field_state == "accepted":
+                    return True
+        return False
 
     def _posted_date(
         self,

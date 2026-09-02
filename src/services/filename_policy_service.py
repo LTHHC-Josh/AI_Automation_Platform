@@ -51,9 +51,7 @@ class FilenamePolicyService:
     def resolve(self, request: FilenamePolicyRequest) -> FilenamePolicyResult:
         if not isinstance(request, FilenamePolicyRequest):
             return self._failure("invalid_policy_request")
-        extension = str(request.source_extension or "").strip().lower()
-        if extension and not extension.startswith("."):
-            extension = f".{extension}"
+        extension = self._normalized_extension(request.source_extension)
         if extension not in self.SAFE_EXTENSIONS:
             return self._failure("source_extension_unsupported")
 
@@ -96,6 +94,24 @@ class FilenamePolicyService:
         if not composed.success:
             return self._failure(composed.status)
         return FilenamePolicyResult(True, composed.filename, False, "resolved")
+
+    @classmethod
+    def extension_supported(cls, value: Any) -> bool:
+        return cls._normalized_extension(value) in cls.SAFE_EXTENSIONS
+
+    @classmethod
+    def date_status(cls, request: Any) -> str:
+        if not isinstance(request, FilenamePolicyRequest):
+            return "invalid_policy_request"
+        _, status = cls._date_token(request)
+        return status
+
+    @staticmethod
+    def _normalized_extension(value: Any) -> str:
+        extension = str(value or "").strip().lower()
+        if extension and not extension.startswith("."):
+            extension = f".{extension}"
+        return extension
 
     @staticmethod
     def _reference_value(result: Any) -> str | None:
@@ -169,12 +185,11 @@ class FilenamePolicyService:
     def _date_token(cls, request: FilenamePolicyRequest) -> tuple[str | None, str]:
         if cls._form_token(request.form_type) == cls.FORM_2067:
             posted_date = cls._reference_value(request.posted_date_lookup)
-            if posted_date is None:
-                return None, "posted_date_unresolved"
-            formatted = cls._format_date(posted_date)
-            if formatted is None:
-                return None, "posted_date_invalid"
-            return formatted, "resolved"
+            if posted_date is not None:
+                formatted = cls._format_date(posted_date)
+                if formatted is None:
+                    return None, "posted_date_invalid"
+                return formatted, "resolved"
 
         start_present = bool(str(request.start_date or "").strip())
         end_present = bool(str(request.end_date or "").strip())

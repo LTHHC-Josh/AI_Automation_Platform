@@ -1050,9 +1050,9 @@ Unified optional-absence and graceful filename checkpoint:
   and leaves both value and confidence blank. A present invalid, unsupported,
   ambiguous, conflicting, or low-confidence candidate still fails closed.
 - Authorization subtype `unknown` remains an accepted taxonomy result that
-  recommends review with the single operator reason `Authorization subtype
-  could not be determined`. Category confidence remains independent, and no
-  workflow token is invented.
+  recommends review with the single operator-facing reason `AI Document
+  Subtype: Unknown`. Category confidence remains independent, and no workflow
+  token is invented.
 - Review output carries final field state and requiredness. Smartsheet maps
   only `accepted` fields and their governing confidence; nonaccepted or absent
   values remain blank. The prior textual confidence sentinels are removed.
@@ -1073,15 +1073,52 @@ Unified optional-absence and graceful filename checkpoint:
   fixed safe result/failure category, required-failure count, optional-omission
   count, and Ready/Omitted optional component states without actual values.
 
+Subtype presentation and exact filename-decision checkpoint:
+
+- The observed `Request type unresolved document information` text came from
+  the generic review presenter treating `subtype` as a legacy `request_type`
+  alias. Canonical presentation now keeps document subtype and request
+  selection separate. All supported unknown-subtype aliases deduplicate to
+  `document_subtype_unknown`, whose exact Smartsheet-facing text is
+  `AI Document Subtype: Unknown`.
+- Read-only PHI-safe Workflow Summary evidence proved the latest business-name
+  attempt reached production assembly and failed specifically at the exact
+  authoritative payer lookup with `payer_reference_unresolved`. Independently
+  validated payer evidence was present; no payer value was exposed and no
+  reference mapping was guessed or widened.
+- Production filename evaluation now produces the business/fallback decision
+  and its diagnostics from one authoritative result. Every valid new Document
+  invokes `FilenamePolicyService`; optional service, form, workflow, qualifier,
+  middle-name, and end-date omissions cannot set a global fallback flag.
+- A resumed job reports its already-persisted business/technical filename
+  decision instead of recomputing a contradictory current diagnostic. Durable
+  names remain unchanged, and persisted technical fallback is identified by
+  the fixed safe category `persisted_technical_fallback`.
+- Required readiness is counted independently for person components, payer,
+  naming date, and safe extension. Safe composition is counted only after all
+  four prerequisites pass. The primary fixed failure category remains stable
+  while the total reports every unresolved required prerequisite.
+- 2067 naming prefers a supported posted date but may use the existing single
+  start/end date or range policy when posted date is absent. An accepted but
+  invalid posted-date candidate still fails closed. Workflow Summary now also
+  exposes safe extension readiness and uses the same final evaluation object
+  persisted with the attachment-name decision.
+- Focused and affected synthetic deterministic/mock/local-safe regressions
+  passed. Isolated local Prefect visibility tests invoked synthetic flows only;
+  no live mailbox/Graph, protected OCR/Ollama, production Smartsheet/document,
+  comment, deployment, worker, or mailbox mutation occurred.
+
 ## CURRENT NEXT START
 
-Refresh registration/source, then perform one controlled unattended live run
-with a different document to verify optional end-date absence remains blank
-without review, unknown subtype (if produced) has only the specific subtype
-reason without changing category confidence, optional filename components are
-omitted without technical fallback, required filename failures remain
-fail-closed, Workflow Summary naming counts/states are accurate, quantity/unit
-and AI Correction behavior remain correct, and DP returns cleanly to waiting.
+Refresh deployment/source registration and confirm the approved authoritative
+payer reference contains the intended test payer mapping without exposing its
+value, then perform one controlled unattended live run with a different
+document. Verify unknown subtype produces exactly `AI Document Subtype:
+Unknown` without changing category confidence, optional filename components
+are omitted without fallback, each required filename failure is reported by
+its exact safe category, Workflow Summary extension/count/state diagnostics
+match the final attachment decision, AI Correction remains unchecked, and the
+DP returns cleanly to waiting before stopdp.
 
 First unattended start failure diagnosis and correction checkpoint:
 

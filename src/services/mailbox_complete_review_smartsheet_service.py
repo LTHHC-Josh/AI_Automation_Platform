@@ -168,11 +168,13 @@ class MailboxCompleteReviewSmartsheetService:
                         str(reason) for reason in getattr(
                             review_output, "review_reasons", ()) if str(reason).strip()
                     ))
-                    review_reason_count += len(final_reasons)
                     codes = reason_summary.summarize_codes(
                         final_reasons)
-                    review_reason_categories.extend(
-                        code for code in codes.split("; ") if code)
+                    canonical_codes = tuple(
+                        code for code in codes.split("; ") if code
+                    )
+                    review_reason_count += len(canonical_codes)
+                    review_reason_categories.extend(canonical_codes)
                     try:
                         recovery_result = self.recovery_service.run(
                             work_item=work_item, run_type=run_type)
@@ -220,12 +222,11 @@ class MailboxCompleteReviewSmartsheetService:
                 )
                 codes = reason_summary.summarize_codes(
                     getattr(review_output, "review_reasons", ()))
-                review_reason_count += len(tuple(dict.fromkeys(
-                    str(reason) for reason in getattr(
-                        review_output, "review_reasons", ()) if str(reason).strip()
-                )))
-                review_reason_categories.extend(
-                    code for code in codes.split("; ") if code)
+                canonical_codes = tuple(
+                    code for code in codes.split("; ") if code
+                )
+                review_reason_count += len(canonical_codes)
+                review_reason_categories.extend(canonical_codes)
 
                 if not isinstance(
                     review_output,

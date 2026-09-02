@@ -89,6 +89,25 @@ def test_missing_posted_date_remains_unknown_and_requires_review():
     assert inputs.review_required is True
 
 
+def test_missing_posted_date_does_not_block_supported_alternative_date():
+    subject = document(evidence={
+        "start_date": {
+            "value": "2026-01-02",
+            "confidence": 0.95,
+            "source_text": "Start Date: 2026-01-02",
+        }
+    })
+    inputs = FilenameValidatedInputService().resolve(
+        subject,
+        form_type="2067",
+        workflow_context=None,
+    )
+    assert inputs.posted_date.lookup.resolved is False
+    assert inputs.workflow_context.lookup.resolved is False
+    assert inputs.review_required is False
+    assert inputs.review_reasons == ()
+
+
 def test_conflicting_posted_date_is_cleared_and_review_safe():
     source_text = "Posted Date: 04/05/2026; Posted Date: 04/06/2026"
     subject = document(
@@ -147,7 +166,17 @@ def test_explicit_workflow_context_survives_separately_from_2067():
 
 
 def test_missing_or_unsupported_workflow_context_is_never_guessed():
-    subject = document(category="authorization", subtype="initial")
+    subject = document(
+        category="authorization",
+        subtype="initial",
+        evidence={
+            "start_date": {
+                "value": "2026-01-02",
+                "confidence": 0.95,
+                "source_text": "Start Date: 2026-01-02",
+            }
+        },
+    )
     missing = FilenameValidatedInputService().resolve(
         subject,
         form_type="2067",
@@ -162,8 +191,8 @@ def test_missing_or_unsupported_workflow_context_is_never_guessed():
     assert unsupported_context.workflow_context.lookup.status == "unsupported"
     assert missing.workflow_context.lookup.value is None
     assert unsupported_context.workflow_context.lookup.value is None
-    assert missing.review_required is True
-    assert unsupported_context.review_required is True
+    assert missing.review_required is False
+    assert unsupported_context.review_required is False
 
 
 def test_supported_no_change_preserves_evidence_without_inferring_renewal():

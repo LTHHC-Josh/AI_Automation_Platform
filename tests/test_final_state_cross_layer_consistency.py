@@ -351,7 +351,7 @@ def test_authorization_unknown_subtype_recommends_one_specific_review_reason():
     assert result.review_status == "Human Review Recommended"
     assert result.reasons == ["Authorization subtype could not be determined."]
     assert ReviewReasonSummaryService().summarize(result.reasons) == (
-        "Authorization subtype could not be determined"
+        "AI Document Subtype: Unknown"
     )
 
 

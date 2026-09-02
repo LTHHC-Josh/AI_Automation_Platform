@@ -9706,6 +9706,40 @@ failures remain fail-closed, Workflow Summary naming counts/states are
 accurate, quantity/unit and AI Correction behavior remain correct, and DP
 returns cleanly to waiting.
 
+Subtype presentation and exact filename-decision checkpoint (2026-09-02):
+
+- Corrected the generic review presenter that treated subtype as a legacy
+  request-type alias. Supported unknown-subtype reasons now deduplicate to the
+  fixed safe code `document_subtype_unknown` and exact operator-facing text
+  `AI Document Subtype: Unknown`; document-category confidence remains
+  independent.
+- PHI-safe read-only prior-run evidence proved business naming was attempted
+  and the exact fallback was `payer_reference_unresolved`. Production keeps
+  exact authoritative lookup fail-closed and does not guess a mapping.
+- Filename assembly now invokes the approved policy for every valid new
+  Document, evaluates required person/payer/date/extension readiness
+  independently, and derives the attachment decision and Workflow Summary
+  diagnostics from the same result. Optional component omission cannot set a
+  fallback flag.
+- Resumed jobs report the durable business/technical filename decision already
+  stored for reconciliation rather than a contradictory recomputed result;
+  persisted technical fallback uses a fixed safe category and is never renamed.
+- 2067 naming prefers a supported posted date and may use the existing
+  supported single-date/range path when posted date is absent. Safe extension
+  readiness and exact required-failure counts are now visible without values.
+- Compilation and 31 focused/affected synthetic deterministic/mock/local-safe
+  test scripts passed. Isolated Prefect tests used temporary synthetic flows;
+  no live mailbox/Graph, protected OCR/Ollama, production Smartsheet document
+  or comment operation, deployment/worker start, or mailbox mutation occurred.
+
+Exact next start: refresh deployment/source registration and confirm the
+approved authoritative payer reference contains the intended test payer
+mapping without exposing its value, then perform one controlled unattended
+live run with a different document. Verify exact unknown-subtype presentation,
+optional omission, required-failure categories and counts, extension readiness,
+final filename decision, AI Correction, and clean return to waiting before
+stopdp.
+
 """
 
 

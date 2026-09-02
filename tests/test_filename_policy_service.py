@@ -305,12 +305,11 @@ def test_2067_uses_only_supported_posted_date():
     assert "060726" not in result.filename
 
 
-def test_2067_missing_unsupported_conflicting_or_invalid_posted_date_blocks():
+def test_2067_missing_or_unresolved_posted_date_uses_supported_range():
     changes = (
         {"posted_date_lookup": None},
         {"posted_date_lookup": unresolved("unsupported")},
         {"posted_date_lookup": unresolved("conflicting")},
-        {"posted_date_lookup": resolved("not-a-date")},
     )
     results = [
         FilenamePolicyService().resolve(
@@ -324,13 +323,36 @@ def test_2067_missing_unsupported_conflicting_or_invalid_posted_date_blocks():
         )
         for change in changes
     ]
-    assert all(not result.complete for result in results)
-    assert [result.status for result in results] == [
-        "posted_date_unresolved",
-        "posted_date_unresolved",
-        "posted_date_unresolved",
-        "posted_date_invalid",
-    ]
+    assert all(result.complete for result in results)
+    assert all(result.filename.endswith("_010226-020326.pdf") for result in results)
+
+
+def test_2067_invalid_accepted_posted_date_fails_closed():
+    result = FilenamePolicyService().resolve(
+        request(
+            form_type="2067",
+            document_category="formal_communication",
+            document_subtype=None,
+            posted_date_lookup=resolved("not-a-date"),
+        )
+    )
+    assert result.complete is False
+    assert result.status == "posted_date_invalid"
+
+
+def test_2067_without_any_supported_date_fails_closed():
+    result = FilenamePolicyService().resolve(
+        request(
+            form_type="2067",
+            document_category="formal_communication",
+            document_subtype=None,
+            posted_date_lookup=None,
+            start_date=None,
+            end_date=None,
+        )
+    )
+    assert result.complete is False
+    assert result.status == "date_unresolved"
 
 
 def test_document_type_and_workflow_are_separate_request_dimensions():

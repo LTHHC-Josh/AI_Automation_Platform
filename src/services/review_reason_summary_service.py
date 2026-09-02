@@ -10,7 +10,7 @@ class ReviewReasonSummaryService:
             "authorization_quantity_requires_verification"
         ),
         "authorization subtype requires verification": (
-            "authorization_subtype_requires_verification"
+            "document_subtype_unknown"
         ),
         "document classification confidence is below 75%.": (
             "classification_confidence_below_required_threshold"
@@ -30,10 +30,13 @@ class ReviewReasonSummaryService:
             "document_category_unsupported"
         ),
         "authorization subtype could not be determined.": (
-            "authorization_subtype_unknown"
+            "document_subtype_unknown"
+        ),
+        "2067 subtype could not be deterministically determined.": (
+            "document_subtype_unknown"
         ),
         "authorization or service termination subtype could not be determined.": (
-            "termination_subtype_unknown"
+            "document_subtype_unknown"
         ),
         "document category and subtype are incompatible.": (
             "classification_category_subtype_incompatible"
@@ -68,9 +71,10 @@ class ReviewReasonSummaryService:
     CATEGORY_RULES = (
         ("service codes", ("service code", "hcpcs", "bill code")),
         ("modifiers", ("modifier",)),
+        ("request type", ("request type", "initial request")),
+        ("document subtype", ("document subtype", "subtype")),
         ("authorization status", ("authorization status", "checkbox", "approval status")),
         ("quantity", ("quantity", "units", "visits")),
-        ("request type", ("request type", "subtype", "renewal", "initial request")),
         ("document type", ("document type", "document category", "classification")),
         ("dates", ("date", "effective period")),
         ("identifiers", ("identifier", "authorization number", "member id")),
@@ -79,7 +83,7 @@ class ReviewReasonSummaryService:
 
     OPERATOR_REASONS = {
         "authorization_quantity_requires_verification": "Authorization quantity meaning requires verification",
-        "authorization_subtype_requires_verification": "Authorization subtype could not be determined",
+        "document_subtype_unknown": "AI Document Subtype: Unknown",
         "classification_confidence_below_required_threshold": "Document classification confidence is below the required threshold",
         "classification_confidence_below_recommended_threshold": "Document classification confidence is below the recommended threshold",
         "extraction_field_confidence_below_threshold": "Extracted field confidence is below the acceptance threshold",
@@ -87,8 +91,6 @@ class ReviewReasonSummaryService:
         "document_type_unknown": "Document type could not be determined",
         "document_category_unknown": "Document category could not be determined",
         "document_category_unsupported": "Document category is not supported",
-        "authorization_subtype_unknown": "Authorization subtype could not be determined",
-        "termination_subtype_unknown": "Termination workflow could not be determined",
         "classification_category_subtype_incompatible": "Document category and workflow are inconsistent",
         "document_category_requires_confirmation": "Document category requires confirmation",
         "classification_support_reason_missing": "Document classification evidence is incomplete",
@@ -111,7 +113,7 @@ class ReviewReasonSummaryService:
         "quantity_unclear_source_support": "Quantity could not be verified from document evidence",
         "dates_unclear_source_support": "Date could not be verified from document evidence",
         "identifiers_unclear_source_support": "Identifier could not be verified from document evidence",
-        "request_type_unclear_source_support": "Request type could not be verified from document evidence",
+        "request_type_unclear_source_support": "Authorization Request Selection: Could not be verified",
         "service_codes_unclear_source_support": "Service code could not be verified from document evidence",
         "service_codes_low_confidence": "Service code confidence is below the required threshold",
         "modifiers_low_confidence": "Modifier confidence is below the required threshold",

@@ -102,6 +102,53 @@ def test_internal_codes_remain_available_for_phi_safe_diagnostics():
     assert codes == "service_line_quantity_unclear_source_support"
 
 
+def test_unknown_subtype_uses_operator_column_terminology_once():
+    service = ReviewReasonSummaryService()
+    reasons = [
+        "2067 subtype could not be deterministically determined.",
+        "Authorization subtype could not be determined.",
+        "Authorization subtype requires verification",
+    ]
+    assert service.summarize_codes(reasons) == "document_subtype_unknown"
+    assert service.summarize(reasons) == "AI Document Subtype: Unknown"
+
+
+def test_request_type_and_document_subtype_are_not_aliases():
+    service = ReviewReasonSummaryService()
+    assert service.summarize_codes([
+        "Request type requires checkbox or selection verification"
+    ]) == "request_type_unclear_source_support"
+    assert service.summarize([
+        "Request type requires checkbox or selection verification"
+    ]) == "Authorization Request Selection: Could not be verified"
+
+
+def test_2067_unknown_subtype_maps_to_exact_smartsheet_reason():
+    from src.services.review_output_service import ReviewOutput
+    from src.services.smartsheet_review_row_mapping_service import (
+        SmartsheetReviewRowMappingService,
+    )
+
+    output = ReviewOutput(
+        document_type="2067",
+        document_category="2067",
+        document_subtype="unknown",
+        review_status="Human Review Required",
+        needs_human_review=True,
+        review_reasons=[
+            "2067 subtype could not be deterministically determined."
+        ],
+    )
+    result = SmartsheetReviewRowMappingService().map(
+        review_output=output,
+        policies=[],
+        run_type="Synthetic 2067 subtype presentation",
+    )
+    assert result.values["AI Review Reasons"] == (
+        "AI Document Subtype: Unknown"
+    )
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

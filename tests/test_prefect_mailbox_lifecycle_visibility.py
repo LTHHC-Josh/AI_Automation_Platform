@@ -75,7 +75,11 @@ def result():
         row_action="created",
         attachment_action="uploaded",
         filename_readiness=FilenameReadinessDiagnostic(
-            True, True, True, True, True, "Not Required", "Business"),
+            True, True, True, True, True, "Not Required", "business",
+            extension_ready=True,
+            extension_component_status="Ready",
+            payer_lookup_status="resolved",
+        ),
         review_reason_count=1,
         review_reason_categories=("authorization_quantity_requires_verification",),
     )
@@ -288,7 +292,8 @@ def test_summary_contract_excludes_protected_fields():
         assert protected not in summary_block
     for safe_readiness_field in (
         "filename_person_components", "filename_payer_lookup",
-        "filename_service_lookup", "filename_form", "filename_dates", "filename_workflow",
+        "filename_service_lookup", "filename_form", "filename_dates",
+        "filename_extension", "filename_workflow",
         "filename_qualifier", "filename_result", "filename_failure_category",
         "accepted_field_count", "optional_absent_field_count",
         "missing_required_count", "low_confidence_count", "unsupported_count",
@@ -313,6 +318,7 @@ def test_summary_contract_excludes_protected_fields():
             filename_payer_lookup="Ready",
             filename_service_lookup="Ready",
             filename_dates="Ready",
+            filename_extension="Ready",
             filename_workflow="Ready",
             filename_qualifier="Not Required",
             filename_result="business",

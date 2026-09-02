@@ -51,14 +51,17 @@ class MailboxDocumentSmartsheetRecoveryService:
         if not loaded.success or loaded.state is None:
             return self._failure(loaded.status)
         state = loaded.state
+        filename_diagnostic = None
         if state.stage == "attachment_written":
             return MailboxDocumentSmartsheetRecoveryResult(
                 True, True, True, True, "completed", "skipped", "skipped",
-                self._filename_diagnostic(work_item))
+                self._persisted_filename_diagnostic(state))
         if state.stage == "blocked_permanent":
             return self._failure("blocked_permanent")
         if state.stage != "row_write_uncertain":
-            state, naming_status = self._ensure_attachment_name(work_item, state)
+            state, naming_status, filename_diagnostic = (
+                self._ensure_attachment_name(work_item, state)
+            )
             if state is None:
                 return self._failure(naming_status)
         key_configuration = self.submission_key_configuration_service.resolve()
@@ -148,7 +151,9 @@ class MailboxDocumentSmartsheetRecoveryService:
         if state is None or state.smartsheet_row_id is None:
             return self._failure("row_reference_unavailable")
         if state.attachment_filename is None:
-            state, naming_status = self._ensure_attachment_name(work_item, state)
+            state, naming_status, filename_diagnostic = (
+                self._ensure_attachment_name(work_item, state)
+            )
             if state is None:
                 return self._failure(naming_status)
         row_id = state.smartsheet_row_id
@@ -198,25 +203,12 @@ class MailboxDocumentSmartsheetRecoveryService:
                 attachment_action=attachment_action)
         return MailboxDocumentSmartsheetRecoveryResult(
             True, True, True, True, "completed", row_action, attachment_action,
-            self._filename_diagnostic(work_item))
-
-    def _filename_diagnostic(self, work_item):
-        diagnose = getattr(self.filename_assembly_service, "diagnose", None)
-        if not callable(diagnose):
-            return None
-        try:
-            result = diagnose(
-                document=work_item.document,
-                source_extension=Path(work_item.local_path).suffix.lower() or ".bin",
-            )
-        except Exception:
-            return None
-        return result if isinstance(result, FilenameReadinessDiagnostic) else None
+            filename_diagnostic or self._persisted_filename_diagnostic(state))
 
     def _ensure_attachment_name(self, work_item, state):
         if state.attachment_filename is not None:
-            return state, "ready"
-        assembly = self.filename_assembly_service.resolve(
+            return state, "ready", self._persisted_filename_diagnostic(state)
+        assembly = self.filename_assembly_service.evaluate(
             document=work_item.document,
             source_extension=Path(work_item.local_path).suffix.lower() or ".bin",
         )
@@ -225,10 +217,14 @@ class MailboxDocumentSmartsheetRecoveryService:
             filename_policy_result=assembly.policy_result,
         )
         if not preparation.success or preparation.temporary_path is None:
-            return None, preparation.status
+            return None, preparation.status, assembly.diagnostic
         expected_name = preparation.temporary_path.name
         if not self.attachment_naming_service.cleanup(preparation.temporary_path):
-            return None, "attachment_preparation_cleanup_failed"
+            return (
+                None,
+                "attachment_preparation_cleanup_failed",
+                assembly.diagnostic,
+            )
         stored = self.job_state_service.transition(
             work_item.job_key,
             expected_stages={state.stage},
@@ -240,8 +236,32 @@ class MailboxDocumentSmartsheetRecoveryService:
             ),
         )
         if not stored.success or stored.state is None:
-            return None, stored.status
-        return stored.state, "ready"
+            return None, stored.status, assembly.diagnostic
+        return stored.state, "ready", assembly.diagnostic
+
+    @staticmethod
+    def _persisted_filename_diagnostic(state):
+        naming_status = getattr(state, "attachment_naming_status", None)
+        business = naming_status == "business_filename"
+        return FilenameReadinessDiagnostic(
+            False,
+            False,
+            False,
+            False,
+            False,
+            "Not Evaluated",
+            "business" if business else "technical_fallback",
+            "none" if business else "persisted_technical_fallback",
+            False,
+            0,
+            0,
+            "Not Evaluated",
+            "Not Evaluated",
+            "Not Evaluated",
+            False,
+            "Not Evaluated",
+            "not_evaluated",
+        )
 
     def _find_rows(self, column_id, key, *, title):
         try:

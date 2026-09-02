@@ -3,6 +3,10 @@ import tempfile
 
 from src.models.document import AuthorizationServiceLine, Document
 from src.services.document_attachment_naming_service import DocumentAttachmentNamingService
+from src.services.filename_policy_service import (
+    FilenamePolicyResult,
+    FilenamePolicyService,
+)
 from src.services.production_filename_assembly_service import ProductionFilenameAssemblyService
 from src.services.reference_table_service import PayorReferenceTable, ReferenceTables, ServiceReferenceTable
 from src.services.mailbox_document_job_state_service import MailboxDocumentJobStateService, MailboxDocumentWorkItem
@@ -175,11 +179,15 @@ def test_recovery_persists_exact_business_name_before_external_write():
             pending.job_key, "a" * 64, "b" * 64, "c" * 64,
             source, pending.stage, document(),
         )
-        stored, status = recovery._ensure_attachment_name(work_item, pending)
+        stored, status, diagnostic = recovery._ensure_attachment_name(
+            work_item, pending
+        )
         expected = "EXAMPLE SYNTHETIC Q_PLAN_SERVICE_AUTH INIT_010226-020326.pdf"
         assert status == "ready"
         assert stored.attachment_filename == expected
         assert stored.attachment_naming_status == "business_filename"
+        assert diagnostic.filename_result == "business"
+        assert diagnostic.extension_component_status == "Ready"
         reloaded = MailboxDocumentJobStateService(root / "jobs").load(pending.job_key).state
         assert reloaded.attachment_filename == expected
         assert pending.job_key not in expected
@@ -333,10 +341,17 @@ def test_recovery_never_recomputes_a_persisted_technical_name():
             pending.job_key, "a" * 64, "b" * 64, "c" * 64,
             source, pending.stage, document(),
         )
-        stored, status = recovery._ensure_attachment_name(work_item, pending)
+        stored, status, diagnostic = recovery._ensure_attachment_name(
+            work_item, pending
+        )
         assert status == "ready"
         assert stored.attachment_filename == technical_name
         assert stored.attachment_naming_status == "technical_fallback"
+        assert diagnostic.filename_result == "technical_fallback"
+        assert diagnostic.filename_failure_category == (
+            "persisted_technical_fallback"
+        )
+        assert diagnostic.business_filename_attempted is False
 
 
 def test_optional_service_line_child_failure_does_not_discard_supported_siblings():
@@ -359,6 +374,117 @@ def test_optional_service_line_child_failure_does_not_discard_supported_siblings
     assert result.business_name_resolved is True
     assert "SERVICE" in result.policy_result.filename
     assert result.policy_result.filename.endswith("_010226.pdf")
+
+
+def test_2067_unknown_subtype_uses_business_name_with_ready_requirements():
+    subject = document()
+    subject.document_category = "2067"
+    subject.document_subtype = "unknown"
+    subject.subtype_support_status = "unknown"
+    subject.field_evidence["posted_date"] = evidence("2026-04-05")
+    service = ProductionFilenameAssemblyService(tables_provider=tables)
+    result = service.resolve(document=subject, source_extension=".pdf")
+    diagnostic = service.diagnose(document=subject, source_extension=".pdf")
+    assert result.business_name_resolved is True
+    assert "_2067_040526.pdf" in result.policy_result.filename
+    assert "AUTH INIT" not in result.policy_result.filename
+    assert diagnostic.form_component_status == "Ready"
+    assert diagnostic.workflow_component_status == "Omitted"
+    assert diagnostic.extension_component_status == "Ready"
+
+
+def test_2067_without_posted_date_uses_one_supported_alternative_date():
+    subject = document()
+    subject.document_category = "2067"
+    subject.document_subtype = "unknown"
+    subject.subtype_support_status = "unknown"
+    subject.service_lines[0].end_date = None
+    result = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
+        document=subject, source_extension=".pdf"
+    )
+    assert result.business_name_resolved is True
+    assert result.policy_result.filename.endswith("_010226.pdf")
+
+
+def test_all_required_failures_are_counted_and_primary_category_is_stable():
+    subject = document()
+    subject.field_evidence["payer"] = evidence("UNMAPPED PLAN")
+    subject.service_lines = []
+    service = ProductionFilenameAssemblyService(tables_provider=tables)
+    result = service.resolve(document=subject, source_extension=".doc")
+    diagnostic = result.diagnostic
+    assert result.business_filename_attempted is True
+    assert result.status == "payer_reference_unresolved"
+    assert result.required_component_failure_count == 3
+    assert diagnostic.payer_lookup_status == "not_resolved"
+    assert diagnostic.dates_ready is False
+    assert diagnostic.extension_ready is False
+
+
+def test_each_required_component_independently_forces_scoped_fallback():
+    cases = []
+
+    missing_person = document()
+    missing_person.field_evidence.pop("person_first")
+    cases.append((missing_person, ".pdf", "person_components_unresolved"))
+
+    missing_payer = document()
+    missing_payer.field_evidence.pop("payer")
+    cases.append((missing_payer, ".pdf", "payer_evidence_unresolved"))
+
+    missing_date = document()
+    missing_date.service_lines = []
+    cases.append((missing_date, ".pdf", "date_unresolved"))
+
+    invalid_extension = document()
+    cases.append((invalid_extension, ".doc", "source_extension_unsupported"))
+
+    service = ProductionFilenameAssemblyService(tables_provider=tables)
+    for subject, extension, expected in cases:
+        result = service.resolve(
+            document=subject, source_extension=extension
+        )
+        assert result.business_name_resolved is False
+        assert result.status == expected
+        assert result.required_component_failure_count == 1
+
+
+def test_policy_is_invoked_even_when_required_component_is_unresolved():
+    class CountingPolicy(FilenamePolicyService):
+        def __init__(self):
+            super().__init__()
+            self.calls = 0
+
+        def resolve(self, request):
+            self.calls += 1
+            return super().resolve(request)
+
+    policy = CountingPolicy()
+    subject = document()
+    subject.field_evidence.pop("person_first")
+    result = ProductionFilenameAssemblyService(
+        tables_provider=tables,
+        policy_service=policy,
+    ).resolve(document=subject, source_extension=".pdf")
+    assert policy.calls == 1
+    assert result.business_filename_attempted is True
+    assert result.status == "person_components_unresolved"
+
+
+def test_safe_composition_failure_is_scoped_and_counted():
+    class FailingCompositionPolicy(FilenamePolicyService):
+        def resolve(self, request):
+            return FilenamePolicyResult(
+                False, None, True, "component_invalid"
+            )
+
+    result = ProductionFilenameAssemblyService(
+        tables_provider=tables,
+        policy_service=FailingCompositionPolicy(),
+    ).resolve(document=document(), source_extension=".pdf")
+    assert result.business_name_resolved is False
+    assert result.status == "component_invalid"
+    assert result.required_component_failure_count == 1
 
 
 if __name__ == "__main__":

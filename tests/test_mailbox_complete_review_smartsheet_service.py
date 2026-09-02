@@ -191,6 +191,26 @@ def test_review_required_document_is_written_automatically():
     assert submission.calls[0]["review_output"].needs_human_review is True
 
 
+def test_alias_subtype_reasons_count_as_one_canonical_reason():
+    message = build_message(
+        needs_human_review=True,
+        document_type="2067",
+        document_family="2067",
+        document_subtype="unknown",
+    )
+    message.processed_documents[0].review_output.review_reasons = [
+        "2067 subtype could not be deterministically determined.",
+        "Authorization subtype requires verification",
+    ]
+    service, _, _ = build_service()
+    result = service.run(
+        message_results=[message],
+        run_type="Synthetic canonical subtype review",
+    )
+    assert result.review_reason_count == 1
+    assert result.review_reason_categories == ("document_subtype_unknown",)
+
+
 def test_unknown_taxonomy_document_is_submitted_for_downstream_review():
     service, configuration, submission = build_service()
     result = service.run(
