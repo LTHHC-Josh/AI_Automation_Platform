@@ -195,11 +195,13 @@ class SmartsheetReviewRowMappingService:
                 )
                 continue
 
-            result.values[
-                policy.column_name
-            ] = self._serialize_value(
-                review_field.value
-            )
+            serialized_value = self._serialize_value(review_field.value)
+            if policy.source_field == "authorized_units":
+                serialized_value = self._serialize_quantity_with_unit(
+                    review_field.value,
+                    getattr(review_output, "authorization_unit", None),
+                )
+            result.values[policy.column_name] = serialized_value
 
             if (
                 policy.confidence_column_name
@@ -614,6 +616,15 @@ class SmartsheetReviewRowMappingService:
             )
 
         return normalized_items
+
+    def _serialize_quantity_with_unit(self, value: Any, unit: Any) -> Any:
+        """Render the approved quantity cell with its separately resolved unit."""
+        normalized_unit = str(unit or "").strip()
+        if not normalized_unit:
+            return self._serialize_value(value)
+        values = value if isinstance(value, (list, tuple, set)) else [value]
+        items = self._normalize_collection_items(values)
+        return " | ".join(f"{item} {normalized_unit}" for item in items)
 
     def _is_empty_value(
         self,

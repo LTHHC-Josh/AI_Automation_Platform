@@ -221,6 +221,41 @@ def test_single_supported_service_date_is_ready_and_policy_supported():
     assert result.business_name_resolved is True
 
 
+def test_top_level_validated_service_identity_can_resolve_business_filename():
+    subject = document()
+    subject.service_lines = []
+    subject.field_evidence.update({
+        "service_codes": evidence(["T0000"]),
+        "modifier": evidence("U1"),
+        "start_date": evidence("2026-01-02"),
+        "end_date": evidence("2026-02-03"),
+    })
+    subject.extracted_data = {
+        "service_codes": ["T0000"],
+        "modifier": "U1",
+        "start_date": "2026-01-02",
+        "end_date": "2026-02-03",
+    }
+    result = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
+        document=subject, source_extension=".pdf"
+    )
+    diagnostic = ProductionFilenameAssemblyService(tables_provider=tables).diagnose(
+        document=subject, source_extension=".pdf"
+    )
+    assert result.business_name_resolved is True
+    assert diagnostic.filename_failure_category == "none"
+
+
+def test_filename_failure_category_is_safe_and_scoped_to_naming():
+    subject = document()
+    subject.field_evidence.pop("person_first")
+    diagnostic = ProductionFilenameAssemblyService(tables_provider=tables).diagnose(
+        document=subject, source_extension=".pdf"
+    )
+    assert diagnostic.filename_result == "Technical Fallback"
+    assert diagnostic.filename_failure_category == "independent_person_name_unresolved"
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

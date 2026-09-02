@@ -159,6 +159,17 @@ def record_mailbox_workflow_summary(
     filename_workflow: str = "Unresolved",
     filename_qualifier: str = "Unresolved",
     filename_result: str = "Technical Fallback",
+    filename_failure_category: str = "not_evaluated",
+    accepted_field_count: int = 0,
+    optional_absent_field_count: int = 0,
+    missing_required_count: int = 0,
+    low_confidence_count: int = 0,
+    unsupported_count: int = 0,
+    ambiguous_count: int = 0,
+    conflicting_count: int = 0,
+    invalid_count: int = 0,
+    quantity_present: bool = False,
+    unit_source_category: str = "unresolved",
     review_reason_count: int = 0,
     review_reason_categories: str = "none",
     review_required: bool | None = None,
@@ -469,6 +480,19 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
         "filename_result": (
             filename.filename_result if filename else "Not Evaluated"
         ),
+        "filename_failure_category": (
+            filename.filename_failure_category if filename else "not_evaluated"
+        ),
+        "accepted_field_count": result.validation_summary.accepted_field_count,
+        "optional_absent_field_count": result.validation_summary.optional_absent_field_count,
+        "missing_required_count": result.validation_summary.missing_required_count,
+        "low_confidence_count": result.validation_summary.low_confidence_count,
+        "unsupported_count": result.validation_summary.unsupported_count,
+        "ambiguous_count": result.validation_summary.ambiguous_count,
+        "conflicting_count": result.validation_summary.conflicting_count,
+        "invalid_count": result.validation_summary.invalid_count,
+        "quantity_present": result.validation_summary.quantity_present,
+        "unit_source_category": result.validation_summary.unit_source_category,
         "review_reason_count": result.review_reason_count,
         "review_reason_categories": (
             "; ".join(result.review_reason_categories)

@@ -28,11 +28,17 @@ def build_document(
     )
 
     if include_authorized_units:
+        source_values = (
+            authorized_units if isinstance(authorized_units, list)
+            else [authorized_units]
+        )
         document.field_evidence = {
             "authorized_units": {
                 "value": authorized_units,
                 "confidence": 0.95,
-                "source_text": "Authorized quantity 6",
+                "source_text": "Authorized quantity " + " ".join(
+                    str(value) for value in source_values if value is not None
+                ),
             },
         }
     else:
@@ -140,12 +146,7 @@ def test_empty_flat_value_is_not_inferred() -> None:
         "authorized_units"
     ] is None
 
-    assert (
-        document.field_confidences[
-            "authorized_units"
-        ]
-        == 0.0
-    )
+    assert "authorized_units" not in document.field_confidences
 
     assert RECONCILIATION_ACTION not in actions
 

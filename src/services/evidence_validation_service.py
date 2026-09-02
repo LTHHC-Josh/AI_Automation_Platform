@@ -54,6 +54,8 @@ class EvidenceValidationService:
         "service_code",
         "service_codes",
         "modifier",
+        "authorized_units",
+        "authorization_unit",
         "approved_visits",
         "start_date",
         "end_date",
@@ -125,6 +127,13 @@ class EvidenceValidationService:
         "Service-line modifier relationship requires verification"
     )
 
+    AUTHORIZATION_UNIT_CANONICAL = {
+        "hour": "Hours", "hours": "Hours", "hr": "Hours", "hrs": "Hours",
+        "unit": "Units", "units": "Units",
+        "visit": "Visits", "visits": "Visits",
+        "session": "Sessions", "sessions": "Sessions",
+    }
+
     def validate(
         self,
         document: Document,
@@ -175,6 +184,11 @@ class EvidenceValidationService:
             actions=actions,
         )
 
+        self._validate_authorized_units_source(
+            document=document,
+            actions=actions,
+        )
+
         self._validate_service_code_consistency(
             document=document,
             actions=actions,
@@ -210,6 +224,11 @@ class EvidenceValidationService:
             actions=actions,
         )
 
+        self._resolve_authorization_unit(
+            document=document,
+            actions=actions,
+        )
+
         self._validate_service_line_modifier_relationship(
             document=document,
             actions=actions,
@@ -222,6 +241,56 @@ class EvidenceValidationService:
         return self._remove_duplicates(
             actions
         )
+
+    def _resolve_authorization_unit(self, *, document: Document, actions: list[str]) -> None:
+        """Validate an explicit quantity unit or apply the approved Hours default."""
+        quantity_evidence = document.field_evidence.get("authorized_units")
+        quantity = (
+            quantity_evidence.get("value")
+            if isinstance(quantity_evidence, dict) else None
+        )
+        if self._is_empty_value(quantity):
+            return
+
+        unit_evidence = document.field_evidence.get("authorization_unit")
+        if not isinstance(unit_evidence, dict):
+            unit_evidence = {
+                "value": None, "confidence": None, "source_text": "",
+            }
+            document.field_evidence["authorization_unit"] = unit_evidence
+
+        value = unit_evidence.get("value")
+        if self._is_empty_value(value):
+            unit_evidence.update(
+                value="Hours",
+                confidence=quantity_evidence.get("confidence"),
+                source_text="",
+                provenance="business_default_hours",
+            )
+            return
+
+        if isinstance(value, (list, tuple, set, dict)):
+            self._invalidate_field(
+                document=document,
+                field_name="authorization_unit",
+                reason="authorization_unit is ambiguous or conflicting",
+                actions=actions,
+            )
+            return
+
+        normalized = str(value).strip().lower()
+        canonical = self.AUTHORIZATION_UNIT_CANONICAL.get(normalized)
+        source_tokens = self._tokenize(unit_evidence.get("source_text", ""))
+        if canonical is None or normalized.upper() not in source_tokens:
+            self._invalidate_field(
+                document=document,
+                field_name="authorization_unit",
+                reason="authorization_unit is not supported by its source evidence",
+                actions=actions,
+            )
+            return
+        unit_evidence["value"] = canonical
+        unit_evidence["provenance"] = "explicit_document_evidence"
 
     def _cap_top_level_model_confidences(
         self,
@@ -478,6 +547,24 @@ class EvidenceValidationService:
                 field_name=field_name,
                 actions=actions,
             )
+
+    def _validate_authorized_units_source(
+        self, *, document: Document, actions: list[str]
+    ) -> None:
+        evidence = document.field_evidence.get("authorized_units")
+        if not isinstance(evidence, dict) or evidence.get("value") is None:
+            return
+        values = evidence.get("value")
+        values = values if isinstance(values, list) else [values]
+        source_tokens = self._tokenize(evidence.get("source_text", ""))
+        if all(str(value).strip().upper() in source_tokens for value in values):
+            return
+        self._invalidate_field(
+            document=document,
+            field_name="authorized_units",
+            reason="authorized_units is not supported by its source evidence",
+            actions=actions,
+        )
 
     def _validate_alphanumeric_field(
         self,

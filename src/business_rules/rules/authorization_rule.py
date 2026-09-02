@@ -10,10 +10,10 @@ class BaseAuthorizationRule(Rule):
     """
     Shared deterministic checks for authorization documents.
 
-    Quantity interpretation has not yet been approved by LTHHC.
-    Visits, units, sessions, equipment quantities, and recurring
-    services therefore require human verification even when a value
-    is successfully extracted.
+    Quantity and unit remain separate from approval semantics. A supported
+    explicit unit is preserved; when the document is silent, the validated
+    pipeline applies the approved Hours display default without treating it
+    as document evidence.
     """
 
     SUCCESS_ACTION = "Authorization validated successfully"
@@ -124,12 +124,8 @@ class BaseAuthorizationRule(Rule):
         data: dict,
         actions: list[str],
     ) -> None:
-        status = str(
-            data.get(
-                "authorization_status",
-                "",
-            )
-        ).strip().lower()
+        raw_status = data.get("authorization_status")
+        status = str(raw_status or "").strip().lower()
 
         if not status:
             actions.append(
@@ -228,9 +224,7 @@ class BaseAuthorizationRule(Rule):
         """
         Confirm that some positive authorization quantity is present.
 
-        This method deliberately does not decide whether a quantity
-        represents visits, units, sessions, equipment, recurring
-        services, or sufficient approval.
+        This method does not infer approval or reinterpret the quantity.
         """
 
         approved_visits = self._positive_quantity(
@@ -259,9 +253,9 @@ class BaseAuthorizationRule(Rule):
             )
             return
 
-        actions.append(
-            "Authorization quantity requires verification"
-        )
+        # Unit resolution is performed by deterministic validation. Silence is
+        # the approved Hours default; an explicit invalid claim already emits
+        # its own validation action and must not be replaced here.
 
     def _positive_quantity(
         self,
@@ -359,10 +353,8 @@ class AuthorizationRenewalRule(
     BaseAuthorizationRule
 ):
     """
-    Provisional rule registration for renewal authorizations.
-
-    Renewal-specific interpretation remains subject to confirmed
-    LTHHC business training.
+    Renewal authorization rule. The accepted authorization+renewal taxonomy
+    deterministically supplies the committed RENEW AUTH workflow token.
     """
 
     document_type = "authorization_renewal"
@@ -371,12 +363,4 @@ class AuthorizationRenewalRule(
         self,
         document: Document,
     ) -> list[str]:
-        actions = super().execute(
-            document
-        )
-
-        actions.append(
-            "Authorization subtype requires verification"
-        )
-
-        return actions
+        return super().execute(document)

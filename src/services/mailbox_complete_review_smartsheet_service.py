@@ -18,6 +18,9 @@ from src.services.mailbox_document_smartsheet_recovery_service import (
 )
 from src.services.production_filename_assembly_service import FilenameReadinessDiagnostic
 from src.services.review_reason_summary_service import ReviewReasonSummaryService
+from src.services.field_validation_diagnostic_service import (
+    FieldValidationDiagnosticService, FinalValidationSummary,
+)
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,7 @@ class MailboxCompleteReviewSmartsheetResult:
     filename_readiness: FilenameReadinessDiagnostic | None = None
     review_reason_count: int = 0
     review_reason_categories: tuple[str, ...] = ()
+    validation_summary: FinalValidationSummary = FinalValidationSummary()
 
 
 class MailboxCompleteReviewSmartsheetService:
@@ -145,6 +149,7 @@ class MailboxCompleteReviewSmartsheetService:
         review_reason_categories = []
         review_reason_count = 0
         reason_summary = ReviewReasonSummaryService()
+        validation_summaries = []
 
         for message_result in results:
             work_items = getattr(message_result, "work_items", [])
@@ -154,6 +159,11 @@ class MailboxCompleteReviewSmartsheetService:
                     document_count += 1
                     review_output = getattr(
                         getattr(work_item, "document", None), "review_output", None)
+                    validation_summaries.append(
+                        FieldValidationDiagnosticService().summarize(
+                            getattr(work_item, "document", None)
+                        )
+                    )
                     final_reasons = tuple(dict.fromkeys(
                         str(reason) for reason in getattr(
                             review_output, "review_reasons", ()) if str(reason).strip()
@@ -204,6 +214,9 @@ class MailboxCompleteReviewSmartsheetService:
                     document,
                     "review_output",
                     None,
+                )
+                validation_summaries.append(
+                    FieldValidationDiagnosticService().summarize(document)
                 )
                 codes = reason_summary.summarize_codes(
                     getattr(review_output, "review_reasons", ()))
@@ -324,6 +337,33 @@ class MailboxCompleteReviewSmartsheetService:
             ),
             review_reason_count=review_reason_count,
             review_reason_categories=tuple(dict.fromkeys(review_reason_categories)),
+            validation_summary=self._aggregate_validation_summaries(
+                validation_summaries
+            ),
+        )
+
+    @staticmethod
+    def _aggregate_validation_summaries(summaries):
+        summaries = [item for item in summaries if isinstance(item, FinalValidationSummary)]
+        if not summaries:
+            return FinalValidationSummary()
+        count_fields = (
+            "accepted_field_count", "optional_absent_field_count",
+            "missing_required_count", "low_confidence_count",
+            "unsupported_count", "ambiguous_count", "conflicting_count",
+            "invalid_count",
+        )
+        values = {
+            name: sum(getattr(item, name) for item in summaries)
+            for name in count_fields
+        }
+        unit_sources = {item.unit_source_category for item in summaries}
+        return FinalValidationSummary(
+            **values,
+            quantity_present=any(item.quantity_present for item in summaries),
+            unit_source_category=(
+                next(iter(unit_sources)) if len(unit_sources) == 1 else "unresolved"
+            ),
         )
 
     @staticmethod

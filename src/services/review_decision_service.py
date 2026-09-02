@@ -181,14 +181,7 @@ class ReviewDecisionService:
                 "Document classification confidence is below 90%."
             )
 
-        if (
-            minimum_field_confidence is not None
-            and minimum_field_confidence
-            < self.FIELD_CONFIDENCE_THRESHOLD
-        ):
-            reasons.append(
-                "One or more extracted fields have confidence below 85%."
-            )
+        reasons.extend(self._field_confidence_reasons(document))
 
         if not self._has_structured_data(
             document.extracted_data
@@ -197,7 +190,7 @@ class ReviewDecisionService:
                 "No structured data was extracted from the document."
             )
 
-        for action in document.validation_actions:
+        for action in self._reviewable_validation_actions(document):
             if action not in self.SUCCESS_VALIDATION_ACTIONS:
                 reasons.append(
                     action
@@ -352,8 +345,13 @@ class ReviewDecisionService:
             return None
 
         normalized_confidences: list[float] = []
+        accepted_service_codes = not self._is_empty_value(
+            extracted_data.get("service_codes")
+        ) and field_confidences.get("service_codes") is not None
 
         for field_name, value in extracted_data.items():
+            if field_name == "service_code" and accepted_service_codes:
+                continue
             if self._is_empty_value(
                 value
             ):
@@ -362,6 +360,9 @@ class ReviewDecisionService:
             confidence = field_confidences.get(
                 field_name
             )
+
+            if confidence is None:
+                continue
 
             normalized_confidences.append(
                 self._normalize_confidence(
@@ -375,6 +376,52 @@ class ReviewDecisionService:
         return min(
             normalized_confidences
         )
+
+    def _field_confidence_reasons(self, document: Document) -> list[str]:
+        """Return field-specific reasons only for populated final fields."""
+        reasons = []
+        accepted_service_codes = not self._is_empty_value(
+            document.extracted_data.get("service_codes")
+        ) and document.field_confidences.get("service_codes") is not None
+        for field_name, value in document.extracted_data.items():
+            if field_name == "service_code" and accepted_service_codes:
+                continue
+            if self._is_empty_value(value):
+                continue
+            confidence = document.field_confidences.get(field_name)
+            if confidence is None:
+                evidence = document.field_evidence.get(field_name)
+                provenance = (
+                    str(evidence.get("provenance") or "")
+                    if isinstance(evidence, dict) else ""
+                )
+                if provenance != "business_default_hours":
+                    label = str(field_name).replace("_", " ").strip().capitalize()
+                    reasons.append(f"{label} confidence is unavailable")
+                continue
+            if self._normalize_confidence(confidence) < self.FIELD_CONFIDENCE_THRESHOLD:
+                label = str(field_name).replace("_", " ").strip().capitalize()
+                reasons.append(f"{label} confidence is below the acceptance threshold")
+        return reasons
+
+    def _reviewable_validation_actions(self, document: Document) -> list[str]:
+        """Filter informational and superseded validation events from review."""
+        accepted_service_codes = not self._is_empty_value(
+            document.extracted_data.get("service_codes")
+        ) and document.field_confidences.get("service_codes") is not None
+        actions = []
+        for action in document.validation_actions:
+            if action in self.SUCCESS_VALIDATION_ACTIONS:
+                continue
+            normalized = str(action or "").strip().lower()
+            if normalized == "duplicate service-line evidence was removed":
+                continue
+            if accepted_service_codes and normalized.startswith(
+                ("service_code ", "service code ")
+            ):
+                continue
+            actions.append(action)
+        return actions
 
     def _has_structured_data(
         self,

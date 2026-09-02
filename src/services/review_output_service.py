@@ -102,6 +102,8 @@ class ReviewOutput:
     extraction_retry_triggered: bool = False
     extraction_selected_attempt: int | None = None
     authorized_units_reconciled: bool = False
+    authorization_unit: str | None = None
+    unit_source_category: str = "unresolved"
 
 
 class ReviewOutputService:
@@ -211,7 +213,27 @@ class ReviewOutputService:
                 self.AUTHORIZED_UNITS_RECONCILIATION_ACTION
                 in document.validation_actions
             ),
+            authorization_unit=self._authorization_unit(document),
+            unit_source_category=self._unit_source_category(document),
         )
+
+    @staticmethod
+    def _authorization_unit(document: Document) -> str | None:
+        evidence = document.field_evidence.get("authorization_unit")
+        if not isinstance(evidence, dict):
+            return None
+        value = evidence.get("value")
+        return str(value).strip() if value is not None and str(value).strip() else None
+
+    @staticmethod
+    def _unit_source_category(document: Document) -> str:
+        evidence = document.field_evidence.get("authorization_unit")
+        if not isinstance(evidence, dict) or evidence.get("value") is None:
+            return "unresolved"
+        category = str(evidence.get("provenance") or "").strip()
+        return category if category in {
+            "explicit_document_evidence", "business_default_hours"
+        } else "unresolved"
 
     def _build_fields(
         self,

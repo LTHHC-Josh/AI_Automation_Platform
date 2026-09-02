@@ -775,6 +775,7 @@ def test_result_contract_is_phi_safe():
         "filename_readiness",
         "review_reason_count",
         "review_reason_categories",
+        "validation_summary",
     }
 
     prohibited_names = {

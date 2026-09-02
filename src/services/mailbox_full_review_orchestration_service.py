@@ -19,6 +19,7 @@ from src.services.mailbox_acceptance_handoff_service import (
 )
 from src.models.mailbox_acceptance import MailboxAcceptanceSelectionResult
 from src.services.production_filename_assembly_service import FilenameReadinessDiagnostic
+from src.services.field_validation_diagnostic_service import FinalValidationSummary
 
 
 class FirstEligibleMailboxCandidateSelector:
@@ -74,6 +75,7 @@ class MailboxFullReviewOrchestrationResult:
     filename_readiness: FilenameReadinessDiagnostic | None = None
     review_reason_count: int = 0
     review_reason_categories: tuple[str, ...] = ()
+    validation_summary: FinalValidationSummary = FinalValidationSummary()
 
 
 class MailboxClassificationReviewMode(str, Enum):
@@ -451,6 +453,7 @@ class MailboxFullReviewOrchestrationService:
             filename_readiness=complete_result.filename_readiness,
             review_reason_count=complete_result.review_reason_count,
             review_reason_categories=complete_result.review_reason_categories,
+            validation_summary=complete_result.validation_summary,
         )
         if result.success:
             self._observe(stage_observer, "completed", "completed", action_started_at)
@@ -664,6 +667,7 @@ class MailboxFullReviewOrchestrationService:
         filename_readiness: FilenameReadinessDiagnostic | None = None,
         review_reason_count: int = 0,
         review_reason_categories: tuple[str, ...] = (),
+        validation_summary: FinalValidationSummary = FinalValidationSummary(),
     ) -> MailboxFullReviewOrchestrationResult:
         results = list(message_results)
         job_keys = [
@@ -720,6 +724,7 @@ class MailboxFullReviewOrchestrationService:
             filename_readiness=filename_readiness,
             review_reason_count=review_reason_count,
             review_reason_categories=review_reason_categories,
+            validation_summary=validation_summary,
         )
 
     @staticmethod

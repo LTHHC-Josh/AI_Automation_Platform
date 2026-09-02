@@ -9640,6 +9640,38 @@ review, accepted confidence aligns with review reasons, AI Review Reason is
 human-readable and concise, business filename resolves when supported,
 Workflow Summary is accurate, and DP returns cleanly to waiting.
 
+Final-state consistency and quantity-unit checkpoint (2026-09-02):
+
+- Replaced generic aggregate extraction-confidence review with final-field-
+  specific reasons. Missing confidence no longer becomes a synthetic 0%
+  minimum, accepted >=0.85 fields remain accepted, and optional absence stays
+  blank without confidence/review noise.
+- Prevented redundant singular service-code validation/confidence noise from
+  contradicting an accepted plural production service-code field. Required
+  authorization-status absence is now recognized as missing, and naming lookup
+  failures remain scoped to filename resolution.
+- Added explicit authorization-unit extraction/validation and provenance.
+  Supported explicit Hours/Units/Visits/Sessions are preserved; silence applies
+  business-default Hours; unsupported/ambiguous/conflicting explicit claims
+  fail closed. The approved quantity cell renders the unit without implying
+  approval or changing quantity confidence.
+- Removed unconditional renewal workflow verification because accepted
+  authorization+renewal already resolves `RENEW AUTH` under committed policy.
+  Successful units reconciliation remains informational.
+- Added safe filename failure category, top-level validated service identity
+  support, and final validation/quantity/unit counters to Workflow Summary.
+  Focused and affected synthetic deterministic/mock tests passed without live
+  mailbox/Graph, protected OCR/Ollama, deployment, production Smartsheet
+  document/comment operation, or mailbox mutation.
+
+Exact next start: refresh registration/source if required, then perform one
+controlled unattended live run with a different document to verify accepted
+production fields and confidences match final validation/review state, quantity
+defaults to Hours when no explicit unit is present, AI Review Reason is concise
+and actionable, business filename resolves when supported, Workflow Summary
+diagnostics are accurate, AI Correction initializes unchecked, and DP returns
+cleanly to waiting.
+
 """
 
 

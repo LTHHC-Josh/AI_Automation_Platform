@@ -1006,14 +1006,52 @@ AI Correction human-feedback mapping checkpoint:
   no live Smartsheet, Graph/mailbox, protected OCR/Ollama, deployment, or
   mailbox mutation.
 
+Final-state consistency, quantity-unit, workflow, and filename checkpoint:
+
+- Review confidence now evaluates each populated final field explicitly.
+  Missing confidence remains a field-specific review condition but is not
+  converted into a synthetic 0% aggregate. Low-confidence reasons identify
+  the exact safe field/category; accepted fields at or above 0.85 do not
+  receive low-confidence review.
+- A validated plural service-code production field supersedes redundant
+  singular helper-field conflict/support/confidence noise. Naming reference
+  lookup failures remain filename-only and cannot create extraction review.
+  Authorization status `None` is correctly treated as missing required rather
+  than the literal text `None` or an unsupported status.
+- Supported authorization quantity is source-validated. An explicit supported
+  unit (Hours, Units, Visits, or Sessions) is preserved with
+  `explicit_document_evidence` provenance. When no unit claim exists, Hours is
+  applied with `business_default_hours` provenance. An explicit unsupported,
+  conflicting, or ambiguous unit fails closed; the default never replaces it.
+  Quantity/unit does not establish approval, visits, sessions, or sufficiency.
+- The approved `Authorized Units` Smartsheet cell renders quantity with the
+  separately resolved unit while its confidence remains the quantity's own
+  validated confidence. Successful authorized-units reconciliation remains
+  informational and does not itself trigger review.
+- The renewal rule no longer emits unconditional subtype/workflow verification:
+  the committed filename policy already deterministically maps an accepted
+  authorization+renewal classification to `RENEW AUTH`.
+- Review summaries prefer concise field/category-specific reasons, remove
+  generic document-detail noise when a specific reason exists, and distinguish
+  required missing fields from optional absence. Fixed internal categories
+  remain available for PHI-safe diagnostics.
+- Filename assembly can use one independently validated top-level service code
+  when no service-line representation exists, keeps authoritative lookup
+  failures scoped to naming, aligns date readiness with top-level or line
+  dates, and emits a fixed `filename_failure_category` on technical fallback.
+- Workflow Summary now includes filename failure category, final-state counts,
+  quantity presence, and unit-source category without values. AI Correction
+  remains create-time false and human-owned; comments remain untouched.
+
 ## CURRENT NEXT START
 
-Refresh source/deployment registration if required, then perform one controlled
-unattended live run with a different document to verify AI Correction
-initializes unchecked, optional absent fields do not trigger review, accepted
-confidence aligns with review reasons, AI Review Reason is human-readable and
-concise, business filename resolves when supported, Workflow Summary is
-accurate, and DP returns cleanly to waiting.
+Refresh registration/source if required, then perform one controlled unattended
+live run with a different document to verify accepted production fields and
+confidences match final validation/review state, quantity defaults to Hours
+when no explicit unit is present, AI Review Reason is concise and actionable,
+business filename resolves when supported, Workflow Summary diagnostics are
+accurate, AI Correction initializes unchecked, and DP returns cleanly to
+waiting.
 
 First unattended start failure diagnosis and correction checkpoint:
 

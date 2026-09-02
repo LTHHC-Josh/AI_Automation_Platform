@@ -289,7 +289,11 @@ def test_summary_contract_excludes_protected_fields():
     for safe_readiness_field in (
         "filename_person_components", "filename_payer_lookup",
         "filename_service_lookup", "filename_dates", "filename_workflow",
-        "filename_qualifier", "filename_result",
+        "filename_qualifier", "filename_result", "filename_failure_category",
+        "accepted_field_count", "optional_absent_field_count",
+        "missing_required_count", "low_confidence_count", "unsupported_count",
+        "ambiguous_count", "conflicting_count", "invalid_count",
+        "quantity_present", "unit_source_category",
     ):
         assert safe_readiness_field in summary_block
     try:

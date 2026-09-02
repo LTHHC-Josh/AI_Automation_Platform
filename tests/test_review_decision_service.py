@@ -103,7 +103,7 @@ def test_low_populated_field_confidence_triggers_review() -> None:
     assert decision.needs_human_review is True
     assert decision.review_status == "Human Review Recommended"
     assert decision.minimum_field_confidence == 0.84
-    assert LOW_CONFIDENCE_REASON in decision.reasons
+    assert "Authorization number confidence is below the acceptance threshold" in decision.reasons
 
 
 def test_field_at_confidence_threshold_does_not_trigger_review() -> None:
@@ -208,8 +208,8 @@ def test_populated_field_without_confidence_triggers_review() -> None:
     )
 
     assert decision.needs_human_review is True
-    assert decision.minimum_field_confidence == 0.0
-    assert LOW_CONFIDENCE_REASON in decision.reasons
+    assert decision.minimum_field_confidence == 0.95
+    assert "Service code confidence is unavailable" in decision.reasons
 
 
 def test_invalidated_field_uses_validation_action_for_review() -> None:
@@ -261,7 +261,7 @@ def test_numeric_zero_is_treated_as_populated() -> None:
 
     assert decision.needs_human_review is True
     assert decision.minimum_field_confidence == 0.80
-    assert LOW_CONFIDENCE_REASON in decision.reasons
+    assert "Authorized units confidence is below the acceptance threshold" in decision.reasons
 
 
 def test_false_boolean_is_treated_as_populated() -> None:
@@ -282,7 +282,7 @@ def test_false_boolean_is_treated_as_populated() -> None:
 
     assert decision.needs_human_review is True
     assert decision.minimum_field_confidence == 0.80
-    assert LOW_CONFIDENCE_REASON in decision.reasons
+    assert "Is renewal confidence is below the acceptance threshold" in decision.reasons
 
 
 def test_classification_below_auto_approve_threshold() -> None:

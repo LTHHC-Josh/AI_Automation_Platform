@@ -47,6 +47,13 @@ class ReviewReasonSummaryService:
         "service-line modifier relationship requires verification": (
             "modifier_ownership_unresolved"
         ),
+        "missing authorization status": "authorization_status_missing_required",
+        "missing authorization number": "authorization_number_missing_required",
+        "missing member id": "member_id_missing_required",
+        "missing payer": "payer_missing_required",
+        "missing patient name": "patient_name_missing_required",
+        "missing authorization start date": "authorization_start_date_missing_required",
+        "missing authorization end date": "authorization_end_date_missing_required",
     }
 
     SERVICE_LINE_RULES = (
@@ -76,7 +83,7 @@ class ReviewReasonSummaryService:
         "authorization_subtype_requires_verification": "Authorization workflow requires verification",
         "classification_confidence_below_required_threshold": "Document classification confidence is below the required threshold",
         "classification_confidence_below_recommended_threshold": "Document classification confidence is below the recommended threshold",
-        "extraction_field_confidence_below_threshold": "An accepted extracted field is below the confidence threshold",
+        "extraction_field_confidence_below_threshold": "Extracted field confidence is below the acceptance threshold",
         "structured_data_unavailable": "No supported structured information was found",
         "document_type_unknown": "Document type could not be determined",
         "document_category_unknown": "Document category could not be determined",
@@ -95,6 +102,13 @@ class ReviewReasonSummaryService:
         "service_line_low_confidence": "Service-line confidence is below the required threshold",
         "service_line_source_unavailable": "Service-line source evidence is unavailable",
         "authorization_status_unclear_source_support": "Authorization status could not be verified from document evidence",
+        "authorization_status_missing_required": "Required authorization status was not found",
+        "authorization_number_missing_required": "Required authorization number was not found",
+        "member_id_missing_required": "Required member identifier was not found",
+        "payer_missing_required": "Required payer was not found",
+        "patient_name_missing_required": "Required patient name was not found",
+        "authorization_start_date_missing_required": "Required authorization start date was not found",
+        "authorization_end_date_missing_required": "Required authorization end date was not found",
         "modifiers_unclear_source_support": "Modifier could not be verified from document evidence",
         "quantity_unclear_source_support": "Quantity could not be verified from document evidence",
         "dates_unclear_source_support": "Date could not be verified from document evidence",
@@ -133,6 +147,9 @@ class ReviewReasonSummaryService:
 
     @staticmethod
     def _humanize_safe_code(code: str) -> str:
+        if str(code).endswith("_low_confidence"):
+            category = str(code)[:-len("_low_confidence")].replace("_", " ")
+            return f"{category[:1].upper() + category[1:]} confidence is below the acceptance threshold"
         words = str(code or "unresolved_document_information").replace("_", " ")
         return words[:1].upper() + words[1:]
 
@@ -158,7 +175,10 @@ class ReviewReasonSummaryService:
             category = categories[0] if categories else "document_details"
             cause = self._cause([reason]).replace(" ", "_")
             codes.append(f"{category}_{cause}")
-        return list(dict.fromkeys(codes))
+        codes = list(dict.fromkeys(codes))
+        if any(not code.startswith("document_details_") for code in codes):
+            codes = [code for code in codes if not code.startswith("document_details_")]
+        return codes
 
     @staticmethod
     def _cause(reasons: list[str]) -> str:

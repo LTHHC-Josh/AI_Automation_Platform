@@ -45,6 +45,20 @@ class FieldValidationDiagnostic:
     required: bool = False
 
 
+@dataclass(frozen=True)
+class FinalValidationSummary:
+    accepted_field_count: int = 0
+    optional_absent_field_count: int = 0
+    missing_required_count: int = 0
+    low_confidence_count: int = 0
+    unsupported_count: int = 0
+    ambiguous_count: int = 0
+    conflicting_count: int = 0
+    invalid_count: int = 0
+    quantity_present: bool = False
+    unit_source_category: str = "unresolved"
+
+
 class FieldValidationDiagnosticService:
     """Build PHI-safe field-state diagnostics without returning field values."""
 
@@ -140,6 +154,39 @@ class FieldValidationDiagnosticService:
                 threshold_passed=threshold_passed, actions=matching,
             ).value,
             required=False,
+        )
+
+    def summarize(self, document: Any) -> FinalValidationSummary:
+        if not isinstance(document, Document):
+            return FinalValidationSummary()
+        states = []
+        for field_name in document.field_evidence:
+            states.append(self.build(document, str(field_name)).field_state)
+        for index, line in enumerate(document.service_lines or []):
+            candidate = getattr(line, "candidate_evidence", {})
+            for component in ("service_code", "modifier", "quantity", "start_date", "end_date", "status"):
+                if isinstance(candidate, dict) and component in candidate:
+                    states.append(self.build_service_line(document, index, component).field_state)
+        counts = {state.value: states.count(state.value) for state in FieldValidationState}
+        unit = document.field_evidence.get("authorization_unit")
+        unit_source = (
+            str(unit.get("provenance") or "unresolved")
+            if isinstance(unit, dict) and unit.get("value") is not None
+            else "unresolved"
+        )
+        if unit_source not in {"explicit_document_evidence", "business_default_hours"}:
+            unit_source = "unresolved"
+        return FinalValidationSummary(
+            accepted_field_count=counts[FieldValidationState.ACCEPTED.value],
+            optional_absent_field_count=counts[FieldValidationState.NOT_PRESENT.value],
+            missing_required_count=counts[FieldValidationState.MISSING_REQUIRED.value],
+            low_confidence_count=counts[FieldValidationState.LOW_CONFIDENCE.value],
+            unsupported_count=counts[FieldValidationState.UNSUPPORTED.value],
+            ambiguous_count=counts[FieldValidationState.AMBIGUOUS.value],
+            conflicting_count=counts[FieldValidationState.CONFLICTING.value],
+            invalid_count=counts[FieldValidationState.INVALID.value],
+            quantity_present=not self._empty(document.extracted_data.get("authorized_units")),
+            unit_source_category=unit_source,
         )
 
     @staticmethod

@@ -57,6 +57,7 @@ class OllamaProvider(LLMProvider):
         "program",
         "modifier",
         "authorized_units",
+        "authorization_unit",
         "approved_visits",
         "start_date",
         "end_date",
@@ -1017,6 +1018,11 @@ Authorization documents may contain:
 - multiple service-line quantities.
 
 Keep approved_visits and authorized_units separate.
+
+Return authorization_unit only when the document explicitly states the unit
+associated with authorized_units. Supported unit labels are Hours, Units,
+Visits, and Sessions. Do not invent a unit when the document is silent; the
+application applies its separate business default after extraction.
 
 Do not treat a requested quantity as approved unless it appears in a
 clear approval or authorized-service context.

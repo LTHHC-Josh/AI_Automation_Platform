@@ -31,6 +31,7 @@ class FilenameReadinessDiagnostic:
     workflow_ready: bool
     qualifier_status: str
     filename_result: str
+    filename_failure_category: str = "none"
 
 
 class ProductionFilenameAssemblyService:
@@ -108,7 +109,10 @@ class ProductionFilenameAssemblyService:
 
     def diagnose(self, *, document: Any, source_extension: Any) -> FilenameReadinessDiagnostic:
         if not isinstance(document, Document):
-            return FilenameReadinessDiagnostic(False, False, False, False, False, "Unresolved", "Technical Fallback")
+            return FilenameReadinessDiagnostic(
+                False, False, False, False, False, "Unresolved",
+                "Technical Fallback", "processed_document_unavailable",
+            )
         try:
             tables = self.tables_provider()
         except Exception:
@@ -129,7 +133,11 @@ class ProductionFilenameAssemblyService:
         if service_applicable and service is not None and isinstance(tables, ReferenceTables):
             code, modifier, program, start, end = service
             service_ready = tables.services.lookup(code, modifier, program).resolved
-            dates_ready = bool(start or end)
+            dates_ready = bool(
+                start or end
+                or self._supported_scalar(document, "start_date", required=False)
+                or self._supported_scalar(document, "end_date", required=False)
+            )
         elif not service_applicable:
             dates_ready = bool(
                 self._supported_scalar(document, "start_date", required=False)
@@ -154,6 +162,7 @@ class ProductionFilenameAssemblyService:
             workflow_ready,
             qualifier_status,
             "Business" if resolved.business_name_resolved else "Technical Fallback",
+            "none" if resolved.business_name_resolved else resolved.status,
         )
 
     def _single_service_identity(self, document: Document):
@@ -175,7 +184,24 @@ class ProductionFilenameAssemblyService:
             start = str(getattr(line, "start_date", None) or "").strip() or None
             end = str(getattr(line, "end_date", None) or "").strip() or None
             identities.add((code, modifier, exact_program, start, end))
-        return next(iter(identities)) if len(identities) == 1 else None
+        if len(identities) == 1:
+            return next(iter(identities))
+        if identities:
+            return None
+
+        codes = document.extracted_data.get("service_codes")
+        if not isinstance(codes, list):
+            codes = [codes] if codes is not None else []
+        codes = [str(value).strip() for value in codes if str(value or "").strip()]
+        if len(set(codes)) != 1:
+            single = self._supported_scalar(document, "service_code", required=False)
+            codes = [single] if single else []
+        if len(codes) != 1:
+            return None
+        modifier = self._supported_scalar(document, "modifier", required=False) or ""
+        start = self._supported_scalar(document, "start_date", required=False)
+        end = self._supported_scalar(document, "end_date", required=False)
+        return (codes[0], modifier, program or "", start, end)
 
     @classmethod
     def _supported_scalar(cls, document: Document, field_name: str, *, required: bool = True):

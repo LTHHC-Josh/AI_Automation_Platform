@@ -63,18 +63,18 @@ def execute_rule(
     )
 
 
-def test_approved_visits_require_verification() -> None:
+def test_approved_visits_do_not_require_unit_verification() -> None:
     actions = execute_rule(
         build_document(
             approved_visits=6
         )
     )
 
-    assert QUANTITY_REVIEW_ACTION in actions
+    assert QUANTITY_REVIEW_ACTION not in actions
     assert MISSING_QUANTITY_ACTION not in actions
 
 
-def test_authorized_units_require_verification() -> None:
+def test_authorized_units_do_not_require_unit_verification() -> None:
     actions = execute_rule(
         build_document(
             authorized_units=[
@@ -84,7 +84,7 @@ def test_authorized_units_require_verification() -> None:
         )
     )
 
-    assert QUANTITY_REVIEW_ACTION in actions
+    assert QUANTITY_REVIEW_ACTION not in actions
     assert MISSING_QUANTITY_ACTION not in actions
 
 
@@ -104,7 +104,7 @@ def test_service_line_quantity_counts_as_present() -> None:
         document
     )
 
-    assert QUANTITY_REVIEW_ACTION in actions
+    assert QUANTITY_REVIEW_ACTION not in actions
     assert MISSING_QUANTITY_ACTION not in actions
 
 
@@ -130,12 +130,10 @@ def test_multiple_service_line_quantities_are_not_classified() -> None:
         document
     )
 
-    assert actions.count(
-        QUANTITY_REVIEW_ACTION
-    ) == 1
+    assert QUANTITY_REVIEW_ACTION not in actions
 
     assert MISSING_QUANTITY_ACTION not in actions
-    assert "Authorization validated successfully" not in actions
+    assert "Authorization validated successfully" in actions
 
 
 def test_zero_service_line_quantity_is_not_valid() -> None:
@@ -204,9 +202,7 @@ def test_flat_and_service_line_quantity_add_one_action() -> None:
         document
     )
 
-    assert actions.count(
-        QUANTITY_REVIEW_ACTION
-    ) == 1
+    assert QUANTITY_REVIEW_ACTION not in actions
 
     assert MISSING_QUANTITY_ACTION not in actions
 
@@ -235,12 +231,12 @@ def main() -> None:
 
     tests = [
         (
-            "approved visits require verification",
-            test_approved_visits_require_verification,
+            "approved visits do not require unit verification",
+            test_approved_visits_do_not_require_unit_verification,
         ),
         (
-            "authorized units require verification",
-            test_authorized_units_require_verification,
+            "authorized units do not require unit verification",
+            test_authorized_units_do_not_require_unit_verification,
         ),
         (
             "service-line quantity counts as present",
