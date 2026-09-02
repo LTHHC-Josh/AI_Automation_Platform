@@ -3,7 +3,9 @@ from enum import Enum
 from typing import Any
 
 from src.models.document import Document
-from src.services.review_decision_service import ReviewDecisionService
+from src.services.document_field_requirement_service import (
+    DocumentFieldRequirementService,
+)
 from src.services.review_reason_summary_service import ReviewReasonSummaryService
 
 
@@ -16,19 +18,6 @@ class FieldValidationState(str, Enum):
     CONFLICTING = "conflicting"
     AMBIGUOUS = "ambiguous"
     INVALID = "invalid"
-
-
-class DocumentFieldRequirementService:
-    """Expose only requiredness already enforced by committed business rules."""
-
-    AUTHORIZATION_REQUIRED_FIELDS = frozenset({
-        "patient_name", "authorization_number", "payer", "member_id",
-        "authorization_status", "start_date", "end_date",
-    })
-
-    def is_required(self, document: Any, field_name: str) -> bool:
-        category = str(getattr(document, "document_category", "") or "").lower()
-        return category == "authorization" and field_name in self.AUTHORIZATION_REQUIRED_FIELDS
 
 
 @dataclass(frozen=True)
@@ -62,7 +51,13 @@ class FinalValidationSummary:
 class FieldValidationDiagnosticService:
     """Build PHI-safe field-state diagnostics without returning field values."""
 
-    def __init__(self, *, threshold: float = ReviewDecisionService.FIELD_CONFIDENCE_THRESHOLD,
+    DEFAULT_ACCEPTANCE_THRESHOLD = 0.85
+    INFORMATIONAL_ACTIONS = frozenset({
+        "Authorized units were reconciled from supported service-line evidence",
+        "Duplicate service-line evidence was removed",
+    })
+
+    def __init__(self, *, threshold: float = DEFAULT_ACCEPTANCE_THRESHOLD,
                  requirement_service=None):
         self.threshold = float(threshold)
         self.reason_summary = ReviewReasonSummaryService()
@@ -74,13 +69,29 @@ class FieldValidationDiagnosticService:
             if isinstance(document, Document) and isinstance(document.field_evidence, dict)
             else {}
         )
-        candidate_confidence = self._confidence(
-            evidence.get("candidate_confidence", evidence.get("confidence"))
+        fallback_value = (
+            document.extracted_data.get(field_name)
+            if isinstance(document, Document)
+            and isinstance(document.extracted_data, dict)
+            else None
         )
-        value_present = not self._empty(evidence.get("value"))
+        fallback_confidence = (
+            document.field_confidences.get(field_name)
+            if isinstance(document, Document)
+            and isinstance(document.field_confidences, dict)
+            else None
+        )
+        candidate_confidence = self._confidence(
+            evidence.get(
+                "candidate_confidence",
+                evidence.get("confidence", fallback_confidence),
+            )
+        )
+        value_present = not self._empty(evidence.get("value", fallback_value))
         matching_actions = [
             str(action)
             for action in getattr(document, "validation_actions", [])
+            if str(action) not in self.INFORMATIONAL_ACTIONS
             if str(action).lower().startswith(field_name.replace("_", " ").lower())
             or str(action).lower().startswith(field_name.lower())
         ]

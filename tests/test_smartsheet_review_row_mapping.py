@@ -557,7 +557,7 @@ def test_review_reasons_are_mapped_without_values_or_source_text():
         ]
         == (
             "Authorization quantity meaning requires verification; "
-            "Authorization workflow requires verification"
+            "Authorization subtype could not be determined"
         )
     )
 

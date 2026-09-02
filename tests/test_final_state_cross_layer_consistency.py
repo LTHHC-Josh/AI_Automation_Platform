@@ -291,6 +291,70 @@ def test_workflow_validation_summary_aggregates_only_safe_counts_and_categories(
     assert summary.unit_source_category == "business_default_hours"
 
 
+def test_optional_authorization_end_date_is_blank_and_silent_across_layers():
+    document = Document(
+        file_path=Path("synthetic.pdf"),
+        document_type="authorization",
+        document_category="authorization",
+        document_subtype="initial",
+    )
+    document.field_evidence = {
+        "end_date": {"value": None, "confidence": None, "source_text": ""},
+    }
+    validate(document)
+    document.extracted_data.update({
+        "patient_name": "Synthetic", "authorization_number": "A",
+        "payer": "P", "member_id": "M", "authorization_status": "Approved",
+        "start_date": "2026-01-01", "authorized_units": ["6"],
+    })
+    document.rule_actions = AuthorizationRule().execute(document)
+    assert "Missing authorization end date" not in document.rule_actions
+    assert FieldValidationDiagnosticService().build(
+        document, "end_date"
+    ).field_state == "not_present"
+    result = ReviewDecisionService().evaluate(document)
+    document.needs_human_review = result.needs_human_review
+    document.review_status = result.review_status
+    document.review_reasons = result.reasons
+    output = ReviewOutputService().build(document)
+    mapping = SmartsheetReviewRowMappingService().map(
+        review_output=output,
+        policies=[SmartsheetColumnPolicy(
+            "end_date", "End Date", confidence_column_name="End Date Conf.",
+            confidence_column_supports_text=True,
+        )],
+        run_type="Synthetic optional end date",
+    )
+    assert "End Date" not in mapping.values
+    assert "End Date Conf." not in mapping.values
+    assert "Missing/Not extracted" not in mapping.values.values()
+    assert not any("end date" in reason.lower() for reason in result.reasons)
+
+
+def test_authorization_unknown_subtype_recommends_one_specific_review_reason():
+    document = Document(
+        file_path=Path("synthetic.pdf"),
+        document_type="authorization",
+        document_category="authorization",
+        document_subtype="unknown",
+        classification_reason="Synthetic supported authorization category",
+        confidence=1.0,
+        classification_support_status="supported",
+        subtype_support_status="missing",
+    )
+    document.extracted_data = {"authorization_status": "Approved"}
+    document.field_confidences = {"authorization_status": 0.95}
+    document.rule_actions = ["Authorization validated successfully"]
+    result = ReviewDecisionService().evaluate(document)
+    assert result.classification_confidence == 1.0
+    assert result.needs_human_review is True
+    assert result.review_status == "Human Review Recommended"
+    assert result.reasons == ["Authorization subtype could not be determined."]
+    assert ReviewReasonSummaryService().summarize(result.reasons) == (
+        "Authorization subtype could not be determined"
+    )
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

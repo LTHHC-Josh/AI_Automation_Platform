@@ -102,7 +102,7 @@ def test_low_populated_field_confidence_triggers_review() -> None:
 
     assert decision.needs_human_review is True
     assert decision.review_status == "Human Review Recommended"
-    assert decision.minimum_field_confidence == 0.84
+    assert decision.minimum_field_confidence == 0.95
     assert "Authorization number confidence is below the acceptance threshold" in decision.reasons
 
 
@@ -260,7 +260,7 @@ def test_numeric_zero_is_treated_as_populated() -> None:
     )
 
     assert decision.needs_human_review is True
-    assert decision.minimum_field_confidence == 0.80
+    assert decision.minimum_field_confidence == 0.95
     assert "Authorized units confidence is below the acceptance threshold" in decision.reasons
 
 
@@ -281,7 +281,7 @@ def test_false_boolean_is_treated_as_populated() -> None:
     )
 
     assert decision.needs_human_review is True
-    assert decision.minimum_field_confidence == 0.80
+    assert decision.minimum_field_confidence == 0.95
     assert "Is renewal confidence is below the acceptance threshold" in decision.reasons
 
 

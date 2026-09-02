@@ -43,6 +43,7 @@ class FilenamePolicyService:
     INITIAL_WORKFLOW_TOKEN = "AUTH INIT"
     RENEWAL_WORKFLOW_TOKEN = "RENEW AUTH"
     FORM_2067 = "2067"
+    SAFE_EXTENSIONS = {".pdf", ".tif", ".tiff", ".png", ".jpg", ".jpeg"}
 
     def __init__(self, *, builder=None) -> None:
         self.builder = builder or ReferenceFilenameBuilderService()
@@ -53,7 +54,7 @@ class FilenamePolicyService:
         extension = str(request.source_extension or "").strip().lower()
         if extension and not extension.startswith("."):
             extension = f".{extension}"
-        if extension != ".pdf":
+        if extension not in self.SAFE_EXTENSIONS:
             return self._failure("source_extension_unsupported")
 
         person_name = self._person_name(request)
@@ -63,29 +64,21 @@ class FilenamePolicyService:
         if payer_token is None:
             return self._failure("payer_reference_unresolved")
 
-        service_token = None
-        if request.service_applicable:
-            service_token = self._reference_value(request.service_lookup)
-            if service_token is None:
-                return self._failure("service_reference_unresolved")
+        # Service is an optional composition component. Include only one
+        # authoritative resolved token; absence or ambiguity is omitted.
+        service_token = self._reference_value(request.service_lookup)
 
         form_token = self._form_token(request.form_type)
-        if request.form_type is not None and form_token is None:
-            return self._failure("form_type_unresolved")
         workflow_token, workflow_status = self._workflow_token(
             request.workflow_lookup,
             form_token=form_token,
             category=request.document_category,
             subtype=request.document_subtype,
         )
-        if workflow_status != "resolved":
-            return self._failure(workflow_status)
         qualifier_token, qualifier_status = self._qualifier_token(
             request.qualifier_lookup,
             workflow_token=workflow_token,
         )
-        if qualifier_status != "resolved":
-            return self._failure(qualifier_status)
         date_token, date_status = self._date_token(request)
         if date_token is None:
             return self._failure(date_status)
@@ -98,7 +91,7 @@ class FilenamePolicyService:
             workflow_type_token=workflow_token,
             qualifier_token=qualifier_token,
             date_token=date_token,
-            policy=FilenameCompositionPolicy(),
+            policy=FilenameCompositionPolicy(extension=extension),
         )
         if not composed.success:
             return self._failure(composed.status)
@@ -146,14 +139,15 @@ class FilenamePolicyService:
                 return cls.INITIAL_WORKFLOW_TOKEN, "resolved"
             if normalized_subtype == "renewal":
                 return cls.RENEWAL_WORKFLOW_TOKEN, "resolved"
+            return None, "omitted"
         if workflow_lookup is not None:
             value = cls._reference_value(workflow_lookup)
             if value is None:
-                return None, "workflow_token_unresolved"
+                return None, "omitted"
             return value, "resolved"
         if form_token == cls.FORM_2067:
             return None, "resolved"
-        return None, "workflow_token_unresolved"
+        return None, "omitted"
 
     @classmethod
     def _qualifier_token(
@@ -165,10 +159,10 @@ class FilenamePolicyService:
         if qualifier_lookup is None:
             return None, "resolved"
         if workflow_token != cls.RENEWAL_WORKFLOW_TOKEN:
-            return None, "qualifier_not_applicable"
+            return None, "omitted"
         value = cls._reference_value(qualifier_lookup)
         if value is None:
-            return None, "qualifier_token_unresolved"
+            return None, "omitted"
         return value, "resolved"
 
     @classmethod

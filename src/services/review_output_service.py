@@ -7,6 +7,9 @@ from src.models.document import (
     Document,
 )
 from src.models.document_concept import DeterministicDocumentConcept
+from src.services.field_validation_diagnostic_service import (
+    FieldValidationDiagnosticService,
+)
 
 
 @dataclass
@@ -25,6 +28,9 @@ class ReviewField:
     confidence_available: bool | None = None
     candidate_value: Any = field(default=None, repr=False)
     candidate_confidence: float | None = None
+    final_state: str = "accepted"
+    required: bool = False
+    reason_codes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.confidence_available is not None:
@@ -272,8 +278,10 @@ class ReviewOutputService:
                     )
 
         fields: list[ReviewField] = []
+        diagnostics = FieldValidationDiagnosticService()
 
         for field_name in field_names:
+            diagnostic = diagnostics.build(document, field_name)
             evidence = document.field_evidence.get(
                 field_name
             )
@@ -338,6 +346,12 @@ class ReviewOutputService:
                     confidence_available=confidence_available,
                     candidate_value=candidate_value,
                     candidate_confidence=candidate_confidence,
+                    final_state=diagnostic.field_state,
+                    required=diagnostic.required,
+                    reason_codes=tuple(
+                        code for code in str(diagnostic.reason_code or "").split("; ")
+                        if code
+                    ),
                 )
             )
 

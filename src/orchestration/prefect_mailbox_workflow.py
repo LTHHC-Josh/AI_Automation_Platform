@@ -155,11 +155,15 @@ def record_mailbox_workflow_summary(
     filename_person_components: str = "Unresolved",
     filename_payer_lookup: str = "Unresolved",
     filename_service_lookup: str = "Unresolved",
+    filename_form: str = "Omitted",
     filename_dates: str = "Unresolved",
     filename_workflow: str = "Unresolved",
     filename_qualifier: str = "Unresolved",
-    filename_result: str = "Technical Fallback",
+    filename_result: str = "technical_fallback",
     filename_failure_category: str = "not_evaluated",
+    business_filename_attempted: bool = False,
+    required_component_failure_count: int = 0,
+    optional_component_omission_count: int = 0,
     accepted_field_count: int = 0,
     optional_absent_field_count: int = 0,
     missing_required_count: int = 0,
@@ -466,13 +470,16 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
             "Ready" if filename and filename.payer_lookup_ready else "Unresolved"
         ),
         "filename_service_lookup": (
-            "Ready" if filename and filename.service_lookup_ready else "Unresolved"
+            filename.service_component_status if filename else "Not Evaluated"
+        ),
+        "filename_form": (
+            filename.form_component_status if filename else "Not Evaluated"
         ),
         "filename_dates": (
             "Ready" if filename and filename.dates_ready else "Unresolved"
         ),
         "filename_workflow": (
-            "Ready" if filename and filename.workflow_ready else "Unresolved"
+            filename.workflow_component_status if filename else "Not Evaluated"
         ),
         "filename_qualifier": (
             filename.qualifier_status if filename else "Not Evaluated"
@@ -482,6 +489,15 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
         ),
         "filename_failure_category": (
             filename.filename_failure_category if filename else "not_evaluated"
+        ),
+        "business_filename_attempted": (
+            filename.business_filename_attempted if filename else False
+        ),
+        "required_component_failure_count": (
+            filename.required_component_failure_count if filename else 0
+        ),
+        "optional_component_omission_count": (
+            filename.optional_component_omission_count if filename else 0
         ),
         "accepted_field_count": result.validation_summary.accepted_field_count,
         "optional_absent_field_count": result.validation_summary.optional_absent_field_count,

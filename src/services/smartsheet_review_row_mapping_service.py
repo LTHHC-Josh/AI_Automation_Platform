@@ -265,6 +265,8 @@ class SmartsheetReviewRowMappingService:
         review_field: ReviewField,
         review_output: ReviewOutput,
     ) -> bool:
+        if str(getattr(review_field, "final_state", "accepted")) != "accepted":
+            return False
         if not review_field.confidence_available:
             return False
         confidence = review_field.confidence
@@ -293,65 +295,9 @@ class SmartsheetReviewRowMappingService:
         if not column_name:
             return
 
-        status = self._confidence_status(
-            field_name=policy.source_field,
-            reasons=(
-                list(review_output.review_reasons)
-                + list(review_output.validation_actions)
-                + list(review_output.rule_actions)
-            ),
-        )
-
-        if status and policy.confidence_column_supports_text:
-            result.values[column_name] = status
-            return
-
-        if status:
-            result.warnings.append(
-                "confidence_status_destination_constraint"
-            )
-
-        # Numeric confidence columns describe accepted production values only.
-        # Candidate confidence remains in the protected review payload and must
-        # not appear as though an unavailable value passed validation.
-
-    @staticmethod
-    def _confidence_status(*, field_name: str, reasons: list[str]) -> str | None:
-        normalized_field = field_name.replace("_", " ").strip().lower()
-        aliases = {normalized_field}
-        if normalized_field.endswith("s"):
-            aliases.add(normalized_field[:-1])
-        else:
-            aliases.add(f"{normalized_field}s")
-
-        matching = []
-        for reason in reasons:
-            text = str(reason or "").strip().lower()
-            if text.startswith("service line "):
-                continue
-            if text and any(alias in text for alias in aliases):
-                matching.append(text)
-
-        if any(
-            signal in reason
-            for reason in matching
-            for signal in ("unsupported", "cleared", "invalid", "conflict")
-        ):
-            return "Unsupported/Cleared"
-
-        if any(
-            signal in reason
-            for reason in matching
-            for signal in (
-                "not extracted",
-                "missing",
-                "could not be determined",
-                "unavailable",
-            )
-        ):
-            return "Missing/Not extracted"
-
-        return None
+        # Production confidence columns describe accepted values only. Missing
+        # and nonaccepted states remain blank; the safe review reason carries
+        # the explanation without writing a textual sentinel into the column.
 
     def _append_review_metadata(
         self,

@@ -1043,15 +1043,45 @@ Final-state consistency, quantity-unit, workflow, and filename checkpoint:
   quantity presence, and unit-source category without values. AI Correction
   remains create-time false and human-owned; comments remain untouched.
 
+Unified optional-absence and graceful filename checkpoint:
+
+- Authorization end date is optional unless a future explicit conditional
+  rule is approved. Absence is final state `not_present`, produces no review,
+  and leaves both value and confidence blank. A present invalid, unsupported,
+  ambiguous, conflicting, or low-confidence candidate still fails closed.
+- Authorization subtype `unknown` remains an accepted taxonomy result that
+  recommends review with the single operator reason `Authorization subtype
+  could not be determined`. Category confidence remains independent, and no
+  workflow token is invented.
+- Review output carries final field state and requiredness. Smartsheet maps
+  only `accepted` fields and their governing confidence; nonaccepted or absent
+  values remain blank. The prior textual confidence sentinels are removed.
+- Business filename construction is attempted for every new durable document
+  job. Required prerequisites are independently validated first/last name,
+  authoritative payer, one unambiguous supported date, and a safe original
+  extension. Middle, service, form, workflow, and qualifier tokens are
+  optional and are omitted when unavailable rather than forcing fallback.
+- Initial and renewal still resolve `AUTH INIT` and `RENEW AUTH`; unknown
+  subtype omits workflow. A single date or supported range is accepted, so a
+  missing optional end date does not block naming. Compatible service lookup
+  supports blank modifier/program and remains independent per service-line
+  component.
+- Technical fallback is limited to a required prerequisite or safe-composition
+  failure. Durable attachment names already stored by an earlier attempt are
+  never recomputed, preserving restart reconciliation and duplicate prevention.
+- Workflow Summary now reports whether business naming was attempted, the
+  fixed safe result/failure category, required-failure count, optional-omission
+  count, and Ready/Omitted optional component states without actual values.
+
 ## CURRENT NEXT START
 
-Refresh registration/source if required, then perform one controlled unattended
-live run with a different document to verify accepted production fields and
-confidences match final validation/review state, quantity defaults to Hours
-when no explicit unit is present, AI Review Reason is concise and actionable,
-business filename resolves when supported, Workflow Summary diagnostics are
-accurate, AI Correction initializes unchecked, and DP returns cleanly to
-waiting.
+Refresh registration/source, then perform one controlled unattended live run
+with a different document to verify optional end-date absence remains blank
+without review, unknown subtype (if produced) has only the specific subtype
+reason without changing category confidence, optional filename components are
+omitted without technical fallback, required filename failures remain
+fail-closed, Workflow Summary naming counts/states are accurate, quantity/unit
+and AI Correction behavior remain correct, and DP returns cleanly to waiting.
 
 First unattended start failure diagnosis and correction checkpoint:
 

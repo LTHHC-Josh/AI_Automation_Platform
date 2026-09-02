@@ -66,9 +66,8 @@ def test_service_is_included_only_when_relevant_and_resolved():
     assert "_SERVICE TOKEN_" in included.filename
     assert omitted.complete is True
     assert "SERVICE TOKEN" not in omitted.filename
-    assert unresolved_service.complete is False
-    assert unresolved_service.status == "service_reference_unresolved"
-    assert unresolved_service.review_required is True
+    assert unresolved_service.complete is True
+    assert "SERVICE TOKEN" not in unresolved_service.filename
 
 
 def test_2067_form_and_supported_workflow_coexist():
@@ -144,7 +143,7 @@ def test_2067_accepts_future_supported_workflow_without_fixed_choice_list():
     assert "_2067_FUTURE SUPPORTED WORKFLOW_" in result.filename
 
 
-def test_2067_rejects_unresolved_workflow_instead_of_guessing():
+def test_2067_omits_unresolved_optional_workflow_instead_of_guessing():
     result = FilenamePolicyService().resolve(
         request(
             form_type="2067",
@@ -154,9 +153,8 @@ def test_2067_rejects_unresolved_workflow_instead_of_guessing():
             posted_date_lookup=resolved("2026-04-05"),
         )
     )
-    assert result.complete is False
-    assert result.filename is None
-    assert result.status == "workflow_token_unresolved"
+    assert result.complete is True
+    assert "INBOUND AUTH" not in result.filename
 
 
 def test_exactly_one_supported_naming_date_uses_single_date():
@@ -202,6 +200,15 @@ def test_actual_authorization_renewal_uses_confirmed_token():
     assert "INBOUND AUTH" not in result.filename
 
 
+def test_authorization_unknown_subtype_omits_optional_workflow():
+    result = FilenamePolicyService().resolve(
+        request(document_subtype="unknown")
+    )
+    assert result.complete is True
+    assert "AUTH INIT" not in result.filename
+    assert "RENEW AUTH" not in result.filename
+
+
 def test_authorization_renewal_does_not_inherit_inbound_auth_workflow():
     result = FilenamePolicyService().resolve(
         request(
@@ -232,12 +239,11 @@ def test_supported_no_change_qualifier_coexists_without_inferring_renewal():
         )
     )
     assert "_RENEW AUTH_NO CHANGE_" in renewal.filename
-    assert qualifier_only.complete is False
-    assert qualifier_only.filename is None
-    assert qualifier_only.status == "qualifier_not_applicable"
+    assert qualifier_only.complete is True
+    assert "NO CHANGE" not in qualifier_only.filename
 
 
-def test_missing_qualifier_is_omitted_and_unresolved_qualifier_blocks_naming():
+def test_missing_or_unresolved_optional_qualifier_is_omitted():
     missing = FilenamePolicyService().resolve(
         request(document_subtype="renewal", qualifier_lookup=None)
     )
@@ -248,8 +254,8 @@ def test_missing_qualifier_is_omitted_and_unresolved_qualifier_blocks_naming():
         )
     )
     assert "NO CHANGE" not in missing.filename
-    assert unresolved_qualifier.complete is False
-    assert unresolved_qualifier.status == "qualifier_token_unresolved"
+    assert unresolved_qualifier.complete is True
+    assert "NO CHANGE" not in unresolved_qualifier.filename
 
 
 def test_2067_never_infers_init_without_supported_external_context():
@@ -336,13 +342,16 @@ def test_document_type_and_workflow_are_separate_request_dimensions():
     assert policy_fields["form_type"] is not policy_fields["workflow_lookup"]
 
 
-def test_only_pdf_source_receives_pdf_extension_without_conversion_claim():
+def test_safe_source_extensions_are_preserved_without_conversion_claim():
     pdf = FilenamePolicyService().resolve(request(source_extension="PDF"))
     other = FilenamePolicyService().resolve(request(source_extension=".tif"))
+    unsupported = FilenamePolicyService().resolve(request(source_extension=".doc"))
     assert pdf.complete is True
     assert pdf.filename.endswith(".pdf")
-    assert other.complete is False
-    assert other.status == "source_extension_unsupported"
+    assert other.complete is True
+    assert other.filename.endswith(".tif")
+    assert unsupported.complete is False
+    assert unsupported.status == "source_extension_unsupported"
 
 
 def test_phi_bearing_filename_is_hidden_from_result_repr_and_output():

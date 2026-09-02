@@ -4,6 +4,9 @@ from typing import Any
 from src.business_rules.provider_registration import register_rule
 from src.business_rules.rule import Rule
 from src.models.document import Document
+from src.services.document_field_requirement_service import (
+    DocumentFieldRequirementService,
+)
 
 
 class BaseAuthorizationRule(Rule):
@@ -18,6 +21,11 @@ class BaseAuthorizationRule(Rule):
 
     SUCCESS_ACTION = "Authorization validated successfully"
 
+    def __init__(self, *, requirement_service=None) -> None:
+        self.requirement_service = (
+            requirement_service or DocumentFieldRequirementService()
+        )
+
     def execute(
         self,
         document: Document,
@@ -26,6 +34,7 @@ class BaseAuthorizationRule(Rule):
         data = document.extracted_data
 
         self._require_value(
+            document=document,
             data=data,
             field_name="patient_name",
             message="Missing patient name",
@@ -33,6 +42,7 @@ class BaseAuthorizationRule(Rule):
         )
 
         self._require_value(
+            document=document,
             data=data,
             field_name="authorization_number",
             message="Missing authorization number",
@@ -40,6 +50,7 @@ class BaseAuthorizationRule(Rule):
         )
 
         self._require_value(
+            document=document,
             data=data,
             field_name="payer",
             message="Missing payer",
@@ -47,16 +58,19 @@ class BaseAuthorizationRule(Rule):
         )
 
         self._validate_member_id(
+            document=document,
             data=data,
             actions=actions,
         )
 
         self._validate_status(
+            document=document,
             data=data,
             actions=actions,
         )
 
         self._validate_dates(
+            document=document,
             data=data,
             actions=actions,
         )
@@ -81,11 +95,14 @@ class BaseAuthorizationRule(Rule):
 
     def _require_value(
         self,
+        document: Document,
         data: dict,
         field_name: str,
         message: str,
         actions: list[str],
     ) -> None:
+        if not self.requirement_service.is_required(document, field_name):
+            return
         value = data.get(field_name)
 
         if value is None:
@@ -97,9 +114,12 @@ class BaseAuthorizationRule(Rule):
 
     def _validate_member_id(
         self,
+        document: Document,
         data: dict,
         actions: list[str],
     ) -> None:
+        if not self.requirement_service.is_required(document, "member_id"):
+            return
         member_id = data.get("member_id")
 
         if member_id is None:
@@ -121,9 +141,14 @@ class BaseAuthorizationRule(Rule):
 
     def _validate_status(
         self,
+        document: Document,
         data: dict,
         actions: list[str],
     ) -> None:
+        if not self.requirement_service.is_required(
+            document, "authorization_status"
+        ):
+            return
         raw_status = data.get("authorization_status")
         status = str(raw_status or "").strip().lower()
 
@@ -148,39 +173,37 @@ class BaseAuthorizationRule(Rule):
 
     def _validate_dates(
         self,
+        document: Document,
         data: dict,
         actions: list[str],
     ) -> None:
         start_value = data.get("start_date")
         end_value = data.get("end_date")
 
-        if not start_value:
+        if (
+            self.requirement_service.is_required(
+                document,
+                "start_date",
+            )
+            and not start_value
+        ):
             actions.append(
                 "Missing authorization start date"
             )
 
-        if not end_value:
-            actions.append(
-                "Missing authorization end date"
-            )
-
-        if not start_value or not end_value:
+        if not start_value and not end_value:
             return
 
-        start_date = self._parse_date(
-            start_value
-        )
+        start_date = self._parse_date(start_value) if start_value else None
 
-        end_date = self._parse_date(
-            end_value
-        )
+        end_date = self._parse_date(end_value) if end_value else None
 
-        if start_date is None:
+        if start_value and start_date is None:
             actions.append(
                 "Invalid authorization start date"
             )
 
-        if end_date is None:
+        if end_value and end_date is None:
             actions.append(
                 "Invalid authorization end date"
             )

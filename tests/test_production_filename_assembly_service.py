@@ -37,6 +37,7 @@ def document():
     subject.service_lines = [AuthorizationServiceLine(
         service_code="T0000", modifier="U1",
         start_date="2026-01-02", end_date="2026-02-03",
+        confidence=0.95,
     )]
     return subject
 
@@ -65,7 +66,7 @@ def test_combined_name_and_context_cannot_replace_independent_components():
         document=subject, source_extension=".pdf"
     )
     assert result.business_name_resolved is False
-    assert result.status == "independent_person_name_unresolved"
+    assert result.status == "person_components_unresolved"
     assert result.policy_result.filename is None
 
 
@@ -75,34 +76,36 @@ def test_low_confidence_or_ambiguous_service_uses_fallback_without_guessing():
     unresolved_name = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
         document=subject, source_extension=".pdf"
     )
-    assert unresolved_name.status == "independent_person_name_unresolved"
+    assert unresolved_name.status == "person_components_unresolved"
 
     subject = document()
     subject.service_lines.append(AuthorizationServiceLine(
-        service_code="T9999", modifier="", start_date="2026-01-02", end_date="2026-02-03"
+        service_code="T9999", modifier="", start_date="2026-01-02",
+        end_date="2026-02-03", confidence=0.95,
     ))
     unresolved_service = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
         document=subject, source_extension=".pdf"
     )
-    assert unresolved_service.status == "service_identity_unresolved"
+    assert unresolved_service.business_name_resolved is True
+    assert "SERVICE" not in unresolved_service.policy_result.filename
 
     subject = document()
     subject.field_evidence["program"] = evidence("UNSUPPORTED", 0.50)
     unresolved_program = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
         document=subject, source_extension=".pdf"
     )
-    assert unresolved_program.status == "service_identity_unresolved"
+    assert unresolved_program.business_name_resolved is True
 
 
-def test_optional_qualifier_claim_fails_closed_without_authoritative_lookup():
+def test_optional_qualifier_claim_is_omitted_without_authoritative_lookup():
     subject = document()
     subject.document_subtype = "renewal"
     subject.field_evidence["renewal_qualifier"] = evidence("SYNTHETIC QUALIFIER")
     result = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
         document=subject, source_extension=".pdf"
     )
-    assert result.business_name_resolved is False
-    assert result.status == "qualifier_reference_unavailable"
+    assert result.business_name_resolved is True
+    assert "SYNTHETIC QUALIFIER" not in result.policy_result.filename
 
 
 def test_technical_fallback_is_deterministic_non_phi_and_source_is_unchanged():
@@ -192,13 +195,13 @@ def test_filename_readiness_diagnostics_are_phi_safe_and_match_result():
     assert ready.dates_ready is True
     assert ready.workflow_ready is True
     assert ready.qualifier_status == "Not Required"
-    assert ready.filename_result == "Business"
+    assert ready.filename_result == "business"
 
     unresolved = document()
     unresolved.field_evidence["person_first"]["value"] = None
     fallback = service.diagnose(document=unresolved, source_extension=".pdf")
     assert fallback.person_components_ready is False
-    assert fallback.filename_result == "Technical Fallback"
+    assert fallback.filename_result == "technical_fallback"
     assert "EXAMPLE" not in repr(fallback)
 
 
@@ -252,8 +255,110 @@ def test_filename_failure_category_is_safe_and_scoped_to_naming():
     diagnostic = ProductionFilenameAssemblyService(tables_provider=tables).diagnose(
         document=subject, source_extension=".pdf"
     )
-    assert diagnostic.filename_result == "Technical Fallback"
-    assert diagnostic.filename_failure_category == "independent_person_name_unresolved"
+    assert diagnostic.filename_result == "technical_fallback"
+    assert diagnostic.filename_failure_category == "person_components_unresolved"
+
+
+def test_unknown_subtype_and_missing_optional_tokens_still_use_business_name():
+    subject = document()
+    subject.document_subtype = "unknown"
+    subject.subtype_support_status = "missing"
+    subject.field_evidence.pop("person_middle")
+    subject.service_lines[0].end_date = None
+    service = ProductionFilenameAssemblyService(tables_provider=tables)
+    result = service.resolve(document=subject, source_extension=".pdf")
+    diagnostic = service.diagnose(document=subject, source_extension=".pdf")
+    assert result.business_name_resolved is True
+    assert "AUTH INIT" not in result.policy_result.filename
+    assert "RENEW AUTH" not in result.policy_result.filename
+    assert result.policy_result.filename.endswith("_010226.pdf")
+    assert diagnostic.business_filename_attempted is True
+    assert diagnostic.filename_result == "business"
+    assert diagnostic.filename_failure_category == "none"
+    assert diagnostic.required_component_failure_count == 0
+    assert diagnostic.optional_component_omission_count >= 1
+    assert diagnostic.workflow_component_status == "Omitted"
+
+
+def test_missing_or_ambiguous_optional_service_does_not_force_fallback():
+    subject = document()
+    subject.service_lines = []
+    subject.field_evidence.update({
+        "start_date": evidence("2026-01-02"),
+        "end_date": {"value": None, "confidence": None, "source_text": ""},
+    })
+    subject.extracted_data = {"start_date": "2026-01-02", "end_date": None}
+    service = ProductionFilenameAssemblyService(tables_provider=tables)
+    result = service.resolve(document=subject, source_extension=".pdf")
+    assert result.business_name_resolved is True
+    assert "SERVICE" not in result.policy_result.filename
+    assert result.policy_result.filename.endswith("_010226.pdf")
+
+
+def test_safe_non_pdf_extension_can_use_business_name():
+    result = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
+        document=document(), source_extension=".tif"
+    )
+    assert result.business_name_resolved is True
+    assert result.policy_result.filename.endswith(".tif")
+
+
+def test_recovery_never_recomputes_a_persisted_technical_name():
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        source = root / "synthetic.pdf"
+        source.write_bytes(b"SYNTHETIC")
+        jobs = MailboxDocumentJobStateService(root / "jobs")
+        discovered = jobs.discover(
+            message_key="a" * 64, attachment_key="b" * 64,
+            document_key="c" * 64,
+        ).state
+        lease = jobs.acquire_processing_lease(discovered.job_key).state
+        technical_name = "LTHHC_TECHNICAL_DOCUMENT_" + "d" * 64 + ".pdf"
+        pending = jobs.transition(
+            discovered.job_key,
+            expected_stages={"processing"},
+            stage="row_write_pending",
+            lease_token=lease.lease_token,
+            attachment_filename=technical_name,
+            attachment_naming_status="technical_fallback",
+        ).state
+        recovery = MailboxDocumentSmartsheetRecoveryService(
+            job_state_service=jobs,
+            filename_assembly_service=ProductionFilenameAssemblyService(
+                tables_provider=tables
+            ),
+        )
+        work_item = MailboxDocumentWorkItem(
+            pending.job_key, "a" * 64, "b" * 64, "c" * 64,
+            source, pending.stage, document(),
+        )
+        stored, status = recovery._ensure_attachment_name(work_item, pending)
+        assert status == "ready"
+        assert stored.attachment_filename == technical_name
+        assert stored.attachment_naming_status == "technical_fallback"
+
+
+def test_optional_service_line_child_failure_does_not_discard_supported_siblings():
+    subject = document()
+    line = subject.service_lines[0]
+    line.status = None
+    line.end_date = None
+    line.confidence = 0.50
+    line.candidate_evidence = {
+        "service_code": "T0000", "modifier": "U1",
+        "start_date": "2026-01-02", "end_date": None,
+        "status": "Unsupported", "confidence": 0.95,
+    }
+    subject.validation_actions = [
+        "Service line 1 status is not supported by its source evidence"
+    ]
+    result = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
+        document=subject, source_extension=".pdf"
+    )
+    assert result.business_name_resolved is True
+    assert "SERVICE" in result.policy_result.filename
+    assert result.policy_result.filename.endswith("_010226.pdf")
 
 
 if __name__ == "__main__":

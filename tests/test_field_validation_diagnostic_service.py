@@ -155,6 +155,19 @@ def test_required_absence_is_distinguished_from_optional_absence():
     assert diagnostic.required is True
 
 
+def test_authorization_end_date_absence_is_optional_not_present():
+    document = Document(
+        file_path=Path("synthetic.pdf"), document_category="authorization"
+    )
+    document.field_evidence = {
+        "end_date": {"value": None, "confidence": None, "source_text": ""}
+    }
+    diagnostic = FieldValidationDiagnosticService().build(document, "end_date")
+    assert diagnostic.field_state == "not_present"
+    assert diagnostic.required is False
+    assert diagnostic.review_triggered is False
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

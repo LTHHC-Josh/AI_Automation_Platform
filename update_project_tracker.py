@@ -9672,6 +9672,40 @@ and actionable, business filename resolves when supported, Workflow Summary
 diagnostics are accurate, AI Correction initializes unchecked, and DP returns
 cleanly to waiting.
 
+Unified optional-absence and graceful filename checkpoint (2026-09-02):
+
+- Made authorization end date optional in the shared requiredness model and
+  authorization rule. Optional absence remains blank without confidence or
+  review, while a present unreliable candidate continues to fail closed.
+- Preserved authorization subtype `unknown` as a valid final classification
+  with one specific recommended-review reason and independent category
+  confidence. Unknown subtype no longer blocks filename construction or
+  invents a workflow token.
+- Added final-state metadata to the protected review field contract and made
+  production mapping accept only final `accepted` fields. Removed all textual
+  missing/cleared confidence sentinels from production cells.
+- Business naming now requires only supported person first/last, authoritative
+  payer, one supported date, and a safe extension. Optional middle, service,
+  form, workflow, and qualifier components degrade by omission. Safe original
+  PDF/TIF/TIFF/PNG/JPG/JPEG extensions are preserved.
+- Filename assembly consumes final validation state instead of repeating raw
+  source substring checks, keeps independently valid service-line siblings,
+  and never recomputes a durable expected attachment name during recovery.
+- Added PHI-safe Workflow Summary naming-attempt, required-failure,
+  optional-omission, result/failure-category, and component-state fields.
+  Focused and affected synthetic deterministic/mock tests passed without live
+  mailbox/Graph, protected OCR/Ollama, deployment, production Smartsheet or
+  comment operation, or mailbox mutation.
+
+Exact next start: refresh registration/source, then perform one controlled
+unattended live run with a different document to verify optional end-date
+absence remains blank without review, unknown subtype (if produced) has only
+the specific subtype reason without changing category confidence, optional
+filename components are omitted without technical fallback, required filename
+failures remain fail-closed, Workflow Summary naming counts/states are
+accurate, quantity/unit and AI Correction behavior remain correct, and DP
+returns cleanly to waiting.
+
 """
 
 

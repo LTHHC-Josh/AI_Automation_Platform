@@ -38,21 +38,21 @@ def test_supported_value_maps_actual_confidence():
     assert result.values["Service Codes Conf."] == 0.85
 
 
-def test_explicit_missing_reason_maps_text_only_when_supported():
+def test_explicit_missing_reason_keeps_value_and_confidence_blank():
     field = ReviewField("service_codes", None, 0.0, "", confidence_available=False)
     reasons = ["Service codes were not extracted from the document."]
     text_result = map_output(output(field, reasons), supports_text=True)
     numeric_result = map_output(output(field, reasons), supports_text=False)
-    assert text_result.values["Service Codes Conf."] == "Missing/Not extracted"
+    assert "Service Codes Conf." not in text_result.values
     assert "Service Codes Conf." not in numeric_result.values
-    assert "confidence_status_destination_constraint" in numeric_result.warnings
+    assert "Missing/Not extracted" not in text_result.values.values()
 
 
-def test_explicit_cleared_reason_maps_status_without_replacing_internal_zero():
+def test_explicit_cleared_reason_keeps_production_confidence_blank():
     field = ReviewField("service_codes", None, 0.0, "", confidence_available=True)
     review_output = output(field, ["Unsupported service code evidence was cleared."])
     result = map_output(review_output, supports_text=True)
-    assert result.values["Service Codes Conf."] == "Unsupported/Cleared"
+    assert "Service Codes Conf." not in result.values
     assert review_output.fields[0].confidence == 0.0
     assert review_output.fields[0].confidence_available is True
 
@@ -65,7 +65,7 @@ def test_numeric_only_cleared_field_leaves_production_confidence_blank():
     )
     assert "Service Codes Conf." not in result.values
     assert "Unsupported/Cleared" not in result.values.values()
-    assert "confidence_status_destination_constraint" in result.warnings
+    assert "confidence_status_destination_constraint" not in result.warnings
 
 
 def test_below_threshold_candidate_confidence_is_not_a_production_confidence():

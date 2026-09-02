@@ -3,6 +3,9 @@ from typing import Any
 
 from src.models.document import Document
 from src.models.document_taxonomy import DocumentTaxonomyRegistry
+from src.services.field_validation_diagnostic_service import (
+    FieldValidationDiagnosticService,
+)
 
 
 @dataclass
@@ -112,8 +115,7 @@ class ReviewDecisionService:
 
         minimum_field_confidence = (
             self._get_minimum_field_confidence(
-                extracted_data=document.extracted_data,
-                field_confidences=document.field_confidences,
+                document=document,
             )
         )
 
@@ -325,17 +327,15 @@ class ReviewDecisionService:
 
     def _get_minimum_field_confidence(
         self,
-        extracted_data: dict[str, Any],
-        field_confidences: dict[str, float],
+        document: Document,
     ) -> float | None:
         """
         Return the lowest confidence among populated extracted fields.
         """
 
-        if not isinstance(
-            extracted_data,
-            dict,
-        ):
+        extracted_data = document.extracted_data
+        field_confidences = document.field_confidences
+        if not isinstance(extracted_data, dict):
             return None
 
         if not isinstance(
@@ -345,6 +345,9 @@ class ReviewDecisionService:
             return None
 
         normalized_confidences: list[float] = []
+        diagnostics = FieldValidationDiagnosticService(
+            threshold=self.FIELD_CONFIDENCE_THRESHOLD
+        )
         accepted_service_codes = not self._is_empty_value(
             extracted_data.get("service_codes")
         ) and field_confidences.get("service_codes") is not None
@@ -355,6 +358,8 @@ class ReviewDecisionService:
             if self._is_empty_value(
                 value
             ):
+                continue
+            if diagnostics.build(document, field_name).field_state != "accepted":
                 continue
 
             confidence = field_confidences.get(
@@ -380,6 +385,9 @@ class ReviewDecisionService:
     def _field_confidence_reasons(self, document: Document) -> list[str]:
         """Return field-specific reasons only for populated final fields."""
         reasons = []
+        diagnostics = FieldValidationDiagnosticService(
+            threshold=self.FIELD_CONFIDENCE_THRESHOLD
+        )
         accepted_service_codes = not self._is_empty_value(
             document.extracted_data.get("service_codes")
         ) and document.field_confidences.get("service_codes") is not None
@@ -387,6 +395,9 @@ class ReviewDecisionService:
             if field_name == "service_code" and accepted_service_codes:
                 continue
             if self._is_empty_value(value):
+                continue
+            diagnostic = diagnostics.build(document, field_name)
+            if diagnostic.field_state != "low_confidence":
                 continue
             confidence = document.field_confidences.get(field_name)
             if confidence is None:
