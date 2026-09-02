@@ -1108,17 +1108,39 @@ Subtype presentation and exact filename-decision checkpoint:
   no live mailbox/Graph, protected OCR/Ollama, production Smartsheet/document,
   comment, deployment, worker, or mailbox mutation occurred.
 
+Current-source registration and payer-readiness checkpoint:
+
+- Refreshed all three standardized deployments from clean committed HEAD
+  `5e47350db37e2996b393aab57aa4e2ae1fcc6d63` using the repository-supported
+  Prefect 3.8.4 `deploy --all --no-prompt` mechanism. All registered versions
+  changed, each entrypoint/work-pool/current-repository pull contract matches,
+  and schedules and parameters remain empty. Manual/live concurrency remains
+  one with `CANCEL_NEW`.
+- Historical flow-run counts were unchanged by registration. Direct Prefect
+  API verification found zero active runs for all three deployments and zero
+  fresh workers. The process pool configuration is unpaused process type with
+  concurrency one; its runtime status is expectedly not ready without a worker.
+- The ignored last-known-good reference cache and metadata are present and
+  valid, with nonzero payer and service mappings. No live Graph reference
+  download was performed.
+- No approved local input contains the payer intended for the next test
+  document. Therefore `payer_evidence_available=false`, exact match count is
+  zero because no lookup input was available, and resolution is `unavailable`.
+  This does not prove either a reference-data gap or a code defect, and no
+  payer mapping was broadened, aliased, inferred, or changed.
+
 ## CURRENT NEXT START
 
-Refresh deployment/source registration and confirm the approved authoritative
-payer reference contains the intended test payer mapping without exposing its
-value, then perform one controlled unattended live run with a different
-document. Verify unknown subtype produces exactly `AI Document Subtype:
-Unknown` without changing category confidence, optional filename components
-are omitted without fallback, each required filename failure is reported by
-its exact safe category, Workflow Summary extension/count/state diagnostics
-match the final attachment decision, AI Correction remains unchecked, and the
-DP returns cleanly to waiting before stopdp.
+Provide the intended test payer through an approved local-only, non-logged
+input and perform the exact authoritative cache lookup with output restricted
+to evidence availability, cache readiness, match cardinality, and fixed
+resolution status. If and only if it resolves one unique match, perform one
+controlled unattended live run with a different document and verify exact
+unknown-subtype presentation, optional filename omission, required filename
+failure diagnostics, the final attachment decision, AI Correction, and clean
+return to waiting before stopdp. If the match is absent or ambiguous, correct
+only the authoritative reference workbook and refresh its last-known-good
+cache before any live document run.
 
 First unattended start failure diagnosis and correction checkpoint:
 

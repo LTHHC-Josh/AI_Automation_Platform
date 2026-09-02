@@ -9740,6 +9740,30 @@ optional omission, required-failure categories and counts, extension readiness,
 final filename decision, AI Correction, and clean return to waiting before
 stopdp.
 
+Current-source registration and payer-readiness checkpoint (2026-09-02):
+
+- Refreshed all three standardized deployments from clean committed HEAD
+  `5e47350db37e2996b393aab57aa4e2ae1fcc6d63` with the installed Prefect 3.8.4
+  repository mechanism. Registered versions changed; exact entrypoints, pool,
+  current-repository pull steps, empty schedules/parameters, and manual/live
+  concurrency-one `CANCEL_NEW` contracts passed PHI-safe verification.
+- Registration created no flow run. Direct API verification found zero active
+  runs for every deployment and zero fresh workers; the unpaused process pool
+  retains concurrency one and is expectedly not ready without a worker.
+- The ignored last-known-good reference cache and metadata loaded successfully
+  with nonzero payer/service mappings. No approved local input supplied the
+  intended test payer, so no exact lookup was possible: evidence is unavailable,
+  match count is zero, and resolution is `unavailable`. This is not yet proof
+  of a reference-data gap or application defect.
+- No live mailbox/Graph document or reference download, OCR/Ollama, deployment
+  run, worker startup, Smartsheet/comment operation, or mailbox mutation ran.
+
+Exact next start: provide the intended test payer through an approved
+local-only non-logged input and run the exact authoritative cache lookup with
+only safe readiness/cardinality output. Proceed to one controlled unattended
+live document run only after one unique match; otherwise correct only the
+authoritative workbook and refresh the last-known-good cache first.
+
 """
 
 
