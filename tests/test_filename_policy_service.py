@@ -1,10 +1,8 @@
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 
-from src.services.filename_policy_service import (
-    FilenamePolicyRequest,
-    FilenamePolicyService,
-)
+from src.services.filename_policy_service import FilenamePolicyRequest, FilenamePolicyService
+from src.services.intake_document_naming_service import IntakeDocumentTypeResolution
 from src.services.reference_table_service import LookupResult
 
 
@@ -16,6 +14,19 @@ def unresolved(status="not_resolved"):
     return LookupResult(False, None, status)
 
 
+def document_type(segment="AUTH NO CHANGE", *, subtype_status="Ready"):
+    return IntakeDocumentTypeResolution(
+        segment,
+        "Ready",
+        subtype_key="no_change" if subtype_status == "Ready" else "unknown",
+        subtype_display="NO CHANGE" if subtype_status == "Ready" else "unknown",
+        subtype_status=subtype_status,
+        subtype_source_category=(
+            "explicit_document_evidence" if subtype_status == "Ready" else "unresolved"
+        ),
+    )
+
+
 def request(**changes):
     values = {
         "person_last": "EXAMPLE",
@@ -24,8 +35,7 @@ def request(**changes):
         "payer_lookup": resolved("PLAN TOKEN"),
         "service_applicable": True,
         "service_lookup": resolved("SERVICE TOKEN"),
-        "document_category": "authorization",
-        "document_subtype": "initial",
+        "document_type_resolution": document_type(),
         "start_date": "2026-01-02",
         "end_date": "2026-02-03",
         "source_extension": ".pdf",
@@ -34,346 +44,124 @@ def request(**changes):
     return FilenamePolicyRequest(**values)
 
 
-def test_initial_policy_uses_confirmed_order_separators_range_and_no_timestamp():
+def test_complete_policy_matches_intake_order_comma_range_and_extension():
     result = FilenamePolicyService().resolve(request())
-    assert result.complete is True
     assert result.filename == (
-        "EXAMPLE SYNTHETIC Q_PLAN TOKEN_SERVICE TOKEN_"
-        "AUTH INIT_010226-020326.pdf"
+        "EXAMPLE, SYNTHETIC Q_PLAN TOKEN_SERVICE TOKEN_"
+        "AUTH NO CHANGE_010226-020326.PDF"
     )
-    assert result.status == "resolved"
+    assert result.complete is True
+    assert result.filename_result == "complete_business"
     assert result.review_required is False
-    assert "timestamp" not in result.filename.lower()
 
 
-def test_payer_reference_token_is_mandatory_and_never_guessed():
+def test_payer_unresolved_uses_fixed_placeholder_without_guessing():
     result = FilenamePolicyService().resolve(
         request(payer_lookup=unresolved("ambiguous"))
     )
-    assert result.complete is False
-    assert result.filename is None
-    assert result.status == "payer_reference_unresolved"
+    assert result.complete is True
+    assert "_[PAYER]_" in result.filename
+    assert result.filename_result == "partial_business"
+    assert result.placeholder_categories == ("payer",)
 
 
-def test_service_is_included_only_when_relevant_and_resolved():
+def test_service_resolved_omitted_and_expected_unresolved_are_distinct():
     included = FilenamePolicyService().resolve(request())
     omitted = FilenamePolicyService().resolve(
         request(service_applicable=False, service_lookup=None)
     )
-    unresolved_service = FilenamePolicyService().resolve(
-        request(service_lookup=unresolved("ambiguous"))
+    placeholder = FilenamePolicyService().resolve(
+        request(service_applicable=True, service_lookup=unresolved("ambiguous"))
     )
     assert "_SERVICE TOKEN_" in included.filename
-    assert omitted.complete is True
     assert "SERVICE TOKEN" not in omitted.filename
-    assert unresolved_service.complete is True
-    assert "SERVICE TOKEN" not in unresolved_service.filename
+    assert "[SERVICE]" not in omitted.filename
+    assert "_[SERVICE]_" in placeholder.filename
 
 
-def test_2067_form_and_supported_workflow_coexist():
+def test_unknown_authorization_subtype_uses_placeholder():
+    result = FilenamePolicyService().resolve(
+        request(document_type_resolution=document_type("AUTH [SUBTYPE]", subtype_status="Placeholder"))
+    )
+    assert "AUTH [SUBTYPE]" in result.filename
+    assert result.placeholder_categories == ("document_subtype",)
+
+
+def test_2067_is_one_document_type_segment_and_legacy_workflow_is_ignored():
     result = FilenamePolicyService().resolve(
         request(
+            document_type_resolution=IntakeDocumentTypeResolution("2067", "Ready"),
             form_type="2067",
             workflow_lookup=resolved("INBOUND AUTH"),
-            document_category="formal_communication",
-            document_subtype=None,
             posted_date_lookup=resolved("2026-04-05"),
         )
     )
-    assert result.complete is True
-    assert "_2067_INBOUND AUTH_040526.pdf" in result.filename
-
-
-def test_2067_accepts_explicitly_supported_inbound_auth_workflow():
-    result = FilenamePolicyService().resolve(
-        request(
-            form_type="2067",
-            workflow_lookup=resolved("INBOUND AUTH"),
-            document_category="formal_communication",
-            document_subtype=None,
-            posted_date_lookup=resolved("2026-04-05"),
-        )
-    )
-    assert result.complete is True
-    assert "_2067_INBOUND AUTH_" in result.filename
-
-
-def test_2067_accepts_explicitly_supported_init_workflow():
-    result = FilenamePolicyService().resolve(
-        request(
-            form_type="2067",
-            workflow_lookup=resolved("INIT"),
-            document_category="formal_communication",
-            document_subtype=None,
-            posted_date_lookup=resolved("2026-04-05"),
-        )
-    )
-    assert result.complete is True
-    assert "_2067_INIT_" in result.filename
-
-
-def test_2067_without_supported_workflow_omits_it_without_guessing():
-    result = FilenamePolicyService().resolve(
-        request(
-            form_type="2067",
-            workflow_lookup=None,
-            document_category="formal_communication",
-            document_subtype=None,
-            posted_date_lookup=resolved("2026-04-05"),
-        )
-    )
-    assert result.complete is True
-    assert "_2067_" in result.filename
-    assert "AUTH INIT" not in result.filename
-    assert "INBOUND AUTH" not in result.filename
-    assert "INIT" not in result.filename
-
-
-def test_2067_accepts_future_supported_workflow_without_fixed_choice_list():
-    result = FilenamePolicyService().resolve(
-        request(
-            form_type="2067",
-            workflow_lookup=resolved("FUTURE SUPPORTED WORKFLOW"),
-            document_category="formal_communication",
-            document_subtype=None,
-            posted_date_lookup=resolved("2026-04-05"),
-        )
-    )
-    assert result.complete is True
-    assert "_2067_FUTURE SUPPORTED WORKFLOW_" in result.filename
-
-
-def test_2067_omits_unresolved_optional_workflow_instead_of_guessing():
-    result = FilenamePolicyService().resolve(
-        request(
-            form_type="2067",
-            workflow_lookup=unresolved("ambiguous"),
-            document_category="formal_communication",
-            document_subtype=None,
-            posted_date_lookup=resolved("2026-04-05"),
-        )
-    )
-    assert result.complete is True
+    assert "_2067_040526.PDF" in result.filename
     assert "INBOUND AUTH" not in result.filename
 
 
-def test_exactly_one_supported_naming_date_uses_single_date():
-    result = FilenamePolicyService().resolve(
+def test_single_supported_date_and_range_are_supported():
+    single = FilenamePolicyService().resolve(
         request(start_date=None, end_date=None, naming_dates=("2026-04-05",))
     )
-    assert result.complete is True
-    assert result.filename.endswith("_040526.pdf")
+    date_range = FilenamePolicyService().resolve(request())
+    assert single.filename.endswith("_040526.PDF")
+    assert date_range.filename.endswith("_010226-020326.PDF")
 
 
-def test_multiple_single_date_candidates_block_naming():
+def test_reversed_date_range_uses_placeholder_without_technical_fallback():
     result = FilenamePolicyService().resolve(
-        request(
-            start_date=None,
-            end_date=None,
-            naming_dates=("2026-04-05", "2026-04-06"),
-        )
+        request(start_date="2026-02-03", end_date="2026-01-02")
     )
-    assert result.complete is False
-    assert result.filename is None
-    assert result.status == "date_ownership_unresolved"
+    assert result.filename_result == "partial_business"
+    assert result.placeholder_categories == ("date",)
+    assert result.filename.endswith("_[DATE].PDF")
 
 
-def test_invalid_or_missing_supported_date_blocks_naming():
-    invalid = FilenamePolicyService().resolve(
-        request(start_date="not-a-date", end_date=None)
-    )
+def test_missing_invalid_or_ambiguous_date_uses_date_placeholder():
     missing = FilenamePolicyService().resolve(
         request(start_date=None, end_date=None)
     )
-    assert invalid.complete is False
-    assert invalid.status == "date_invalid"
-    assert missing.complete is False
-    assert missing.status == "date_unresolved"
-
-
-def test_actual_authorization_renewal_uses_confirmed_token():
-    result = FilenamePolicyService().resolve(
-        request(document_subtype="renewal")
+    invalid = FilenamePolicyService().resolve(
+        request(start_date="not-a-date", end_date=None)
     )
-    assert result.complete is True
-    assert "_RENEW AUTH_" in result.filename
-    assert "INBOUND AUTH" not in result.filename
-
-
-def test_authorization_unknown_subtype_omits_optional_workflow():
-    result = FilenamePolicyService().resolve(
-        request(document_subtype="unknown")
+    ambiguous = FilenamePolicyService().resolve(
+        request(start_date=None, end_date=None, naming_dates=("2026-04-05", "2026-04-06"))
     )
-    assert result.complete is True
-    assert "AUTH INIT" not in result.filename
-    assert "RENEW AUTH" not in result.filename
+    for result in (missing, invalid, ambiguous):
+        assert result.filename.endswith("_[DATE].PDF")
+        assert "date" in result.placeholder_categories
 
 
-def test_authorization_renewal_does_not_inherit_inbound_auth_workflow():
+def test_optional_middle_service_and_end_date_are_omitted():
     result = FilenamePolicyService().resolve(
         request(
-            form_type=None,
-            workflow_lookup=resolved("INBOUND AUTH"),
-            document_category="authorization",
-            document_subtype="renewal",
-        )
-    )
-    assert result.complete is True
-    assert "_RENEW AUTH_" in result.filename
-    assert "INBOUND AUTH" not in result.filename
-
-
-def test_supported_no_change_qualifier_coexists_without_inferring_renewal():
-    renewal = FilenamePolicyService().resolve(
-        request(
-            document_subtype="renewal",
-            qualifier_lookup=resolved("NO CHANGE"),
-        )
-    )
-    qualifier_only = FilenamePolicyService().resolve(
-        request(
-            document_category="authorization",
-            document_subtype="initial",
-            workflow_lookup=None,
-            qualifier_lookup=resolved("NO CHANGE"),
-        )
-    )
-    assert "_RENEW AUTH_NO CHANGE_" in renewal.filename
-    assert qualifier_only.complete is True
-    assert "NO CHANGE" not in qualifier_only.filename
-
-
-def test_missing_or_unresolved_optional_qualifier_is_omitted():
-    missing = FilenamePolicyService().resolve(
-        request(document_subtype="renewal", qualifier_lookup=None)
-    )
-    unresolved_qualifier = FilenamePolicyService().resolve(
-        request(
-            document_subtype="renewal",
-            qualifier_lookup=unresolved("unsupported"),
-        )
-    )
-    assert "NO CHANGE" not in missing.filename
-    assert unresolved_qualifier.complete is True
-    assert "NO CHANGE" not in unresolved_qualifier.filename
-
-
-def test_2067_never_infers_init_without_supported_external_context():
-    result = FilenamePolicyService().resolve(
-        request(
-            form_type="2067",
-            document_category="formal_communication",
-            document_subtype="initial",
-            workflow_lookup=None,
-            posted_date_lookup=resolved("2026-04-05"),
-        )
-    )
-    assert result.complete is True
-    assert "_2067_040526.pdf" in result.filename
-    assert "INIT" not in result.filename
-
-
-def test_2067_accepts_future_database_supported_workflow_refinement():
-    result = FilenamePolicyService().resolve(
-        request(
-            form_type="2067",
-            document_category="formal_communication",
-            document_subtype=None,
-            workflow_lookup=resolved("FUTURE DATABASE WORKFLOW"),
-            posted_date_lookup=resolved("2026-04-05"),
-        )
-    )
-    assert "_2067_FUTURE DATABASE WORKFLOW_" in result.filename
-
-
-def test_2067_uses_only_supported_posted_date():
-    result = FilenamePolicyService().resolve(
-        request(
-            form_type="2067",
-            document_category="formal_communication",
-            document_subtype=None,
-            workflow_lookup=resolved("INBOUND AUTH"),
-            posted_date_lookup=resolved("2026-04-05"),
-            start_date="2026-01-02",
-            end_date="2026-02-03",
-            naming_dates=("2026-06-07",),
-        )
-    )
-    assert result.filename.endswith("_040526.pdf")
-    assert "010226" not in result.filename
-    assert "020326" not in result.filename
-    assert "060726" not in result.filename
-
-
-def test_2067_missing_or_unresolved_posted_date_uses_supported_range():
-    changes = (
-        {"posted_date_lookup": None},
-        {"posted_date_lookup": unresolved("unsupported")},
-        {"posted_date_lookup": unresolved("conflicting")},
-    )
-    results = [
-        FilenamePolicyService().resolve(
-            request(
-                form_type="2067",
-                document_category="formal_communication",
-                document_subtype=None,
-                workflow_lookup=resolved("INBOUND AUTH"),
-                **change,
-            )
-        )
-        for change in changes
-    ]
-    assert all(result.complete for result in results)
-    assert all(result.filename.endswith("_010226-020326.pdf") for result in results)
-
-
-def test_2067_invalid_accepted_posted_date_fails_closed():
-    result = FilenamePolicyService().resolve(
-        request(
-            form_type="2067",
-            document_category="formal_communication",
-            document_subtype=None,
-            posted_date_lookup=resolved("not-a-date"),
-        )
-    )
-    assert result.complete is False
-    assert result.status == "posted_date_invalid"
-
-
-def test_2067_without_any_supported_date_fails_closed():
-    result = FilenamePolicyService().resolve(
-        request(
-            form_type="2067",
-            document_category="formal_communication",
-            document_subtype=None,
-            posted_date_lookup=None,
-            start_date=None,
+            person_middle=None,
+            service_applicable=False,
+            service_lookup=None,
             end_date=None,
         )
     )
-    assert result.complete is False
-    assert result.status == "date_unresolved"
+    assert result.filename == (
+        "EXAMPLE, SYNTHETIC_PLAN TOKEN_AUTH NO CHANGE_010226.PDF"
+    )
+    assert result.optional_omission_count == 3
 
 
-def test_document_type_and_workflow_are_separate_request_dimensions():
-    policy_fields = FilenamePolicyRequest.__dataclass_fields__
-    assert "form_type" in policy_fields
-    assert "workflow_lookup" in policy_fields
-    assert "qualifier_lookup" in policy_fields
-    assert "posted_date_lookup" in policy_fields
-    assert policy_fields["form_type"] is not policy_fields["workflow_lookup"]
+def test_person_and_extension_are_technical_fallback_boundaries():
+    person = FilenamePolicyService().resolve(request(person_first=None))
+    extension = FilenamePolicyService().resolve(request(source_extension=".doc"))
+    assert person.filename_result == "technical_fallback"
+    assert person.status == "person_name_unresolved"
+    assert extension.filename_result == "technical_fallback"
+    assert extension.status == "source_extension_unsupported"
 
 
-def test_safe_source_extensions_are_preserved_without_conversion_claim():
+def test_safe_source_extensions_are_preserved_as_canonical_business_suffixes():
     pdf = FilenamePolicyService().resolve(request(source_extension="PDF"))
-    other = FilenamePolicyService().resolve(request(source_extension=".tif"))
-    unsupported = FilenamePolicyService().resolve(request(source_extension=".doc"))
-    assert pdf.complete is True
-    assert pdf.filename.endswith(".pdf")
-    assert other.complete is True
-    assert other.filename.endswith(".tif")
-    assert unsupported.complete is False
-    assert unsupported.status == "source_extension_unsupported"
+    tif = FilenamePolicyService().resolve(request(source_extension=".tif"))
+    assert pdf.filename.endswith(".PDF")
+    assert tif.filename.endswith(".TIF")
 
 
 def test_phi_bearing_filename_is_hidden_from_result_repr_and_output():
@@ -381,7 +169,7 @@ def test_phi_bearing_filename_is_hidden_from_result_repr_and_output():
     stderr = StringIO()
     with redirect_stdout(stdout), redirect_stderr(stderr):
         result = FilenamePolicyService().resolve(request())
-    assert "EXAMPLE SYNTHETIC" not in repr(result)
+    assert "EXAMPLE" not in repr(result)
     assert stdout.getvalue() == ""
     assert stderr.getvalue() == ""
 

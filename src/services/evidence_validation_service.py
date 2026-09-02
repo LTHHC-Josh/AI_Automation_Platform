@@ -9,6 +9,9 @@ from src.models.document import (
     AuthorizationServiceLine,
     Document,
 )
+from src.services.intake_document_naming_service import (
+    IntakeDocumentNamingVocabulary,
+)
 
 
 class EvidenceValidationService:
@@ -51,6 +54,7 @@ class EvidenceValidationService:
         "authorization_number",
         "authorization_status",
         "request_type",
+        "intake_document_subtype",
         "service_code",
         "service_codes",
         "modifier",
@@ -195,6 +199,11 @@ class EvidenceValidationService:
         )
 
         self._validate_request_type(
+            document=document,
+            actions=actions,
+        )
+
+        self._validate_intake_document_subtype(
             document=document,
             actions=actions,
         )
@@ -833,6 +842,31 @@ class EvidenceValidationService:
             field_name="request_type",
             reason=(
                 "Request type requires checkbox or selection verification"
+            ),
+            actions=actions,
+        )
+
+    def _validate_intake_document_subtype(
+        self,
+        document: Document,
+        actions: list[str],
+    ) -> None:
+        evidence = document.field_evidence.get("intake_document_subtype")
+        definition, status = IntakeDocumentNamingVocabulary.validate_document_evidence(
+            evidence
+        )
+        if status in {"not_present", "low_confidence"}:
+            return
+        if status == "resolved" and definition is not None:
+            evidence["value"] = definition.key
+            return
+        self._invalidate_field(
+            document=document,
+            field_name="intake_document_subtype",
+            reason=(
+                "intake_document_subtype requires authoritative external context"
+                if status == "external_context_required"
+                else "intake_document_subtype is not supported by its source evidence"
             ),
             actions=actions,
         )

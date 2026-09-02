@@ -86,7 +86,7 @@ class DocumentAttachmentNamingService:
         safe_name = fallback_name
         preparation_status = "prepared"
         if filename_policy_result is not None:
-            if self._is_safe_complete_policy_result(
+            if self._is_safe_business_policy_result(
                 filename_policy_result,
                 source_extension=extension,
             ):
@@ -140,10 +140,14 @@ class DocumentAttachmentNamingService:
         return DocumentAttachmentPreparationResult(True, temporary_path, True, "prepared_technical")
 
     @staticmethod
-    def _is_safe_complete_policy_result(result, *, source_extension: str) -> bool:
+    def _is_safe_business_policy_result(result, *, source_extension: str) -> bool:
         if not isinstance(result, FilenamePolicyResult):
             return False
-        if not result.complete or result.review_required or not result.filename:
+        if (
+            not result.complete
+            or result.filename_result not in {"complete_business", "partial_business"}
+            or not result.filename
+        ):
             return False
         filename = str(result.filename)
         return (

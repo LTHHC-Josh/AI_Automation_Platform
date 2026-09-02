@@ -536,6 +536,21 @@ def test_classification_labels_are_mapped_as_review_metadata():
     )
 
 
+def test_evaluated_intake_subtype_owns_the_operator_visible_column():
+    service = SmartsheetReviewRowMappingService()
+    output = build_review_output()
+    output.intake_document_subtype = "unknown"
+    output.intake_subtype_evaluated = True
+
+    result = service.map(
+        review_output=output,
+        policies=[],
+        run_type=TEST_RUN_TYPE,
+    )
+
+    assert result.values["AI Document Subtype"] == "unknown"
+
+
 def test_review_reasons_are_mapped_without_values_or_source_text():
     service = SmartsheetReviewRowMappingService()
 
@@ -746,6 +761,10 @@ run_test(
 run_test(
     "classification labels are mapped as review metadata",
     test_classification_labels_are_mapped_as_review_metadata,
+)
+run_test(
+    "evaluated intake subtype owns the operator-visible column",
+    test_evaluated_intake_subtype_owns_the_operator_visible_column,
 )
 run_test(
     "review reasons are mapped without values or source text",

@@ -33,45 +33,31 @@ def test_unresolved_component_or_policy_blocks_final_name():
     assert unresolved_policy.success is False and unresolved_policy.filename is None
 
 
-def test_form_type_and_optional_workflow_are_independent_components():
-    service = ReferenceFilenameBuilderService()
-    without_workflow = service.build(
-        person_name="SYNTHETIC PERSON",
-        payer_token="SP",
-        form_type_token="2067",
-        workflow_type_token=None,
-        date_token="010126",
-        policy=FilenameCompositionPolicy(separator="_", extension=".pdf"),
-    )
-    with_workflow = service.build(
-        person_name="SYNTHETIC PERSON",
-        payer_token="SP",
-        form_type_token="2067",
-        workflow_type_token="SUPPORTED WORKFLOW",
-        date_token="010126",
-        policy=FilenameCompositionPolicy(separator="_", extension=".pdf"),
-    )
-    assert without_workflow.success is True
-    assert without_workflow.filename == "SYNTHETIC PERSON_SP_2067_010126.pdf"
-    assert with_workflow.success is True
-    assert with_workflow.filename == (
-        "SYNTHETIC PERSON_SP_2067_SUPPORTED WORKFLOW_010126.pdf"
-    )
-
-
-def test_supported_qualifier_is_a_separate_optional_component():
+def test_document_type_is_one_canonical_component():
     service = ReferenceFilenameBuilderService()
     result = service.build(
         person_name="SYNTHETIC PERSON",
         payer_token="SP",
-        workflow_type_token="RENEW AUTH",
-        qualifier_token="NO CHANGE",
+        document_type_token="2067",
+        date_token="010126",
+        policy=FilenameCompositionPolicy(separator="_", extension=".pdf"),
+    )
+    assert result.success is True
+    assert result.filename == "SYNTHETIC PERSON_SP_2067_010126.pdf"
+
+
+def test_fixed_placeholder_is_safe_as_a_document_type_component():
+    service = ReferenceFilenameBuilderService()
+    result = service.build(
+        person_name="SYNTHETIC PERSON",
+        payer_token="SP",
+        document_type_token="AUTH [SUBTYPE]",
         date_token="010126-020126",
         policy=FilenameCompositionPolicy(separator="_", extension=".pdf"),
     )
     assert result.success is True
     assert result.filename == (
-        "SYNTHETIC PERSON_SP_RENEW AUTH_NO CHANGE_010126-020126.pdf"
+        "SYNTHETIC PERSON_SP_AUTH [SUBTYPE]_010126-020126.pdf"
     )
 
 

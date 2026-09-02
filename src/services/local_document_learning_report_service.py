@@ -642,9 +642,8 @@ class LocalDocumentLearningReportService:
         return list(dict.fromkeys(label for label in labels if label))
 
     def _safe_category(self, proposed: Any, fallback: Any) -> str:
-        allowed = {
-            "authorization", "referral", "termination", "denial", "assessment",
-            "plan_of_care", "claim", "communication", "form", "2067", "other", "unknown",
+        allowed = set(DocumentTaxonomyRegistry.families()) | {
+            "communication", "form",
         }
         value = str(proposed or fallback or "unknown").strip().lower()
         return value if value in allowed else "unknown"

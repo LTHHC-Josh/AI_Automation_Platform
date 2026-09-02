@@ -11,7 +11,10 @@ from src.services.smartsheet_review_row_mapping_service import SmartsheetReviewR
 from src.services.smartsheet_reviewed_write_service import SmartsheetReviewedWriteService
 from src.services.smartsheet_submission_key_configuration_service import SmartsheetSubmissionKeyConfigurationService
 from src.services.document_attachment_naming_service import DocumentAttachmentNamingService
-from src.services.production_filename_assembly_service import ProductionFilenameAssemblyService
+from src.services.production_filename_assembly_service import (
+    ProductionFilenameAssemblyResult,
+    ProductionFilenameAssemblyService,
+)
 from src.services.production_filename_assembly_service import FilenameReadinessDiagnostic
 
 
@@ -208,10 +211,12 @@ class MailboxDocumentSmartsheetRecoveryService:
     def _ensure_attachment_name(self, work_item, state):
         if state.attachment_filename is not None:
             return state, "ready", self._persisted_filename_diagnostic(state)
-        assembly = self.filename_assembly_service.evaluate(
-            document=work_item.document,
-            source_extension=Path(work_item.local_path).suffix.lower() or ".bin",
-        )
+        assembly = getattr(work_item.document, "filename_assembly_result", None)
+        if not isinstance(assembly, ProductionFilenameAssemblyResult):
+            assembly = self.filename_assembly_service.evaluate(
+                document=work_item.document,
+                source_extension=Path(work_item.local_path).suffix.lower() or ".bin",
+            )
         preparation = self.attachment_naming_service.prepare(
             source_path=work_item.local_path,
             filename_policy_result=assembly.policy_result,
@@ -231,8 +236,24 @@ class MailboxDocumentSmartsheetRecoveryService:
             stage=state.stage,
             attachment_filename=expected_name,
             attachment_naming_status=(
-                "business_filename" if assembly.business_name_resolved
-                else "technical_fallback"
+                f"{assembly.policy_result.filename_result}_filename"
+                if assembly.business_name_resolved else "technical_fallback"
+            ),
+            attachment_business_filename_attempted=(
+                assembly.business_filename_attempted
+            ),
+            attachment_required_component_failure_count=(
+                assembly.required_component_failure_count
+            ),
+            attachment_optional_component_omission_count=(
+                assembly.optional_component_omission_count
+            ),
+            attachment_placeholder_categories=(
+                assembly.policy_result.placeholder_categories
+            ),
+            attachment_technical_fallback_reason=(
+                assembly.diagnostic.technical_fallback_reason
+                if assembly.diagnostic is not None else assembly.status
             ),
         )
         if not stored.success or stored.state is None:
@@ -242,25 +263,58 @@ class MailboxDocumentSmartsheetRecoveryService:
     @staticmethod
     def _persisted_filename_diagnostic(state):
         naming_status = getattr(state, "attachment_naming_status", None)
-        business = naming_status == "business_filename"
+        if naming_status in {"business_filename", "complete_business_filename"}:
+            filename_result = "complete_business"
+        elif naming_status == "partial_business_filename":
+            filename_result = "partial_business"
+        else:
+            filename_result = "technical_fallback"
+        business = filename_result != "technical_fallback"
+        placeholder_categories = tuple(
+            getattr(state, "attachment_placeholder_categories", ()) or ()
+        )
+        attempted = bool(
+            getattr(state, "attachment_business_filename_attempted", False)
+        )
+        required_failure_count = int(
+            getattr(state, "attachment_required_component_failure_count", 0) or 0
+        )
+        optional_omission_count = int(
+            getattr(state, "attachment_optional_component_omission_count", 0) or 0
+        )
+        fallback_reason = str(
+            getattr(state, "attachment_technical_fallback_reason", "none")
+            or "none"
+        )
+        if not attempted and not business:
+            fallback_reason = "persisted_technical_fallback"
         return FilenameReadinessDiagnostic(
-            False,
-            False,
-            False,
-            False,
-            False,
-            "Not Evaluated",
-            "business" if business else "technical_fallback",
-            "none" if business else "persisted_technical_fallback",
-            False,
-            0,
-            0,
-            "Not Evaluated",
-            "Not Evaluated",
-            "Not Evaluated",
-            False,
-            "Not Evaluated",
-            "not_evaluated",
+            person_components_ready=False,
+            payer_lookup_ready=False,
+            service_lookup_ready=False,
+            dates_ready=False,
+            workflow_ready=False,
+            qualifier_status="Not Evaluated",
+            filename_result=filename_result,
+            filename_failure_category=(
+                "none" if business else fallback_reason
+            ),
+            business_filename_attempted=attempted,
+            required_component_failure_count=required_failure_count,
+            optional_component_omission_count=optional_omission_count,
+            service_component_status="Not Evaluated",
+            form_component_status="Not Evaluated",
+            workflow_component_status="Not Evaluated",
+            extension_ready=False,
+            extension_component_status="Not Evaluated",
+            payer_lookup_status="not_evaluated",
+            document_type_component_status="Not Evaluated",
+            subtype_component_status="Not Evaluated",
+            placeholder_count=len(placeholder_categories),
+            placeholder_categories=placeholder_categories,
+            technical_fallback_reason=(
+                "none" if business else fallback_reason
+            ),
         )
 
     def _find_rows(self, column_id, key, *, title):

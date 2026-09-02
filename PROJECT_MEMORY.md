@@ -380,8 +380,10 @@ universal coverage across every future 2067 layout or subtype.
   does not create or rename that column. Read-only live inspection found one
   exact-title, non-system TEXT_NUMBER column, and the corrected normalized-
   metadata schema gate passes.
-- Production filename wiring remains disabled unless separately approved.
-  The current normal path retains the existing safe attachment filename.
+- Production attachment naming uses the intake-team convention through the
+  shared manual/unattended recovery path. It produces a complete business
+  filename, a partial business filename with fixed placeholders, or the
+  deterministic technical fallback; the protected source is never renamed.
 
 The generic family/subtype-aware policy resolver uses the current explicit
 field policies for Authorization, 2067/UTL, unknown taxonomy, and future
@@ -499,8 +501,9 @@ needed and the operator approves it.
 - Acceptance-only PHI-safe local mailbox candidate selection with bounded
   metadata discovery, exact Inbox re-verification, and no newest-unread
   fallback. Normal unattended enumeration is unchanged.
-- Validated business-reference workbook boundary and deterministic filename
-  policy/input services. Production filename orchestration remains disabled.
+- Validated business-reference workbook boundary and production filename
+  assembly with complete/partial/technical outcomes, fixed placeholders, and
+  durable restart-safe attachment-name persistence.
 - Prefect 3.8.4 pinned with a self-hosted localhost server/UI, native process
   work pool/worker, versioned synthetic deployment, PHI-safe flow/task, and
   copy/paste-verified Windows operator guide. The parameterless mailbox adapter
@@ -737,12 +740,10 @@ Current gaps and limitations include:
   where deterministic evidence is insufficient.
 - The first protected local review comparison and broader real-document
   acceptance remain incomplete.
-- Production filename orchestration remains disabled. Posted Date,
-  renewal-qualifier, workflow-context, and ambiguity-safe reference boundaries
-  exist but are not wired into normal production naming.
-- No approved runtime source supplies 2067 workflow context or supported
-  renewal-qualifier reference values. INIT/renewal context must not be inferred
-  from 2067.
+- Intake filename-subtype coverage is intentionally incomplete. `AUTH INIT`
+  requires approved external client/service context and cannot be inferred
+  from document evidence; unknown supported categories/subtypes use fixed
+  placeholders and downstream review rather than guesses.
 - Legitimate service-reference conflicts remain unresolved until the owner
   provides a supported discriminator; description and other existing fields
   must not be used to invent priority.
@@ -862,31 +863,18 @@ First unattended document-result diagnosis checkpoint:
 
 Production filename assembly checkpoint:
 
-- The shared manual/unattended recovery boundary now assembles the existing
-  filename policy from separately extracted and deterministically supported
-  first/middle/last name components, exact authoritative payer and service
-  workbook lookups, supported service-period dates, and supported
-  classification workflow context. Combined patient name, sender, mailbox
-  metadata, source filename, and payer context are not naming inputs.
-- The extraction contract now exposes separate optional person components and
-  program evidence. Each component must carry its own source evidence and
-  sufficient configured field confidence; production code never parses the
-  combined patient name. Unsupported, low-confidence, ambiguous, invalid, or
-  unreferenced input leaves the business filename unresolved.
-- Complete authorization evidence retains the established format
-  `<LAST FIRST [MIDDLE]>_<PAYER>_<SERVICE>_<AUTH INIT|RENEW AUTH>_<MMDDYY[-MMDDYY]>.pdf`.
-  Existing optional form/workflow/qualifier policy behavior remains unchanged
-  and unresolved optional evidence fails closed.
-- Unresolved naming uses
-  `LTHHC_TECHNICAL_DOCUMENT_<full-document-SHA256>.<safe-extension>`; unknown or
-  unsupported extensions become `.bin`. The fallback contains no submission
-  key or document-derived business value. The original protected source is
-  never renamed; only a temporary upload copy receives the resolved name.
-- The exact resolved attachment name and a safe naming category are persisted
-  before external row creation in ignored protected mailbox job state. Legacy
-  states load compatibly. Restart reconciliation compares the same exact name,
-  preserving uncertain-outcome and duplicate-upload protection. The AI
-  Submission Key remains solely the row/idempotency/reconciliation key.
+- The shared manual/unattended recovery boundary assembles only independently
+  validated naming evidence and authoritative reference tokens. Combined
+  patient name, sender, mailbox metadata, source filename, and payer/source
+  context are never used to infer business components.
+- The production filename target is
+  `<LAST, FIRST [MIDDLE]>_<PAYER>_[SERVICE]_<DOCUMENT TYPE>_<DATE[-DATE]>.<EXT>`.
+  Optional absent components are omitted; meaningful unresolved components
+  use fixed placeholders when core person identity and the extension are safe.
+- The exact attachment name and fixed-safe decision metadata are persisted
+  before external row creation. Restart/reconciliation never recomputes a
+  stored name. The AI Submission Key remains solely the durable row,
+  idempotency, and reconciliation key.
 - Focused and affected synthetic deterministic/mock/local-file checks passed
   for policy composition, authoritative lookup ambiguity, technical fallback,
   extraction schema/prompt safeguards, temporary-copy safety, durable recovery,
@@ -1028,9 +1016,10 @@ Final-state consistency, quantity-unit, workflow, and filename checkpoint:
   separately resolved unit while its confidence remains the quantity's own
   validated confidence. Successful authorized-units reconciliation remains
   informational and does not itself trigger review.
-- The renewal rule no longer emits unconditional subtype/workflow verification:
-  the committed filename policy already deterministically maps an accepted
-  authorization+renewal classification to `RENEW AUTH`.
+- Legacy authorization routing does not determine the intake-team filename
+  subtype. The separate naming subtype must be supported by explicit document
+  evidence or approved authoritative context; `AUTH INIT` specifically
+  requires external context and is never inferred from renewal/initial routing.
 - Review summaries prefer concise field/category-specific reasons, remove
   generic document-detail noise when a specific reason exists, and distinguish
   required missing fields from optional absence. Fixed internal categories
@@ -1043,70 +1032,55 @@ Final-state consistency, quantity-unit, workflow, and filename checkpoint:
   quantity presence, and unit-source category without values. AI Correction
   remains create-time false and human-owned; comments remain untouched.
 
-Unified optional-absence and graceful filename checkpoint:
+Intake-team business filename checkpoint:
 
-- Authorization end date is optional unless a future explicit conditional
-  rule is approved. Absence is final state `not_present`, produces no review,
-  and leaves both value and confidence blank. A present invalid, unsupported,
-  ambiguous, conflicting, or low-confidence candidate still fails closed.
-- Authorization subtype `unknown` remains an accepted taxonomy result that
-  recommends review with the single operator-facing reason `AI Document
-  Subtype: Unknown`. Category confidence remains independent, and no workflow
-  token is invented.
-- Review output carries final field state and requiredness. Smartsheet maps
-  only `accepted` fields and their governing confidence; nonaccepted or absent
-  values remain blank. The prior textual confidence sentinels are removed.
-- Business filename construction is attempted for every new durable document
-  job. Required prerequisites are independently validated first/last name,
-  authoritative payer, one unambiguous supported date, and a safe original
-  extension. Middle, service, form, workflow, and qualifier tokens are
-  optional and are omitted when unavailable rather than forcing fallback.
-- Initial and renewal still resolve `AUTH INIT` and `RENEW AUTH`; unknown
-  subtype omits workflow. A single date or supported range is accepted, so a
-  missing optional end date does not block naming. Compatible service lookup
-  supports blank modifier/program and remains independent per service-line
-  component.
-- Technical fallback is limited to a required prerequisite or safe-composition
-  failure. Durable attachment names already stored by an earlier attempt are
-  never recomputed, preserving restart reconciliation and duplicate prevention.
-- Workflow Summary now reports whether business naming was attempted, the
-  fixed safe result/failure category, required-failure count, optional-omission
-  count, and Ready/Omitted optional component states without actual values.
-
-Subtype presentation and exact filename-decision checkpoint:
-
-- The observed `Request type unresolved document information` text came from
-  the generic review presenter treating `subtype` as a legacy `request_type`
-  alias. Canonical presentation now keeps document subtype and request
-  selection separate. All supported unknown-subtype aliases deduplicate to
-  `document_subtype_unknown`, whose exact Smartsheet-facing text is
-  `AI Document Subtype: Unknown`.
-- Read-only PHI-safe Workflow Summary evidence proved the latest business-name
-  attempt reached production assembly and failed specifically at the exact
-  authoritative payer lookup with `payer_reference_unresolved`. Independently
-  validated payer evidence was present; no payer value was exposed and no
-  reference mapping was guessed or widened.
-- Production filename evaluation now produces the business/fallback decision
-  and its diagnostics from one authoritative result. Every valid new Document
-  invokes `FilenamePolicyService`; optional service, form, workflow, qualifier,
-  middle-name, and end-date omissions cannot set a global fallback flag.
-- A resumed job reports its already-persisted business/technical filename
-  decision instead of recomputing a contradictory current diagnostic. Durable
-  names remain unchanged, and persisted technical fallback is identified by
-  the fixed safe category `persisted_technical_fallback`.
-- Required readiness is counted independently for person components, payer,
-  naming date, and safe extension. Safe composition is counted only after all
-  four prerequisites pass. The primary fixed failure category remains stable
-  while the total reports every unresolved required prerequisite.
-- 2067 naming prefers a supported posted date but may use the existing single
-  start/end date or range policy when posted date is absent. An accepted but
-  invalid posted-date candidate still fails closed. Workflow Summary now also
-  exposes safe extension readiness and uses the same final evaluation object
-  persisted with the attachment-name decision.
-- Focused and affected synthetic deterministic/mock/local-safe regressions
-  passed. Isolated local Prefect visibility tests invoked synthetic flows only;
-  no live mailbox/Graph, protected OCR/Ollama, production Smartsheet/document,
-  comment, deployment, worker, or mailbox mutation occurred.
+- The authoritative production target is
+  `<LAST, FIRST [MIDDLE]>_<PAYER>_[SERVICE]_<DOCUMENT TYPE>_<DATE[-DATE]>.<EXT>`.
+  First and last name must be independently validated; middle name and service
+  are optional when genuinely absent. A valid single date or ordered range is
+  used. Supported extensions are normalized to uppercase in business names.
+- Every new processed document attempts business composition. The three fixed
+  outcomes are `complete_business`, `partial_business`, and
+  `technical_fallback`. Unresolved payer, expected service, document type,
+  authorization naming subtype, or naming date uses `[PAYER]`, `[SERVICE]`,
+  `[DOCUMENT TYPE]`, `[SUBTYPE]`, or `[DATE]` and produces a partial business
+  name. Technical fallback is reserved for unresolved independent first/last
+  identity, unsupported extension, or unsafe composition.
+- Intake naming subtype is separate from the legacy classifier subtype used
+  for routing. Authorization vocabulary is centrally defined as `AUTH INIT`,
+  `AUTH NO CHANGE`, `AUTH INCREASE`, `AUTH DECREASE`, `AUTH TERM`, `AUTH STUB`,
+  `AUTH INBOUND`, `AUTH GAP FILL`, `AUTH NEW SVS`, `AUTH MOD CHANGE`, `AUTH RPM`,
+  `AUTH READMIT`, `AUTH TASKS ADDED`, and `AUTH RESUME SVS`. `INBOUND AUTH`
+  canonicalizes to `AUTH INBOUND`. `AUTH INIT` requires authoritative external
+  context; legacy initial/renewal labels never supply it. Unknown authorization
+  naming subtype becomes `AUTH [SUBTYPE]` and exactly one human reason,
+  `AI Document Subtype: Unknown`, without changing category confidence.
+- Known non-authorization top-level tokens are centralized for 2067, POC, VOE,
+  REFERRAL, ASSESSMENT, APPROVAL LETTER, ADVERSE DETERMINATION LETTER, ACK,
+  3052, PROVIDER NEWS, CLINICAL PRACTICE GUIDELINES, BAD FAX, and SPAM. The
+  existing deterministically supported authorization-termination route maps to
+  `AUTH TERM`; service termination remains unresolved rather than being merged.
+- Authoritative payer and service failures never guess or expose a value.
+  Payer failure uses `[PAYER]`. Service is omitted when not applicable, uses a
+  resolved token only when all supported service identities agree, and uses
+  `[SERVICE]` when expected but unresolved. Naming lookup failure remains
+  separate from extraction validation.
+- Review output continues to derive from final validation state. Optional
+  absence does not create review noise. Partial/fallback filename reasons use
+  fixed operator-visible categories, with required-field duplicates removed.
+  Legacy request-selection terminology remains separate from document subtype.
+- Workflow Summary reports business attempt, complete/partial/technical result,
+  document-type/subtype readiness, placeholder count/categories, optional
+  omission count, and technical fallback reason without values. These safe
+  decision fields are persisted with the exact protected attachment name, so a
+  restart never recomputes the name or loses its safe filename diagnostics.
+- The AI Submission Key remains internal to durable row/idempotency/
+  reconciliation state and is not the normal attachment filename. Source files
+  are never renamed; only temporary upload copies use the selected filename.
+- Focused and affected synthetic deterministic/mock/local-safe regressions and
+  isolated local Prefect visibility passed. No live mailbox/Graph, protected
+  OCR/Ollama, production Smartsheet/document, comment, deployment, worker, or
+  mailbox mutation occurred.
 
 Current-source registration and payer-readiness checkpoint:
 
@@ -1131,16 +1105,13 @@ Current-source registration and payer-readiness checkpoint:
 
 ## CURRENT NEXT START
 
-Provide the intended test payer through an approved local-only, non-logged
-input and perform the exact authoritative cache lookup with output restricted
-to evidence availability, cache readiness, match cardinality, and fixed
-resolution status. If and only if it resolves one unique match, perform one
-controlled unattended live run with a different document and verify exact
-unknown-subtype presentation, optional filename omission, required filename
-failure diagnostics, the final attachment decision, AI Correction, and clean
-return to waiting before stopdp. If the match is absent or ambiguous, correct
-only the authoritative reference workbook and refresh its last-known-good
-cache before any live document run.
+Refresh all affected Prefect deployment/source registrations from the committed
+intake-naming source, then perform one controlled unattended live run with a
+different document to verify complete versus partial business filename
+behavior, fixed placeholders and Workflow Summary diagnostics, exact AI
+Document Subtype presentation/review, AI Correction initialized unchecked,
+action-specific Smartsheet lifecycle states, and clean return to waiting before
+stopdp.
 
 First unattended start failure diagnosis and correction checkpoint:
 

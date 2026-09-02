@@ -123,6 +123,37 @@ def test_request_type_and_document_subtype_are_not_aliases():
     ]) == "Authorization Request Selection: Could not be verified"
 
 
+def test_filename_placeholder_reasons_use_operator_visible_categories():
+    service = ReviewReasonSummaryService()
+    reasons = [
+        "Filename payer could not be resolved.",
+        "Filename service could not be resolved.",
+        "Filename document type could not be resolved.",
+        "Filename date could not be determined.",
+        "Authorization subtype could not be determined.",
+    ]
+    assert service.summarize(reasons) == (
+        "Payer: Unknown; Service: Unknown; Business Filename Document Type: Unknown; "
+        "Filename Date: Unknown; AI Document Subtype: Unknown"
+    )
+
+
+def test_filename_placeholder_reasons_do_not_duplicate_required_field_reasons():
+    service = ReviewReasonSummaryService()
+    assert service.summarize([
+        "Document category could not be determined.",
+        "Filename document type could not be resolved.",
+        "Missing payer",
+        "Filename payer could not be resolved.",
+        "Missing authorization start date",
+        "Filename date could not be determined.",
+    ]) == (
+        "Document category could not be determined; "
+        "Required payer was not found; "
+        "Required authorization start date was not found"
+    )
+
+
 def test_2067_unknown_subtype_maps_to_exact_smartsheet_reason():
     from src.services.review_output_service import ReviewOutput
     from src.services.smartsheet_review_row_mapping_service import (

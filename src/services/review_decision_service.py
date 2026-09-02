@@ -152,6 +152,16 @@ class ReviewDecisionService:
             required_review_reasons=required_review_reasons,
         )
 
+        if (
+            category == "authorization"
+            and bool(getattr(document, "intake_subtype_evaluated", False))
+            and str(getattr(document, "intake_subtype_support_status", "unknown"))
+            != "supported"
+        ):
+            reasons.append(self.UNKNOWN_AUTHORIZATION_SUBTYPE_REASON)
+
+        self._append_filename_reasons(document, reasons)
+
         if not document.document_type:
             reason = "Document type could not be determined."
             reasons.append(
@@ -325,6 +335,33 @@ class ReviewDecisionService:
                 self.MISSING_CLASSIFICATION_REASON
             )
 
+    @staticmethod
+    def _append_filename_reasons(document: Document, reasons: list[str]) -> None:
+        assembly = getattr(document, "filename_assembly_result", None)
+        policy = getattr(assembly, "policy_result", None)
+        categories = tuple(getattr(policy, "placeholder_categories", ()) or ())
+        mapping = {
+            "payer": "Filename payer could not be resolved.",
+            "service": "Filename service could not be resolved.",
+            "document_type": "Filename document type could not be resolved.",
+            "document_subtype": ReviewDecisionService.UNKNOWN_AUTHORIZATION_SUBTYPE_REASON,
+            "date": "Filename date could not be determined.",
+        }
+        for category in categories:
+            reason = mapping.get(str(category))
+            if reason and reason not in reasons:
+                reasons.append(reason)
+        if getattr(policy, "filename_result", None) == "technical_fallback":
+            status = str(getattr(policy, "status", "") or "")
+            if status == "person_name_unresolved":
+                reason = "Filename person components could not be resolved."
+            elif status == "source_extension_unsupported":
+                reason = "Filename source extension is unsupported."
+            else:
+                reason = "Business filename could not be composed safely."
+            if reason not in reasons:
+                reasons.append(reason)
+
     def _get_minimum_field_confidence(
         self,
         document: Document,
@@ -353,6 +390,8 @@ class ReviewDecisionService:
         ) and field_confidences.get("service_codes") is not None
 
         for field_name, value in extracted_data.items():
+            if field_name == "intake_document_subtype":
+                continue
             if field_name == "service_code" and accepted_service_codes:
                 continue
             if self._is_empty_value(
@@ -392,6 +431,8 @@ class ReviewDecisionService:
             document.extracted_data.get("service_codes")
         ) and document.field_confidences.get("service_codes") is not None
         for field_name, value in document.extracted_data.items():
+            if field_name == "intake_document_subtype":
+                continue
             if field_name == "service_code" and accepted_service_codes:
                 continue
             if self._is_empty_value(value):
@@ -425,6 +466,8 @@ class ReviewDecisionService:
             if action in self.SUCCESS_VALIDATION_ACTIONS:
                 continue
             normalized = str(action or "").strip().lower()
+            if normalized.startswith("intake_document_subtype "):
+                continue
             if normalized == "duplicate service-line evidence was removed":
                 continue
             if accepted_service_codes and normalized.startswith(

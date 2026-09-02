@@ -55,7 +55,10 @@ class DocumentTaxonomyRegistry:
             )
             for family in (
                 "referral", "denial", "assessment", "plan_of_care",
-                "claim", "other", "unknown",
+                "verification_of_employment", "approval_letter",
+                "adverse_determination_letter", "acknowledgment", "3052",
+                "provider_news", "clinical_practice_guidelines", "bad_fax",
+                "spam", "claim", "other", "unknown",
             )
         ),
     )

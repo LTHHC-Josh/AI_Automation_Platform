@@ -331,7 +331,11 @@ class SmartsheetReviewRowMappingService:
 
         result.values[
             self.DOCUMENT_SUBTYPE_COLUMN
-        ] = review_output.document_subtype
+        ] = (
+            review_output.intake_document_subtype
+            if review_output.intake_subtype_evaluated
+            else review_output.document_subtype
+        )
 
         result.values[
             self.REVIEW_REASONS_COLUMN

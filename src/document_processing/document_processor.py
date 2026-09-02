@@ -25,6 +25,12 @@ from src.services.deterministic_document_concept_service import (
 from src.services.document_classification_resolution_service import (
     DocumentClassificationResolutionService,
 )
+from src.services.intake_document_naming_service import (
+    IntakeDocumentNamingVocabulary,
+)
+from src.services.production_filename_assembly_service import (
+    ProductionFilenameAssemblyService,
+)
 
 
 class DocumentProcessor:
@@ -68,14 +74,21 @@ class DocumentProcessor:
     )
 
     SCORE_TOP_LEVEL_FIELDS = (
+        "person_first",
+        "person_middle",
+        "person_last",
+        "payer",
         "authorization_status",
+        "intake_document_subtype",
         "service_code",
         "service_codes",
+        "program",
         "modifier",
         "authorized_units",
         "approved_visits",
         "start_date",
         "end_date",
+        "posted_date",
     )
 
     AUTHORIZATION_DOCUMENT_TYPES = {
@@ -92,6 +105,8 @@ class DocumentProcessor:
         self.review_outputs = ReviewOutputService()
         self.document_concepts = DeterministicDocumentConceptService()
         self.classification_resolution = DocumentClassificationResolutionService()
+        self.intake_document_naming = IntakeDocumentNamingVocabulary()
+        self.filename_assembly = ProductionFilenameAssemblyService()
 
     def process(
         self,
@@ -398,6 +413,13 @@ class DocumentProcessor:
 
         document.validation_actions = list(
             selected_candidate.validation_actions
+        )
+
+        self.intake_document_naming.apply(document)
+
+        document.filename_assembly_result = self.filename_assembly.evaluate(
+            document=document,
+            source_extension=document.file_path.suffix.lower() or ".bin",
         )
 
         selected_validation_wall_seconds = float(

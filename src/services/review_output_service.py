@@ -83,6 +83,11 @@ class ReviewOutput:
     subtype_support_status: str = "unknown"
     family_evidence_confidence: float | None = None
     subtype_evidence_confidence: float | None = None
+    intake_document_subtype: str | None = None
+    intake_subtype_support_status: str = "unknown"
+    intake_subtype_source_category: str = "unresolved"
+    intake_subtype_confidence: float | None = None
+    intake_subtype_evaluated: bool = False
     deterministic_concepts: tuple[DeterministicDocumentConcept, ...] = field(
         default=(), repr=False
     )
@@ -170,6 +175,19 @@ class ReviewOutputService:
             subtype_evidence_confidence=self._normalize_optional_confidence(
                 document.subtype_evidence_confidence
             ),
+            intake_document_subtype=self._normalize_classification_label(
+                document.intake_document_subtype
+            ),
+            intake_subtype_support_status=self._normalize_classification_label(
+                document.intake_subtype_support_status
+            ),
+            intake_subtype_source_category=self._normalize_classification_label(
+                document.intake_subtype_source_category
+            ),
+            intake_subtype_confidence=self._normalize_optional_confidence(
+                document.intake_subtype_confidence
+            ),
+            intake_subtype_evaluated=bool(document.intake_subtype_evaluated),
             deterministic_concepts=tuple(document.deterministic_concepts),
             fields=self._build_fields(
                 document

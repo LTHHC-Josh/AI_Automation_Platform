@@ -74,6 +74,13 @@ class Document:
     subtype_support_status: str = "unknown"
     family_evidence_confidence: float | None = None
     subtype_evidence_confidence: float | None = None
+    # Intake filename subtype is separate from the classifier subtype used
+    # for routing. It may remain unknown when business context is unavailable.
+    intake_document_subtype: str = "unknown"
+    intake_subtype_support_status: str = "unknown"
+    intake_subtype_source_category: str = "unresolved"
+    intake_subtype_confidence: float | None = None
+    intake_subtype_evaluated: bool = False
 
     # OCR output
     raw_text: str = ""
@@ -127,3 +134,7 @@ class Document:
 
     # Structured local human-review handoff
     review_output: Any = None
+
+    # Protected filename assembly result. Its policy result may contain the
+    # intended PHI-bearing attachment name and must never be logged.
+    filename_assembly_result: Any = field(default=None, repr=False)

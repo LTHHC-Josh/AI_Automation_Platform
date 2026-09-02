@@ -148,7 +148,7 @@ def test_2067_policy_consumes_only_boundary_posted_date():
     )
     result = FilenamePolicyService().resolve(policy_request(inputs))
     assert result.complete is True
-    assert result.filename.endswith("_040526.pdf")
+    assert result.filename.endswith("_040526.PDF")
     assert "010226" not in result.filename
     assert "020326" not in result.filename
 

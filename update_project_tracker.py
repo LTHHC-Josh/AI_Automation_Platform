@@ -9764,6 +9764,54 @@ only safe readiness/cardinality output. Proceed to one controlled unattended
 live document run only after one unique match; otherwise correct only the
 authoritative workbook and refresh the last-known-good cache first.
 
+Intake-team filename vocabulary and placeholder checkpoint (2026-09-02):
+
+- Replaced the former workflow-oriented filename contract with the observed
+  intake target `<LAST, FIRST [MIDDLE]>_<PAYER>_[SERVICE]_<DOCUMENT TYPE>_<DATE[-DATE]>.<EXT>`.
+  Every new document attempts composition. Complete business, partial business,
+  and technical fallback are explicit outcomes.
+- Added one centralized canonical document-type/subtype vocabulary. Supported
+  authorization tokens include INIT, NO CHANGE, INCREASE, DECREASE, TERM, STUB,
+  INBOUND, GAP FILL, NEW SVS, MOD CHANGE, RPM, READMIT, TASKS ADDED, and RESUME
+  SVS. `INBOUND AUTH` canonicalizes to `AUTH INBOUND`; INIT remains unavailable
+  without authoritative external context and is never inferred from legacy
+  initial/renewal routing.
+- Added fixed placeholders for unresolved payer, expected service, document
+  type, authorization subtype, and date. Optional absence is omitted. Technical
+  fallback is limited to unresolved independent first/last identity,
+  unsupported extension, or unsafe composition.
+- Production filename assembly uses only final validated evidence and exact
+  authoritative reference resolution. Unknown authorization subtype becomes
+  `AUTH [SUBTYPE]` and exactly one operator-facing review reason,
+  `AI Document Subtype: Unknown`, without changing category confidence.
+- The exact attachment name and fixed-safe decision diagnostics are persisted
+  before an external row attempt. Recovery and reconciliation reuse that name
+  and never recompute it; AI Submission Key remains internal to idempotency and
+  reconciliation.
+- Workflow Summary now reports complete/partial/technical result, document type
+  and subtype readiness, placeholder count/categories, omission count, and a
+  fixed technical fallback reason without values. Manual and unattended modes
+  share the same processor and recovery boundary.
+- Modified the filename policy/builder/assembly/naming/recovery services,
+  document and taxonomy models, extraction/validation/review/Smartsheet layers,
+  Prefect summary, and corresponding deterministic/mock tests. Twenty-one
+  focused and affected test scripts passed, including 283 explicitly reported
+  assertions plus the silent recovery suite. Modified Python compiled. Tests
+  used only synthetic data, mocks, local temporary files, and isolated
+  temporary Prefect servers; external integrations were not called.
+- No live mailbox/Graph, protected OCR/Ollama, deployment/worker, production
+  Smartsheet document/comment, or mailbox mutation occurred. Real recognition
+  coverage and authoritative-reference outcomes still require the next
+  controlled live acceptance.
+
+Exact next start: refresh all affected Prefect deployment/source registrations
+from the committed intake-naming source, then perform one controlled unattended
+live run with a different document to verify complete versus partial business
+filename behavior, fixed placeholders and Workflow Summary diagnostics, exact
+AI Document Subtype presentation/review, AI Correction initialized unchecked,
+action-specific Smartsheet lifecycle states, and clean return to waiting before
+stopdp.
+
 """
 
 

@@ -376,8 +376,10 @@ class AuthorizationRenewalRule(
     BaseAuthorizationRule
 ):
     """
-    Renewal authorization rule. The accepted authorization+renewal taxonomy
-    deterministically supplies the committed RENEW AUTH workflow token.
+    Legacy renewal authorization route.
+
+    Intake filename subtype is resolved independently and is never inferred
+    from this classifier/rule route.
     """
 
     document_type = "authorization_renewal"

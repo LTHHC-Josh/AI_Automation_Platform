@@ -726,6 +726,29 @@ def test_equal_candidates_preserve_first_attempt() -> None:
     ) == 2
 
 
+def test_supported_filename_fields_participate_in_candidate_selection() -> None:
+    processor = build_processor_without_providers()
+    first = Document(file_path=Path("synthetic.pdf"))
+    second = Document(file_path=Path("synthetic.pdf"))
+    first.extracted_data = {"authorization_status": "Approved"}
+    second.extracted_data = {
+        "authorization_status": "Approved",
+        "person_first": "Synthetic",
+        "person_last": "Example",
+        "payer": "Synthetic Plan",
+        "intake_document_subtype": "no_change",
+        "start_date": "2026-01-02",
+    }
+
+    selected, selected_attempt = processor._select_validated_candidate(
+        first_candidate=first,
+        second_candidate=second,
+    )
+
+    assert selected is second
+    assert selected_attempt == 2
+
+
 def test_candidates_are_never_merged() -> None:
     processor = build_processor_without_providers()
 
@@ -904,6 +927,10 @@ def main() -> None:
         (
             "equal candidates preserve first attempt",
             test_equal_candidates_preserve_first_attempt,
+        ),
+        (
+            "supported filename fields participate in candidate selection",
+            test_supported_filename_fields_participate_in_candidate_selection,
         ),
         (
             "candidates are never merged",

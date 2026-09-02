@@ -49,6 +49,11 @@ class MailboxDocumentJobState:
     updated_at: str = ""
     attachment_filename: str | None = field(default=None, repr=False)
     attachment_naming_status: str | None = None
+    attachment_business_filename_attempted: bool = False
+    attachment_required_component_failure_count: int = 0
+    attachment_optional_component_omission_count: int = 0
+    attachment_placeholder_categories: tuple[str, ...] = ()
+    attachment_technical_fallback_reason: str = "none"
 
 
 @dataclass(frozen=True)
@@ -190,7 +195,12 @@ class MailboxDocumentJobStateService:
                    increment_row_attempt: bool = False,
                    increment_attachment_attempt: bool = False,
                    attachment_filename: str | None = None,
-                   attachment_naming_status: str | None = None) -> MailboxDocumentJobStateResult:
+                   attachment_naming_status: str | None = None,
+                   attachment_business_filename_attempted: bool | None = None,
+                   attachment_required_component_failure_count: int | None = None,
+                   attachment_optional_component_omission_count: int | None = None,
+                   attachment_placeholder_categories: tuple[str, ...] | None = None,
+                   attachment_technical_fallback_reason: str | None = None) -> MailboxDocumentJobStateResult:
         if stage not in STAGES or not expected_stages or not expected_stages <= STAGES:
             return self._failure("invalid_transition")
         def change(current: MailboxDocumentJobState):
@@ -204,12 +214,50 @@ class MailboxDocumentJobStateService:
             values = asdict(current)
             filename = current.attachment_filename
             naming_status = current.attachment_naming_status
+            business_attempted = current.attachment_business_filename_attempted
+            required_failure_count = current.attachment_required_component_failure_count
+            optional_omission_count = current.attachment_optional_component_omission_count
+            placeholder_categories = current.attachment_placeholder_categories
+            technical_fallback_reason = current.attachment_technical_fallback_reason
             if attachment_filename is not None:
                 candidate = str(attachment_filename)
                 if candidate != Path(candidate).name or any(c in candidate for c in "\\/\r\n"):
                     return "invalid_attachment_filename"
                 filename = candidate
                 naming_status = self._safe_category(attachment_naming_status)
+                supplied_attempted = (
+                    False
+                    if attachment_business_filename_attempted is None
+                    else attachment_business_filename_attempted
+                )
+                if not isinstance(supplied_attempted, bool):
+                    return "invalid_filename_diagnostic"
+                business_attempted = supplied_attempted
+                counts = (
+                    0 if attachment_required_component_failure_count is None
+                    else attachment_required_component_failure_count,
+                    0 if attachment_optional_component_omission_count is None
+                    else attachment_optional_component_omission_count,
+                )
+                if any(
+                    isinstance(value, bool) or not isinstance(value, int) or value < 0
+                    for value in counts
+                ):
+                    return "invalid_filename_diagnostic"
+                required_failure_count, optional_omission_count = counts
+                categories = attachment_placeholder_categories or ()
+                if not isinstance(categories, tuple) or any(
+                    category not in {
+                        "payer", "service", "document_type",
+                        "document_subtype", "date",
+                    }
+                    for category in categories
+                ):
+                    return "invalid_filename_diagnostic"
+                placeholder_categories = tuple(dict.fromkeys(categories))
+                technical_fallback_reason = self._safe_category(
+                    attachment_technical_fallback_reason
+                ) or "none"
             values.update(stage=stage, smartsheet_row_id=row_id,
                           last_failure_category=self._safe_category(failure_category),
                           retryable=current.retryable if retryable is None else bool(retryable),
@@ -217,7 +265,12 @@ class MailboxDocumentJobStateService:
                           row_attempt_count=current.row_attempt_count + int(increment_row_attempt),
                           attachment_attempt_count=current.attachment_attempt_count + int(increment_attachment_attempt),
                           attachment_filename=filename,
-                          attachment_naming_status=naming_status)
+                          attachment_naming_status=naming_status,
+                          attachment_business_filename_attempted=business_attempted,
+                          attachment_required_component_failure_count=required_failure_count,
+                          attachment_optional_component_omission_count=optional_omission_count,
+                          attachment_placeholder_categories=placeholder_categories,
+                          attachment_technical_fallback_reason=technical_fallback_reason)
             return MailboxDocumentJobState(**values)
         return self._mutate(job_key, change)
 
@@ -333,12 +386,38 @@ class MailboxDocumentJobStateService:
 
     def _decode(self, payload: Any, *, expected_job_key: str) -> MailboxDocumentJobStateResult:
         expected = {field.name for field in __import__("dataclasses").fields(MailboxDocumentJobState)}
-        legacy = expected - {"attachment_filename", "attachment_naming_status"}
+        diagnostic_fields = {
+            "attachment_business_filename_attempted",
+            "attachment_required_component_failure_count",
+            "attachment_optional_component_omission_count",
+            "attachment_placeholder_categories",
+            "attachment_technical_fallback_reason",
+        }
+        legacy_with_name = expected - diagnostic_fields
+        legacy = legacy_with_name - {"attachment_filename", "attachment_naming_status"}
         keys = frozenset(payload) if isinstance(payload, dict) else frozenset()
-        if not isinstance(payload, dict) or keys not in {frozenset(expected), frozenset(legacy)}:
+        if not isinstance(payload, dict) or keys not in {
+            frozenset(expected), frozenset(legacy_with_name), frozenset(legacy)
+        }:
             return self._failure("state_corrupt")
         if keys == frozenset(legacy):
             payload = dict(payload, attachment_filename=None, attachment_naming_status=None)
+        if keys != frozenset(expected):
+            payload = dict(
+                payload,
+                attachment_business_filename_attempted=False,
+                attachment_required_component_failure_count=0,
+                attachment_optional_component_omission_count=0,
+                attachment_placeholder_categories=(),
+                attachment_technical_fallback_reason="none",
+            )
+        elif isinstance(payload.get("attachment_placeholder_categories"), list):
+            payload = dict(
+                payload,
+                attachment_placeholder_categories=tuple(
+                    payload["attachment_placeholder_categories"]
+                ),
+            )
         try: state = MailboxDocumentJobState(**payload)
         except TypeError: return self._failure("state_corrupt")
         if state.schema_version != self.SCHEMA_VERSION:
@@ -350,6 +429,28 @@ class MailboxDocumentJobStateService:
         if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in (state.row_attempt_count, state.attachment_attempt_count)):
             return self._failure("state_corrupt")
         if state.smartsheet_row_id is not None and (isinstance(state.smartsheet_row_id, bool) or not isinstance(state.smartsheet_row_id, int) or state.smartsheet_row_id <= 0):
+            return self._failure("state_corrupt")
+        if (
+            not isinstance(state.attachment_business_filename_attempted, bool)
+            or any(
+                isinstance(value, bool) or not isinstance(value, int) or value < 0
+                for value in (
+                    state.attachment_required_component_failure_count,
+                    state.attachment_optional_component_omission_count,
+                )
+            )
+            or not isinstance(state.attachment_placeholder_categories, tuple)
+            or any(
+                category not in {
+                    "payer", "service", "document_type",
+                    "document_subtype", "date",
+                }
+                for category in state.attachment_placeholder_categories
+            )
+            or self._safe_category(
+                state.attachment_technical_fallback_reason
+            ) != state.attachment_technical_fallback_reason
+        ):
             return self._failure("state_corrupt")
         return MailboxDocumentJobStateResult(True, "state_loaded", state)
 

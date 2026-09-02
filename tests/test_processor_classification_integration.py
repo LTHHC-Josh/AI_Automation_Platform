@@ -6,6 +6,12 @@ from src.document_processing.document_processor import DocumentProcessor
 from src.services.evidence_validation_service import EvidenceValidationService
 from src.services.review_decision_service import ReviewDecisionService
 from src.services.review_output_service import ReviewOutputService
+from src.services.intake_document_naming_service import (
+    IntakeDocumentNamingVocabulary,
+)
+from src.services.production_filename_assembly_service import (
+    ProductionFilenameAssemblyService,
+)
 
 
 passed = 0
@@ -139,6 +145,10 @@ def build_processor(classification, *, ocr_text=None):
         ReviewDecisionService()
     )
     processor.review_outputs = ReviewOutputService()
+    processor.intake_document_naming = IntakeDocumentNamingVocabulary()
+    processor.filename_assembly = ProductionFilenameAssemblyService(
+        tables_provider=lambda: None
+    )
 
     return processor
 

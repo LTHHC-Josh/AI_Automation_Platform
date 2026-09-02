@@ -51,6 +51,7 @@ class OllamaProvider(LLMProvider):
         "authorization_number",
         "authorization_status",
         "request_type",
+        "intake_document_subtype",
         "service_code",
         "service_codes",
         "service_description",
@@ -255,9 +256,9 @@ class OllamaProvider(LLMProvider):
                     "document_category": {
                         "type": "string",
                         "enum": [
-                            "authorization", "referral", "termination",
-                            "denial", "assessment", "plan_of_care", "claim",
-                            "communication", "form", "2067", "other", "unknown",
+                            *DOCUMENT_CATEGORIES,
+                            "communication",
+                            "form",
                         ],
                     },
                     "document_subtype": {"type": "string"},
@@ -748,6 +749,15 @@ DOCUMENT CATEGORIES
 - denial
 - assessment
 - plan_of_care
+- verification_of_employment
+- approval_letter
+- adverse_determination_letter
+- acknowledgment
+- 3052
+- provider_news
+- clinical_practice_guidelines
+- bad_fax
+- spam
 - claim
 - 2067
 - other
@@ -777,6 +787,11 @@ For 2067:
 - unknown
 
 For every other category, use subtype unknown.
+
+Additional supported top-level categories are verification_of_employment,
+approval_letter, adverse_determination_letter, acknowledgment, 3052,
+provider_news, clinical_practice_guidelines, bad_fax, and spam. Do not merge
+them into a similar-looking family.
 
 Use 2067 only when the document itself supports that form family. Use utl only
 as a candidate when the complete document supports inability to locate or
@@ -981,6 +996,20 @@ Do not return a request type unless the selected option is reliably
 supported.
 
 When selection is unclear, return null with confidence 0.
+
+INTAKE DOCUMENT SUBTYPE
+
+intake_document_subtype is the intake filename subtype and is separate from
+the classification subtype above. For authorization documents, return only
+one explicitly supported value from this vocabulary: NO CHANGE, INCREASE,
+DECREASE, TERM, STUB, INBOUND, GAP FILL, NEW SVS, MOD CHANGE, RPM, READMIT,
+TASKS ADDED, or RESUME SVS. Return null when the subtype is not explicit.
+
+Do not return INIT from document evidence. AUTH INIT requires authoritative
+external client/service context that this extraction request does not have.
+Do not translate renewal, extension, continuation, amendment, or partial
+approval into an intake filename subtype. Do not infer a subtype from sender,
+filename, payer, service, dates, quantity, or authorization status.
 
 SERVICE CODES AND MODIFIERS
 
@@ -1512,6 +1541,7 @@ Return only JSON matching the required schema.
             "end_date",
             "posted_date",
             "renewal_qualifier",
+            "intake_document_subtype",
             "member_dob",
             "request_type",
             "approved_visits",

@@ -158,6 +158,8 @@ def record_mailbox_workflow_summary(
     filename_form: str = "Omitted",
     filename_dates: str = "Unresolved",
     filename_extension: str = "Unresolved",
+    filename_document_type: str = "Unresolved",
+    filename_document_subtype: str = "Omitted",
     filename_workflow: str = "Unresolved",
     filename_qualifier: str = "Unresolved",
     filename_result: str = "technical_fallback",
@@ -165,6 +167,9 @@ def record_mailbox_workflow_summary(
     business_filename_attempted: bool = False,
     required_component_failure_count: int = 0,
     optional_component_omission_count: int = 0,
+    placeholder_count: int = 0,
+    placeholder_categories: str = "none",
+    technical_fallback_reason: str = "none",
     accepted_field_count: int = 0,
     optional_absent_field_count: int = 0,
     missing_required_count: int = 0,
@@ -483,6 +488,14 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
             filename.extension_component_status
             if filename else "Not Evaluated"
         ),
+        "filename_document_type": (
+            filename.document_type_component_status
+            if filename else "Not Evaluated"
+        ),
+        "filename_document_subtype": (
+            filename.subtype_component_status
+            if filename else "Not Evaluated"
+        ),
         "filename_workflow": (
             filename.workflow_component_status if filename else "Not Evaluated"
         ),
@@ -503,6 +516,14 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
         ),
         "optional_component_omission_count": (
             filename.optional_component_omission_count if filename else 0
+        ),
+        "placeholder_count": filename.placeholder_count if filename else 0,
+        "placeholder_categories": (
+            "; ".join(filename.placeholder_categories)
+            if filename and filename.placeholder_categories else "none"
+        ),
+        "technical_fallback_reason": (
+            filename.technical_fallback_reason if filename else "not_evaluated"
         ),
         "accepted_field_count": result.validation_summary.accepted_field_count,
         "optional_absent_field_count": result.validation_summary.optional_absent_field_count,

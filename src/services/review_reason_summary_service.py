@@ -56,6 +56,13 @@ class ReviewReasonSummaryService:
         "missing payer": "payer_missing_required",
         "missing patient name": "patient_name_missing_required",
         "missing authorization start date": "authorization_start_date_missing_required",
+        "filename payer could not be resolved.": "filename_payer_unknown",
+        "filename service could not be resolved.": "filename_service_unknown",
+        "filename document type could not be resolved.": "filename_document_type_unknown",
+        "filename date could not be determined.": "filename_date_unknown",
+        "filename person components could not be resolved.": "filename_person_unknown",
+        "filename source extension is unsupported.": "filename_extension_unsupported",
+        "business filename could not be composed safely.": "filename_composition_failed",
     }
 
     SERVICE_LINE_RULES = (
@@ -118,6 +125,13 @@ class ReviewReasonSummaryService:
         "service_codes_low_confidence": "Service code confidence is below the required threshold",
         "modifiers_low_confidence": "Modifier confidence is below the required threshold",
         "document_details_unclear_source_support": "Document information could not be verified",
+        "filename_payer_unknown": "Payer: Unknown",
+        "filename_service_unknown": "Service: Unknown",
+        "filename_document_type_unknown": "Business Filename Document Type: Unknown",
+        "filename_date_unknown": "Filename Date: Unknown",
+        "filename_person_unknown": "Filename Person Components: Unknown",
+        "filename_extension_unsupported": "Attachment File Type: Unsupported for business naming",
+        "filename_composition_failed": "Business Filename: Could not be composed safely",
     }
 
     def summarize(self, reasons: Iterable[str]) -> str:
@@ -176,6 +190,14 @@ class ReviewReasonSummaryService:
             cause = self._cause([reason]).replace(" ", "_")
             codes.append(f"{category}_{cause}")
         codes = list(dict.fromkeys(codes))
+        superseded = set()
+        if "document_category_unknown" in codes:
+            superseded.add("filename_document_type_unknown")
+        if "payer_missing_required" in codes:
+            superseded.add("filename_payer_unknown")
+        if "authorization_start_date_missing_required" in codes:
+            superseded.add("filename_date_unknown")
+        codes = [code for code in codes if code not in superseded]
         if any(not code.startswith("document_details_") for code in codes):
             codes = [code for code in codes if not code.startswith("document_details_")]
         return codes

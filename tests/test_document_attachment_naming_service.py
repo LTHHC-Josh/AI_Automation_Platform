@@ -80,15 +80,37 @@ def test_complete_policy_name_is_used_only_for_temporary_copy():
         source.write_bytes(b"SYNTHETIC-DOCUMENT")
         policy = FilenamePolicyResult(
             complete=True,
-            filename="EXAMPLE SYNTHETIC_PLAN_AUTH INIT_010126.pdf",
+            filename="EXAMPLE, SYNTHETIC_PLAN_AUTH NO CHANGE_010126.PDF",
             review_required=False,
             status="resolved",
+            filename_result="complete_business",
         )
         result = service.prepare(source_path=source, filename_policy_result=policy)
         assert result.success is True
         assert result.status == "prepared_reference_filename"
         assert result.temporary_path.name == policy.filename
         assert "EXAMPLE SYNTHETIC" not in repr(result)
+        assert source.exists()
+        assert service.cleanup(result.temporary_path) is True
+
+
+def test_partial_business_policy_name_is_used_for_temporary_copy():
+    service = DocumentAttachmentNamingService()
+    with tempfile.TemporaryDirectory() as directory:
+        source = Path(directory) / "synthetic-original.pdf"
+        source.write_bytes(b"SYNTHETIC-DOCUMENT")
+        policy = FilenamePolicyResult(
+            complete=True,
+            filename="EXAMPLE, SYNTHETIC_[PAYER]_AUTH [SUBTYPE]_[DATE].PDF",
+            review_required=True,
+            status="resolved_with_placeholders",
+            filename_result="partial_business",
+            placeholder_categories=("payer", "document_subtype", "date"),
+        )
+        result = service.prepare(source_path=source, filename_policy_result=policy)
+        assert result.success is True
+        assert result.status == "prepared_reference_filename"
+        assert result.temporary_path.name == policy.filename
         assert source.exists()
         assert service.cleanup(result.temporary_path) is True
 
@@ -127,6 +149,10 @@ run_test(
 run_test(
     "complete policy names only temporary copy",
     test_complete_policy_name_is_used_only_for_temporary_copy,
+)
+run_test(
+    "partial business policy names only temporary copy",
+    test_partial_business_policy_name_is_used_for_temporary_copy,
 )
 run_test(
     "unresolved policy preserves fallback and flags review",
