@@ -209,6 +209,44 @@ def test_payer_service_and_date_placeholders_are_partial_not_technical():
     assert result.required_component_failure_count == 0
 
 
+def test_partial_filename_placeholders_do_not_create_review_reasons():
+    subject = authorization(date=None)
+    subject.field_evidence["payer"] = evidence("UNMAPPED")
+    subject.extracted_data["payer"] = "UNMAPPED"
+    subject.service_lines = [AuthorizationServiceLine(
+        service_code="T9999", confidence=0.95,
+        candidate_evidence={"service_code": "T9999", "confidence": 0.95},
+    )]
+    subject.filename_assembly_result = assemble(
+        subject, reference_tables=tables(payer=False, service=False)
+    )
+    decision = ReviewDecisionService().evaluate(subject)
+    assert subject.filename_assembly_result.policy_result.filename_result == (
+        "partial_business"
+    )
+    assert subject.filename_assembly_result.policy_result.placeholder_categories == (
+        "payer", "service", "date"
+    )
+    assert decision.needs_human_review is False
+    assert decision.reasons == []
+
+
+def test_missing_required_payer_reviews_from_final_state_not_placeholder():
+    subject = authorization()
+    subject.field_evidence["payer"] = evidence(None, None, "")
+    subject.extracted_data["payer"] = None
+    subject.filename_assembly_result = assemble(subject)
+    subject.rule_actions = ["Missing payer"]
+    decision = ReviewDecisionService().evaluate(subject)
+    assert subject.filename_assembly_result.policy_result.placeholder_categories == (
+        "payer",
+    )
+    assert decision.reasons == ["Missing payer"]
+    assert ReviewReasonSummaryService().summarize(decision.reasons) == (
+        "Payer: Missing"
+    )
+
+
 def test_unknown_top_level_uses_document_type_placeholder():
     subject = authorization()
     subject.document_category = "unknown"

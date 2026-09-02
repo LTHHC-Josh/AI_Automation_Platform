@@ -235,11 +235,11 @@ def test_review_summary_is_specific_deduplicated_and_drops_generic_noise():
         "Missing authorization status",
         "A processing detail requires verification",
     ])
-    assert summary == "Required authorization status was not found"
+    assert summary == "Authorization Status: Missing"
     low = ReviewReasonSummaryService().summarize([
         "Service codes confidence is below the acceptance threshold"
     ])
-    assert low == "Service code confidence is below the required threshold"
+    assert low == "Service Code: Below confidence threshold"
 
 
 def test_required_missing_is_specific_while_optional_missing_is_silent():
@@ -265,7 +265,7 @@ def test_required_missing_is_specific_while_optional_missing_is_silent():
     actions = AuthorizationRule().execute(document)
     assert "Missing authorization status" in actions
     summary = ReviewReasonSummaryService().summarize(actions)
-    assert "Required authorization status was not found" in summary
+    assert "Authorization Status: Missing" in summary
     assert "Modifier" not in summary
 
 
@@ -353,6 +353,208 @@ def test_authorization_unknown_subtype_recommends_one_specific_review_reason():
     assert ReviewReasonSummaryService().summarize(result.reasons) == (
         "AI Document Subtype: Unknown"
     )
+
+
+def test_reconciled_authorized_units_supersede_stale_top_level_failure():
+    document = Document(
+        file_path=Path("synthetic.pdf"),
+        document_type="authorization",
+        document_category="authorization",
+        document_subtype="initial",
+        classification_reason="Synthetic supported classification",
+        confidence=0.95,
+    )
+    document.field_evidence = {
+        "authorized_units": evidence(["6"], source="Supported quantity 6"),
+    }
+    document.extracted_data = {"authorized_units": ["6"]}
+    document.field_confidences = {"authorized_units": 0.95}
+    document.validation_actions = [
+        "authorized_units is not supported by its source evidence",
+        "Authorized units were reconciled from supported service-line evidence",
+    ]
+    document.rule_actions = ["Missing authorization quantity"]
+
+    diagnostic = FieldValidationDiagnosticService().build(
+        document, "authorized_units"
+    )
+    result = ReviewDecisionService().evaluate(document)
+    document.needs_human_review = result.needs_human_review
+    document.review_status = result.review_status
+    document.review_reasons = list(result.reasons)
+    output = ReviewOutputService().build(document)
+    mapping = SmartsheetReviewRowMappingService().map(
+        review_output=output,
+        policies=[SmartsheetColumnPolicy(
+            "authorized_units", "Authorized Units",
+            confidence_column_name="Authorized Units Conf.",
+        )],
+        run_type="Synthetic reconciled final state",
+    )
+
+    assert diagnostic.field_state == "accepted"
+    assert result.reasons == []
+    assert "Authorized Units" in mapping.values
+    assert mapping.values["Authorized Units Conf."] == 0.95
+
+
+def test_specific_invalid_start_date_supersedes_missing_rule_reason():
+    document = Document(
+        file_path=Path("synthetic.pdf"),
+        document_type="authorization",
+        document_category="authorization",
+        document_subtype="initial",
+        classification_reason="Synthetic supported classification",
+        confidence=0.95,
+    )
+    document.field_evidence = {
+        "start_date": {
+            "value": None,
+            "candidate_value": "SYNTHETIC_INVALID_DATE",
+            "candidate_confidence": 0.95,
+            "confidence": None,
+            "source_text": "",
+        },
+        "authorization_status": evidence("Approved", source="Approved"),
+    }
+    document.extracted_data = {
+        "start_date": None,
+        "authorization_status": "Approved",
+    }
+    document.field_confidences = {"authorization_status": 0.95}
+    document.validation_actions = ["start_date could not be normalized"]
+    document.rule_actions = ["Missing authorization start date"]
+
+    result = ReviewDecisionService().evaluate(document)
+    assert result.reasons == ["start_date could not be normalized"]
+    assert ReviewReasonSummaryService().summarize(result.reasons) == (
+        "Authorization Start Date: Invalid"
+    )
+
+
+def test_unsupported_required_status_supersedes_generic_missing_reason():
+    document = Document(
+        file_path=Path("synthetic.pdf"),
+        document_type="authorization",
+        document_category="authorization",
+        document_subtype="initial",
+        classification_reason="Synthetic supported classification",
+        confidence=0.95,
+    )
+    document.field_evidence = {
+        "authorization_status": {
+            "value": None,
+            "candidate_value": "SYNTHETIC",
+            "candidate_confidence": 0.95,
+            "confidence": None,
+            "source_text": "",
+        },
+        "authorization_number": evidence("SYNTHETIC", source="SYNTHETIC"),
+    }
+    document.extracted_data = {
+        "authorization_status": None,
+        "authorization_number": "SYNTHETIC",
+    }
+    document.field_confidences = {"authorization_number": 0.95}
+    document.validation_actions = [
+        "Authorization status is not directly supported by its source evidence"
+    ]
+    document.rule_actions = ["Missing authorization status"]
+
+    result = ReviewDecisionService().evaluate(document)
+    assert result.reasons == [
+        "Authorization status is not directly supported by its source evidence"
+    ]
+    assert ReviewReasonSummaryService().summarize(result.reasons) == (
+        "Authorization Status: Could not be verified"
+    )
+
+
+def test_service_line_quantity_failure_supersedes_generic_missing_quantity():
+    document = Document(
+        file_path=Path("synthetic.pdf"),
+        document_type="authorization",
+        document_category="authorization",
+        document_subtype="initial",
+        classification_reason="Synthetic supported classification",
+        confidence=0.95,
+    )
+    document.extracted_data = {"authorization_status": "Approved"}
+    document.field_confidences = {"authorization_status": 0.95}
+    document.validation_actions = [
+        "Service line 1 quantity is not supported by its source evidence"
+    ]
+    document.rule_actions = ["Missing authorization quantity"]
+
+    result = ReviewDecisionService().evaluate(document)
+    assert result.reasons == [
+        "Service line 1 quantity is not supported by its source evidence"
+    ]
+    assert ReviewReasonSummaryService().summarize(result.reasons) == (
+        "Service-line Quantity: Could not be verified"
+    )
+
+
+def test_request_type_candidate_remains_internal_without_operator_review():
+    document = Document(
+        file_path=Path("synthetic.pdf"),
+        document_type="authorization",
+        document_category="authorization",
+        document_subtype="initial",
+        classification_reason="Synthetic supported classification",
+        confidence=0.95,
+    )
+    document.field_evidence = {
+        "request_type": {
+            "value": None,
+            "candidate_value": "SYNTHETIC",
+            "candidate_confidence": 0.95,
+            "confidence": None,
+            "source_text": "",
+        },
+        "authorization_status": evidence("Approved", source="Approved"),
+    }
+    document.extracted_data = {
+        "request_type": None,
+        "authorization_status": "Approved",
+    }
+    document.field_confidences = {"authorization_status": 0.95}
+    document.validation_actions = [
+        "Request type requires checkbox or selection verification"
+    ]
+    document.rule_actions = []
+
+    result = ReviewDecisionService().evaluate(document)
+    document.needs_human_review = result.needs_human_review
+    document.review_status = result.review_status
+    document.review_reasons = list(result.reasons)
+    output = ReviewOutputService().build(document)
+    request_type = next(field for field in output.fields if field.name == "request_type")
+
+    assert request_type.candidate_value == "SYNTHETIC"
+    assert result.reasons == []
+    assert ReviewReasonSummaryService().summarize(result.reasons) == ""
+
+
+def test_supported_intake_subtype_supersedes_legacy_classifier_unknown():
+    document = Document(
+        file_path=Path("synthetic.pdf"),
+        document_type="authorization",
+        document_category="authorization",
+        document_subtype="unknown",
+        classification_reason="Synthetic supported classification",
+        confidence=1.0,
+    )
+    document.intake_subtype_evaluated = True
+    document.intake_document_subtype = "no_change"
+    document.intake_subtype_support_status = "supported"
+    document.extracted_data = {"authorization_status": "Approved"}
+    document.field_confidences = {"authorization_status": 0.95}
+    document.rule_actions = []
+
+    result = ReviewDecisionService().evaluate(document)
+    assert result.classification_confidence == 1.0
+    assert result.reasons == []
 
 
 if __name__ == "__main__":

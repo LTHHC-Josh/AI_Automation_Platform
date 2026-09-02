@@ -67,7 +67,7 @@ def test_clean_document_is_verified() -> None:
     assert decision.minimum_field_confidence == 0.95
 
 
-def test_validation_action_triggers_review() -> None:
+def test_internal_request_type_validation_action_does_not_trigger_review() -> None:
     service = ReviewDecisionService()
     document = build_document()
 
@@ -79,13 +79,9 @@ def test_validation_action_triggers_review() -> None:
         document
     )
 
-    assert decision.needs_human_review is True
-    assert decision.review_status == "Human Review Recommended"
-
-    assert (
-        "Request type requires checkbox or selection verification"
-        in decision.reasons
-    )
+    assert decision.needs_human_review is False
+    assert decision.review_status == "Verified by AI"
+    assert decision.reasons == []
 
 
 def test_low_populated_field_confidence_triggers_review() -> None:
@@ -541,8 +537,8 @@ def main() -> None:
             test_clean_document_is_verified,
         ),
         (
-            "validation action triggers review",
-            test_validation_action_triggers_review,
+            "internal request type action is not operator review",
+            test_internal_request_type_validation_action_does_not_trigger_review,
         ),
         (
             "low populated field confidence triggers review",

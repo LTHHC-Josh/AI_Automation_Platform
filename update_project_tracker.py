@@ -9812,6 +9812,42 @@ AI Document Subtype presentation/review, AI Correction initialized unchecked,
 action-specific Smartsheet lifecycle states, and clean return to waiting before
 stopdp.
 
+Final-state review scoping and presentation checkpoint (2026-09-02):
+
+- Made final validated field state and explicit business requiredness the sole
+  source of extraction review. Partial-business payer, service, date, document-
+  type, and subtype placeholders remain filename/Workflow Summary diagnostics
+  and no longer generate review by themselves.
+- Centralized authorization subtype review ownership in the final intake naming
+  subtype. Unknown produces exactly `AI Document Subtype: Unknown`; supported
+  intake state supersedes an unknown legacy routing subtype without changing
+  category confidence. Legacy `request_type` remains protected internal
+  evidence and is excluded from operator reasons, displayed minimum confidence,
+  and final-state counts.
+- Smartsheet-facing presentation now uses fixed `<Business Field>: <Problem>`
+  wording. Specific start-date and service-line conditions supersede broad
+  missing/generic wording, and filename reference failures cannot masquerade as
+  extraction-validation failures.
+- Successful supported service-line quantity reconciliation now supersedes the
+  earlier top-level source failure and broad missing-quantity action in final
+  diagnostic, review, and Smartsheet mapping state. Genuine service-line
+  failures remain reviewable with service-line scope.
+- Existing filename persistence/recovery, duplicate prevention, manual/
+  unattended parity, AI Correction human ownership, and comments boundaries
+  remain unchanged. Modified Python compiled and focused/affected synthetic
+  deterministic/mock/local-safe tests passed, including isolated local Prefect
+  visibility. External integrations were not called and no protected values or
+  identifiers were logged.
+
+Exact next start: refresh all affected Prefect deployment/source registrations
+from the committed review-scoping source, then perform one controlled unattended
+live run with a different document. Verify accepted production values and
+confidences have no contradictory review reason, partial-business placeholders
+remain naming-only diagnostics, unresolved applicable subtype produces exactly
+`AI Document Subtype: Unknown`, specific required/date/service-line reasons and
+Workflow Summary categories are accurate, AI Correction initializes unchecked,
+and the DP returns cleanly to waiting before stopdp.
+
 """
 
 
@@ -10139,7 +10175,10 @@ updates = [
             "within one independently validated candidate without inference "
             "or attempt merging. Filename-specific validation now requires explicit "
             "Posted Date and qualifier ownership evidence and rejects ambiguity or "
-            "unsupported claims without changing existing authorization validation."
+            "unsupported claims without changing existing authorization validation. "
+            "Final-state review ownership now excludes filename-placeholder and "
+            "internal request-selection noise, while successful supported quantity "
+            "reconciliation supersedes its earlier top-level candidate failure."
         ),
     ),
     (
@@ -10147,8 +10186,11 @@ updates = [
         "In Progress",
         (
             "Authorization rules remain conservative and separate from "
-            "evidence validation. Quantity and modifier relationships require "
-            "human verification until confirmed requirements are available."
+            "evidence validation. Supported quantity without an explicit unit uses "
+            "the approved Hours business default without implying approval; explicit "
+            "unsupported or ambiguous units and unresolved modifier ownership remain "
+            "review conditions. Specific final-state validation now supersedes broad "
+            "missing-rule duplicates."
         ),
     ),
     (
@@ -10158,8 +10200,9 @@ updates = [
             "Real authorization testing confirms that unresolved quantity and "
             "modifier relationships route to human review. Synthetic retry, "
             "candidate-selection, quantity-reconciliation, validator, review, "
-            "and mapping tests pass, while quantity meaning, final approval, "
-            "and final business rules remain pending human confirmation."
+            "mapping, filename-placeholder separation, operator-presentation, and "
+            "cross-layer final-state tests pass. Quantity never implies approval; "
+            "remaining business semantics require explicit deterministic support."
         ),
     ),
     (

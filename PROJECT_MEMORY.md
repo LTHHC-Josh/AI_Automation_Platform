@@ -1066,9 +1066,11 @@ Intake-team business filename checkpoint:
   `[SERVICE]` when expected but unresolved. Naming lookup failure remains
   separate from extraction validation.
 - Review output continues to derive from final validation state. Optional
-  absence does not create review noise. Partial/fallback filename reasons use
-  fixed operator-visible categories, with required-field duplicates removed.
-  Legacy request-selection terminology remains separate from document subtype.
+  absence does not create review noise. Partial-business filename placeholders
+  are naming diagnostics only and never independently create review. Technical
+  fallback retains fixed actionable naming reasons. Legacy request-selection
+  evidence remains protected internal metadata and is not an operator review
+  field or an alias for document subtype.
 - Workflow Summary reports business attempt, complete/partial/technical result,
   document-type/subtype readiness, placeholder count/categories, optional
   omission count, and technical fallback reason without values. These safe
@@ -1103,14 +1105,48 @@ Current-source registration and payer-readiness checkpoint:
   This does not prove either a reference-data gap or a code defect, and no
   payer mapping was broadened, aliased, inferred, or changed.
 
+Final-state review scoping and presentation checkpoint:
+
+- Review ownership is now explicit across layers. Final validated field state
+  and business requiredness create review reasons; authoritative filename-token
+  lookup failures and partial-business placeholders remain Workflow Summary
+  diagnostics and cannot create payer, service, date, document-type, or subtype
+  review by themselves.
+- Authorization intake naming subtype is the single owner of the unresolved
+  subtype condition. An unresolved applicable subtype produces exactly
+  `AI Document Subtype: Unknown`; a supported intake subtype supersedes an
+  unknown legacy routing subtype without altering document-category confidence.
+- The legacy `request_type` extraction candidate remains available in the
+  protected review contract, but it is internal-only: its validation actions,
+  confidence, and state do not enter operator review reasons, minimum displayed
+  confidence, or Workflow Summary final-state counts.
+- Smartsheet-facing reasons now use the fixed `<Business Field>: <Problem>`
+  presentation. Specific validation failures supersede broad missing-rule
+  duplicates. Authorization start-date failures retain exact missing, invalid,
+  conflicting, or unverified scope; service-line quantity/status/date/modifier
+  failures retain service-line scope; generic document-information wording is
+  removed whenever a specific category exists.
+- A successful supported service-line reconciliation is authoritative for final
+  `authorized_units` state and suppresses the superseded top-level source-action
+  and broad missing-quantity reason. Genuine service-line quantity failures
+  remain reviewable and supersede duplicate generic quantity wording.
+- Existing complete/partial/technical filename policy, persisted attachment
+  identity, duplicate prevention, manual/unattended shared path, AI Correction
+  human ownership, and comments boundary are unchanged. Focused and affected
+  tests used only synthetic data, mocks, local temporary files, and an isolated
+  local Prefect server; no live mailbox/Graph, protected OCR/Ollama, production
+  Smartsheet document/comment, deployment/worker, or mailbox mutation occurred.
+
 ## CURRENT NEXT START
 
 Refresh all affected Prefect deployment/source registrations from the committed
-intake-naming source, then perform one controlled unattended live run with a
-different document to verify complete versus partial business filename
-behavior, fixed placeholders and Workflow Summary diagnostics, exact AI
-Document Subtype presentation/review, AI Correction initialized unchecked,
-action-specific Smartsheet lifecycle states, and clean return to waiting before
+review-scoping source, then perform one controlled unattended live run with a
+different document to verify accepted production values/confidences have no
+contradictory review reasons, partial-business placeholders remain naming-only
+diagnostics, unresolved applicable subtype produces exactly `AI Document
+Subtype: Unknown`, specific required/date/service-line reasons remain
+actionable, Workflow Summary final-state/filename categories are consistent, AI
+Correction initializes unchecked, and the DP returns cleanly to waiting before
 stopdp.
 
 First unattended start failure diagnosis and correction checkpoint:

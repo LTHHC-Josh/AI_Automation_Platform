@@ -56,6 +56,10 @@ class FieldValidationDiagnosticService:
         "Authorized units were reconciled from supported service-line evidence",
         "Duplicate service-line evidence was removed",
     })
+    AUTHORIZED_UNITS_RECONCILIATION_ACTION = (
+        "Authorized units were reconciled from supported service-line evidence"
+    )
+    INTERNAL_ONLY_FIELDS = frozenset({"request_type"})
 
     def __init__(self, *, threshold: float = DEFAULT_ACCEPTANCE_THRESHOLD,
                  requirement_service=None):
@@ -95,6 +99,13 @@ class FieldValidationDiagnosticService:
             if str(action).lower().startswith(field_name.replace("_", " ").lower())
             or str(action).lower().startswith(field_name.lower())
         ]
+        if (
+            field_name == "authorized_units"
+            and value_present
+            and self.AUTHORIZED_UNITS_RECONCILIATION_ACTION
+            in getattr(document, "validation_actions", [])
+        ):
+            matching_actions = []
         reason_code = self.reason_summary.summarize_codes(matching_actions) or None
         threshold_passed = (
             candidate_confidence is not None
@@ -172,6 +183,8 @@ class FieldValidationDiagnosticService:
             return FinalValidationSummary()
         states = []
         for field_name in document.field_evidence:
+            if str(field_name) in self.INTERNAL_ONLY_FIELDS:
+                continue
             states.append(self.build(document, str(field_name)).field_state)
         for index, line in enumerate(document.service_lines or []):
             candidate = getattr(line, "candidate_evidence", {})

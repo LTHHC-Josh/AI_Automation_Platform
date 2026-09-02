@@ -152,13 +152,29 @@ class ReviewDecisionService:
             required_review_reasons=required_review_reasons,
         )
 
-        if (
-            category == "authorization"
-            and bool(getattr(document, "intake_subtype_evaluated", False))
-            and str(getattr(document, "intake_subtype_support_status", "unknown"))
-            != "supported"
-        ):
-            reasons.append(self.UNKNOWN_AUTHORIZATION_SUBTYPE_REASON)
+        if category == "authorization":
+            intake_subtype_evaluated = bool(
+                getattr(document, "intake_subtype_evaluated", False)
+            )
+            if intake_subtype_evaluated:
+                intake_subtype = self._normalize_label(
+                    getattr(document, "intake_document_subtype", "unknown")
+                )
+                subtype_unresolved = (
+                    self._normalize_label(
+                        getattr(
+                            document,
+                            "intake_subtype_support_status",
+                            "unknown",
+                        )
+                    )
+                    != "supported"
+                    or intake_subtype in {"", "unknown"}
+                )
+            else:
+                subtype_unresolved = subtype == "unknown"
+            if subtype_unresolved:
+                reasons.append(self.UNKNOWN_AUTHORIZATION_SUBTYPE_REASON)
 
         self._append_filename_reasons(document, reasons)
 
@@ -202,17 +218,19 @@ class ReviewDecisionService:
                 "No structured data was extracted from the document."
             )
 
-        for action in self._reviewable_validation_actions(document):
-            if action not in self.SUCCESS_VALIDATION_ACTIONS:
-                reasons.append(
-                    action
-                )
+        validation_actions = self._reviewable_validation_actions(document)
+        reasons.extend(validation_actions)
 
         for action in document.rule_actions:
-            if action not in self.SUCCESS_ACTIONS:
-                reasons.append(
-                    action
-                )
+            if action in self.SUCCESS_ACTIONS:
+                continue
+            if self._rule_action_is_superseded(
+                document=document,
+                action=action,
+                validation_actions=validation_actions,
+            ):
+                continue
+            reasons.append(action)
 
         reasons = self._remove_duplicates(
             reasons
@@ -286,10 +304,6 @@ class ReviewDecisionService:
                 required_review_reasons.append(
                     self.INCOMPATIBLE_SUBTYPE_REASON
                 )
-            elif subtype == "unknown":
-                reasons.append(
-                    self.UNKNOWN_AUTHORIZATION_SUBTYPE_REASON
-                )
 
         elif category == "termination":
             if subtype not in self.TERMINATION_SUBTYPES:
@@ -337,20 +351,13 @@ class ReviewDecisionService:
 
     @staticmethod
     def _append_filename_reasons(document: Document, reasons: list[str]) -> None:
+        """Add only actionable technical-fallback reasons.
+
+        Partial-business placeholders are naming diagnostics. They never alter
+        extraction validation or independently create a review reason.
+        """
         assembly = getattr(document, "filename_assembly_result", None)
         policy = getattr(assembly, "policy_result", None)
-        categories = tuple(getattr(policy, "placeholder_categories", ()) or ())
-        mapping = {
-            "payer": "Filename payer could not be resolved.",
-            "service": "Filename service could not be resolved.",
-            "document_type": "Filename document type could not be resolved.",
-            "document_subtype": ReviewDecisionService.UNKNOWN_AUTHORIZATION_SUBTYPE_REASON,
-            "date": "Filename date could not be determined.",
-        }
-        for category in categories:
-            reason = mapping.get(str(category))
-            if reason and reason not in reasons:
-                reasons.append(reason)
         if getattr(policy, "filename_result", None) == "technical_fallback":
             status = str(getattr(policy, "status", "") or "")
             if status == "person_name_unresolved":
@@ -390,7 +397,7 @@ class ReviewDecisionService:
         ) and field_confidences.get("service_codes") is not None
 
         for field_name, value in extracted_data.items():
-            if field_name == "intake_document_subtype":
+            if field_name in {"intake_document_subtype", "request_type"}:
                 continue
             if field_name == "service_code" and accepted_service_codes:
                 continue
@@ -431,7 +438,7 @@ class ReviewDecisionService:
             document.extracted_data.get("service_codes")
         ) and document.field_confidences.get("service_codes") is not None
         for field_name, value in document.extracted_data.items():
-            if field_name == "intake_document_subtype":
+            if field_name in {"intake_document_subtype", "request_type"}:
                 continue
             if field_name == "service_code" and accepted_service_codes:
                 continue
@@ -462,13 +469,29 @@ class ReviewDecisionService:
             document.extracted_data.get("service_codes")
         ) and document.field_confidences.get("service_codes") is not None
         actions = []
+        authorized_units_reconciled = (
+            bool(
+                self.SUCCESS_VALIDATION_ACTIONS.intersection(
+                    set(document.validation_actions)
+                )
+            )
+            and not self._is_empty_value(
+                document.extracted_data.get("authorized_units")
+            )
+        )
         for action in document.validation_actions:
             if action in self.SUCCESS_VALIDATION_ACTIONS:
                 continue
             normalized = str(action or "").strip().lower()
             if normalized.startswith("intake_document_subtype "):
                 continue
+            if normalized.startswith(("request_type ", "request type ")):
+                continue
             if normalized == "duplicate service-line evidence was removed":
+                continue
+            if authorized_units_reconciled and normalized.startswith(
+                ("authorized_units ", "authorized units ")
+            ):
                 continue
             if accepted_service_codes and normalized.startswith(
                 ("service_code ", "service code ")
@@ -476,6 +499,48 @@ class ReviewDecisionService:
                 continue
             actions.append(action)
         return actions
+
+    def _rule_action_is_superseded(
+        self,
+        *,
+        document: Document,
+        action: str,
+        validation_actions: list[str],
+    ) -> bool:
+        """Suppress a broad rule result when final validation is more exact."""
+        normalized = str(action or "").strip().lower()
+        normalized_validation = [
+            str(item or "").strip().lower() for item in validation_actions
+        ]
+        if normalized == "missing authorization start date":
+            diagnostic = FieldValidationDiagnosticService(
+                threshold=self.FIELD_CONFIDENCE_THRESHOLD
+            ).build(document, "start_date")
+            return diagnostic.field_state != "missing_required"
+        missing_field_actions = {
+            "missing patient name": "patient_name",
+            "missing authorization number": "authorization_number",
+            "missing payer": "payer",
+            "missing member id": "member_id",
+            "missing authorization status": "authorization_status",
+        }
+        field_name = missing_field_actions.get(normalized)
+        if field_name:
+            diagnostic = FieldValidationDiagnosticService(
+                threshold=self.FIELD_CONFIDENCE_THRESHOLD
+            ).build(document, field_name)
+            return diagnostic.field_state != "missing_required"
+        if normalized == "missing authorization quantity":
+            authorized_units = FieldValidationDiagnosticService(
+                threshold=self.FIELD_CONFIDENCE_THRESHOLD
+            ).build(document, "authorized_units")
+            if authorized_units.field_state == "accepted":
+                return True
+            return any(
+                item.startswith("service line ") and " quantity " in item
+                for item in normalized_validation
+            )
+        return False
 
     def _has_structured_data(
         self,
@@ -492,10 +557,9 @@ class ReviewDecisionService:
             return False
 
         return any(
-            not self._is_empty_value(
-                value
-            )
-            for value in extracted_data.values()
+            field_name not in {"intake_document_subtype", "request_type"}
+            and not self._is_empty_value(value)
+            for field_name, value in extracted_data.items()
         )
 
     def _is_empty_value(

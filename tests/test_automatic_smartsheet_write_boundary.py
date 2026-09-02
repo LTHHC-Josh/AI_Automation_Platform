@@ -128,7 +128,7 @@ def build_review_output(*, needs_human_review=False):
             else "Verified by AI"
         ),
         review_reasons=(
-            ["Synthetic unsupported value remained empty."]
+            ["Authorization status is not supported by its source evidence"]
             if needs_human_review
             else []
         ),
@@ -204,7 +204,7 @@ def test_review_metadata_is_retained_for_review_required_row():
     )
     assert (
         result.values["AI Review Reasons"]
-        == "Document information could not be verified"
+        == "Authorization Status: Could not be verified"
     )
     assert result.values["AI Review Required"] is True
 

@@ -79,7 +79,9 @@ def test_unsupported_candidate_does_not_reach_production_value_or_confidence_col
     assert "Authorization Status" not in mapping.values
     assert "Authorization Status Confidence" not in mapping.values
     assert mapping.values["AI Review Required"] is True
-    assert "Authorization status could not be verified" in mapping.values["AI Review Reasons"]
+    assert mapping.values["AI Review Reasons"] == (
+        "Authorization Status: Could not be verified"
+    )
 
 
 def test_classification_confidence_cannot_replace_missing_field_confidence():
@@ -166,6 +168,61 @@ def test_authorization_end_date_absence_is_optional_not_present():
     assert diagnostic.field_state == "not_present"
     assert diagnostic.required is False
     assert diagnostic.review_triggered is False
+
+
+def test_internal_request_type_is_excluded_from_final_summary_counts():
+    document = Document(
+        file_path=Path("synthetic.pdf"), document_category="authorization"
+    )
+    document.field_evidence = {
+        "request_type": {
+            "value": None,
+            "candidate_value": "SYNTHETIC",
+            "candidate_confidence": 0.95,
+            "confidence": None,
+            "source_text": "",
+        }
+    }
+    document.validation_actions = [
+        "Request type requires checkbox or selection verification"
+    ]
+    summary = FieldValidationDiagnosticService().summarize(document)
+    assert summary.accepted_field_count == 0
+    assert summary.optional_absent_field_count == 0
+    assert summary.unsupported_count == 0
+
+
+def test_service_line_status_absence_is_optional_but_present_failure_is_reviewable():
+    absent = Document(file_path=Path("synthetic.pdf"))
+    absent.service_lines = [AuthorizationServiceLine(
+        service_code="T0000",
+        status=None,
+        confidence=0.95,
+        source_text="T0000",
+    )]
+    absent_diagnostic = FieldValidationDiagnosticService().build_service_line(
+        absent, 0, "status"
+    )
+    assert absent_diagnostic.field_state == "not_present"
+    assert absent_diagnostic.review_triggered is False
+
+    unsupported = Document(file_path=Path("synthetic.pdf"))
+    unsupported.service_lines = [AuthorizationServiceLine(
+        service_code="T0000",
+        status="Approved",
+        confidence=0.95,
+        source_text="T0000",
+    )]
+    unsupported.validation_actions = EvidenceValidationService().validate(unsupported)
+    unsupported_diagnostic = FieldValidationDiagnosticService().build_service_line(
+        unsupported, 0, "status"
+    )
+    assert unsupported.service_lines[0].status is None
+    assert unsupported_diagnostic.field_state == "unsupported"
+    assert unsupported_diagnostic.review_triggered is True
+    assert unsupported_diagnostic.reason_code == (
+        "service_line_status_unclear_source_support"
+    )
 
 
 if __name__ == "__main__":
