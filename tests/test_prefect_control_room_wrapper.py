@@ -20,6 +20,23 @@ def test_actions_and_safe_local_state_contract():
         assert prohibited not in text.lower()
 
 
+def test_bounded_process_normalizes_duplicate_windows_path_keys():
+    text = source()
+    repair = text.split("function Repair-ProcessPathEnvironment {", 1)[1].split(
+        "function Invoke-BoundedProcess", 1
+    )[0]
+    bounded = text.split("function Invoke-BoundedProcess", 1)[1].split(
+        "function Invoke-PrefectJson", 1
+    )[0]
+    assert "GetEnvironmentVariables" in repair
+    assert "-imatch '^path$'" in repair
+    assert "Remove-Item Env:PATH" in repair
+    assert "Remove-Item Env:Path" in repair
+    assert bounded.index("Repair-ProcessPathEnvironment") < bounded.index("Start-Process")
+    assert "if (-not $process.HasExited)" in bounded
+    assert "} elseif (-not $process.WaitForExit" in bounded
+
+
 def test_unattended_commands_are_separate_owned_polling_controls():
     text = source()
     start = text.split("function Start-DocumentProcessor {", 1)[1].split("function Stop-DocumentProcessor", 1)[0]

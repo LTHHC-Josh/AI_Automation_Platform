@@ -9948,7 +9948,10 @@ Successful typed-contract recovery and DP Training checkpoint (2026-09-03):
   current committed local source, zero schedules/automations/active target runs,
   and a concurrency-one training pool with no worker. A real PowerShell 5.1
   `-File` profile-installer acceptance exposed and fixed deferred repository-root
-  resolution before the profile was changed.
+  resolution before the profile was changed. Real `statusdptraining` acceptance
+  also fixed duplicate-case process `PATH` inheritance and safe fast-child-exit
+  handling, then returned ready `schema_only`, stopped, zero workers/runs/cases,
+  and not degraded without starting DP Training.
 - Compilation, PowerShell 5.1 parsing, focused correction/command/readiness/
   DPAPI tests, affected Smartsheet mapping/write/recovery/idempotency suites, and
   isolated Prefect lifecycle/control-wrapper checks passed using synthetic,

@@ -104,6 +104,22 @@ function Test-PrefectServerBackendSafe {
     } catch { return $false }
 }
 
+function Repair-ProcessPathEnvironment {
+    $pathEntries = @(
+        [Environment]::GetEnvironmentVariables().GetEnumerator() |
+            Where-Object { $_.Key -imatch '^path$' }
+    )
+    if ($pathEntries.Count -le 1) { return }
+    $pathValues = @(
+        $pathEntries |
+            ForEach-Object { [string]$_.Value } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+    Remove-Item Env:PATH -ErrorAction SilentlyContinue
+    Remove-Item Env:Path -ErrorAction SilentlyContinue
+    if ($pathValues.Count -gt 0) { $env:Path = $pathValues -join ';' }
+}
+
 function Invoke-BoundedProcess([string]$FilePath, [string[]]$Arguments, [int]$TimeoutSeconds) {
     New-Item -ItemType Directory -Path $stateDirectory -Force | Out-Null
     $identifier = [Guid]::NewGuid().ToString('N')
@@ -112,13 +128,16 @@ function Invoke-BoundedProcess([string]$FilePath, [string[]]$Arguments, [int]$Ti
     $process = $null
     $identity = $null
     try {
+        Repair-ProcessPathEnvironment
         $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
         $identity = Get-ProcessIdentity $process.Id
         if ($null -eq $identity) {
-            Invoke-TaskKill -ProcessId $process.Id -Force | Out-Null
-            throw 'startup_process_identity_unavailable'
-        }
-        if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+            $process.Refresh()
+            if (-not $process.HasExited) {
+                Invoke-TaskKill -ProcessId $process.Id -Force | Out-Null
+                throw 'startup_process_identity_unavailable'
+            }
+        } elseif (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
             Stop-ProvenProcess $identity
             throw 'startup_check_timeout'
         }

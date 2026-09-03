@@ -1682,7 +1682,10 @@ Document Processor Training implementation checkpoint:
   zero. The training pool has concurrency one and no worker. The existing fresh
   live DP worker remained untouched. A real PowerShell 5.1 `-File` installer
   acceptance exposed and fixed deferred `$PSScriptRoot` resolution before the
-  profile was changed.
+  profile was changed. The real `statusdptraining` acceptance also fixed
+  duplicate-case process `PATH` inheritance and safe fast-child-exit handling;
+  it now reports ready `schema_only`, stopped, zero training workers/runs/cases,
+  and not degraded without starting the service.
 
 ## CURRENT NEXT START
 
