@@ -4,9 +4,25 @@ import os
 import smartsheet
 
 
+class _DefaultTimeoutSession:
+    """Delegate to the SDK session while bounding otherwise-unbounded sends."""
+
+    def __init__(self, session, timeout_seconds):
+        self._session = session
+        self._timeout_seconds = timeout_seconds
+
+    def send(self, request, **kwargs):
+        kwargs.setdefault("timeout", self._timeout_seconds)
+        return self._session.send(request, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._session, name)
+
+
 class SmartsheetClient:
 
     DEFAULT_SHEET_ID_ENV_VAR = "SMARTSHEET_SHEET_ID"
+    DEFAULT_HTTP_TIMEOUT_SECONDS = 30.0
 
     def __init__(
         self,
@@ -48,6 +64,25 @@ class SmartsheetClient:
 
         self.client = smartsheet.Smartsheet(
             self.api_token
+        )
+
+        raw_timeout = os.getenv(
+            "SMARTSHEET_HTTP_TIMEOUT_SECONDS",
+            str(self.DEFAULT_HTTP_TIMEOUT_SECONDS),
+        )
+        try:
+            timeout_seconds = float(raw_timeout)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                "SMARTSHEET_HTTP_TIMEOUT_SECONDS must be a positive number."
+            ) from error
+        if timeout_seconds <= 0:
+            raise ValueError(
+                "SMARTSHEET_HTTP_TIMEOUT_SECONDS must be a positive number."
+            )
+        self.client._session = _DefaultTimeoutSession(
+            self.client._session,
+            timeout_seconds,
         )
 
         self.client.errors_as_exceptions(True)

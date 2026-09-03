@@ -42,14 +42,18 @@ _STAGE_NAMES = {
     "validation": "deterministic-validation",
     "business_rules": "business-rules",
     "smartsheet_row_created": "Smartsheet Row Created",
+    "smartsheet_row_create_attempted": "Smartsheet Row Create Attempted",
     "smartsheet_row_reconciled_existing": "Smartsheet Row Reconciled",
     "smartsheet_row_skipped": "Smartsheet Row Skipped",
     "smartsheet_row_failed": "Smartsheet Row Failed",
+    "smartsheet_row_write_failed": "Smartsheet Row Write Failed",
+    "smartsheet_row_outcome_unresolved": "Smartsheet Row Outcome Unresolved",
     "smartsheet_row_mixed": "Smartsheet Row Mixed Actions",
     "smartsheet_attachment_uploaded": "Smartsheet Attachment Uploaded",
     "smartsheet_attachment_reconciled_existing": "Smartsheet Attachment Reconciled",
     "smartsheet_attachment_skipped": "Smartsheet Attachment Skipped",
     "smartsheet_attachment_failed": "Smartsheet Attachment Failed",
+    "smartsheet_attachment_blocked": "Smartsheet Attachment Blocked",
     "smartsheet_attachment_mixed": "Smartsheet Attachment Mixed Actions",
     "review_determination": "review-determination",
     "downstream_review": "review-state",
@@ -82,6 +86,12 @@ _SAFE_CATEGORY = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
 _SAFE_ROW_ACTIONS = {"created", "reconciled_existing", "skipped", "failed", "mixed"}
 _SAFE_ATTACHMENT_ACTIONS = {
     "uploaded", "reconciled_existing", "skipped", "failed", "mixed",
+}
+_SAFE_RECONCILIATION_CARDINALITIES = {
+    "not_attempted", "zero", "one", "multiple", "unavailable", "mixed",
+}
+_SAFE_ROW_RECOVERY_STATES = {
+    "none", "reconcile_only", "retry_ready", "blocked", "mixed",
 }
 
 
@@ -152,6 +162,15 @@ def record_mailbox_workflow_summary(
     row_attempt_count: int = 0,
     attachment_attempt_count: int = 0,
     completed_document_count: int = 0,
+    row_create_attempted: bool = False,
+    row_outcome_proven: bool = False,
+    reconciliation_attempted: bool = False,
+    reconciliation_match_cardinality: str = "not_attempted",
+    row_recovery_state: str = "none",
+    attachment_blocked_due_to_unresolved_row: bool = False,
+    recoverable: bool = False,
+    retryable: bool = False,
+    failure_category: str = "none",
     filename_person_components: str = "Unresolved",
     filename_payer_lookup: str = "Unresolved",
     filename_service_lookup: str = "Unresolved",
@@ -469,6 +488,30 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
         "row_attempt_count": result.row_attempt_count,
         "attachment_attempt_count": result.attachment_attempt_count,
         "completed_document_count": result.completed_document_count,
+        "row_create_attempted": result.row_create_attempted,
+        "row_outcome_proven": result.row_outcome_proven,
+        "reconciliation_attempted": result.reconciliation_attempted,
+        "reconciliation_match_cardinality": (
+            result.reconciliation_match_cardinality
+            if result.reconciliation_match_cardinality
+            in _SAFE_RECONCILIATION_CARDINALITIES else "unavailable"
+        ),
+        "row_recovery_state": (
+            result.row_recovery_state
+            if result.row_recovery_state in _SAFE_ROW_RECOVERY_STATES
+            else "blocked"
+        ),
+        "attachment_blocked_due_to_unresolved_row": (
+            result.attachment_blocked_due_to_unresolved_row
+        ),
+        "recoverable": result.recoverable,
+        "retryable": result.retryable,
+        "failure_category": (
+            result.failure_category
+            if isinstance(result.failure_category, str)
+            and _SAFE_CATEGORY.fullmatch(result.failure_category)
+            else "none" if not result.failure_category else "sanitized_failure"
+        ),
         "filename_person_components": (
             "Ready" if filename and filename.person_components_ready else "Unresolved"
         ),

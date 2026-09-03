@@ -9848,6 +9848,43 @@ remain naming-only diagnostics, unresolved applicable subtype produces exactly
 Workflow Summary categories are accurate, AI Correction initializes unchecked,
 and the DP returns cleanly to waiting before stopdp.
 
+Smartsheet uncertain-row recovery checkpoint (2026-09-03):
+
+- Retained PHI-safe durable evidence proves one application row-create attempt,
+  no proven row identity, and zero attachment attempts. The prior recovery path
+  performed exact-key reconciliation after the unconfirmed result but collapsed
+  zero matches and reconciliation unavailability into one non-retryable unknown
+  state; retained evidence cannot prove wire-level issuance or distinguish a
+  transport exception from an unusable success response.
+- Added a leased durable row-create-in-flight boundary and fixed reconciliation
+  states. Confirmed creation reports created; one exact match reports reconciled;
+  multiple matches block; unavailable reconciliation remains reconcile-only;
+  authoritative zero matches become retry-ready. A later bounded same-job cycle
+  must lease and reconcile zero again before any new create, preventing blind
+  duplicate writes and avoiding a document resend.
+- Added a default 30-second Smartsheet HTTP send timeout with a positive numeric
+  environment override and fixed safe API-rejected, timeout, invalid-response,
+  and uncertain-outcome categories. The legacy direct retry path now blocks
+  uncertain row outcomes; durable exact-key mailbox recovery owns re-entry.
+- Row/attachment attempt counters represent application external-call attempts;
+  reconciliation does not inflate them. Attachment handling remains blocked
+  until row identity is proven. Prefect and Workflow Summary now expose safe
+  create-attempt, outcome-proof, reconciliation-cardinality, recovery-state,
+  attachment-blocked, retryable, and recoverable semantics.
+- Python compilation and focused/affected synthetic deterministic, mock,
+  temporary durable-state, and isolated local Prefect tests passed. No live
+  mailbox/Graph, protected OCR/Ollama, production Smartsheet action,
+  deployment/worker start, attachment upload, comments access, or mailbox
+  mutation occurred.
+
+Exact next start: refresh the affected deployment/source registration, then
+perform a controlled recovery of the existing durable uncertain mailbox job
+without resending the document. Verify exact reconciliation first; after an
+authoritative zero-match result, allow at most one later leased same-job create,
+keep attachment blocked until row identity is proven, confirm Prefect/Workflow
+Summary recovery states and safe mailbox finalization, and return the DP to
+waiting before stopdp.
+
 """
 
 
@@ -10283,8 +10320,12 @@ updates = [
             "metadata acceptance. One controlled PHI-free live case also passed "
             "exact-key row and attachment read-after-write reconciliation, "
             "duplicate prevention, deterministic cleanup, and post-cleanup "
-            "zero-match verification; unattended uncertain retries remain "
-            "disabled pending broader acceptance."
+            "zero-match verification. Durable mailbox recovery now persists a "
+            "leased create-in-flight state, reconciles uncertain outcomes before "
+            "any re-entry, blocks unavailable or ambiguous outcomes, and permits "
+            "a later same-job retry only after authoritative zero-match proof and "
+            "a fresh lease. Attachment handling remains blocked until row identity "
+            "is proven; direct uncertain row retries remain blocked."
         ),
     ),
     (

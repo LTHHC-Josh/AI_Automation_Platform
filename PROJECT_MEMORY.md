@@ -1137,17 +1137,54 @@ Final-state review scoping and presentation checkpoint:
   local Prefect server; no live mailbox/Graph, protected OCR/Ollama, production
   Smartsheet document/comment, deployment/worker, or mailbox mutation occurred.
 
+Smartsheet uncertain-row recovery checkpoint:
+
+- The retained PHI-safe durable state proves the failed business-action cycle
+  crossed the application row-create boundary once, did not establish a row
+  identity, and never attempted an attachment. The former implementation then
+  performed exact-key reconciliation but collapsed authoritative zero matches
+  and reconciliation unavailability into the single non-retryable
+  `row_write_outcome_unknown` state. Retained evidence cannot distinguish a
+  transport exception from an unusable success response or prove wire-level
+  issuance.
+- Row creation now persists a leased `row_create_in_flight` state before the
+  client boundary. Confirmed creates become `created`; exactly one exact-key
+  match becomes `reconciled_existing`; multiple matches block permanently;
+  unavailable reconciliation remains `reconcile_only`; and an authoritative
+  zero-match result becomes `retry_ready`. A later bounded cycle may create
+  only after acquiring the same durable job lease and repeating exact-key
+  zero-match reconciliation. The original durable job is reused, so recovery
+  does not require resending the document.
+- Smartsheet SDK sends now have a default 30-second HTTP timeout, configurable
+  only by the positive numeric `SMARTSHEET_HTTP_TIMEOUT_SECONDS` setting.
+  Definite API rejection, timeout, invalid response, and otherwise uncertain
+  transport outcomes use fixed PHI-safe categories. The legacy direct retry
+  boundary blocks existing and uncertain row outcomes; durable mailbox recovery
+  is the only path that may re-enter after exact reconciliation.
+- Row and attachment attempt counters are durably reserved immediately before
+  their external client calls. Reconciliation never increments them. Attachment
+  lookup/upload remains blocked until row identity is proven, and an uncertain
+  attachment is never blindly uploaded again.
+- Prefect lifecycle visibility now distinguishes Row Create Attempted, Row
+  Created, Row Reconciled, Row Write Failed, Row Outcome Unresolved, and
+  Attachment Blocked. Workflow Summary adds row-outcome proof, reconciliation
+  cardinality/recovery state, attachment-blocked, retryable, and recoverable
+  fields without identifiers or values.
+- Modified Python compiled and focused/affected synthetic deterministic, mock,
+  local temporary-state, and isolated local Prefect regressions passed. No live
+  mailbox/Graph, protected OCR/Ollama, production Smartsheet operation,
+  deployment/worker start, attachment upload, or mailbox mutation occurred.
+
 ## CURRENT NEXT START
 
-Refresh all affected Prefect deployment/source registrations from the committed
-review-scoping source, then perform one controlled unattended live run with a
-different document to verify accepted production values/confidences have no
-contradictory review reasons, partial-business placeholders remain naming-only
-diagnostics, unresolved applicable subtype produces exactly `AI Document
-Subtype: Unknown`, specific required/date/service-line reasons remain
-actionable, Workflow Summary final-state/filename categories are consistent, AI
-Correction initializes unchecked, and the DP returns cleanly to waiting before
-stopdp.
+Refresh the affected deployment/source registration, then perform a controlled
+recovery of the existing durable uncertain mailbox job without resending the
+document. Verify exact-key reconciliation first; if it proves zero matches,
+verify the job becomes retry-ready and a later bounded same-job cycle performs
+at most one leased create attempt. Confirm no duplicate row, attachment remains
+blocked until row identity is proven, the new Prefect/Workflow Summary recovery
+states are accurate, mailbox finalization occurs only after row and attachment
+completion, and the DP returns cleanly to waiting before stopdp.
 
 First unattended start failure diagnosis and correction checkpoint:
 

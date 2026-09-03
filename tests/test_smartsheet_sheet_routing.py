@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from src.clients.smartsheet_client import (
     SmartsheetClient,
+    _DefaultTimeoutSession,
 )
 
 
@@ -23,6 +24,7 @@ class TestSmartsheetSheetRouting(
             "SMARTSHEET_AI_DESTINATION_SHEET_ID": (
                 "2222222222222222"
             ),
+            "SMARTSHEET_HTTP_TIMEOUT_SECONDS": "30",
         }
 
     def _build_client(
@@ -92,6 +94,25 @@ class TestSmartsheetSheetRouting(
         sdk_client.Sheets.get_sheet.assert_called_once_with(
             "2222222222222222"
         )
+
+    def test_default_transport_timeout_is_installed(self):
+        client, sdk_client = self._build_client()
+
+        self.assertIsInstance(client.client._session, _DefaultTimeoutSession)
+        self.assertEqual(
+            client.client._session._timeout_seconds,
+            SmartsheetClient.DEFAULT_HTTP_TIMEOUT_SECONDS,
+        )
+
+    def test_invalid_transport_timeout_fails_closed(self):
+        environment = dict(self.environment)
+        environment["SMARTSHEET_HTTP_TIMEOUT_SECONDS"] = "invalid"
+
+        with patch.dict(os.environ, environment, clear=True):
+            with patch("src.clients.smartsheet_client.load_dotenv"):
+                with patch("src.clients.smartsheet_client.smartsheet.Smartsheet"):
+                    with self.assertRaisesRegex(ValueError, "positive number"):
+                        SmartsheetClient()
 
     def test_missing_selected_variable_fails(
         self,

@@ -13,9 +13,18 @@ import uuid
 
 
 STAGES = {
-    "discovered", "processing", "row_write_pending", "row_write_uncertain",
+    "discovered", "processing", "row_write_pending", "row_create_in_flight",
+    "row_write_uncertain", "row_retry_ready",
     "row_written", "attachment_write_pending", "attachment_write_uncertain",
     "attachment_written", "blocked_permanent",
+}
+
+RECONCILIATION_CARDINALITIES = {
+    "not_attempted", "zero", "one", "multiple", "unavailable",
+}
+
+ROW_RECOVERY_STATES = {
+    "none", "reconcile_only", "retry_ready", "blocked",
 }
 
 
@@ -28,6 +37,7 @@ class MailboxDocumentWorkItem:
     local_path: Path = field(repr=False)
     status: str = "discovered"
     document: Any = field(default=None, repr=False, compare=False)
+    lease_token: str | None = field(default=None, repr=False, compare=False)
 
 
 @dataclass(frozen=True, repr=False)
@@ -54,6 +64,13 @@ class MailboxDocumentJobState:
     attachment_optional_component_omission_count: int = 0
     attachment_placeholder_categories: tuple[str, ...] = ()
     attachment_technical_fallback_reason: str = "none"
+    row_create_attempted: bool = False
+    row_outcome_proven: bool = False
+    row_reconciliation_attempted: bool = False
+    row_reconciliation_match_cardinality: str = "not_attempted"
+    row_recovery_state: str = "none"
+    recoverable: bool = False
+    attachment_blocked_due_to_unresolved_row: bool = False
 
 
 @dataclass(frozen=True)
@@ -73,12 +90,19 @@ class MailboxDocumentJobBatchSummary:
     attachment_attempt_count: int | None
     failure_category: str | None
     retryable: bool
+    recoverable: bool
+    row_create_attempted: bool
+    row_outcome_proven: bool
+    row_reconciliation_attempted: bool
+    row_reconciliation_match_cardinality: str
+    row_recovery_state: str
+    attachment_blocked_due_to_unresolved_row: bool
     success: bool
     status: str
 
 
 class MailboxDocumentJobStateService:
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
     DEFAULT_STATE_DIR = Path("data/mailbox_processing_state/jobs")
     _DIGEST_LENGTH = 64
 
@@ -139,6 +163,9 @@ class MailboxDocumentJobStateService:
     def acquire_processing_lease(self, job_key: str) -> MailboxDocumentJobStateResult:
         return self._mutate(job_key, self._acquire_lease)
 
+    def acquire_business_action_lease(self, job_key: str) -> MailboxDocumentJobStateResult:
+        return self._mutate(job_key, self._acquire_business_action_lease)
+
     def summarize(self, job_keys) -> MailboxDocumentJobBatchSummary:
         """Summarize only the supplied durable jobs without directory enumeration."""
         try:
@@ -178,6 +205,10 @@ class MailboxDocumentJobStateService:
         else:
             failure_category = "multiple_failures"
 
+        cardinalities = {
+            state.row_reconciliation_match_cardinality for state in states
+        }
+        recovery_states = {state.row_recovery_state for state in states}
         return MailboxDocumentJobBatchSummary(
             completed_document_count=completed,
             pending_document_count=pending,
@@ -185,6 +216,21 @@ class MailboxDocumentJobStateService:
             attachment_attempt_count=attachment_attempts,
             failure_category=failure_category,
             retryable=retryable,
+            recoverable=any(state.recoverable for state in states),
+            row_create_attempted=any(state.row_create_attempted for state in states),
+            row_outcome_proven=all(state.row_outcome_proven for state in states),
+            row_reconciliation_attempted=any(
+                state.row_reconciliation_attempted for state in states
+            ),
+            row_reconciliation_match_cardinality=(
+                next(iter(cardinalities)) if len(cardinalities) == 1 else "mixed"
+            ),
+            row_recovery_state=(
+                next(iter(recovery_states)) if len(recovery_states) == 1 else "mixed"
+            ),
+            attachment_blocked_due_to_unresolved_row=any(
+                state.attachment_blocked_due_to_unresolved_row for state in states
+            ),
             success=True,
             status="ready",
         )
@@ -200,7 +246,15 @@ class MailboxDocumentJobStateService:
                    attachment_required_component_failure_count: int | None = None,
                    attachment_optional_component_omission_count: int | None = None,
                    attachment_placeholder_categories: tuple[str, ...] | None = None,
-                   attachment_technical_fallback_reason: str | None = None) -> MailboxDocumentJobStateResult:
+                   attachment_technical_fallback_reason: str | None = None,
+                   row_create_attempted: bool | None = None,
+                   row_outcome_proven: bool | None = None,
+                   row_reconciliation_attempted: bool | None = None,
+                   row_reconciliation_match_cardinality: str | None = None,
+                   row_recovery_state: str | None = None,
+                   recoverable: bool | None = None,
+                   attachment_blocked_due_to_unresolved_row: bool | None = None,
+                   retain_lease: bool = False) -> MailboxDocumentJobStateResult:
         if stage not in STAGES or not expected_stages or not expected_stages <= STAGES:
             return self._failure("invalid_transition")
         def change(current: MailboxDocumentJobState):
@@ -258,10 +312,39 @@ class MailboxDocumentJobStateService:
                 technical_fallback_reason = self._safe_category(
                     attachment_technical_fallback_reason
                 ) or "none"
+            supplied_booleans = {
+                "row_create_attempted": row_create_attempted,
+                "row_outcome_proven": row_outcome_proven,
+                "row_reconciliation_attempted": row_reconciliation_attempted,
+                "recoverable": recoverable,
+                "attachment_blocked_due_to_unresolved_row": (
+                    attachment_blocked_due_to_unresolved_row
+                ),
+            }
+            if any(
+                value is not None and not isinstance(value, bool)
+                for value in supplied_booleans.values()
+            ):
+                return "invalid_operation_diagnostic"
+            cardinality = (
+                current.row_reconciliation_match_cardinality
+                if row_reconciliation_match_cardinality is None
+                else row_reconciliation_match_cardinality
+            )
+            if cardinality not in RECONCILIATION_CARDINALITIES:
+                return "invalid_operation_diagnostic"
+            recovery_state = (
+                current.row_recovery_state
+                if row_recovery_state is None else row_recovery_state
+            )
+            if recovery_state not in ROW_RECOVERY_STATES:
+                return "invalid_operation_diagnostic"
             values.update(stage=stage, smartsheet_row_id=row_id,
                           last_failure_category=self._safe_category(failure_category),
                           retryable=current.retryable if retryable is None else bool(retryable),
-                          lease_token=None, lease_expires_at=None, updated_at=self._utc_now(),
+                          lease_token=current.lease_token if retain_lease else None,
+                          lease_expires_at=current.lease_expires_at if retain_lease else None,
+                          updated_at=self._utc_now(),
                           row_attempt_count=current.row_attempt_count + int(increment_row_attempt),
                           attachment_attempt_count=current.attachment_attempt_count + int(increment_attachment_attempt),
                           attachment_filename=filename,
@@ -270,12 +353,35 @@ class MailboxDocumentJobStateService:
                           attachment_required_component_failure_count=required_failure_count,
                           attachment_optional_component_omission_count=optional_omission_count,
                           attachment_placeholder_categories=placeholder_categories,
-                          attachment_technical_fallback_reason=technical_fallback_reason)
+                          attachment_technical_fallback_reason=technical_fallback_reason,
+                          row_create_attempted=(
+                              current.row_create_attempted
+                              if row_create_attempted is None else row_create_attempted
+                          ),
+                          row_outcome_proven=(
+                              current.row_outcome_proven
+                              if row_outcome_proven is None else row_outcome_proven
+                          ),
+                          row_reconciliation_attempted=(
+                              current.row_reconciliation_attempted
+                              if row_reconciliation_attempted is None
+                              else row_reconciliation_attempted
+                          ),
+                          row_reconciliation_match_cardinality=cardinality,
+                          row_recovery_state=recovery_state,
+                          recoverable=(
+                              current.recoverable if recoverable is None else recoverable
+                          ),
+                          attachment_blocked_due_to_unresolved_row=(
+                              current.attachment_blocked_due_to_unresolved_row
+                              if attachment_blocked_due_to_unresolved_row is None
+                              else attachment_blocked_due_to_unresolved_row
+                          ))
             return MailboxDocumentJobState(**values)
         return self._mutate(job_key, change)
 
     def _acquire_lease(self, current: MailboxDocumentJobState):
-        if current.stage not in {"discovered", "processing"}:
+        if current.stage not in {"discovered", "processing", "row_retry_ready"}:
             return "state_conflict"
         now = datetime.now(timezone.utc)
         if current.stage == "processing" and current.lease_token and current.lease_expires_at:
@@ -290,6 +396,27 @@ class MailboxDocumentJobStateService:
                       updated_at=now.isoformat())
         return MailboxDocumentJobState(**values)
 
+    def _acquire_business_action_lease(self, current: MailboxDocumentJobState):
+        if current.stage not in {
+            "row_write_pending", "row_create_in_flight", "row_write_uncertain",
+            "row_written", "attachment_write_pending", "attachment_write_uncertain",
+        }:
+            return "state_conflict"
+        now = datetime.now(timezone.utc)
+        if current.lease_token and current.lease_expires_at:
+            try:
+                if datetime.fromisoformat(current.lease_expires_at) > now:
+                    return "lease_active"
+            except ValueError:
+                return "state_corrupt"
+        values = asdict(current)
+        values.update(
+            lease_token=uuid.uuid4().hex,
+            lease_expires_at=(now + timedelta(seconds=self.lease_seconds)).isoformat(),
+            updated_at=now.isoformat(),
+        )
+        return MailboxDocumentJobState(**values)
+
     def _state_retry_disposition(self, state: MailboxDocumentJobState):
         if not state.retryable:
             return (
@@ -298,17 +425,16 @@ class MailboxDocumentJobStateService:
             )
         if state.stage == "row_write_pending":
             return "processed_result_unavailable", False
-        if state.stage in {
-            "row_write_uncertain",
-            "attachment_write_uncertain",
-            "blocked_permanent",
-        }:
+        if state.stage in {"row_create_in_flight", "row_write_uncertain"}:
+            return state.last_failure_category or state.stage, True
+        if state.stage == "row_retry_ready":
+            return state.last_failure_category or "row_reconciliation_zero_matches", True
+        if state.stage in {"attachment_write_uncertain", "blocked_permanent"}:
             return state.last_failure_category or state.stage, False
         if state.stage == "processing" and self._lease_is_active(state):
             return "processing_lease_active", False
         if state.stage in {
-            "discovered",
-            "processing",
+            "discovered", "processing",
             "row_written",
             "attachment_write_pending",
         }:
@@ -386,42 +512,60 @@ class MailboxDocumentJobStateService:
 
     def _decode(self, payload: Any, *, expected_job_key: str) -> MailboxDocumentJobStateResult:
         expected = {field.name for field in __import__("dataclasses").fields(MailboxDocumentJobState)}
-        diagnostic_fields = {
-            "attachment_business_filename_attempted",
-            "attachment_required_component_failure_count",
-            "attachment_optional_component_omission_count",
-            "attachment_placeholder_categories",
-            "attachment_technical_fallback_reason",
-        }
-        legacy_with_name = expected - diagnostic_fields
-        legacy = legacy_with_name - {"attachment_filename", "attachment_naming_status"}
         keys = frozenset(payload) if isinstance(payload, dict) else frozenset()
-        if not isinstance(payload, dict) or keys not in {
-            frozenset(expected), frozenset(legacy_with_name), frozenset(legacy)
-        }:
+        required = {
+            "schema_version", "job_key", "message_key", "attachment_key",
+            "document_key", "stage", "smartsheet_row_id", "attachment_required",
+            "row_attempt_count", "attachment_attempt_count", "last_failure_category",
+            "retryable", "lease_token", "lease_expires_at", "updated_at",
+        }
+        if not isinstance(payload, dict):
             return self._failure("state_corrupt")
-        if keys == frozenset(legacy):
-            payload = dict(payload, attachment_filename=None, attachment_naming_status=None)
-        if keys != frozenset(expected):
-            payload = dict(
-                payload,
-                attachment_business_filename_attempted=False,
-                attachment_required_component_failure_count=0,
-                attachment_optional_component_omission_count=0,
-                attachment_placeholder_categories=(),
-                attachment_technical_fallback_reason="none",
-            )
-        elif isinstance(payload.get("attachment_placeholder_categories"), list):
-            payload = dict(
-                payload,
-                attachment_placeholder_categories=tuple(
-                    payload["attachment_placeholder_categories"]
-                ),
+        if payload.get("schema_version") not in {1, self.SCHEMA_VERSION}:
+            return self._failure("state_version_unsupported")
+        if not required <= keys or not keys <= expected:
+            return self._failure("state_corrupt")
+        if payload.get("schema_version") == self.SCHEMA_VERSION and keys != expected:
+            return self._failure("state_corrupt")
+        legacy_stage = str(payload.get("stage", ""))
+        raw_row_attempt_count = payload.get("row_attempt_count", 0)
+        legacy_row_attempted = (
+            isinstance(raw_row_attempt_count, int)
+            and not isinstance(raw_row_attempt_count, bool)
+            and raw_row_attempt_count > 0
+        )
+        legacy_row_proven = payload.get("smartsheet_row_id") is not None
+        defaults = {
+            "attachment_filename": None,
+            "attachment_naming_status": None,
+            "attachment_business_filename_attempted": False,
+            "attachment_required_component_failure_count": 0,
+            "attachment_optional_component_omission_count": 0,
+            "attachment_placeholder_categories": (),
+            "attachment_technical_fallback_reason": "none",
+            "row_create_attempted": legacy_row_attempted,
+            "row_outcome_proven": legacy_row_proven,
+            "row_reconciliation_attempted": legacy_stage == "row_write_uncertain",
+            "row_reconciliation_match_cardinality": (
+                "unavailable" if legacy_stage == "row_write_uncertain"
+                else "not_attempted"
+            ),
+            "row_recovery_state": (
+                "reconcile_only" if legacy_stage == "row_write_uncertain"
+                else "blocked" if legacy_stage == "blocked_permanent" else "none"
+            ),
+            "recoverable": legacy_stage == "row_write_uncertain",
+            "attachment_blocked_due_to_unresolved_row": (
+                legacy_stage == "row_write_uncertain" and not legacy_row_proven
+            ),
+        }
+        payload = {**defaults, **payload, "schema_version": self.SCHEMA_VERSION}
+        if isinstance(payload.get("attachment_placeholder_categories"), list):
+            payload["attachment_placeholder_categories"] = tuple(
+                payload["attachment_placeholder_categories"]
             )
         try: state = MailboxDocumentJobState(**payload)
         except TypeError: return self._failure("state_corrupt")
-        if state.schema_version != self.SCHEMA_VERSION:
-            return self._failure("state_version_unsupported")
         if state.job_key != expected_job_key or state.stage not in STAGES:
             return self._failure("state_inconsistent")
         if not all(self._valid_digest(value) for value in (state.job_key, state.message_key, state.attachment_key, state.document_key)):
@@ -450,6 +594,19 @@ class MailboxDocumentJobStateService:
             or self._safe_category(
                 state.attachment_technical_fallback_reason
             ) != state.attachment_technical_fallback_reason
+            or any(
+                not isinstance(value, bool)
+                for value in (
+                    state.row_create_attempted,
+                    state.row_outcome_proven,
+                    state.row_reconciliation_attempted,
+                    state.recoverable,
+                    state.attachment_blocked_due_to_unresolved_row,
+                )
+            )
+            or state.row_reconciliation_match_cardinality
+            not in RECONCILIATION_CARDINALITIES
+            or state.row_recovery_state not in ROW_RECOVERY_STATES
         ):
             return self._failure("state_corrupt")
         return MailboxDocumentJobStateResult(True, "state_loaded", state)
@@ -480,6 +637,13 @@ class MailboxDocumentJobStateService:
             attachment_attempt_count=None,
             failure_category=str(status),
             retryable=False,
+            recoverable=False,
+            row_create_attempted=False,
+            row_outcome_proven=False,
+            row_reconciliation_attempted=False,
+            row_reconciliation_match_cardinality="unavailable",
+            row_recovery_state="blocked",
+            attachment_blocked_due_to_unresolved_row=False,
             success=False,
             status=str(status),
         )

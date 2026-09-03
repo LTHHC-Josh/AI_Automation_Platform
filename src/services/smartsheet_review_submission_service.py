@@ -158,11 +158,13 @@ class SmartsheetReviewSubmissionService:
         run_type: str = "",
     ) -> SmartsheetReviewSubmissionResult:
         """
-        Retry only when the prior attempt did not create a row.
+        Retry only when the prior outcome proves that no row was created.
 
         No external row reference is stored by this service, so an
         existing-row attachment continuation cannot be performed safely.
-        Blocking that retry prevents blind duplicate row creation.
+        Existing or uncertain row outcomes are blocked to prevent blind
+        duplicate row creation. Durable mailbox recovery performs exact-key
+        reconciliation instead of using this direct retry path.
         """
 
         if not isinstance(
@@ -178,6 +180,17 @@ class SmartsheetReviewSubmissionService:
                 written=True,
                 success=False,
                 status="retry_blocked_existing_row",
+            )
+
+        if previous_result.status in {
+            "row_write_timeout",
+            "row_write_response_invalid",
+            "row_write_outcome_unknown",
+        }:
+            return SmartsheetReviewSubmissionResult(
+                written=False,
+                success=False,
+                status="retry_blocked_uncertain_row",
             )
 
         return self.submit(

@@ -215,6 +215,55 @@ def test_handled_state_survives_new_processor_instance():
         ]
 
 
+def test_retry_ready_reprocesses_same_durable_job_without_new_identity():
+    with TemporaryDirectory() as directory:
+        state_root = Path(directory)
+        message = {
+            "id": "synthetic-recovery-message",
+            "subject": "Synthetic subject",
+            "hasAttachments": True,
+        }
+        jobs = MailboxDocumentJobStateService(state_root / "jobs")
+        messages = MailboxProcessingStateService(state_root / "messages")
+        first_documents = RecordingDocumentProcessor()
+        first = MailboxProcessor(
+            email_service=RecordingEmailService(),
+            attachment_service=RecordingAttachmentService(),
+            document_processor=first_documents,
+            processing_state_service=messages,
+            job_state_service=jobs,
+        ).process_message(message)
+        job_key = first.work_items[0].job_key
+        ready = jobs.transition(
+            job_key, expected_stages={"row_write_pending"},
+            stage="row_retry_ready",
+            failure_category="row_reconciliation_zero_matches",
+            retryable=True, recoverable=True,
+            row_create_attempted=True, increment_row_attempt=True,
+            row_reconciliation_attempted=True,
+            row_reconciliation_match_cardinality="zero",
+            row_recovery_state="retry_ready",
+            attachment_blocked_due_to_unresolved_row=True,
+        )
+        assert ready.success
+
+        second_documents = RecordingDocumentProcessor()
+        second = MailboxProcessor(
+            email_service=RecordingEmailService(),
+            attachment_service=RecordingAttachmentService(),
+            document_processor=second_documents,
+            processing_state_service=messages,
+            job_state_service=jobs,
+        ).process_message(message)
+
+        assert len(second.work_items) == 1
+        assert second.work_items[0].job_key == job_key
+        assert len(second_documents.calls) == 1
+        stored = jobs.load(job_key).state
+        assert stored.stage == "row_write_pending"
+        assert stored.row_attempt_count == 1
+
+
 print("=" * 60)
 print("Testing Mailbox Persistent Idempotency")
 print("=" * 60)
@@ -227,6 +276,11 @@ run_test(
     (
         test_handled_state_survives_new_processor_instance
     ),
+)
+
+run_test(
+    "retry-ready recovery reuses durable job",
+    test_retry_ready_reprocesses_same_durable_job_without_new_identity,
 )
 
 print()

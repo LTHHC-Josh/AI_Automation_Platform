@@ -74,6 +74,10 @@ def result():
         completed_document_count=1,
         row_action="created",
         attachment_action="uploaded",
+        row_create_attempted=True,
+        row_outcome_proven=True,
+        reconciliation_attempted=True,
+        reconciliation_match_cardinality="zero",
         filename_readiness=FilenameReadinessDiagnostic(
             person_components_ready=True,
             payer_lookup_ready=True,
@@ -278,16 +282,26 @@ def test_conditional_attempt_two_uses_real_stage_names():
 
 def test_smartsheet_action_stage_names_are_explicit_and_phi_safe():
     expected = {
+        "smartsheet_row_create_attempted": "Smartsheet Row Create Attempted",
         "smartsheet_row_created": "Smartsheet Row Created",
         "smartsheet_row_reconciled_existing": "Smartsheet Row Reconciled",
         "smartsheet_row_skipped": "Smartsheet Row Skipped",
+        "smartsheet_row_write_failed": "Smartsheet Row Write Failed",
+        "smartsheet_row_outcome_unresolved": "Smartsheet Row Outcome Unresolved",
         "smartsheet_attachment_uploaded": "Smartsheet Attachment Uploaded",
         "smartsheet_attachment_reconciled_existing": "Smartsheet Attachment Reconciled",
         "smartsheet_attachment_skipped": "Smartsheet Attachment Skipped",
+        "smartsheet_attachment_blocked": "Smartsheet Attachment Blocked",
     }
     assert {key: workflow._STAGE_NAMES[key] for key in expected} == expected
     assert "row_id" not in repr(expected)
     assert "attachment_name" not in repr(expected)
+    assert workflow._SAFE_RECONCILIATION_CARDINALITIES == {
+        "not_attempted", "zero", "one", "multiple", "unavailable", "mixed",
+    }
+    assert workflow._SAFE_ROW_RECOVERY_STATES == {
+        "none", "reconcile_only", "retry_ready", "blocked", "mixed",
+    }
 
 
 def test_summary_contract_excludes_protected_fields():
@@ -312,6 +326,10 @@ def test_summary_contract_excludes_protected_fields():
         "quantity_present", "unit_source_category",
         "business_filename_attempted", "required_component_failure_count",
         "optional_component_omission_count",
+        "row_create_attempted", "row_outcome_proven",
+        "reconciliation_attempted", "reconciliation_match_cardinality",
+        "row_recovery_state", "attachment_blocked_due_to_unresolved_row",
+        "recoverable", "retryable", "failure_category",
     ):
         assert safe_readiness_field in summary_block
     try:

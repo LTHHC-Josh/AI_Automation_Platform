@@ -41,6 +41,9 @@ class SmartsheetRowWriteOperationResult:
     column_count: int = 0
     success: bool = False
     status: str = "smartsheet_write_failed"
+    request_attempted: bool = False
+    outcome_proven: bool = False
+    retryable: bool = False
 
 
 @dataclass(frozen=True)
@@ -232,12 +235,61 @@ class SmartsheetReviewedWriteService:
             row = self.client.add_row(
                 cells
             )
+        except smartsheet.exceptions.ServerTimeoutExceededError:
+            return SmartsheetRowWriteOperationResult(
+                False, column_count=len(cells), status="row_write_timeout",
+                request_attempted=True, retryable=False,
+            )
+        except smartsheet.exceptions.ApiError as error:
+            if bool(getattr(error, "should_retry", False)):
+                return SmartsheetRowWriteOperationResult(
+                    False, column_count=len(cells),
+                    status="row_write_outcome_unknown",
+                    request_attempted=True, retryable=False,
+                )
+            return SmartsheetRowWriteOperationResult(
+                False, column_count=len(cells), status="row_write_api_rejected",
+                request_attempted=True, outcome_proven=True, retryable=False,
+            )
+        except smartsheet.exceptions.UnexpectedRequestError as error:
+            cause = getattr(error, "__cause__", None)
+            category = (
+                "row_write_timeout"
+                if cause is not None and "timeout" in type(cause).__name__.lower()
+                else "row_write_outcome_unknown"
+            )
+            return SmartsheetRowWriteOperationResult(
+                False, column_count=len(cells), status=category,
+                request_attempted=True, retryable=False,
+            )
+        except smartsheet.exceptions.HttpError:
+            return SmartsheetRowWriteOperationResult(
+                False, column_count=len(cells),
+                status="row_write_outcome_unknown",
+                request_attempted=True, retryable=False,
+            )
+        except (AttributeError, IndexError, KeyError, TypeError):
+            return SmartsheetRowWriteOperationResult(
+                False, column_count=len(cells),
+                status="row_write_response_invalid",
+                request_attempted=True, retryable=False,
+            )
         except Exception:
-            return SmartsheetRowWriteOperationResult(False, status="smartsheet_write_failed")
+            return SmartsheetRowWriteOperationResult(
+                False, column_count=len(cells),
+                status="row_write_outcome_unknown",
+                request_attempted=True, retryable=False,
+            )
         row_id = getattr(row, "id", None)
         if not self._is_valid_column_id(row_id):
-            return SmartsheetRowWriteOperationResult(True, status="invalid_written_row_id", column_count=len(cells))
-        return SmartsheetRowWriteOperationResult(True, row_id, len(cells), True, "row_written")
+            return SmartsheetRowWriteOperationResult(
+                False, column_count=len(cells), status="row_write_response_invalid",
+                request_attempted=True, retryable=False,
+            )
+        return SmartsheetRowWriteOperationResult(
+            True, row_id, len(cells), True, "row_written",
+            request_attempted=True, outcome_proven=True, retryable=False,
+        )
 
     def attach_to_existing_row(self, *, row_id, attachment_source_path,
                                filename_policy_result: Any = None,

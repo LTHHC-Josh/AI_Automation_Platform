@@ -82,7 +82,7 @@ def test_corrupt_and_unsupported_state_fail_closed_without_overwrite(tmp_path):
         message_key=digest("a"), attachment_key=digest("b"), document_key=digest("c")
     ).status == "state_corrupt"
     payload = {field: value for field, value in json.loads(json.dumps({
-        "schema_version": 2, "job_key": state.job_key, "message_key": digest("a"),
+        "schema_version": 99, "job_key": state.job_key, "message_key": digest("a"),
         "attachment_key": digest("b"), "document_key": digest("c"), "stage": "discovered",
         "smartsheet_row_id": None, "attachment_required": True, "row_attempt_count": 0,
         "attachment_attempt_count": 0, "last_failure_category": None, "retryable": True,
@@ -90,6 +90,34 @@ def test_corrupt_and_unsupported_state_fail_closed_without_overwrite(tmp_path):
     })).items()}
     path.write_text(json.dumps(payload), encoding="utf-8")
     assert service.load(state.job_key).status == "state_version_unsupported"
+
+
+def test_version_one_uncertain_state_migrates_in_memory_without_overwrite(tmp_path):
+    service = MailboxDocumentJobStateService(tmp_path)
+    state = discovered(service).state
+    path = tmp_path / f"{state.job_key}.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    for name in (
+        "row_create_attempted", "row_outcome_proven",
+        "row_reconciliation_attempted",
+        "row_reconciliation_match_cardinality", "row_recovery_state",
+        "recoverable", "attachment_blocked_due_to_unresolved_row",
+    ):
+        payload.pop(name)
+    payload.update(
+        schema_version=1, stage="row_write_uncertain", row_attempt_count=1,
+        last_failure_category="row_write_outcome_unknown", retryable=False,
+    )
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    loaded = service.load(state.job_key)
+
+    assert loaded.success and loaded.state.schema_version == 2
+    assert loaded.state.row_create_attempted
+    assert loaded.state.row_reconciliation_attempted
+    assert loaded.state.row_recovery_state == "reconcile_only"
+    assert loaded.state.recoverable
+    assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == 1
 
 
 def test_submission_key_configuration_has_no_default_or_public_title():
@@ -129,9 +157,44 @@ def test_uncertain_row_never_automatically_creates_again(tmp_path):
     result = recovery.run(work_item=MailboxDocumentWorkItem(
         uncertain.job_key, digest("a"), digest("b"), digest("c"),
         Path("synthetic.pdf"), "row_write_uncertain"))
-    assert not result.success and result.status == "row_write_uncertain"
+    assert not result.success and result.status == "row_reconciliation_zero_matches"
     assert client.row_creations == 0
-    assert state_service.load(state.job_key).state.stage == "row_write_uncertain"
+    stored = state_service.load(state.job_key).state
+    assert stored.stage == "row_retry_ready"
+    assert stored.retryable and stored.recoverable
+
+
+def test_uncertain_row_with_unavailable_reconciliation_remains_reconcile_only(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state = discovered(state_service).state
+    lease = state_service.acquire_processing_lease(state.job_key).state
+    state_service.transition(
+        state.job_key, expected_stages={"processing"},
+        stage="row_create_in_flight", lease_token=lease.lease_token,
+        increment_row_attempt=True, row_create_attempted=True,
+        row_recovery_state="reconcile_only", recoverable=True,
+    )
+    write_service = NoCreateWriteService(UnavailableReconciliationClient())
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
+            environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}),
+        write_service=write_service,
+    )
+
+    result = recovery.run(work_item=MailboxDocumentWorkItem(
+        state.job_key, digest("a"), digest("b"), digest("c"),
+        Path("synthetic.pdf"), "row_create_in_flight",
+    ))
+    stored = state_service.load(state.job_key).state
+
+    assert not result.success
+    assert result.failure_category == "row_reconciliation_unavailable"
+    assert result.row_recovery_state == "reconcile_only"
+    assert result.reconciliation_match_cardinality == "unavailable"
+    assert stored.stage == "row_write_uncertain"
+    assert stored.row_attempt_count == 1
+    assert write_service.row_create_calls == 0
 
 
 class SequencedReconciliationClient:
@@ -145,6 +208,9 @@ class SequencedReconciliationClient:
         result = self.row_matches[self.row_reads]
         self.row_reads += 1
         return list(result)
+
+    def find_row_ids_by_exact_column_title_value(self, **kwargs):
+        return self.find_row_ids_by_exact_column_value(**kwargs)
 
     def list_row_attachment_names(self, **kwargs):
         result = self.attachment_names[self.attachment_reads]
@@ -167,6 +233,11 @@ class EmptyReadyMappingService:
         return SmartsheetRowMappingResult(values={}, ready_for_write=True)
 
 
+class NotReadyMappingService:
+    def map(self, **kwargs):
+        return SmartsheetRowMappingResult(ready_for_write=False)
+
+
 class LostRowResponseWriteService:
     def __init__(self, client):
         self.client = client
@@ -184,6 +255,210 @@ class LostRowResponseWriteService:
     def attach_to_existing_row(self, **kwargs):
         self.attachment_calls += 1
         raise AssertionError("duplicate attachment attempted")
+
+
+class UnavailableReconciliationClient:
+    def find_row_ids_by_exact_column_value(self, **kwargs):
+        raise RuntimeError("SYNTHETIC_UNAVAILABLE_DETAIL")
+
+
+class NoCreateWriteService:
+    def __init__(self, client):
+        self.client = client
+        self.row_create_calls = 0
+
+    def create_row(self, **kwargs):
+        self.row_create_calls += 1
+        raise AssertionError("row create must remain blocked")
+
+
+def pending_work_item(state_service, tmp_path):
+    state = discovered(state_service).state
+    lease = state_service.acquire_processing_lease(state.job_key).state
+    pending = state_service.transition(
+        state.job_key, expected_stages={"processing"}, stage="row_write_pending",
+        lease_token=lease.lease_token, retain_lease=True,
+    ).state
+    source, _ = technical_source(tmp_path)
+    return pending, MailboxDocumentWorkItem(
+        pending.job_key, digest("a"), digest("b"), digest("c"), source,
+        "row_write_pending",
+        SimpleNamespace(review_output=ReviewOutput(document_type="synthetic")),
+        pending.lease_token,
+    )
+
+
+def test_precreate_reconciliation_failure_never_creates_or_increments(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state, work_item = pending_work_item(state_service, tmp_path)
+    write_service = NoCreateWriteService(UnavailableReconciliationClient())
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
+            environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}),
+        configuration_service=SyntheticConfigurationService(),
+        mapping_service=EmptyReadyMappingService(),
+        write_service=write_service,
+    )
+
+    result = recovery.run(work_item=work_item)
+    stored = state_service.load(state.job_key).state
+
+    assert not result.success
+    assert result.failure_category == "row_reconciliation_unavailable"
+    assert result.reconciliation_match_cardinality == "unavailable"
+    assert result.attachment_blocked_due_to_unresolved_row
+    assert stored.stage == "row_retry_ready"
+    assert stored.row_attempt_count == 0
+    assert write_service.row_create_calls == 0
+
+
+def test_definite_pre_call_mapping_failure_has_zero_create_attempts(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state, work_item = pending_work_item(state_service, tmp_path)
+    client = SequencedReconciliationClient(row_matches=[[]], attachment_names=[])
+    write_service = NoCreateWriteService(client)
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
+            environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}),
+        configuration_service=SyntheticConfigurationService(),
+        mapping_service=NotReadyMappingService(),
+        write_service=write_service,
+    )
+
+    result = recovery.run(work_item=work_item)
+    stored = state_service.load(state.job_key).state
+
+    assert not result.success
+    assert result.failure_category == "mapping_not_ready"
+    assert stored.stage == "blocked_permanent"
+    assert stored.row_attempt_count == 0
+    assert not stored.row_create_attempted
+    assert write_service.row_create_calls == 0
+
+
+class ScriptedWriteService:
+    def __init__(self, client, operation):
+        self.client = client
+        self.operation = operation
+        self.row_create_calls = 0
+        self.attachment_calls = 0
+
+    def create_row(self, **kwargs):
+        self.row_create_calls += 1
+        return self.operation
+
+    def attach_to_existing_row(self, **kwargs):
+        self.attachment_calls += 1
+        return SmartsheetAttachmentWriteOperationResult(
+            True, True, "attachment_written"
+        )
+
+
+def test_confirmed_create_persists_attempt_before_attachment(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state, work_item = pending_work_item(state_service, tmp_path)
+    client = SequencedReconciliationClient(
+        row_matches=[[]], attachment_names=[[]]
+    )
+    write_service = ScriptedWriteService(
+        client,
+        SmartsheetRowWriteOperationResult(
+            True, 7001, 1, True, "row_written", True, True, False
+        ),
+    )
+    events = []
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
+            environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}),
+        configuration_service=SyntheticConfigurationService(),
+        mapping_service=EmptyReadyMappingService(),
+        write_service=write_service,
+    )
+
+    result = recovery.run(
+        work_item=work_item,
+        stage_observer=lambda **event: events.append(event),
+    )
+    stored = state_service.load(state.job_key).state
+
+    assert result.success and result.row_action == "created"
+    assert result.attachment_action == "uploaded"
+    assert stored.row_attempt_count == 1
+    assert stored.attachment_attempt_count == 1
+    assert stored.row_outcome_proven
+    assert [event["stage"] for event in events] == [
+        "smartsheet_row_create_attempted"
+    ]
+
+
+def test_definite_api_rejection_is_proven_recoverable_not_auto_retryable(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state, work_item = pending_work_item(state_service, tmp_path)
+    client = SequencedReconciliationClient(
+        row_matches=[[], []], attachment_names=[]
+    )
+    write_service = ScriptedWriteService(
+        client,
+        SmartsheetRowWriteOperationResult(
+            False, None, 1, False, "row_write_api_rejected",
+            True, True, False,
+        ),
+    )
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
+            environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}),
+        configuration_service=SyntheticConfigurationService(),
+        mapping_service=EmptyReadyMappingService(),
+        write_service=write_service,
+    )
+
+    result = recovery.run(work_item=work_item)
+    stored = state_service.load(state.job_key).state
+
+    assert not result.success and result.failure_category == "row_write_api_rejected"
+    assert result.row_outcome_proven and result.recoverable
+    assert not result.retryable
+    assert stored.stage == "row_retry_ready"
+    assert stored.row_attempt_count == 1
+    assert write_service.attachment_calls == 0
+
+
+def test_uncertain_create_with_zero_match_becomes_retry_ready(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state, work_item = pending_work_item(state_service, tmp_path)
+    client = SequencedReconciliationClient(
+        row_matches=[[], []], attachment_names=[]
+    )
+    write_service = ScriptedWriteService(
+        client,
+        SmartsheetRowWriteOperationResult(
+            False, None, 1, False, "row_write_timeout",
+            True, False, False,
+        ),
+    )
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
+            environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}),
+        configuration_service=SyntheticConfigurationService(),
+        mapping_service=EmptyReadyMappingService(),
+        write_service=write_service,
+    )
+
+    result = recovery.run(work_item=work_item)
+    stored = state_service.load(state.job_key).state
+
+    assert result.failure_category == "row_reconciliation_zero_matches"
+    assert result.reconciliation_match_cardinality == "zero"
+    assert result.retryable and result.recoverable
+    assert stored.stage == "row_retry_ready"
+    assert stored.row_attempt_count == 1
+    assert stored.smartsheet_row_id is None
+    assert write_service.attachment_calls == 0
 
 
 def test_lost_row_response_reconciles_exactly_one_without_duplicate_create(tmp_path):
@@ -227,7 +502,7 @@ def test_lost_row_response_reconciles_exactly_one_without_duplicate_create(tmp_p
     repeated = recovery.run(work_item=work_item, run_type="Synthetic acceptance")
 
     assert result.success and result.completed and result.status == "completed"
-    assert result.row_action == "created"
+    assert result.row_action == "reconciled_existing"
     assert result.attachment_action == "reconciled_existing"
     assert repeated.success and repeated.completed
     assert repeated.row_action == "skipped"
@@ -287,6 +562,79 @@ class NoExternalWriteService:
     def read_or_write_comments(self, **kwargs):
         self.comment_calls += 1
         raise AssertionError("comments API was called")
+
+
+def test_restart_after_in_flight_create_reconciles_before_any_new_create(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state = discovered(state_service).state
+    lease = state_service.acquire_processing_lease(state.job_key).state
+    in_flight = state_service.transition(
+        state.job_key, expected_stages={"processing"},
+        stage="row_create_in_flight", lease_token=lease.lease_token,
+        increment_row_attempt=True, row_create_attempted=True,
+        row_recovery_state="reconcile_only", recoverable=True,
+    ).state
+    source, technical_name = technical_source(tmp_path)
+    client = SequencedReconciliationClient(
+        row_matches=[[7001]], attachment_names=[[technical_name]],
+    )
+    write_service = NoExternalWriteService(client)
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
+            environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}),
+        write_service=write_service,
+    )
+
+    result = recovery.run(work_item=MailboxDocumentWorkItem(
+        in_flight.job_key, digest("a"), digest("b"), digest("c"), source,
+        "row_create_in_flight",
+    ))
+
+    assert result.success and result.completed
+    assert result.row_action == "reconciled_existing"
+    assert result.attachment_action == "reconciled_existing"
+    assert result.row_outcome_proven
+    assert state_service.load(state.job_key).state.row_attempt_count == 1
+    assert write_service.row_update_calls == 0
+    assert write_service.comment_calls == 0
+
+
+def test_multiple_reconciliation_matches_fail_closed_without_external_write(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state = discovered(state_service).state
+    lease = state_service.acquire_processing_lease(state.job_key).state
+    in_flight = state_service.transition(
+        state.job_key, expected_stages={"processing"},
+        stage="row_create_in_flight", lease_token=lease.lease_token,
+        increment_row_attempt=True, row_create_attempted=True,
+        row_recovery_state="reconcile_only", recoverable=True,
+    ).state
+    client = SequencedReconciliationClient(
+        row_matches=[[7001, 7002]], attachment_names=[],
+    )
+    write_service = NoExternalWriteService(client)
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=SmartsheetSubmissionKeyConfigurationService(
+            environment={"SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": "Synthetic Technical Key"}),
+        write_service=write_service,
+    )
+
+    result = recovery.run(work_item=MailboxDocumentWorkItem(
+        in_flight.job_key, digest("a"), digest("b"), digest("c"),
+        Path("synthetic.pdf"), "row_create_in_flight",
+    ))
+    stored = state_service.load(state.job_key).state
+
+    assert not result.success
+    assert result.failure_category == "row_reconciliation_ambiguous"
+    assert result.reconciliation_match_cardinality == "multiple"
+    assert result.row_recovery_state == "blocked"
+    assert stored.stage == "blocked_permanent"
+    assert stored.row_attempt_count == 1
+    assert write_service.row_update_calls == 0
+    assert write_service.comment_calls == 0
 
 
 def test_existing_row_and_attachment_are_reconciled_without_attempts(tmp_path):
@@ -366,7 +714,7 @@ def test_lost_attachment_response_reconciles_without_duplicate_upload(tmp_path):
 
     assert result.success and result.completed and result.status == "completed"
     assert result.row_action == "skipped"
-    assert result.attachment_action == "uploaded"
+    assert result.attachment_action == "reconciled_existing"
     assert repeated.success and repeated.completed
     assert repeated.row_action == "skipped"
     assert repeated.attachment_action == "skipped"

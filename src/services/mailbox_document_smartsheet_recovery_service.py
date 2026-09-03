@@ -28,6 +28,15 @@ class MailboxDocumentSmartsheetRecoveryResult:
     row_action: str = "skipped"
     attachment_action: str = "skipped"
     filename_readiness: FilenameReadinessDiagnostic | None = None
+    row_create_attempted: bool = False
+    row_outcome_proven: bool = False
+    reconciliation_attempted: bool = False
+    reconciliation_match_cardinality: str = "not_attempted"
+    row_recovery_state: str = "none"
+    attachment_blocked_due_to_unresolved_row: bool = False
+    failure_category: str | None = None
+    retryable: bool = False
+    recoverable: bool = False
 
 
 class MailboxDocumentSmartsheetRecoveryService:
@@ -47,7 +56,10 @@ class MailboxDocumentSmartsheetRecoveryService:
         self.filename_assembly_service = filename_assembly_service or ProductionFilenameAssemblyService()
         self.attachment_naming_service = attachment_naming_service or DocumentAttachmentNamingService()
 
-    def run(self, *, work_item: MailboxDocumentWorkItem, run_type: str = ""):
+    def run(
+        self, *, work_item: MailboxDocumentWorkItem, run_type: str = "",
+        stage_observer=None,
+    ):
         if not isinstance(work_item, MailboxDocumentWorkItem):
             return self._failure("invalid_work_item")
         loaded = self.job_state_service.load(work_item.job_key)
@@ -58,12 +70,24 @@ class MailboxDocumentSmartsheetRecoveryService:
         if state.stage == "attachment_written":
             return MailboxDocumentSmartsheetRecoveryResult(
                 True, True, True, True, "completed", "skipped", "skipped",
-                self._persisted_filename_diagnostic(state))
+                self._persisted_filename_diagnostic(state),
+                row_create_attempted=state.row_create_attempted,
+                row_outcome_proven=True,
+                reconciliation_attempted=state.row_reconciliation_attempted,
+                reconciliation_match_cardinality=(
+                    state.row_reconciliation_match_cardinality
+                ),
+                row_recovery_state="none",
+            )
         if state.stage == "blocked_permanent":
-            return self._failure("blocked_permanent")
-        if state.stage != "row_write_uncertain":
+            return self._state_failure(state, "blocked_permanent")
+        if state.stage == "row_retry_ready" and work_item.document is None:
+            return self._state_failure(state, state.last_failure_category or "row_retry_ready")
+        if state.stage not in {"row_create_in_flight", "row_write_uncertain"}:
             state, naming_status, filename_diagnostic = (
-                self._ensure_attachment_name(work_item, state)
+                self._ensure_attachment_name(
+                    work_item, state, lease_token=work_item.lease_token
+                )
             )
             if state is None:
                 return self._failure(naming_status)
@@ -72,14 +96,30 @@ class MailboxDocumentSmartsheetRecoveryService:
             return self._failure(key_configuration.status)
         title = key_configuration.column_title
 
+        lease_token = work_item.lease_token
+        if not (
+            state.lease_token is not None
+            and lease_token is not None
+            and state.lease_token == lease_token
+        ):
+            leased = self.job_state_service.acquire_business_action_lease(
+                work_item.job_key
+            )
+            if not leased.success or leased.state is None:
+                return self._failure(leased.status)
+            state = leased.state
+            lease_token = state.lease_token
+
         row_id = state.smartsheet_row_id
         row_action = "skipped"
-        row_create_attempted = False
-        if state.stage in {"row_write_pending", "row_write_uncertain"}:
+        if state.stage in {
+            "row_write_pending", "row_create_in_flight", "row_write_uncertain"
+        }:
             document = work_item.document
             review_output = getattr(document, "review_output", None)
-            if state.stage == "row_write_pending" and review_output is None:
-                return self._failure("processed_result_unavailable")
+            current_attempt = state.stage in {
+                "row_create_in_flight", "row_write_uncertain"
+            }
             configuration = None
             if review_output is not None:
                 configuration = self.configuration_service.resolve(
@@ -88,29 +128,80 @@ class MailboxDocumentSmartsheetRecoveryService:
                     document_subtype=review_output.document_subtype,
                 )
                 if not configuration.success:
-                    return self._block(work_item.job_key, state.stage, configuration.status)
+                    return self._block(
+                        work_item.job_key, state.stage, configuration.status,
+                        lease_token=lease_token,
+                    )
                 if title not in configuration.available_columns:
-                    return self._block(work_item.job_key, state.stage, "submission_key_column_missing")
+                    return self._block(
+                        work_item.job_key, state.stage,
+                        "submission_key_column_missing", lease_token=lease_token,
+                    )
             column_id = (configuration.available_columns[title] if configuration else None)
             matches = self._find_rows(column_id, work_item.job_key, title=title)
             if matches is None:
-                if state.stage == "row_write_uncertain":
-                    return self._failure("row_write_uncertain", row_action="failed")
-                matches = []
+                target_stage = "row_write_uncertain" if current_attempt else "row_retry_ready"
+                stored = self.job_state_service.transition(
+                    work_item.job_key, expected_stages={state.stage},
+                    stage=target_stage, lease_token=lease_token,
+                    failure_category="row_reconciliation_unavailable",
+                    retryable=True, recoverable=True,
+                    row_reconciliation_attempted=True,
+                    row_reconciliation_match_cardinality="unavailable",
+                    row_recovery_state=(
+                        "reconcile_only" if current_attempt else "retry_ready"
+                    ),
+                    attachment_blocked_due_to_unresolved_row=True,
+                )
+                return self._state_failure(
+                    stored.state or state, "row_reconciliation_unavailable"
+                )
             if len(matches) > 1:
-                return self._block(work_item.job_key, state.stage, "duplicate_row_conflict")
+                return self._block(
+                    work_item.job_key, state.stage, "row_reconciliation_ambiguous",
+                    lease_token=lease_token, reconciliation_cardinality="multiple",
+                )
             if len(matches) == 1:
                 row_id = matches[0]
                 row_action = "reconciled_existing"
-            elif state.stage == "row_write_uncertain":
-                return self._failure("row_write_uncertain", row_action="failed")
+                stored = self.job_state_service.transition(
+                    work_item.job_key, expected_stages={state.stage},
+                    stage="row_written", lease_token=lease_token,
+                    smartsheet_row_id=row_id, retain_lease=True,
+                    row_outcome_proven=True,
+                    row_reconciliation_attempted=True,
+                    row_reconciliation_match_cardinality="one",
+                    row_recovery_state="none", recoverable=False,
+                    retryable=False,
+                    attachment_blocked_due_to_unresolved_row=False,
+                )
+                if not stored.success or stored.state is None:
+                    return self._failure(stored.status, row_action=row_action)
+                state = stored.state
+            elif current_attempt or review_output is None:
+                stored = self.job_state_service.transition(
+                    work_item.job_key, expected_stages={state.stage},
+                    stage="row_retry_ready", lease_token=lease_token,
+                    failure_category="row_reconciliation_zero_matches",
+                    retryable=True, recoverable=True,
+                    row_reconciliation_attempted=True,
+                    row_reconciliation_match_cardinality="zero",
+                    row_recovery_state="retry_ready",
+                    attachment_blocked_due_to_unresolved_row=True,
+                )
+                return self._state_failure(
+                    stored.state or state, "row_reconciliation_zero_matches"
+                )
             else:
                 mapping = self.mapping_service.map(
                     review_output=review_output,
                     policies=list(configuration.policies), run_type=run_type,
                 )
                 if not mapping.ready_for_write:
-                    return self._block(work_item.job_key, state.stage, "mapping_not_ready")
+                    return self._block(
+                        work_item.job_key, state.stage, "mapping_not_ready",
+                        lease_token=lease_token,
+                    )
                 values = dict(mapping.values)
                 values[title] = work_item.job_key
                 mapping = SmartsheetRowMappingResult(
@@ -123,39 +214,119 @@ class MailboxDocumentSmartsheetRecoveryService:
                 available = dict(configuration.available_columns)
                 validation = self.destination_validation_service.validate(mapping, available)
                 if not validation.ready_for_write:
-                    return self._block(work_item.job_key, state.stage, "destination_not_ready")
-                row_create_attempted = True
+                    return self._block(
+                        work_item.job_key, state.stage, "destination_not_ready",
+                        lease_token=lease_token,
+                    )
+                in_flight = self.job_state_service.transition(
+                    work_item.job_key, expected_stages={state.stage},
+                    stage="row_create_in_flight", lease_token=lease_token,
+                    retain_lease=True, increment_row_attempt=True,
+                    retryable=False, recoverable=True,
+                    row_create_attempted=True, row_outcome_proven=False,
+                    row_reconciliation_attempted=True,
+                    row_reconciliation_match_cardinality="zero",
+                    row_recovery_state="reconcile_only",
+                    attachment_blocked_due_to_unresolved_row=True,
+                )
+                if not in_flight.success or in_flight.state is None:
+                    return self._failure(in_flight.status)
+                state = in_flight.state
+                self._observe(stage_observer, "smartsheet_row_create_attempted", "completed")
                 operation = self.write_service.create_row(
                     mapping=mapping, destination_validation=validation)
                 if operation.success:
                     row_id = operation.row_id
                     row_action = "created"
+                    stored = self.job_state_service.transition(
+                        work_item.job_key, expected_stages={state.stage},
+                        stage="row_written", lease_token=lease_token,
+                        smartsheet_row_id=row_id, retain_lease=True,
+                        row_outcome_proven=True, row_recovery_state="none",
+                        retryable=False, recoverable=False,
+                        attachment_blocked_due_to_unresolved_row=False,
+                    )
+                    if not stored.success or stored.state is None:
+                        return self._failure(stored.status, row_action="failed")
+                    state = stored.state
                 else:
                     matches = self._find_rows(column_id, work_item.job_key, title=title)
                     if matches is not None and len(matches) == 1:
                         row_id = matches[0]
-                        row_action = "created"
+                        row_action = "reconciled_existing"
+                        stored = self.job_state_service.transition(
+                            work_item.job_key, expected_stages={state.stage},
+                            stage="row_written", lease_token=lease_token,
+                            smartsheet_row_id=row_id, retain_lease=True,
+                            row_outcome_proven=True,
+                            row_reconciliation_attempted=True,
+                            row_reconciliation_match_cardinality="one",
+                            row_recovery_state="none", retryable=False,
+                            recoverable=False,
+                            attachment_blocked_due_to_unresolved_row=False,
+                        )
+                        if not stored.success or stored.state is None:
+                            return self._failure(stored.status, row_action="failed")
+                        state = stored.state
                     elif matches is not None and len(matches) > 1:
-                        return self._block(work_item.job_key, state.stage, "duplicate_row_conflict")
+                        return self._block(
+                            work_item.job_key, state.stage,
+                            "row_reconciliation_ambiguous",
+                            lease_token=lease_token,
+                            reconciliation_cardinality="multiple",
+                        )
+                    elif operation.outcome_proven:
+                        stored = self.job_state_service.transition(
+                            work_item.job_key, expected_stages={state.stage},
+                            stage="row_retry_ready", lease_token=lease_token,
+                            failure_category=operation.status,
+                            retryable=False, recoverable=True,
+                            row_outcome_proven=True,
+                            row_reconciliation_attempted=matches is not None,
+                            row_reconciliation_match_cardinality=(
+                                "zero" if matches is not None else "unavailable"
+                            ),
+                            row_recovery_state="retry_ready",
+                            attachment_blocked_due_to_unresolved_row=True,
+                        )
+                        return self._state_failure(
+                            stored.state or state, operation.status
+                        )
                     else:
-                        self.job_state_service.transition(
-                            work_item.job_key, expected_stages={state.stage}, stage="row_write_uncertain",
-                            failure_category="row_write_outcome_unknown", retryable=False,
-                            increment_row_attempt=True)
-                        return self._failure("row_write_uncertain", row_action="failed")
-            stored = self.job_state_service.transition(
-                work_item.job_key, expected_stages={state.stage}, stage="row_written",
-                smartsheet_row_id=row_id,
-                increment_row_attempt=row_create_attempted)
-            if not stored.success:
-                return self._failure(stored.status, row_action=row_action)
-            state = stored.state
+                        cardinality = "zero" if matches is not None else "unavailable"
+                        target_stage = (
+                            "row_retry_ready" if cardinality == "zero"
+                            else "row_write_uncertain"
+                        )
+                        category = (
+                            "row_reconciliation_zero_matches"
+                            if cardinality == "zero" else operation.status
+                        )
+                        stored = self.job_state_service.transition(
+                            work_item.job_key, expected_stages={state.stage},
+                            stage=target_stage, lease_token=lease_token,
+                            failure_category=category, retryable=True,
+                            recoverable=True, row_outcome_proven=False,
+                            row_reconciliation_attempted=True,
+                            row_reconciliation_match_cardinality=cardinality,
+                            row_recovery_state=(
+                                "retry_ready" if cardinality == "zero"
+                                else "reconcile_only"
+                            ),
+                            attachment_blocked_due_to_unresolved_row=True,
+                        )
+                        return self._state_failure(stored.state or state, category)
 
         if state is None or state.smartsheet_row_id is None:
-            return self._failure("row_reference_unavailable")
+            return self._failure(
+                "row_reference_unavailable",
+                attachment_blocked_due_to_unresolved_row=True,
+            )
         if state.attachment_filename is None:
             state, naming_status, filename_diagnostic = (
-                self._ensure_attachment_name(work_item, state)
+                self._ensure_attachment_name(
+                    work_item, state, lease_token=lease_token
+                )
             )
             if state is None:
                 return self._failure(naming_status)
@@ -165,50 +336,85 @@ class MailboxDocumentSmartsheetRecoveryService:
             return self._failure("attachment_filename_unavailable")
         names = self._attachment_names(row_id)
         if names is None:
-            if state.stage == "attachment_write_uncertain":
-                return self._failure(
-                    "attachment_write_uncertain", row_action=row_action,
-                    attachment_action="failed")
-            names = []
+            stored = self.job_state_service.transition(
+                work_item.job_key, expected_stages={state.stage},
+                stage="attachment_write_uncertain", lease_token=lease_token,
+                failure_category="attachment_reconciliation_unavailable",
+                retryable=False, recoverable=True,
+            )
+            return self._state_failure(
+                stored.state or state, "attachment_reconciliation_unavailable",
+                row_action=row_action, attachment_action="failed",
+            )
         count = sum(name == expected_name for name in names)
         if count > 1:
             return self._block(
                 work_item.job_key, state.stage, "duplicate_attachment_conflict",
-                row_action=row_action, attachment_action="failed")
-        if count == 0 and state.stage == "attachment_write_uncertain":
-            return self._failure(
-                "attachment_write_uncertain", row_action=row_action,
-                attachment_action="failed")
+                row_action=row_action, attachment_action="failed",
+                lease_token=lease_token,
+            )
+        if count == 0 and state.stage in {
+            "attachment_write_pending", "attachment_write_uncertain"
+        }:
+            return self._state_failure(
+                state, "attachment_write_outcome_unknown", row_action=row_action,
+                attachment_action="failed",
+            )
         attachment_action = "reconciled_existing" if count == 1 else "skipped"
-        attachment_upload_attempted = False
         if count == 0:
-            attachment_upload_attempted = True
+            if state.stage in {"attachment_write_pending", "attachment_write_uncertain"}:
+                return self._state_failure(
+                    state, "attachment_write_outcome_unknown",
+                    row_action=row_action, attachment_action="failed",
+                )
+            pending = self.job_state_service.transition(
+                work_item.job_key, expected_stages={state.stage},
+                stage="attachment_write_pending", lease_token=lease_token,
+                retain_lease=True, increment_attachment_attempt=True,
+            )
+            if not pending.success or pending.state is None:
+                return self._failure(
+                    pending.status, row_action=row_action,
+                    attachment_action="failed",
+                )
+            state = pending.state
             operation = self.write_service.attach_to_existing_row(
                 row_id=row_id, attachment_source_path=work_item.local_path,
                 technical_attachment_name=expected_name)
             if not operation.success:
                 names = self._attachment_names(row_id)
                 if names is None or sum(name == expected_name for name in names) != 1:
-                    self.job_state_service.transition(
+                    stored = self.job_state_service.transition(
                         work_item.job_key, expected_stages={state.stage}, stage="attachment_write_uncertain",
                         failure_category="attachment_write_outcome_unknown", retryable=False,
-                        increment_attachment_attempt=True)
-                    return self._failure(
-                        "attachment_write_uncertain", row_action=row_action,
-                        attachment_action="failed")
-            attachment_action = "uploaded"
+                        recoverable=True, lease_token=lease_token)
+                    return self._state_failure(
+                        stored.state or state, "attachment_write_outcome_unknown",
+                        row_action=row_action, attachment_action="failed",
+                    )
+                attachment_action = "reconciled_existing"
+            else:
+                attachment_action = "uploaded"
         stored = self.job_state_service.transition(
             work_item.job_key, expected_stages={state.stage}, stage="attachment_written",
-            increment_attachment_attempt=attachment_upload_attempted)
+            lease_token=lease_token)
         if not stored.success:
             return self._failure(
                 stored.status, row_action=row_action,
                 attachment_action=attachment_action)
         return MailboxDocumentSmartsheetRecoveryResult(
             True, True, True, True, "completed", row_action, attachment_action,
-            filename_diagnostic or self._persisted_filename_diagnostic(state))
+            filename_diagnostic or self._persisted_filename_diagnostic(state),
+            row_create_attempted=state.row_create_attempted,
+            row_outcome_proven=True,
+            reconciliation_attempted=state.row_reconciliation_attempted,
+            reconciliation_match_cardinality=(
+                state.row_reconciliation_match_cardinality
+            ),
+            row_recovery_state="none",
+        )
 
-    def _ensure_attachment_name(self, work_item, state):
+    def _ensure_attachment_name(self, work_item, state, *, lease_token=None):
         if state.attachment_filename is not None:
             return state, "ready", self._persisted_filename_diagnostic(state)
         assembly = getattr(work_item.document, "filename_assembly_result", None)
@@ -255,6 +461,8 @@ class MailboxDocumentSmartsheetRecoveryService:
                 assembly.diagnostic.technical_fallback_reason
                 if assembly.diagnostic is not None else assembly.status
             ),
+            lease_token=lease_token,
+            retain_lease=lease_token is not None,
         )
         if not stored.success or stored.state is None:
             return None, stored.status, assembly.diagnostic
@@ -330,14 +538,72 @@ class MailboxDocumentSmartsheetRecoveryService:
 
     def _block(
         self, job_key, stage, category, *, row_action="failed",
-        attachment_action="skipped",
+        attachment_action="skipped", lease_token=None,
+        reconciliation_cardinality=None,
     ):
-        self.job_state_service.transition(job_key, expected_stages={stage}, stage="blocked_permanent",
-                                          failure_category=category, retryable=False)
+        stored = self.job_state_service.transition(
+            job_key, expected_stages={stage}, stage="blocked_permanent",
+            lease_token=lease_token, failure_category=category, retryable=False,
+            recoverable=False, row_recovery_state="blocked",
+            row_reconciliation_attempted=(
+                True if reconciliation_cardinality is not None else None
+            ),
+            row_reconciliation_match_cardinality=reconciliation_cardinality,
+            attachment_blocked_due_to_unresolved_row=(row_action == "failed"),
+        )
+        if stored.success and stored.state is not None:
+            return self._state_failure(
+                stored.state, category, row_action=row_action,
+                attachment_action=attachment_action,
+            )
         return self._failure(
-            category, row_action=row_action, attachment_action=attachment_action)
+            stored.status, row_action=row_action,
+            attachment_action=attachment_action,
+        )
 
     @staticmethod
-    def _failure(status, *, row_action="failed", attachment_action="skipped"):
+    def _state_failure(
+        state, status, *, row_action="failed", attachment_action="skipped",
+    ):
         return MailboxDocumentSmartsheetRecoveryResult(
-            False, False, False, False, str(status), row_action, attachment_action)
+            False, bool(state.smartsheet_row_id), False, False, str(status),
+            row_action, attachment_action,
+            MailboxDocumentSmartsheetRecoveryService._persisted_filename_diagnostic(
+                state
+            ),
+            row_create_attempted=state.row_create_attempted,
+            row_outcome_proven=state.row_outcome_proven,
+            reconciliation_attempted=state.row_reconciliation_attempted,
+            reconciliation_match_cardinality=(
+                state.row_reconciliation_match_cardinality
+            ),
+            row_recovery_state=state.row_recovery_state,
+            attachment_blocked_due_to_unresolved_row=(
+                state.attachment_blocked_due_to_unresolved_row
+            ),
+            failure_category=state.last_failure_category or str(status),
+            retryable=state.retryable,
+            recoverable=state.recoverable,
+        )
+
+    @staticmethod
+    def _failure(
+        status, *, row_action="failed", attachment_action="skipped",
+        attachment_blocked_due_to_unresolved_row=False,
+    ):
+        return MailboxDocumentSmartsheetRecoveryResult(
+            False, False, False, False, str(status), row_action, attachment_action,
+            attachment_blocked_due_to_unresolved_row=(
+                attachment_blocked_due_to_unresolved_row
+            ),
+            failure_category=str(status),
+        )
+
+    @staticmethod
+    def _observe(observer, stage, status):
+        if not callable(observer):
+            return
+        try:
+            observer(stage=stage, status=status, duration_seconds=0.0)
+        except Exception:
+            return

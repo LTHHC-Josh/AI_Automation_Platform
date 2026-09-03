@@ -333,7 +333,7 @@ def test_row_failure_performs_no_attachment_upload():
 
     assert result.written is False
     assert result.success is False
-    assert result.status == "smartsheet_write_failed"
+    assert result.status == "row_write_outcome_unknown"
     assert client.add_count == 1
     assert client.attachment_count == 0
 
@@ -432,7 +432,7 @@ def test_retry_after_partial_success_blocks_duplicate_row():
     assert client.attachment_count == 1
 
 
-def test_retry_after_row_failure_can_create_row():
+def test_retry_after_uncertain_row_failure_is_blocked():
     service, client, _, _ = build_submission(
         row_failure=True
     )
@@ -451,10 +451,11 @@ def test_retry_after_row_failure_can_create_row():
     )
 
     assert first.written is False
-    assert retry.written is True
-    assert retry.success is True
-    assert client.add_count == 2
-    assert client.attachment_count == 1
+    assert retry.written is False
+    assert retry.success is False
+    assert retry.status == "retry_blocked_uncertain_row"
+    assert client.add_count == 1
+    assert client.attachment_count == 0
 
 
 def test_review_required_row_keeps_automatic_write():
@@ -581,7 +582,7 @@ TESTS = [
     ("attachment failure is partial", test_attachment_failure_is_explicit_partial_success),
     ("result states are unambiguous", test_result_states_are_unambiguous),
     ("partial retry blocks duplicate", test_retry_after_partial_success_blocks_duplicate_row),
-    ("row failure retry is allowed", test_retry_after_row_failure_can_create_row),
+    ("uncertain row failure retry is blocked", test_retry_after_uncertain_row_failure_is_blocked),
     ("review-required row writes", test_review_required_row_keeps_automatic_write),
     ("mailbox preserves partial count", test_mailbox_summary_preserves_partial_row_count),
     ("full orchestration preserves partial state", test_full_orchestration_preserves_partial_state),

@@ -832,7 +832,10 @@ class MailboxProcessor:
                 result.errors.append("Mailbox document state could not be stored.")
                 continue
             state = discovery.state
-            if state.stage not in {"discovered", "processing"}:
+            processable_retry = (
+                state.stage == "row_retry_ready" and state.retryable
+            )
+            if state.stage not in {"discovered", "processing"} and not processable_retry:
                 result.work_items.append(MailboxDocumentWorkItem(
                     state.job_key, message_key, candidate.attachment_order_key,
                     candidate.document_fingerprint, file_path, state.stage,

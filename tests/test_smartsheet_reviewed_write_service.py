@@ -341,22 +341,18 @@ def test_invalid_created_row_blocks_attachment():
         ),
     )
 
-    assert result.written is True
+    assert result.written is False
     assert result.attachment_written is False
     assert result.success is False
 
     assert (
         result.status
-        == "invalid_written_row_id"
+        == "row_write_response_invalid"
     )
 
     assert client.attachment_calls == []
 
-    assert naming.cleanup_calls == [
-        Path(
-            "SYNTHETIC_TEMP.pdf"
-        )
-    ]
+    assert naming.cleanup_calls == []
 
 
 def test_no_attachment_preserves_legacy_write():
@@ -565,7 +561,7 @@ def test_write_failure_is_sanitized():
     assert result.written is False
     assert result.column_count == 0
     assert result.status == (
-        "smartsheet_write_failed"
+        "row_write_outcome_unknown"
     )
 
     result_text = repr(

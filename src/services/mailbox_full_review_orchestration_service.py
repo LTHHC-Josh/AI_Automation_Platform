@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
+import inspect
 from typing import Any
 
 from src.graph.mailbox_processor import (
@@ -76,6 +77,13 @@ class MailboxFullReviewOrchestrationResult:
     review_reason_count: int = 0
     review_reason_categories: tuple[str, ...] = ()
     validation_summary: FinalValidationSummary = FinalValidationSummary()
+    row_create_attempted: bool = False
+    row_outcome_proven: bool = False
+    reconciliation_attempted: bool = False
+    reconciliation_match_cardinality: str = "not_attempted"
+    row_recovery_state: str = "none"
+    attachment_blocked_due_to_unresolved_row: bool = False
+    recoverable: bool = False
 
 
 class MailboxClassificationReviewMode(str, Enum):
@@ -207,20 +215,44 @@ class MailboxFullReviewOrchestrationService:
 
         try:
             action_started_at = __import__("time").perf_counter()
-            complete_result = (
-                self.complete_review_smartsheet_service.run(
-                    message_results=message_results,
-                    run_type=run_type,
+            complete_run = self.complete_review_smartsheet_service.run
+            complete_arguments = {
+                "message_results": message_results,
+                "run_type": run_type,
+            }
+            parameters = inspect.signature(complete_run).parameters
+            if (
+                "stage_observer" in parameters
+                or any(
+                    parameter.kind == inspect.Parameter.VAR_KEYWORD
+                    for parameter in parameters.values()
                 )
-            )
+            ):
+                complete_arguments["stage_observer"] = stage_observer
+            complete_result = complete_run(**complete_arguments)
+            row_stage = f"smartsheet_row_{complete_result.row_action}"
+            if complete_result.row_action == "failed":
+                row_stage = (
+                    "smartsheet_row_outcome_unresolved"
+                    if complete_result.row_recovery_state == "reconcile_only"
+                    else "smartsheet_row_write_failed"
+                )
             self._observe(
-                stage_observer, f"smartsheet_row_{complete_result.row_action}",
+                stage_observer, row_stage,
                 "failed" if complete_result.row_action == "failed" else "completed",
                 action_started_at,
             )
+            attachment_stage = (
+                "smartsheet_attachment_blocked"
+                if complete_result.attachment_blocked_due_to_unresolved_row
+                else f"smartsheet_attachment_{complete_result.attachment_action}"
+            )
             self._observe(
-                stage_observer, f"smartsheet_attachment_{complete_result.attachment_action}",
-                "failed" if complete_result.attachment_action == "failed" else "completed",
+                stage_observer, attachment_stage,
+                "failed" if (
+                    complete_result.attachment_action == "failed"
+                    or complete_result.attachment_blocked_due_to_unresolved_row
+                ) else "completed",
                 action_started_at,
             )
         except Exception:
@@ -284,7 +316,9 @@ class MailboxFullReviewOrchestrationService:
                 success=False,
                 status=complete_result.status,
                 stage="business_actions",
-                failure_category=complete_result.status,
+                failure_category=(
+                    complete_result.failure_category or complete_result.status
+                ),
                 row_action=complete_result.row_action,
                 attachment_action=complete_result.attachment_action,
             )
@@ -684,6 +718,17 @@ class MailboxFullReviewOrchestrationService:
             attachment_attempt_count = summary.attachment_attempt_count
             pending_document_count = summary.pending_document_count
             completed_document_count = summary.completed_document_count
+            row_create_attempted = summary.row_create_attempted
+            row_outcome_proven = summary.row_outcome_proven
+            reconciliation_attempted = summary.row_reconciliation_attempted
+            reconciliation_match_cardinality = (
+                summary.row_reconciliation_match_cardinality
+            )
+            row_recovery_state = summary.row_recovery_state
+            attachment_blocked_due_to_unresolved_row = (
+                summary.attachment_blocked_due_to_unresolved_row
+            )
+            recoverable = summary.recoverable
             if not summary.success or summary.pending_document_count:
                 failure_category = summary.failure_category or failure_category
             retryable = bool(not success and summary.success and summary.retryable)
@@ -693,12 +738,26 @@ class MailboxFullReviewOrchestrationService:
             pending_document_count = 0
             completed_document_count = 0
             retryable = False
+            row_create_attempted = False
+            row_outcome_proven = False
+            reconciliation_attempted = False
+            reconciliation_match_cardinality = "not_attempted"
+            row_recovery_state = "none"
+            attachment_blocked_due_to_unresolved_row = False
+            recoverable = False
         else:
             row_attempt_count = None
             attachment_attempt_count = None
             pending_document_count = None
             completed_document_count = 0
             retryable = False
+            row_create_attempted = False
+            row_outcome_proven = False
+            reconciliation_attempted = False
+            reconciliation_match_cardinality = "unavailable"
+            row_recovery_state = "blocked"
+            attachment_blocked_due_to_unresolved_row = False
+            recoverable = False
 
         return MailboxFullReviewOrchestrationResult(
             message_count=message_count,
@@ -725,6 +784,15 @@ class MailboxFullReviewOrchestrationService:
             review_reason_count=review_reason_count,
             review_reason_categories=review_reason_categories,
             validation_summary=validation_summary,
+            row_create_attempted=row_create_attempted,
+            row_outcome_proven=row_outcome_proven,
+            reconciliation_attempted=reconciliation_attempted,
+            reconciliation_match_cardinality=reconciliation_match_cardinality,
+            row_recovery_state=row_recovery_state,
+            attachment_blocked_due_to_unresolved_row=(
+                attachment_blocked_due_to_unresolved_row
+            ),
+            recoverable=recoverable,
         )
 
     @staticmethod

@@ -41,6 +41,7 @@ class RecordingMailboxProcessor:
     def process_unread_messages(
         self,
         top=10,
+        stage_observer=None,
     ):
         self.calls.append(
             top
@@ -100,12 +101,14 @@ class RecordingCompleteReviewService:
         self.calls = []
         self.run_types = []
         self.event_log = event_log
+        self.stage_observers = []
 
     def run(
         self,
         *,
         message_results,
         run_type="",
+        stage_observer=None,
     ):
         if self.event_log is not None:
             self.event_log.append("smartsheet")
@@ -117,6 +120,7 @@ class RecordingCompleteReviewService:
         self.run_types.append(
             run_type
         )
+        self.stage_observers.append(stage_observer)
 
         if self.error is not None:
             raise self.error
@@ -776,6 +780,13 @@ def test_result_contract_is_phi_safe():
         "review_reason_count",
         "review_reason_categories",
         "validation_summary",
+        "row_create_attempted",
+        "row_outcome_proven",
+        "reconciliation_attempted",
+        "reconciliation_match_cardinality",
+        "row_recovery_state",
+        "attachment_blocked_due_to_unresolved_row",
+        "recoverable",
     }
 
     prohibited_names = {
@@ -797,6 +808,45 @@ def test_result_contract_is_phi_safe():
     assert field_names.isdisjoint(
         prohibited_names
     )
+
+
+def test_uncertain_row_emits_unresolved_and_attachment_blocked_visibility():
+    message_results = build_message_results()
+    mailbox = RecordingMailboxProcessor(results=message_results)
+    complete = RecordingCompleteReviewService(
+        MailboxCompleteReviewSmartsheetResult(
+            message_count=1, document_count=1, approved_count=0,
+            written_count=0, rejected_count=0, cancelled_count=0,
+            failed_count=1, success=False, status="completed_with_failures",
+            row_action="failed", attachment_action="skipped",
+            row_create_attempted=True, row_outcome_proven=False,
+            reconciliation_attempted=True,
+            reconciliation_match_cardinality="unavailable",
+            row_recovery_state="reconcile_only",
+            attachment_blocked_due_to_unresolved_row=True,
+            failure_category="row_write_outcome_unknown",
+            recoverable=True,
+        )
+    )
+    events = []
+    service = MailboxFullReviewOrchestrationService(
+        mailbox_processor=mailbox,
+        classification_review_session=RecordingClassificationSession(
+            classification_completed()
+        ),
+        complete_review_smartsheet_service=complete,
+    )
+
+    result = service.run(
+        review_mode=MailboxClassificationReviewMode.DOWNSTREAM,
+        stage_observer=lambda **event: events.append(event),
+    )
+
+    stages = [event["stage"] for event in events]
+    assert not result.success
+    assert "smartsheet_row_outcome_unresolved" in stages
+    assert "smartsheet_attachment_blocked" in stages
+    assert complete.stage_observers[0] is not None
 
 
 print(
@@ -876,6 +926,11 @@ run_test(
 run_test(
     "result contract is PHI-safe",
     test_result_contract_is_phi_safe,
+)
+
+run_test(
+    "uncertain row visibility is explicit",
+    test_uncertain_row_emits_unresolved_and_attachment_blocked_visibility,
 )
 
 print()

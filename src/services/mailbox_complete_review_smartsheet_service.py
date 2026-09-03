@@ -52,6 +52,15 @@ class MailboxCompleteReviewSmartsheetResult:
     review_reason_count: int = 0
     review_reason_categories: tuple[str, ...] = ()
     validation_summary: FinalValidationSummary = FinalValidationSummary()
+    row_create_attempted: bool = False
+    row_outcome_proven: bool = False
+    reconciliation_attempted: bool = False
+    reconciliation_match_cardinality: str = "not_attempted"
+    row_recovery_state: str = "none"
+    attachment_blocked_due_to_unresolved_row: bool = False
+    failure_category: str | None = None
+    retryable: bool = False
+    recoverable: bool = False
 
 
 class MailboxCompleteReviewSmartsheetService:
@@ -111,6 +120,7 @@ class MailboxCompleteReviewSmartsheetService:
             MessageProcessingResult
         ],
         run_type: str = "",
+        stage_observer=None,
     ) -> MailboxCompleteReviewSmartsheetResult:
         try:
             results = list(
@@ -150,6 +160,7 @@ class MailboxCompleteReviewSmartsheetService:
         review_reason_count = 0
         reason_summary = ReviewReasonSummaryService()
         validation_summaries = []
+        recovery_results = []
 
         for message_result in results:
             work_items = getattr(message_result, "work_items", [])
@@ -177,10 +188,13 @@ class MailboxCompleteReviewSmartsheetService:
                     review_reason_categories.extend(canonical_codes)
                     try:
                         recovery_result = self.recovery_service.run(
-                            work_item=work_item, run_type=run_type)
+                            work_item=work_item, run_type=run_type,
+                            stage_observer=stage_observer,
+                        )
                     except Exception:
                         recovery_result = None
                     if recovery_result is not None:
+                        recovery_results.append(recovery_result)
                         written_count += int(recovery_result.row_action == "created")
                         row_actions.append(recovery_result.row_action)
                         attachment_actions.append(recovery_result.attachment_action)
@@ -341,6 +355,32 @@ class MailboxCompleteReviewSmartsheetService:
             validation_summary=self._aggregate_validation_summaries(
                 validation_summaries
             ),
+            row_create_attempted=any(
+                item.row_create_attempted for item in recovery_results
+            ),
+            row_outcome_proven=(
+                bool(recovery_results)
+                and all(item.row_outcome_proven for item in recovery_results)
+            ),
+            reconciliation_attempted=any(
+                item.reconciliation_attempted for item in recovery_results
+            ),
+            reconciliation_match_cardinality=self._aggregate_text(
+                item.reconciliation_match_cardinality for item in recovery_results
+            ),
+            row_recovery_state=self._aggregate_text(
+                item.row_recovery_state for item in recovery_results
+            ),
+            attachment_blocked_due_to_unresolved_row=any(
+                item.attachment_blocked_due_to_unresolved_row
+                for item in recovery_results
+            ),
+            failure_category=self._aggregate_optional_text(
+                item.failure_category for item in recovery_results
+                if item.failure_category
+            ),
+            retryable=any(item.retryable for item in recovery_results),
+            recoverable=any(item.recoverable for item in recovery_results),
         )
 
     @staticmethod
@@ -375,6 +415,24 @@ class MailboxCompleteReviewSmartsheetService:
         if len(distinct) == 1:
             return next(iter(distinct))
         return "mixed"
+
+    @staticmethod
+    def _aggregate_text(values):
+        distinct = set(values)
+        if not distinct:
+            return "not_attempted"
+        if len(distinct) == 1:
+            return next(iter(distinct))
+        return "mixed"
+
+    @staticmethod
+    def _aggregate_optional_text(values):
+        distinct = set(values)
+        if not distinct:
+            return None
+        if len(distinct) == 1:
+            return next(iter(distinct))
+        return "multiple_failures"
 
     @staticmethod
     def _failure(
