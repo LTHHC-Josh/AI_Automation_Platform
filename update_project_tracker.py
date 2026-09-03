@@ -9959,12 +9959,28 @@ Successful typed-contract recovery and DP Training checkpoint (2026-09-03):
   mutation, protected OCR/Ollama, mailbox operation, worker start, or deployment
   invocation occurred.
 
-Exact next start: perform a metadata/read-only live acceptance of DP Training
-first: verify document-processor-training deployment readiness, command mappings,
-seven-column schema, zero schedules/automations, no active worker/conflicts, and
-the read-only detection contract without reading comment content. Then
-separately authorize one controlled flagged-row/comment acceptance and one
-proposal write before enabling approval-gated Codex dispatch in production.
+DP Training read-only activation preparation (2026-09-03):
+
+- Set only `DP_TRAINING_MODE=read_only` through the existing ignored `.env`
+  protected-local configuration mechanism. Smartsheet-write and Codex-dispatch
+  gates remain absent/disabled.
+- PHI-safe readiness and `statusdptraining` resolved `read_only` while the
+  service remained stopped with zero training workers/active cycles and no
+  degraded state. No row or comment enumeration occurred.
+- Sixty-seven focused synthetic deterministic/mock/local-safe checks proved
+  seven-column validation, least-privilege discovery, literal-checkbox handling,
+  paginated attachment-free comments, one DPAPI-sealed case per row, unchanged-
+  input idempotency, same-case comment-generation updates, and no write, human-
+  checkbox mutation, or Codex path in `read_only` mode.
+- No production row/comment was read, no Smartsheet or mailbox state was mutated,
+  no protected Ollama analysis ran, and no worker/deployment was started.
+
+Exact next start: perform one controlled live `read_only` DP Training acceptance
+against one intentionally flagged `AI Correction` row. Start DP Training, verify
+exactly one protected correction case is discovered/updated, verify row/comment
+content remains local/protected, verify no Smartsheet correction-field writes
+occur, verify no Codex dispatch occurs, verify PHI-safe Prefect/status counts,
+then stop DP Training cleanly.
 
 """
 
@@ -9990,8 +10006,10 @@ updates = [
             "Prefect-visible DP Training implementation. It extends the prior "
             "feedback seed with exact correction-column ownership, protected "
             "comment/case handling, two human approval generations, controlled "
-            "local analysis, and a bounded PHI-safe Codex dispatcher. Production "
-            "row/comment acceptance and mutation gates remain pending."
+            "local analysis, and a bounded PHI-safe Codex dispatcher. The "
+            "protected local mode is now `read_only`; one controlled live "
+            "flagged-row/comment acceptance remains pending before any mutation "
+            "gate is considered."
         ),
     ),
     (

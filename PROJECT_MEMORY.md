@@ -1687,11 +1687,29 @@ Document Processor Training implementation checkpoint:
   it now reports ready `schema_only`, stopped, zero training workers/runs/cases,
   and not degraded without starting the service.
 
+DP Training read-only activation-preparation checkpoint:
+
+- Set only `DP_TRAINING_MODE=read_only` through the existing ignored `.env`
+  protected-local configuration boundary. No Smartsheet-write or Codex-dispatch
+  gate was added or enabled.
+- The readiness probe and `statusdptraining` both resolved `read_only` while DP
+  Training remained stopped, with zero training workers or active cycles and no
+  degraded state. These checks do not enumerate rows or read comments.
+- Static and synthetic coverage proved exact seven-column validation,
+  correction-column-only discovery until a literal checked flag is reverified,
+  paginated comment reads without attachments, one DPAPI-sealed case per row,
+  unchanged-input idempotency, same-case generation updates for comment changes,
+  and the absence of all Smartsheet write, checkbox mutation, and Codex-dispatch
+  paths in `read_only` mode.
+- Sixty-seven focused synthetic deterministic/mock/local-safe checks passed.
+  No production row/comment was read, no Smartsheet or mailbox state was mutated,
+  no protected Ollama analysis ran, and no worker/deployment was started.
+
 ## CURRENT NEXT START
 
-Perform a metadata/read-only live acceptance of DP Training first: verify
-document-processor-training deployment readiness, command mappings, seven-column
-schema, zero schedules/automations, no active worker/conflicts, and read-only
-detection contract without reading comment content. Then separately authorize
-one controlled flagged-row/comment acceptance and one proposal write before
-enabling approval-gated Codex dispatch in production.
+Perform one controlled live `read_only` DP Training acceptance against one
+intentionally flagged `AI Correction` row. Start DP Training, verify exactly one
+protected correction case is discovered/updated, verify row/comment content
+remains local/protected, verify no Smartsheet correction-field writes occur,
+verify no Codex dispatch occurs, verify PHI-safe Prefect/status counts, then stop
+DP Training cleanly.
