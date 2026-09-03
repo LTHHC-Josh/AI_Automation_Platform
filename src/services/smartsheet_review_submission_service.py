@@ -82,6 +82,8 @@ class SmartsheetReviewSubmissionService:
         review_output: ReviewOutput,
         policies: list[SmartsheetColumnPolicy],
         available_columns: dict[str, int],
+        available_column_types: dict[str, str] | None = None,
+        available_system_column_types: dict[str, str] | None = None,
         attachment_source_path: str | Path | None = None,
         run_type: str = "",
     ) -> SmartsheetReviewSubmissionResult:
@@ -113,6 +115,8 @@ class SmartsheetReviewSubmissionService:
             self.destination_validation_service.validate(
                 mapping=mapping,
                 available_columns=available_columns,
+                available_column_types=available_column_types,
+                available_system_column_types=available_system_column_types,
             )
         )
 
@@ -154,6 +158,8 @@ class SmartsheetReviewSubmissionService:
         review_output: ReviewOutput,
         policies: list[SmartsheetColumnPolicy],
         available_columns: dict[str, int],
+        available_column_types: dict[str, str] | None = None,
+        available_system_column_types: dict[str, str] | None = None,
         attachment_source_path: str | Path | None = None,
         run_type: str = "",
     ) -> SmartsheetReviewSubmissionResult:
@@ -186,17 +192,24 @@ class SmartsheetReviewSubmissionService:
             "row_write_timeout",
             "row_write_response_invalid",
             "row_write_outcome_unknown",
+            "row_write_api_rejected",
         }:
             return SmartsheetReviewSubmissionResult(
                 written=False,
                 success=False,
-                status="retry_blocked_uncertain_row",
+                status=(
+                    "retry_blocked_request_contract"
+                    if previous_result.status == "row_write_api_rejected"
+                    else "retry_blocked_uncertain_row"
+                ),
             )
 
         return self.submit(
             review_output=review_output,
             policies=policies,
             available_columns=available_columns,
+            available_column_types=available_column_types,
+            available_system_column_types=available_system_column_types,
             attachment_source_path=attachment_source_path,
             run_type=run_type,
         )

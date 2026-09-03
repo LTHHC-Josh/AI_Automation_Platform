@@ -9885,6 +9885,40 @@ keep attachment blocked until row identity is proven, confirm Prefect/Workflow
 Summary recovery states and safe mailbox finalization, and return the DP to
 waiting before stopdp.
 
+Typed Smartsheet row contract and API-rejection recovery checkpoint
+(2026-09-03):
+
+- Fixed the structural defect that allowed optional nulls and values without a
+  proven destination-type contract to reach Cell construction. Optional absence
+  is omitted; serialized Cells require non-null values. CHECKBOX is boolean-only,
+  DATE is normalized ISO date text, and TEXT_NUMBER is limited to explicit text,
+  integer, and finite-float scalars. Containers, arbitrary objects, Decimal/date
+  objects, text-column booleans, and non-finite numbers fail locally. AI
+  Correction remains literal false while text review flags use Yes/No.
+- Added destination type and system/writable metadata validation, duplicate-
+  destination and strict column-ID checks, aggregate PHI-safe diagnostics, and
+  fixed API-rejection metadata. No response body, request payload/value, row ID,
+  exception text, token, or sensitive response field is retained.
+- Added request contract version 2 and durable state schema version 3. The same
+  durable job may re-arm only once from an older contract. Every v2 attempt
+  reservation requires a lease, exact zero-match reconciliation, and successful
+  mapping/schema/type evidence. One match reconciles existing; multiple or
+  unavailable reconciliation fails closed; attachments remain blocked until row
+  identity is proven; direct retry cannot bypass durable recovery.
+- Modified Python compiled. Focused and affected synthetic deterministic/mock,
+  local temporary-state, adjacent Smartsheet/mailbox, and isolated local Prefect
+  checks passed. No startdp, worker/deployment run, mailbox/Graph access,
+  protected OCR/Ollama, production Smartsheet document/comment operation,
+  attachment upload, or mailbox mutation occurred.
+
+Exact next start: refresh the affected Prefect deployment/source registrations
+from the committed typed-row source, then perform one controlled recovery of the
+existing durable row-write API-rejected job without resending. Reuse its exact
+durable identity and reconcile first: one match reconciles existing, multiple or
+unavailable fails closed, and zero permits at most one leased contract-v2 create.
+Verify typed diagnostics, duplicate prevention, attachment gating, mailbox
+finalization, and clean return to waiting before stopdp.
+
 """
 
 
@@ -10004,7 +10038,11 @@ updates = [
         "Completed",
         (
             "Implemented and tested application-owned sanitized Graph and "
-            "Smartsheet failure boundaries without provider details or secrets."
+            "Smartsheet failure boundaries without provider details or secrets. "
+            "Smartsheet API rejection diagnostics now retain only a fixed safe "
+            "category, valid numeric API code, and HTTP status class; response "
+            "bodies, payloads, values, row IDs, exception text, and sensitive "
+            "provider fields are excluded."
         ),
     ),
     (
@@ -10325,7 +10363,14 @@ updates = [
             "any re-entry, blocks unavailable or ambiguous outcomes, and permits "
             "a later same-job retry only after authoritative zero-match proof and "
             "a fresh lease. Attachment handling remains blocked until row identity "
-            "is proven; direct uncertain row retries remain blocked."
+            "is proven; direct uncertain row retries remain blocked. The typed row "
+            "contract now omits optional nulls, validates CHECKBOX, DATE, and "
+            "TEXT_NUMBER scalars plus writable/system-column state before Cell "
+            "construction, and requires exact zero-match reconciliation plus passing "
+            "typed validation before a version-2 attempt can be durably reserved. "
+            "An older failed durable job can re-arm only once under the newer "
+            "contract; one match reconciles, while multiple or unavailable results "
+            "fail closed."
         ),
     ),
     (

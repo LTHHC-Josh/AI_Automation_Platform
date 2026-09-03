@@ -41,7 +41,14 @@ class RecordingDestinationValidationService:
         self.ready = ready
         self.calls = []
 
-    def validate(self, *, mapping, available_columns):
+    def validate(
+        self,
+        *,
+        mapping,
+        available_columns,
+        available_column_types=None,
+        available_system_column_types=None,
+    ):
         self.calls.append(
             {
                 "mapping": mapping,
@@ -66,6 +73,9 @@ class RecordingDestinationValidationService:
                 mapping.ready_for_write
                 and self.ready
             ),
+            mapping_validation_passed=mapping.ready_for_write,
+            schema_validation_passed=self.ready,
+            type_validation_passed=self.ready,
         )
 
 
@@ -206,7 +216,7 @@ def test_review_metadata_is_retained_for_review_required_row():
         result.values["AI Review Reasons"]
         == "Authorization Status: Could not be verified"
     )
-    assert result.values["AI Review Required"] is True
+    assert result.values["AI Review Required"] == "Yes"
 
 
 def test_optional_missing_value_is_not_invented():

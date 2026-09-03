@@ -148,6 +148,15 @@ def test_durable_batch_summary_is_fail_closed_and_aggregate_only():
             stage="row_written",
             smartsheet_row_id=1001,
             increment_row_attempt=True,
+            row_request_contract_version=2,
+            row_create_attempted=True,
+            row_reconciliation_attempted=True,
+            row_reconciliation_match_cardinality="zero",
+            row_mapped_field_count=1,
+            row_included_cell_count=1,
+            row_mapping_validation_passed=True,
+            row_schema_validation_passed=True,
+            row_type_validation_passed=True,
         )
         service.transition(
             completed.job_key,

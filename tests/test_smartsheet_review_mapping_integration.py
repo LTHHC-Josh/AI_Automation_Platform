@@ -291,11 +291,11 @@ def test_review_metadata_is_preserved():
 
     assert mapping.values[
         "AI Extraction Retry Triggered"
-    ] is True
+    ] == "Yes"
 
     assert mapping.values[
         "AI Authorized Units Reconciled"
-    ] is True
+    ] == "Yes"
 
 
 def test_source_text_is_not_mapped():
@@ -373,7 +373,7 @@ def test_human_review_preserves_metadata_and_allows_write():
 
     assert review_output.needs_human_review is True
     assert mapping.ready_for_write is True
-    assert mapping.values["AI Review Required"] is True
+    assert mapping.values["AI Review Required"] == "Yes"
     assert mapping.values["AI Review Reasons"]
     assert len(
         mapping.warnings

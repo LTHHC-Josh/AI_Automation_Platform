@@ -74,6 +74,8 @@ class RecordingSubmissionService:
         review_output,
         policies,
         available_columns,
+        available_column_types=None,
+        available_system_column_types=None,
         attachment_source_path=None,
         run_type="",
     ):

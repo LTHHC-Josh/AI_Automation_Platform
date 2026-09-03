@@ -37,6 +37,18 @@ class MailboxDocumentSmartsheetRecoveryResult:
     failure_category: str | None = None
     retryable: bool = False
     recoverable: bool = False
+    request_contract_version: int = 0
+    request_contract_rearm_count: int = 0
+    mapped_field_count: int = 0
+    included_cell_count: int = 0
+    omitted_field_count: int = 0
+    mapping_validation_passed: bool = False
+    schema_validation_passed: bool = False
+    type_validation_passed: bool = False
+    rejected_field_categories: tuple[str, ...] = ()
+    rejection_safe_category: str = "none"
+    api_status_class: str = "unavailable"
+    api_error_code: int | None = None
 
 
 class MailboxDocumentSmartsheetRecoveryService:
@@ -78,6 +90,7 @@ class MailboxDocumentSmartsheetRecoveryService:
                     state.row_reconciliation_match_cardinality
                 ),
                 row_recovery_state="none",
+                **self._state_diagnostics(state),
             )
         if state.stage == "blocked_permanent":
             return self._state_failure(state, "blocked_permanent")
@@ -117,9 +130,10 @@ class MailboxDocumentSmartsheetRecoveryService:
         }:
             document = work_item.document
             review_output = getattr(document, "review_output", None)
-            current_attempt = state.stage in {
+            reconciliation_only = state.stage in {
                 "row_create_in_flight", "row_write_uncertain"
             }
+            has_prior_attempt = state.row_attempt_count > 0
             configuration = None
             if review_output is not None:
                 configuration = self.configuration_service.resolve(
@@ -140,7 +154,11 @@ class MailboxDocumentSmartsheetRecoveryService:
             column_id = (configuration.available_columns[title] if configuration else None)
             matches = self._find_rows(column_id, work_item.job_key, title=title)
             if matches is None:
-                target_stage = "row_write_uncertain" if current_attempt else "row_retry_ready"
+                target_stage = (
+                    "row_write_uncertain"
+                    if reconciliation_only or has_prior_attempt
+                    else "row_retry_ready"
+                )
                 stored = self.job_state_service.transition(
                     work_item.job_key, expected_stages={state.stage},
                     stage=target_stage, lease_token=lease_token,
@@ -149,7 +167,9 @@ class MailboxDocumentSmartsheetRecoveryService:
                     row_reconciliation_attempted=True,
                     row_reconciliation_match_cardinality="unavailable",
                     row_recovery_state=(
-                        "reconcile_only" if current_attempt else "retry_ready"
+                        "reconcile_only"
+                        if reconciliation_only or has_prior_attempt
+                        else "retry_ready"
                     ),
                     attachment_blocked_due_to_unresolved_row=True,
                 )
@@ -178,7 +198,7 @@ class MailboxDocumentSmartsheetRecoveryService:
                 if not stored.success or stored.state is None:
                     return self._failure(stored.status, row_action=row_action)
                 state = stored.state
-            elif current_attempt or review_output is None:
+            elif reconciliation_only or review_output is None:
                 stored = self.job_state_service.transition(
                     work_item.job_key, expected_stages={state.stage},
                     stage="row_retry_ready", lease_token=lease_token,
@@ -210,13 +230,53 @@ class MailboxDocumentSmartsheetRecoveryService:
                     review_only_columns=list(mapping.review_only_columns),
                     prohibited_fields=list(mapping.prohibited_fields),
                     warnings=list(mapping.warnings), ready_for_write=True,
+                    omitted_columns=list(mapping.omitted_columns),
+                    duplicate_destination_columns=list(
+                        mapping.duplicate_destination_columns
+                    ),
                 )
                 available = dict(configuration.available_columns)
-                validation = self.destination_validation_service.validate(mapping, available)
+                validation = self.destination_validation_service.validate(
+                    mapping,
+                    available,
+                    available_column_types=dict(
+                        configuration.available_column_types
+                    ),
+                    available_system_column_types=dict(
+                        configuration.available_system_column_types
+                    ),
+                )
                 if not validation.ready_for_write:
                     return self._block(
-                        work_item.job_key, state.stage, "destination_not_ready",
+                        work_item.job_key,
+                        state.stage,
+                        validation.rejection_safe_category
+                        if validation.rejection_safe_category != "none"
+                        else "destination_not_ready",
                         lease_token=lease_token,
+                        row_diagnostics=self._validation_diagnostics(validation),
+                    )
+                is_contract_rearm = state.row_attempt_count > 0
+                if is_contract_rearm and not (
+                    state.row_request_contract_rearm_count == 0
+                    and state.row_request_contract_version
+                    < validation.request_contract_version
+                ):
+                    stored = self.job_state_service.transition(
+                        work_item.job_key,
+                        expected_stages={state.stage},
+                        stage="row_retry_ready",
+                        lease_token=lease_token,
+                        failure_category="row_request_contract_rearm_unavailable",
+                        retryable=False,
+                        recoverable=True,
+                        row_recovery_state="retry_ready",
+                        attachment_blocked_due_to_unresolved_row=True,
+                        **self._validation_diagnostics(validation),
+                    )
+                    return self._state_failure(
+                        stored.state or state,
+                        "row_request_contract_rearm_unavailable",
                     )
                 in_flight = self.job_state_service.transition(
                     work_item.job_key, expected_stages={state.stage},
@@ -228,6 +288,11 @@ class MailboxDocumentSmartsheetRecoveryService:
                     row_reconciliation_match_cardinality="zero",
                     row_recovery_state="reconcile_only",
                     attachment_blocked_due_to_unresolved_row=True,
+                    row_request_contract_version=(
+                        validation.request_contract_version
+                    ),
+                    increment_row_request_contract_rearm=is_contract_rearm,
+                    **self._validation_diagnostics(validation),
                 )
                 if not in_flight.success or in_flight.state is None:
                     return self._failure(in_flight.status)
@@ -276,18 +341,29 @@ class MailboxDocumentSmartsheetRecoveryService:
                             reconciliation_cardinality="multiple",
                         )
                     elif operation.outcome_proven:
+                        cardinality = (
+                            "zero" if matches is not None else "unavailable"
+                        )
                         stored = self.job_state_service.transition(
                             work_item.job_key, expected_stages={state.stage},
-                            stage="row_retry_ready", lease_token=lease_token,
+                            stage=(
+                                "row_retry_ready"
+                                if cardinality == "zero"
+                                else "row_write_uncertain"
+                            ),
+                            lease_token=lease_token,
                             failure_category=operation.status,
                             retryable=False, recoverable=True,
                             row_outcome_proven=True,
                             row_reconciliation_attempted=matches is not None,
-                            row_reconciliation_match_cardinality=(
-                                "zero" if matches is not None else "unavailable"
+                            row_reconciliation_match_cardinality=cardinality,
+                            row_recovery_state=(
+                                "retry_ready"
+                                if cardinality == "zero"
+                                else "reconcile_only"
                             ),
-                            row_recovery_state="retry_ready",
                             attachment_blocked_due_to_unresolved_row=True,
+                            **self._operation_diagnostics(operation),
                         )
                         return self._state_failure(
                             stored.state or state, operation.status
@@ -305,7 +381,7 @@ class MailboxDocumentSmartsheetRecoveryService:
                         stored = self.job_state_service.transition(
                             work_item.job_key, expected_stages={state.stage},
                             stage=target_stage, lease_token=lease_token,
-                            failure_category=category, retryable=True,
+                            failure_category=category, retryable=False,
                             recoverable=True, row_outcome_proven=False,
                             row_reconciliation_attempted=True,
                             row_reconciliation_match_cardinality=cardinality,
@@ -314,6 +390,7 @@ class MailboxDocumentSmartsheetRecoveryService:
                                 else "reconcile_only"
                             ),
                             attachment_blocked_due_to_unresolved_row=True,
+                            **self._operation_diagnostics(operation),
                         )
                         return self._state_failure(stored.state or state, category)
 
@@ -412,6 +489,7 @@ class MailboxDocumentSmartsheetRecoveryService:
                 state.row_reconciliation_match_cardinality
             ),
             row_recovery_state="none",
+            **self._state_diagnostics(state),
         )
 
     def _ensure_attachment_name(self, work_item, state, *, lease_token=None):
@@ -540,6 +618,7 @@ class MailboxDocumentSmartsheetRecoveryService:
         self, job_key, stage, category, *, row_action="failed",
         attachment_action="skipped", lease_token=None,
         reconciliation_cardinality=None,
+        row_diagnostics=None,
     ):
         stored = self.job_state_service.transition(
             job_key, expected_stages={stage}, stage="blocked_permanent",
@@ -550,6 +629,7 @@ class MailboxDocumentSmartsheetRecoveryService:
             ),
             row_reconciliation_match_cardinality=reconciliation_cardinality,
             attachment_blocked_due_to_unresolved_row=(row_action == "failed"),
+            **(row_diagnostics or {}),
         )
         if stored.success and stored.state is not None:
             return self._state_failure(
@@ -584,6 +664,9 @@ class MailboxDocumentSmartsheetRecoveryService:
             failure_category=state.last_failure_category or str(status),
             retryable=state.retryable,
             recoverable=state.recoverable,
+            **MailboxDocumentSmartsheetRecoveryService._state_diagnostics(
+                state
+            ),
         )
 
     @staticmethod
@@ -598,6 +681,67 @@ class MailboxDocumentSmartsheetRecoveryService:
             ),
             failure_category=str(status),
         )
+
+    @staticmethod
+    def _validation_diagnostics(validation):
+        return {
+            "row_mapped_field_count": validation.mapped_field_count,
+            "row_included_cell_count": validation.included_cell_count,
+            "row_omitted_field_count": validation.omitted_field_count,
+            "row_mapping_validation_passed": (
+                validation.mapping_validation_passed
+            ),
+            "row_schema_validation_passed": (
+                validation.schema_validation_passed
+            ),
+            "row_type_validation_passed": validation.type_validation_passed,
+            "row_rejected_field_categories": tuple(
+                validation.rejected_field_categories
+            ),
+            "row_rejection_safe_category": validation.rejection_safe_category,
+        }
+
+    @staticmethod
+    def _operation_diagnostics(operation):
+        return {
+            "row_mapped_field_count": operation.mapped_field_count,
+            "row_included_cell_count": operation.included_cell_count,
+            "row_omitted_field_count": operation.omitted_field_count,
+            "row_mapping_validation_passed": (
+                operation.mapping_validation_passed
+            ),
+            "row_schema_validation_passed": operation.schema_validation_passed,
+            "row_type_validation_passed": operation.type_validation_passed,
+            "row_rejected_field_categories": tuple(
+                operation.rejected_field_categories
+            ),
+            "row_rejection_safe_category": operation.rejection_safe_category,
+            "row_api_status_class": operation.api_status_class,
+            "row_api_error_code": operation.api_error_code,
+        }
+
+    @staticmethod
+    def _state_diagnostics(state):
+        return {
+            "request_contract_version": state.row_request_contract_version,
+            "request_contract_rearm_count": (
+                state.row_request_contract_rearm_count
+            ),
+            "mapped_field_count": state.row_mapped_field_count,
+            "included_cell_count": state.row_included_cell_count,
+            "omitted_field_count": state.row_omitted_field_count,
+            "mapping_validation_passed": (
+                state.row_mapping_validation_passed
+            ),
+            "schema_validation_passed": state.row_schema_validation_passed,
+            "type_validation_passed": state.row_type_validation_passed,
+            "rejected_field_categories": tuple(
+                state.row_rejected_field_categories
+            ),
+            "rejection_safe_category": state.row_rejection_safe_category,
+            "api_status_class": state.row_api_status_class,
+            "api_error_code": state.row_api_error_code,
+        }
 
     @staticmethod
     def _observe(observer, stage, status):

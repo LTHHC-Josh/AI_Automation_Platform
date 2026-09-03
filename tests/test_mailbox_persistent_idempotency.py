@@ -240,6 +240,7 @@ def test_retry_ready_reprocesses_same_durable_job_without_new_identity():
             failure_category="row_reconciliation_zero_matches",
             retryable=True, recoverable=True,
             row_create_attempted=True, increment_row_attempt=True,
+            row_request_contract_version=1,
             row_reconciliation_attempted=True,
             row_reconciliation_match_cardinality="zero",
             row_recovery_state="retry_ready",

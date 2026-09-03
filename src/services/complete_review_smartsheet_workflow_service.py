@@ -79,6 +79,8 @@ class CompleteReviewSmartsheetWorkflowService:
         review_output: ReviewOutput,
         policies: list[SmartsheetColumnPolicy],
         available_columns: dict[str, int],
+        available_column_types: dict[str, str] | None = None,
+        available_system_column_types: dict[str, str] | None = None,
         approve_complete_review: bool = False,
         attachment_source_path: str | Path | None = None,
         run_type: str = "",
@@ -129,6 +131,8 @@ class CompleteReviewSmartsheetWorkflowService:
                 review_output=review_output,
                 policies=policies,
                 available_columns=available_columns,
+                available_column_types=available_column_types,
+                available_system_column_types=available_system_column_types,
                 attachment_source_path=attachment_source_path,
                 run_type=run_type,
             )

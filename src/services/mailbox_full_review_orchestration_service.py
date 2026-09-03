@@ -84,6 +84,18 @@ class MailboxFullReviewOrchestrationResult:
     row_recovery_state: str = "none"
     attachment_blocked_due_to_unresolved_row: bool = False
     recoverable: bool = False
+    request_contract_version: int = 0
+    request_contract_rearm_count: int = 0
+    mapped_field_count: int = 0
+    included_cell_count: int = 0
+    omitted_field_count: int = 0
+    mapping_validation_passed: bool = False
+    schema_validation_passed: bool = False
+    type_validation_passed: bool = False
+    rejected_field_categories: tuple[str, ...] = ()
+    rejection_safe_category: str = "none"
+    api_status_class: str = "unavailable"
+    api_error_code: int | None = None
 
 
 class MailboxClassificationReviewMode(str, Enum):
@@ -729,6 +741,24 @@ class MailboxFullReviewOrchestrationService:
                 summary.attachment_blocked_due_to_unresolved_row
             )
             recoverable = summary.recoverable
+            request_contract_version = summary.row_request_contract_version
+            request_contract_rearm_count = (
+                summary.row_request_contract_rearm_count
+            )
+            mapped_field_count = summary.row_mapped_field_count
+            included_cell_count = summary.row_included_cell_count
+            omitted_field_count = summary.row_omitted_field_count
+            mapping_validation_passed = (
+                summary.row_mapping_validation_passed
+            )
+            schema_validation_passed = summary.row_schema_validation_passed
+            type_validation_passed = summary.row_type_validation_passed
+            rejected_field_categories = (
+                summary.row_rejected_field_categories
+            )
+            rejection_safe_category = summary.row_rejection_safe_category
+            api_status_class = summary.row_api_status_class
+            api_error_code = summary.row_api_error_code
             if not summary.success or summary.pending_document_count:
                 failure_category = summary.failure_category or failure_category
             retryable = bool(not success and summary.success and summary.retryable)
@@ -745,6 +775,18 @@ class MailboxFullReviewOrchestrationService:
             row_recovery_state = "none"
             attachment_blocked_due_to_unresolved_row = False
             recoverable = False
+            request_contract_version = 0
+            request_contract_rearm_count = 0
+            mapped_field_count = 0
+            included_cell_count = 0
+            omitted_field_count = 0
+            mapping_validation_passed = False
+            schema_validation_passed = False
+            type_validation_passed = False
+            rejected_field_categories = ()
+            rejection_safe_category = "none"
+            api_status_class = "unavailable"
+            api_error_code = None
         else:
             row_attempt_count = None
             attachment_attempt_count = None
@@ -758,6 +800,18 @@ class MailboxFullReviewOrchestrationService:
             row_recovery_state = "blocked"
             attachment_blocked_due_to_unresolved_row = False
             recoverable = False
+            request_contract_version = 0
+            request_contract_rearm_count = 0
+            mapped_field_count = 0
+            included_cell_count = 0
+            omitted_field_count = 0
+            mapping_validation_passed = False
+            schema_validation_passed = False
+            type_validation_passed = False
+            rejected_field_categories = ()
+            rejection_safe_category = "none"
+            api_status_class = "unavailable"
+            api_error_code = None
 
         return MailboxFullReviewOrchestrationResult(
             message_count=message_count,
@@ -793,6 +847,18 @@ class MailboxFullReviewOrchestrationService:
                 attachment_blocked_due_to_unresolved_row
             ),
             recoverable=recoverable,
+            request_contract_version=request_contract_version,
+            request_contract_rearm_count=request_contract_rearm_count,
+            mapped_field_count=mapped_field_count,
+            included_cell_count=included_cell_count,
+            omitted_field_count=omitted_field_count,
+            mapping_validation_passed=mapping_validation_passed,
+            schema_validation_passed=schema_validation_passed,
+            type_validation_passed=type_validation_passed,
+            rejected_field_categories=rejected_field_categories,
+            rejection_safe_category=rejection_safe_category,
+            api_status_class=api_status_class,
+            api_error_code=api_error_code,
         )
 
     @staticmethod

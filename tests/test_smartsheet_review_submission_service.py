@@ -24,7 +24,14 @@ class RecordingDestinationValidationService:
         self.ready = ready
         self.calls = []
 
-    def validate(self, *, mapping, available_columns):
+    def validate(
+        self,
+        *,
+        mapping,
+        available_columns,
+        available_column_types=None,
+        available_system_column_types=None,
+    ):
         self.calls.append(mapping)
         return SmartsheetDestinationValidationResult(
             column_ids=(
@@ -38,6 +45,9 @@ class RecordingDestinationValidationService:
             mapping_ready=mapping.ready_for_write,
             destination_ready=self.ready,
             ready_for_write=(mapping.ready_for_write and self.ready),
+            mapping_validation_passed=mapping.ready_for_write,
+            schema_validation_passed=self.ready,
+            type_validation_passed=self.ready,
         )
 
 
@@ -145,7 +155,7 @@ def test_review_required_output_reaches_writer():
     assert result.success is True
     assert result.written is True
     mapping = destination.calls[0]
-    assert mapping.values["AI Review Required"] is True
+    assert mapping.values["AI Review Required"] == "Yes"
     assert mapping.values["AI Review Reasons"]
     assert len(writer.calls) == 1
 

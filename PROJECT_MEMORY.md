@@ -1175,7 +1175,7 @@ Smartsheet uncertain-row recovery checkpoint:
   mailbox/Graph, protected OCR/Ollama, production Smartsheet operation,
   deployment/worker start, attachment upload, or mailbox mutation occurred.
 
-## CURRENT NEXT START
+Prior uncertain-row recovery next-start checkpoint:
 
 Refresh the affected deployment/source registration, then perform a controlled
 recovery of the existing durable uncertain mailbox job without resending the
@@ -1594,3 +1594,49 @@ Corrected-source deployment registration checkpoint:
   handoff, Graph/mailbox, protected OCR, Ollama, production document
   Smartsheet operation, attachment upload, mailbox mutation, or deployment run
   occurred.
+
+Typed Smartsheet row contract and API-rejection recovery checkpoint:
+
+- Fixed the structural path that allowed optional `None` values and values not
+  proven compatible with their destination type to reach Smartsheet Cell
+  construction. Optional absence is now omitted before construction, and no
+  Cell is admitted unless its serialized form contains a non-null value.
+- Destination validation now requires unique mapped destinations, strict
+  positive-integer column IDs, supported type metadata, and proven non-system
+  writable state. `CHECKBOX` accepts only a literal boolean; `DATE` accepts only
+  normalized ISO `YYYY-MM-DD` text; and `TEXT_NUMBER` accepts only strings,
+  integers, and finite floats. Containers, dictionaries, arbitrary objects,
+  booleans in text/number columns, `Decimal`/date objects, non-finite numbers,
+  and other unsupported values fail locally. AI Correction remains literal
+  `False`; review/retry/reconciliation metadata mapped to text/number columns
+  uses explicit `Yes`/`No` text.
+- Request contract version 2 and durable state schema version 3 persist only
+  aggregate typed-validation evidence plus allowlisted API rejection category,
+  numeric API code when valid, and HTTP status class. Response bodies, request
+  payloads/values, row IDs, exception text, tokens, and sensitive provider
+  fields are not retained in the diagnostic result or workflow summary.
+- The same durable job may re-arm once only when its prior request contract is
+  older. Every contract-v2 attempt reservation requires a fresh lease, exact
+  reconciliation with zero matches, and passing mapping/schema/type evidence.
+  One match reconciles the existing row; multiple or unavailable reconciliation
+  fails closed; a second create under the upgraded contract is impossible.
+  Direct retry remains blocked, and attachment processing remains blocked until
+  row identity is proven.
+- Modified Python compiled. Focused and affected synthetic deterministic/mock,
+  local temporary-state, adjacent Smartsheet/mailbox, and isolated local Prefect
+  checks passed. The Prefect check emitted only its known non-fatal sandboxed
+  memo-store warning. No startdp, worker/deployment run, live mailbox/Graph,
+  protected OCR/Ollama, production Smartsheet document/comment operation,
+  attachment upload, or mailbox mutation occurred.
+
+## CURRENT NEXT START
+
+Refresh the affected Prefect deployment/source registration from the committed
+typed-row contract source, then perform one controlled recovery of the existing
+durable `row_write_api_rejected` job without resending the document. Reuse its
+exact durable identity and reconcile the submission key before any create: one
+match must reconcile existing, multiple or unavailable results must fail closed,
+and zero matches may authorize at most one leased contract-v2 create. Verify the
+typed mapping/schema/value diagnostics, no duplicate row, attachment remains
+blocked until row identity is proven, mailbox finalization occurs only after row
+and attachment completion, and the DP returns cleanly to waiting before stopdp.

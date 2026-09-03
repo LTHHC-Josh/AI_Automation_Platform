@@ -124,6 +124,8 @@ class FixedDestinationValidationService:
         *,
         mapping,
         available_columns,
+        available_column_types=None,
+        available_system_column_types=None,
     ):
         self.call_count += 1
         column_ids = (
@@ -139,12 +141,25 @@ class FixedDestinationValidationService:
 
         return SmartsheetDestinationValidationResult(
             column_ids=column_ids,
+            column_types={
+                name: (
+                    "CHECKBOX"
+                    if name == "AI Correction"
+                    else "DATE"
+                    if name in {"Start Date", "End Date"}
+                    else "TEXT_NUMBER"
+                )
+                for name in mapping.values
+            },
             mapping_ready=mapping.ready_for_write,
             destination_ready=self.ready,
             ready_for_write=(
                 mapping.ready_for_write
                 and self.ready
             ),
+            mapping_validation_passed=mapping.ready_for_write,
+            schema_validation_passed=self.ready,
+            type_validation_passed=self.ready,
         )
 
 

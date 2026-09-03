@@ -57,3 +57,9 @@ class SmartsheetRowMappingResult:
         default_factory=list
     )
     ready_for_write: bool = False
+    omitted_columns: list[str] = field(
+        default_factory=list
+    )
+    duplicate_destination_columns: list[str] = field(
+        default_factory=list
+    )

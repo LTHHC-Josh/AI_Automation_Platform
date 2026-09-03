@@ -123,7 +123,8 @@ class SmartsheetReviewRowMappingService:
             return result
 
         normalized_policies = self._normalize_policies(
-            policies
+            policies,
+            result=result,
         )
 
         fields_by_name = {
@@ -149,6 +150,7 @@ class SmartsheetReviewRowMappingService:
             )
 
             if review_field is None:
+                self._record_omitted_policy(policy, result)
                 self._record_missing_required(
                     policy=policy,
                     result=result,
@@ -165,6 +167,7 @@ class SmartsheetReviewRowMappingService:
             if self._is_empty_value(
                 review_field.value
             ):
+                self._record_omitted_policy(policy, result)
                 self._record_missing_required(
                     policy=policy,
                     result=result,
@@ -182,6 +185,7 @@ class SmartsheetReviewRowMappingService:
                 review_field=review_field,
                 review_output=review_output,
             ):
+                self._record_omitted_policy(policy, result)
                 self._record_missing_required(
                     policy=policy,
                     result=result,
@@ -251,10 +255,17 @@ class SmartsheetReviewRowMappingService:
         result.warnings = self._deduplicate(
             result.warnings
         )
+        result.omitted_columns = self._deduplicate(
+            result.omitted_columns
+        )
+        result.duplicate_destination_columns = self._deduplicate(
+            result.duplicate_destination_columns
+        )
 
         result.ready_for_write = (
             not result.missing_required_columns
             and not result.prohibited_fields
+            and not result.duplicate_destination_columns
         )
 
         return result
@@ -316,7 +327,7 @@ class SmartsheetReviewRowMappingService:
 
         result.values[
             self.REVIEW_REQUIRED_COLUMN
-        ] = review_output.needs_human_review
+        ] = self._yes_no(review_output.needs_human_review)
 
         # Human-owned feedback boundary: initialize a brand-new row to an
         # unchecked checkbox. Reconciliation never remaps or updates an
@@ -329,12 +340,14 @@ class SmartsheetReviewRowMappingService:
             self.DOCUMENT_CATEGORY_COLUMN
         ] = review_output.document_category
 
-        result.values[
-            self.DOCUMENT_SUBTYPE_COLUMN
-        ] = (
-            review_output.intake_document_subtype
-            if review_output.intake_subtype_evaluated
-            else review_output.document_subtype
+        self._set_optional_value(
+            result,
+            self.DOCUMENT_SUBTYPE_COLUMN,
+            (
+                review_output.intake_document_subtype
+                if review_output.intake_subtype_evaluated
+                else review_output.document_subtype
+            ),
         )
 
         result.values[
@@ -347,31 +360,37 @@ class SmartsheetReviewRowMappingService:
             self.RUN_TYPE_COLUMN
         ] = run_type
 
-        result.values[
-            self.CLASSIFICATION_CONFIDENCE_COLUMN
-        ] = review_output.classification_confidence
+        self._set_optional_value(
+            result,
+            self.CLASSIFICATION_CONFIDENCE_COLUMN,
+            review_output.classification_confidence,
+        )
 
-        result.values[
-            self.MINIMUM_CONFIDENCE_COLUMN
-        ] = (
-            min(
-                displayed_confidences
-            )
-            if displayed_confidences
-            else None
+        self._set_optional_value(
+            result,
+            self.MINIMUM_CONFIDENCE_COLUMN,
+            (
+                min(
+                    displayed_confidences
+                )
+                if displayed_confidences
+                else None
+            ),
+        )
+
+        self._set_optional_value(
+            result,
+            self.SELECTED_ATTEMPT_COLUMN,
+            review_output.extraction_selected_attempt,
         )
 
         result.values[
-            self.SELECTED_ATTEMPT_COLUMN
-        ] = review_output.extraction_selected_attempt
-
-        result.values[
             self.RETRY_TRIGGERED_COLUMN
-        ] = review_output.extraction_retry_triggered
+        ] = self._yes_no(review_output.extraction_retry_triggered)
 
         result.values[
             self.RECONCILIATION_COLUMN
-        ] = review_output.authorized_units_reconciled
+        ] = self._yes_no(review_output.authorized_units_reconciled)
 
         if review_output.needs_human_review:
             result.warnings.append(
@@ -423,6 +442,8 @@ class SmartsheetReviewRowMappingService:
     def _normalize_policies(
         self,
         policies: Any,
+        *,
+        result: SmartsheetRowMappingResult,
     ) -> list[SmartsheetColumnPolicy]:
         """
         Retain valid policies and reject duplicate destination columns.
@@ -464,12 +485,19 @@ class SmartsheetReviewRowMappingService:
                 continue
 
             if column_name in seen_columns:
+                result.duplicate_destination_columns.append(column_name)
                 continue
 
             if (
                 confidence_column_name
-                and confidence_column_name in seen_columns
+                and (
+                    confidence_column_name in seen_columns
+                    or confidence_column_name == column_name
+                )
             ):
+                result.duplicate_destination_columns.append(
+                    confidence_column_name
+                )
                 continue
 
             seen_columns.add(
@@ -538,6 +566,30 @@ class SmartsheetReviewRowMappingService:
             )
 
         return value
+
+    @staticmethod
+    def _yes_no(value: Any) -> str:
+        return "Yes" if value is True else "No"
+
+    @staticmethod
+    def _set_optional_value(
+        result: SmartsheetRowMappingResult,
+        column_name: str,
+        value: Any,
+    ) -> None:
+        if value is None:
+            result.omitted_columns.append(column_name)
+            return
+        result.values[column_name] = value
+
+    @staticmethod
+    def _record_omitted_policy(
+        policy: SmartsheetColumnPolicy,
+        result: SmartsheetRowMappingResult,
+    ) -> None:
+        result.omitted_columns.append(policy.column_name)
+        if policy.confidence_column_name:
+            result.omitted_columns.append(policy.confidence_column_name)
 
     def _normalize_collection_items(
         self,

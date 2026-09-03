@@ -46,6 +46,7 @@ class StaticSchemaService:
             column_count=len(self.columns),
             columns=dict(self.columns),
             column_types=column_types,
+            system_column_types={name: "none" for name in self.columns},
             success=True,
             status="ready",
         )
@@ -160,7 +161,7 @@ def test_unknown_review_required_metadata_only_row_is_writeable():
     assert mapped.ready_for_write is True
     assert mapped.values["AI Document Category"] == "unknown"
     assert mapped.values["AI Document Subtype"] == "unknown"
-    assert mapped.values["AI Review Required"] is True
+    assert mapped.values["AI Review Required"] == "Yes"
 
 
 def test_missing_universal_metadata_column_fails_configuration():

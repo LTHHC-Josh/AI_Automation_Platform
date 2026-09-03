@@ -78,7 +78,7 @@ def test_unsupported_candidate_does_not_reach_production_value_or_confidence_col
     )
     assert "Authorization Status" not in mapping.values
     assert "Authorization Status Confidence" not in mapping.values
-    assert mapping.values["AI Review Required"] is True
+    assert mapping.values["AI Review Required"] == "Yes"
     assert mapping.values["AI Review Reasons"] == (
         "Authorization Status: Could not be verified"
     )

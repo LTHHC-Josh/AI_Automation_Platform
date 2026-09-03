@@ -112,12 +112,60 @@ def test_version_one_uncertain_state_migrates_in_memory_without_overwrite(tmp_pa
 
     loaded = service.load(state.job_key)
 
-    assert loaded.success and loaded.state.schema_version == 2
+    assert loaded.success and loaded.state.schema_version == 3
     assert loaded.state.row_create_attempted
     assert loaded.state.row_reconciliation_attempted
     assert loaded.state.row_recovery_state == "reconcile_only"
     assert loaded.state.recoverable
+    assert loaded.state.row_request_contract_version == 1
+    assert loaded.state.row_request_contract_rearm_count == 0
     assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == 1
+
+
+def test_version_two_failed_state_is_eligible_for_one_contract_rearm(tmp_path):
+    service = MailboxDocumentJobStateService(tmp_path)
+    state = discovered(service).state
+    path = tmp_path / f"{state.job_key}.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    for name in (
+        "row_request_contract_version",
+        "row_request_contract_rearm_count",
+        "row_mapped_field_count",
+        "row_included_cell_count",
+        "row_omitted_field_count",
+        "row_mapping_validation_passed",
+        "row_schema_validation_passed",
+        "row_type_validation_passed",
+        "row_rejected_field_categories",
+        "row_rejection_safe_category",
+        "row_api_status_class",
+        "row_api_error_code",
+    ):
+        payload.pop(name)
+    payload.update(
+        schema_version=2,
+        stage="row_retry_ready",
+        row_attempt_count=1,
+        row_create_attempted=True,
+        row_outcome_proven=True,
+        row_reconciliation_attempted=True,
+        row_reconciliation_match_cardinality="zero",
+        row_recovery_state="retry_ready",
+        recoverable=True,
+        retryable=False,
+        attachment_blocked_due_to_unresolved_row=True,
+        last_failure_category="row_write_api_rejected",
+    )
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    loaded = service.load(state.job_key)
+
+    assert loaded.success
+    assert loaded.state.schema_version == 3
+    assert loaded.state.row_request_contract_version == 1
+    assert loaded.state.row_request_contract_rearm_count == 0
+    assert service.can_rearm_row_request_contract(loaded.state)
+    assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == 2
 
 
 def test_submission_key_configuration_has_no_default_or_public_title():
@@ -172,6 +220,7 @@ def test_uncertain_row_with_unavailable_reconciliation_remains_reconcile_only(tm
         state.job_key, expected_stages={"processing"},
         stage="row_create_in_flight", lease_token=lease.lease_token,
         increment_row_attempt=True, row_create_attempted=True,
+        row_request_contract_version=1,
         row_recovery_state="reconcile_only", recoverable=True,
     )
     write_service = NoCreateWriteService(UnavailableReconciliationClient())
@@ -225,6 +274,8 @@ class SyntheticConfigurationService:
             status="ready",
             policies=(),
             available_columns={"Synthetic Technical Key": 101},
+            available_column_types={"Synthetic Technical Key": "TEXT_NUMBER"},
+            available_system_column_types={"Synthetic Technical Key": "none"},
         )
 
 
@@ -405,6 +456,14 @@ def test_definite_api_rejection_is_proven_recoverable_not_auto_retryable(tmp_pat
         SmartsheetRowWriteOperationResult(
             False, None, 1, False, "row_write_api_rejected",
             True, True, False,
+            mapped_field_count=1,
+            included_cell_count=1,
+            mapping_validation_passed=True,
+            schema_validation_passed=True,
+            type_validation_passed=True,
+            rejection_safe_category="row_write_api_cell_invalid",
+            api_status_class="4xx",
+            api_error_code=1013,
         ),
     )
     recovery = MailboxDocumentSmartsheetRecoveryService(
@@ -424,6 +483,13 @@ def test_definite_api_rejection_is_proven_recoverable_not_auto_retryable(tmp_pat
     assert not result.retryable
     assert stored.stage == "row_retry_ready"
     assert stored.row_attempt_count == 1
+    assert stored.row_request_contract_version == 2
+    assert stored.row_mapping_validation_passed
+    assert stored.row_schema_validation_passed
+    assert stored.row_type_validation_passed
+    assert stored.row_rejection_safe_category == "row_write_api_cell_invalid"
+    assert stored.row_api_status_class == "4xx"
+    assert stored.row_api_error_code == 1013
     assert write_service.attachment_calls == 0
 
 
@@ -454,11 +520,120 @@ def test_uncertain_create_with_zero_match_becomes_retry_ready(tmp_path):
 
     assert result.failure_category == "row_reconciliation_zero_matches"
     assert result.reconciliation_match_cardinality == "zero"
-    assert result.retryable and result.recoverable
+    assert not result.retryable and result.recoverable
     assert stored.stage == "row_retry_ready"
     assert stored.row_attempt_count == 1
     assert stored.smartsheet_row_id is None
     assert write_service.attachment_calls == 0
+
+
+def test_failed_legacy_contract_rearms_once_under_validated_new_contract(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state = discovered(state_service).state
+    lease = state_service.acquire_processing_lease(state.job_key).state
+    pending = state_service.transition(
+        state.job_key,
+        expected_stages={"processing"},
+        stage="row_write_pending",
+        lease_token=lease.lease_token,
+        retain_lease=True,
+    ).state
+    in_flight = state_service.transition(
+        state.job_key,
+        expected_stages={"row_write_pending"},
+        stage="row_create_in_flight",
+        lease_token=pending.lease_token,
+        increment_row_attempt=True,
+        row_create_attempted=True,
+        row_request_contract_version=1,
+        row_recovery_state="reconcile_only",
+        recoverable=True,
+        attachment_blocked_due_to_unresolved_row=True,
+    ).state
+    legacy_failed = state_service.transition(
+        state.job_key,
+        expected_stages={"row_create_in_flight"},
+        stage="row_retry_ready",
+        lease_token=in_flight.lease_token,
+        failure_category="row_write_api_rejected",
+        retryable=False,
+        recoverable=True,
+        row_outcome_proven=True,
+        row_reconciliation_attempted=True,
+        row_reconciliation_match_cardinality="zero",
+        row_recovery_state="retry_ready",
+        attachment_blocked_due_to_unresolved_row=True,
+    ).state
+    assert state_service.can_rearm_row_request_contract(legacy_failed)
+
+    reprocessing = state_service.acquire_processing_lease(state.job_key).state
+    pending = state_service.transition(
+        state.job_key,
+        expected_stages={"processing"},
+        stage="row_write_pending",
+        lease_token=reprocessing.lease_token,
+        retain_lease=True,
+    ).state
+    source, _ = technical_source(tmp_path)
+    client = SequencedReconciliationClient(
+        row_matches=[[], []], attachment_names=[]
+    )
+    operation = SmartsheetRowWriteOperationResult(
+        False,
+        None,
+        1,
+        False,
+        "row_write_api_rejected",
+        True,
+        True,
+        False,
+        mapped_field_count=1,
+        included_cell_count=1,
+        mapping_validation_passed=True,
+        schema_validation_passed=True,
+        type_validation_passed=True,
+        rejection_safe_category="row_write_api_cell_invalid",
+        api_status_class="4xx",
+        api_error_code=1013,
+    )
+    write_service = ScriptedWriteService(client, operation)
+    recovery = MailboxDocumentSmartsheetRecoveryService(
+        job_state_service=state_service,
+        submission_key_configuration_service=(
+            SmartsheetSubmissionKeyConfigurationService(environment={
+                "SMARTSHEET_AI_SUBMISSION_KEY_COLUMN_TITLE": (
+                    "Synthetic Technical Key"
+                )
+            })
+        ),
+        configuration_service=SyntheticConfigurationService(),
+        mapping_service=EmptyReadyMappingService(),
+        write_service=write_service,
+    )
+    result = recovery.run(work_item=MailboxDocumentWorkItem(
+        state.job_key,
+        digest("a"),
+        digest("b"),
+        digest("c"),
+        source,
+        "row_write_pending",
+        SimpleNamespace(review_output=ReviewOutput(document_type="synthetic")),
+        pending.lease_token,
+    ))
+    stored = state_service.load(state.job_key).state
+
+    assert not result.success
+    assert write_service.row_create_calls == 1
+    assert stored.row_attempt_count == 2
+    assert stored.row_request_contract_version == 2
+    assert stored.row_request_contract_rearm_count == 1
+    assert stored.stage == "row_retry_ready"
+    assert not stored.retryable
+    assert not state_service.can_rearm_row_request_contract(stored)
+    assert (
+        state_service.acquire_processing_lease(state.job_key).status
+        == "row_request_contract_rearm_unavailable"
+    )
 
 
 def test_lost_row_response_reconciles_exactly_one_without_duplicate_create(tmp_path):
@@ -572,6 +747,7 @@ def test_restart_after_in_flight_create_reconciles_before_any_new_create(tmp_pat
         state.job_key, expected_stages={"processing"},
         stage="row_create_in_flight", lease_token=lease.lease_token,
         increment_row_attempt=True, row_create_attempted=True,
+        row_request_contract_version=1,
         row_recovery_state="reconcile_only", recoverable=True,
     ).state
     source, technical_name = technical_source(tmp_path)
@@ -608,6 +784,7 @@ def test_multiple_reconciliation_matches_fail_closed_without_external_write(tmp_
         state.job_key, expected_stages={"processing"},
         stage="row_create_in_flight", lease_token=lease.lease_token,
         increment_row_attempt=True, row_create_attempted=True,
+        row_request_contract_version=1,
         row_recovery_state="reconcile_only", recoverable=True,
     ).state
     client = SequencedReconciliationClient(
@@ -635,6 +812,28 @@ def test_multiple_reconciliation_matches_fail_closed_without_external_write(tmp_
     assert stored.row_attempt_count == 1
     assert write_service.row_update_calls == 0
     assert write_service.comment_calls == 0
+
+
+def test_contract_v2_attempt_reservation_requires_exact_and_typed_validation(tmp_path):
+    state_service = MailboxDocumentJobStateService(tmp_path)
+    state = discovered(state_service).state
+    lease = state_service.acquire_processing_lease(state.job_key).state
+
+    rejected = state_service.transition(
+        state.job_key,
+        expected_stages={"processing"},
+        stage="row_create_in_flight",
+        lease_token=lease.lease_token,
+        increment_row_attempt=True,
+        row_create_attempted=True,
+        row_request_contract_version=2,
+    )
+
+    assert not rejected.success
+    assert rejected.status == "validated_row_request_contract_required"
+    stored = state_service.load(state.job_key).state
+    assert stored.stage == "processing"
+    assert stored.row_attempt_count == 0
 
 
 def test_existing_row_and_attachment_are_reconciled_without_attempts(tmp_path):

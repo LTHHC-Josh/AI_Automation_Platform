@@ -164,7 +164,7 @@ def test_low_confidence_value_is_omitted_without_losing_review_state():
 
     assert "Low Confidence Value" not in result.values
     assert result.ready_for_write is True
-    assert result.values["AI Review Required"] is True
+    assert result.values["AI Review Required"] == "Yes"
 
 
 def test_sheet_minimum_confidence_uses_only_displayed_confidences():
@@ -243,12 +243,8 @@ def test_sheet_minimum_confidence_is_empty_without_displayed_confidences():
         run_type=TEST_RUN_TYPE,
     )
 
-    assert (
-        result.values[
-            "AI Minimum Field Confidence"
-        ]
-        is None
-    )
+    assert "AI Minimum Field Confidence" not in result.values
+    assert "AI Minimum Field Confidence" in result.omitted_columns
 
 
 def test_list_order_is_preserved():
@@ -339,7 +335,7 @@ def test_recommended_review_is_ready_without_approval():
         result.values[
             "AI Review Required"
         ]
-        is True
+        == "Yes"
     )
 
 
@@ -433,7 +429,7 @@ def test_zero_and_false_are_preserved():
     assert not result.missing_required_columns
 
 
-def test_duplicate_destination_column_is_ignored():
+def test_duplicate_destination_column_blocks_mapping():
     service = SmartsheetReviewRowMappingService()
 
     result = service.map(
@@ -454,6 +450,8 @@ def test_duplicate_destination_column_is_ignored():
     assert result.values[
         "Shared Column"
     ] == "Approved"
+    assert result.duplicate_destination_columns == ["Shared Column"]
+    assert result.ready_for_write is False
 
 
 def test_review_only_column_is_identified():
@@ -501,13 +499,13 @@ def test_review_metadata_is_preserved():
         result.values[
             "AI Extraction Retry Triggered"
         ]
-        is True
+        == "Yes"
     )
     assert (
         result.values[
             "AI Authorized Units Reconciled"
         ]
-        is True
+        == "Yes"
     )
     assert result.values["AI Correction"] is False
 
@@ -747,8 +745,8 @@ run_test(
     test_zero_and_false_are_preserved,
 )
 run_test(
-    "duplicate destination column is ignored",
-    test_duplicate_destination_column_is_ignored,
+    "duplicate destination column blocks mapping",
+    test_duplicate_destination_column_blocks_mapping,
 )
 run_test(
     "review-only column is identified",

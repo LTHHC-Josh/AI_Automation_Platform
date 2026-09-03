@@ -230,6 +230,20 @@ def build_pipeline(
             available_columns=(
                 available_columns
             ),
+            available_column_types={
+                column_name: (
+                    "CHECKBOX"
+                    if column_name == "AI Correction"
+                    else "DATE"
+                    if column_name in {"Start Date", "End Date"}
+                    else "TEXT_NUMBER"
+                )
+                for column_name in available_columns
+            },
+            available_system_column_types={
+                column_name: "none"
+                for column_name in available_columns
+            },
         )
     )
 
@@ -314,7 +328,7 @@ def test_human_review_reaches_write_with_review_metadata():
     assert result.success is True
     assert result.written is True
     assert len(client.add_calls) == 1
-    assert mapping.values["AI Review Required"] is True
+    assert mapping.values["AI Review Required"] == "Yes"
     assert mapping.values["AI Review Reasons"]
 
 

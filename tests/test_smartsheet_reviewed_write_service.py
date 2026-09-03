@@ -153,7 +153,7 @@ def build_mapping(
             "Service Codes": (
                 "SYNTHETIC-A | SYNTHETIC-B"
             ),
-            "AI Review Required": False,
+            "AI Review Required": "No",
         },
         ready_for_write=ready,
     )
@@ -172,6 +172,14 @@ def build_validation(
         mapping_ready=ready,
         destination_ready=ready,
         ready_for_write=ready,
+        column_types={
+            "Authorization Status": "TEXT_NUMBER",
+            "Service Codes": "TEXT_NUMBER",
+            "AI Review Required": "TEXT_NUMBER",
+        },
+        mapping_validation_passed=ready,
+        schema_validation_passed=ready,
+        type_validation_passed=ready,
     )
 
 
@@ -543,6 +551,35 @@ def test_boolean_column_id_blocks_write():
     assert client.add_calls == []
 
 
+def test_unsupported_value_never_constructs_external_request():
+    client = RecordingSmartsheetClient()
+    mapping = SmartsheetRowMappingResult(
+        values={"Synthetic Column": {"unsupported": "synthetic"}},
+        ready_for_write=True,
+    )
+    validation = SmartsheetDestinationValidationResult(
+        column_ids={"Synthetic Column": 101},
+        column_types={"Synthetic Column": "TEXT_NUMBER"},
+        mapping_ready=True,
+        destination_ready=True,
+        ready_for_write=True,
+        mapping_validation_passed=True,
+        schema_validation_passed=True,
+        type_validation_passed=True,
+    )
+
+    result = SmartsheetReviewedWriteService(client=client).create_row(
+        mapping=mapping,
+        destination_validation=validation,
+    )
+
+    assert not result.request_attempted
+    assert result.rejection_safe_category == (
+        "row_mapping_unsupported_value_type"
+    )
+    assert client.add_calls == []
+
+
 def test_write_failure_is_sanitized():
     client = RecordingSmartsheetClient(
         fail=True
@@ -622,6 +659,10 @@ def test_empty_mapping_is_rejected():
             mapping_ready=True,
             destination_ready=True,
             ready_for_write=True,
+            column_types={},
+            mapping_validation_passed=True,
+            schema_validation_passed=True,
+            type_validation_passed=True,
         )
     )
 
@@ -721,6 +762,10 @@ run_test(
 run_test(
     "boolean column ID blocks write",
     test_boolean_column_id_blocks_write,
+)
+run_test(
+    "unsupported value blocks external request",
+    test_unsupported_value_never_constructs_external_request,
 )
 run_test(
     "write failure is sanitized",

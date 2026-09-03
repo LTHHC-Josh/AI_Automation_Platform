@@ -11,6 +11,10 @@ import time
 from typing import Any
 import uuid
 
+from src.models.smartsheet_destination_validation import (
+    SMARTSHEET_ROW_REQUEST_CONTRACT_VERSION,
+)
+
 
 STAGES = {
     "discovered", "processing", "row_write_pending", "row_create_in_flight",
@@ -71,6 +75,18 @@ class MailboxDocumentJobState:
     row_recovery_state: str = "none"
     recoverable: bool = False
     attachment_blocked_due_to_unresolved_row: bool = False
+    row_request_contract_version: int = 0
+    row_request_contract_rearm_count: int = 0
+    row_mapped_field_count: int = 0
+    row_included_cell_count: int = 0
+    row_omitted_field_count: int = 0
+    row_mapping_validation_passed: bool = False
+    row_schema_validation_passed: bool = False
+    row_type_validation_passed: bool = False
+    row_rejected_field_categories: tuple[str, ...] = ()
+    row_rejection_safe_category: str = "none"
+    row_api_status_class: str = "unavailable"
+    row_api_error_code: int | None = None
 
 
 @dataclass(frozen=True)
@@ -97,12 +113,24 @@ class MailboxDocumentJobBatchSummary:
     row_reconciliation_match_cardinality: str
     row_recovery_state: str
     attachment_blocked_due_to_unresolved_row: bool
+    row_request_contract_version: int
+    row_request_contract_rearm_count: int
+    row_mapped_field_count: int
+    row_included_cell_count: int
+    row_omitted_field_count: int
+    row_mapping_validation_passed: bool
+    row_schema_validation_passed: bool
+    row_type_validation_passed: bool
+    row_rejected_field_categories: tuple[str, ...]
+    row_rejection_safe_category: str
+    row_api_status_class: str
+    row_api_error_code: int | None
     success: bool
     status: str
 
 
 class MailboxDocumentJobStateService:
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 3
     DEFAULT_STATE_DIR = Path("data/mailbox_processing_state/jobs")
     _DIGEST_LENGTH = 64
 
@@ -166,6 +194,23 @@ class MailboxDocumentJobStateService:
     def acquire_business_action_lease(self, job_key: str) -> MailboxDocumentJobStateResult:
         return self._mutate(job_key, self._acquire_business_action_lease)
 
+    @staticmethod
+    def can_rearm_row_request_contract(
+        state: MailboxDocumentJobState,
+        *,
+        request_contract_version: int = SMARTSHEET_ROW_REQUEST_CONTRACT_VERSION,
+    ) -> bool:
+        """Allow one same-job re-arm only under a newer request contract."""
+        return bool(
+            isinstance(state, MailboxDocumentJobState)
+            and state.stage == "row_retry_ready"
+            and state.smartsheet_row_id is None
+            and state.row_attempt_count > 0
+            and state.row_request_contract_rearm_count == 0
+            and state.row_request_contract_version < request_contract_version
+            and state.row_reconciliation_match_cardinality == "zero"
+        )
+
     def summarize(self, job_keys) -> MailboxDocumentJobBatchSummary:
         """Summarize only the supplied durable jobs without directory enumeration."""
         try:
@@ -209,6 +254,12 @@ class MailboxDocumentJobStateService:
             state.row_reconciliation_match_cardinality for state in states
         }
         recovery_states = {state.row_recovery_state for state in states}
+        api_status_classes = {state.row_api_status_class for state in states}
+        api_error_codes = {
+            state.row_api_error_code
+            for state in states
+            if state.row_api_error_code is not None
+        }
         return MailboxDocumentJobBatchSummary(
             completed_document_count=completed,
             pending_document_count=pending,
@@ -230,6 +281,54 @@ class MailboxDocumentJobStateService:
             ),
             attachment_blocked_due_to_unresolved_row=any(
                 state.attachment_blocked_due_to_unresolved_row for state in states
+            ),
+            row_request_contract_version=max(
+                (state.row_request_contract_version for state in states),
+                default=0,
+            ),
+            row_request_contract_rearm_count=sum(
+                state.row_request_contract_rearm_count for state in states
+            ),
+            row_mapped_field_count=sum(
+                state.row_mapped_field_count for state in states
+            ),
+            row_included_cell_count=sum(
+                state.row_included_cell_count for state in states
+            ),
+            row_omitted_field_count=sum(
+                state.row_omitted_field_count for state in states
+            ),
+            row_mapping_validation_passed=(
+                bool(states)
+                and all(state.row_mapping_validation_passed for state in states)
+            ),
+            row_schema_validation_passed=(
+                bool(states)
+                and all(state.row_schema_validation_passed for state in states)
+            ),
+            row_type_validation_passed=(
+                bool(states)
+                and all(state.row_type_validation_passed for state in states)
+            ),
+            row_rejected_field_categories=tuple(dict.fromkeys(
+                category
+                for state in states
+                for category in state.row_rejected_field_categories
+            )),
+            row_rejection_safe_category=(
+                states[0].row_rejection_safe_category
+                if states and len({
+                    state.row_rejection_safe_category for state in states
+                }) == 1
+                else "multiple_failures"
+            ),
+            row_api_status_class=(
+                next(iter(api_status_classes))
+                if len(api_status_classes) == 1 else "unavailable"
+            ),
+            row_api_error_code=(
+                next(iter(api_error_codes))
+                if len(api_error_codes) == 1 else None
             ),
             success=True,
             status="ready",
@@ -254,6 +353,18 @@ class MailboxDocumentJobStateService:
                    row_recovery_state: str | None = None,
                    recoverable: bool | None = None,
                    attachment_blocked_due_to_unresolved_row: bool | None = None,
+                   row_request_contract_version: int | None = None,
+                   increment_row_request_contract_rearm: bool = False,
+                   row_mapped_field_count: int | None = None,
+                   row_included_cell_count: int | None = None,
+                   row_omitted_field_count: int | None = None,
+                   row_mapping_validation_passed: bool | None = None,
+                   row_schema_validation_passed: bool | None = None,
+                   row_type_validation_passed: bool | None = None,
+                   row_rejected_field_categories: tuple[str, ...] | None = None,
+                   row_rejection_safe_category: str | None = None,
+                   row_api_status_class: str | None = None,
+                   row_api_error_code: int | None = None,
                    retain_lease: bool = False) -> MailboxDocumentJobStateResult:
         if stage not in STAGES or not expected_stages or not expected_stages <= STAGES:
             return self._failure("invalid_transition")
@@ -339,6 +450,158 @@ class MailboxDocumentJobStateService:
             )
             if recovery_state not in ROW_RECOVERY_STATES:
                 return "invalid_operation_diagnostic"
+            contract_version = (
+                current.row_request_contract_version
+                if row_request_contract_version is None
+                else row_request_contract_version
+            )
+            if (
+                isinstance(contract_version, bool)
+                or not isinstance(contract_version, int)
+                or contract_version < 0
+                or contract_version > 9999
+                or not isinstance(increment_row_request_contract_rearm, bool)
+            ):
+                return "invalid_request_contract"
+            if (
+                not increment_row_attempt
+                and row_request_contract_version is not None
+                and contract_version != current.row_request_contract_version
+            ):
+                return "invalid_request_contract"
+            rearm_count = current.row_request_contract_rearm_count
+            if increment_row_attempt:
+                if current.row_attempt_count == 0:
+                    if contract_version < 1 or increment_row_request_contract_rearm:
+                        return "invalid_request_contract"
+                elif (
+                    not increment_row_request_contract_rearm
+                    or rearm_count >= 1
+                    or contract_version <= current.row_request_contract_version
+                ):
+                    return "row_request_contract_rearm_unavailable"
+            elif increment_row_request_contract_rearm:
+                return "invalid_request_contract"
+            if increment_row_request_contract_rearm:
+                rearm_count += 1
+
+            count_values = {
+                "row_mapped_field_count": row_mapped_field_count,
+                "row_included_cell_count": row_included_cell_count,
+                "row_omitted_field_count": row_omitted_field_count,
+            }
+            if any(
+                value is not None
+                and (
+                    isinstance(value, bool)
+                    or not isinstance(value, int)
+                    or value < 0
+                )
+                for value in count_values.values()
+            ):
+                return "invalid_row_request_diagnostic"
+            validation_booleans = {
+                "row_mapping_validation_passed": row_mapping_validation_passed,
+                "row_schema_validation_passed": row_schema_validation_passed,
+                "row_type_validation_passed": row_type_validation_passed,
+            }
+            if any(
+                value is not None and not isinstance(value, bool)
+                for value in validation_booleans.values()
+            ):
+                return "invalid_row_request_diagnostic"
+            rejected_categories = (
+                current.row_rejected_field_categories
+                if row_rejected_field_categories is None
+                else row_rejected_field_categories
+            )
+            if (
+                not isinstance(rejected_categories, tuple)
+                or any(
+                    self._safe_category(category) != category
+                    for category in rejected_categories
+                )
+            ):
+                return "invalid_row_request_diagnostic"
+            rejection_category = (
+                current.row_rejection_safe_category
+                if row_rejection_safe_category is None
+                else self._safe_category(row_rejection_safe_category)
+            )
+            if not rejection_category:
+                rejection_category = "none"
+            api_status_class = (
+                current.row_api_status_class
+                if row_api_status_class is None else row_api_status_class
+            )
+            if api_status_class not in {
+                "unavailable", "1xx", "2xx", "3xx", "4xx", "5xx",
+            }:
+                return "invalid_row_request_diagnostic"
+            api_error_code = (
+                current.row_api_error_code
+                if row_api_error_code is None else row_api_error_code
+            )
+            if api_error_code is not None and (
+                isinstance(api_error_code, bool)
+                or not isinstance(api_error_code, int)
+                or api_error_code < 1
+                or api_error_code > 999999
+            ):
+                return "invalid_row_request_diagnostic"
+            effective_mapped_count = (
+                current.row_mapped_field_count
+                if row_mapped_field_count is None
+                else row_mapped_field_count
+            )
+            effective_included_count = (
+                current.row_included_cell_count
+                if row_included_cell_count is None
+                else row_included_cell_count
+            )
+            effective_mapping_valid = (
+                current.row_mapping_validation_passed
+                if row_mapping_validation_passed is None
+                else row_mapping_validation_passed
+            )
+            effective_schema_valid = (
+                current.row_schema_validation_passed
+                if row_schema_validation_passed is None
+                else row_schema_validation_passed
+            )
+            effective_type_valid = (
+                current.row_type_validation_passed
+                if row_type_validation_passed is None
+                else row_type_validation_passed
+            )
+            effective_reconciliation_attempted = (
+                current.row_reconciliation_attempted
+                if row_reconciliation_attempted is None
+                else row_reconciliation_attempted
+            )
+            effective_create_attempted = (
+                current.row_create_attempted
+                if row_create_attempted is None
+                else row_create_attempted
+            )
+            if contract_version >= SMARTSHEET_ROW_REQUEST_CONTRACT_VERSION and (
+                increment_row_attempt
+                and (
+                    cardinality != "zero"
+                    or not effective_reconciliation_attempted
+                    or not effective_create_attempted
+                    or effective_mapped_count < 1
+                    or effective_included_count != effective_mapped_count
+                    or not effective_mapping_valid
+                    or not effective_schema_valid
+                    or not effective_type_valid
+                    or bool(rejected_categories)
+                    or rejection_category != "none"
+                    or api_status_class != "unavailable"
+                    or api_error_code is not None
+                )
+            ):
+                return "validated_row_request_contract_required"
             values.update(stage=stage, smartsheet_row_id=row_id,
                           last_failure_category=self._safe_category(failure_category),
                           retryable=current.retryable if retryable is None else bool(retryable),
@@ -376,13 +639,62 @@ class MailboxDocumentJobStateService:
                               current.attachment_blocked_due_to_unresolved_row
                               if attachment_blocked_due_to_unresolved_row is None
                               else attachment_blocked_due_to_unresolved_row
-                          ))
+                          ),
+                          row_request_contract_version=contract_version,
+                          row_request_contract_rearm_count=rearm_count,
+                          row_mapped_field_count=(
+                              current.row_mapped_field_count
+                              if row_mapped_field_count is None
+                              else row_mapped_field_count
+                          ),
+                          row_included_cell_count=(
+                              current.row_included_cell_count
+                              if row_included_cell_count is None
+                              else row_included_cell_count
+                          ),
+                          row_omitted_field_count=(
+                              current.row_omitted_field_count
+                              if row_omitted_field_count is None
+                              else row_omitted_field_count
+                          ),
+                          row_mapping_validation_passed=(
+                              current.row_mapping_validation_passed
+                              if row_mapping_validation_passed is None
+                              else row_mapping_validation_passed
+                          ),
+                          row_schema_validation_passed=(
+                              current.row_schema_validation_passed
+                              if row_schema_validation_passed is None
+                              else row_schema_validation_passed
+                          ),
+                          row_type_validation_passed=(
+                              current.row_type_validation_passed
+                              if row_type_validation_passed is None
+                              else row_type_validation_passed
+                          ),
+                          row_rejected_field_categories=tuple(dict.fromkeys(
+                              rejected_categories
+                          )),
+                          row_rejection_safe_category=rejection_category,
+                          row_api_status_class=api_status_class,
+                          row_api_error_code=api_error_code)
             return MailboxDocumentJobState(**values)
         return self._mutate(job_key, change)
 
     def _acquire_lease(self, current: MailboxDocumentJobState):
         if current.stage not in {"discovered", "processing", "row_retry_ready"}:
             return "state_conflict"
+        if (
+            current.stage == "row_retry_ready"
+            and (
+                (
+                    current.row_attempt_count > 0
+                    and not self.can_rearm_row_request_contract(current)
+                )
+                or (current.row_attempt_count == 0 and not current.retryable)
+            )
+        ):
+            return "row_request_contract_rearm_unavailable"
         now = datetime.now(timezone.utc)
         if current.stage == "processing" and current.lease_token and current.lease_expires_at:
             try:
@@ -418,6 +730,16 @@ class MailboxDocumentJobStateService:
         return MailboxDocumentJobState(**values)
 
     def _state_retry_disposition(self, state: MailboxDocumentJobState):
+        if state.stage == "row_retry_ready":
+            return (
+                state.last_failure_category
+                or "row_reconciliation_zero_matches",
+                (
+                    self.can_rearm_row_request_contract(state)
+                    if state.row_attempt_count > 0
+                    else state.retryable
+                ),
+            )
         if not state.retryable:
             return (
                 state.last_failure_category or state.stage,
@@ -427,8 +749,6 @@ class MailboxDocumentJobStateService:
             return "processed_result_unavailable", False
         if state.stage in {"row_create_in_flight", "row_write_uncertain"}:
             return state.last_failure_category or state.stage, True
-        if state.stage == "row_retry_ready":
-            return state.last_failure_category or "row_reconciliation_zero_matches", True
         if state.stage in {"attachment_write_uncertain", "blocked_permanent"}:
             return state.last_failure_category or state.stage, False
         if state.stage == "processing" and self._lease_is_active(state):
@@ -521,7 +841,7 @@ class MailboxDocumentJobStateService:
         }
         if not isinstance(payload, dict):
             return self._failure("state_corrupt")
-        if payload.get("schema_version") not in {1, self.SCHEMA_VERSION}:
+        if payload.get("schema_version") not in {1, 2, self.SCHEMA_VERSION}:
             return self._failure("state_version_unsupported")
         if not required <= keys or not keys <= expected:
             return self._failure("state_corrupt")
@@ -558,11 +878,44 @@ class MailboxDocumentJobStateService:
             "attachment_blocked_due_to_unresolved_row": (
                 legacy_stage == "row_write_uncertain" and not legacy_row_proven
             ),
+            "row_request_contract_version": 1 if legacy_row_attempted else 0,
+            "row_request_contract_rearm_count": 0,
+            "row_mapped_field_count": 0,
+            "row_included_cell_count": 0,
+            "row_omitted_field_count": 0,
+            "row_mapping_validation_passed": False,
+            "row_schema_validation_passed": False,
+            "row_type_validation_passed": False,
+            "row_rejected_field_categories": (),
+            "row_rejection_safe_category": "none",
+            "row_api_status_class": "unavailable",
+            "row_api_error_code": None,
         }
+        legacy_schema_version = payload.get("schema_version")
         payload = {**defaults, **payload, "schema_version": self.SCHEMA_VERSION}
+        if legacy_schema_version in {1, 2}:
+            for name in (
+                "row_request_contract_version",
+                "row_request_contract_rearm_count",
+                "row_mapped_field_count",
+                "row_included_cell_count",
+                "row_omitted_field_count",
+                "row_mapping_validation_passed",
+                "row_schema_validation_passed",
+                "row_type_validation_passed",
+                "row_rejected_field_categories",
+                "row_rejection_safe_category",
+                "row_api_status_class",
+                "row_api_error_code",
+            ):
+                payload[name] = defaults[name]
         if isinstance(payload.get("attachment_placeholder_categories"), list):
             payload["attachment_placeholder_categories"] = tuple(
                 payload["attachment_placeholder_categories"]
+            )
+        if isinstance(payload.get("row_rejected_field_categories"), list):
+            payload["row_rejected_field_categories"] = tuple(
+                payload["row_rejected_field_categories"]
             )
         try: state = MailboxDocumentJobState(**payload)
         except TypeError: return self._failure("state_corrupt")
@@ -607,6 +960,59 @@ class MailboxDocumentJobStateService:
             or state.row_reconciliation_match_cardinality
             not in RECONCILIATION_CARDINALITIES
             or state.row_recovery_state not in ROW_RECOVERY_STATES
+            or isinstance(state.row_request_contract_version, bool)
+            or not isinstance(state.row_request_contract_version, int)
+            or state.row_request_contract_version < 0
+            or state.row_request_contract_version > 9999
+            or isinstance(state.row_request_contract_rearm_count, bool)
+            or not isinstance(state.row_request_contract_rearm_count, int)
+            or state.row_request_contract_rearm_count not in {0, 1}
+            or (
+                state.row_attempt_count > 0
+                and state.row_request_contract_version < 1
+            )
+            or (
+                state.row_request_contract_rearm_count == 1
+                and (
+                    state.row_attempt_count < 2
+                    or state.row_request_contract_version
+                    < SMARTSHEET_ROW_REQUEST_CONTRACT_VERSION
+                )
+            )
+            or any(
+                isinstance(value, bool) or not isinstance(value, int) or value < 0
+                for value in (
+                    state.row_mapped_field_count,
+                    state.row_included_cell_count,
+                    state.row_omitted_field_count,
+                )
+            )
+            or any(
+                not isinstance(value, bool)
+                for value in (
+                    state.row_mapping_validation_passed,
+                    state.row_schema_validation_passed,
+                    state.row_type_validation_passed,
+                )
+            )
+            or not isinstance(state.row_rejected_field_categories, tuple)
+            or any(
+                self._safe_category(category) != category
+                for category in state.row_rejected_field_categories
+            )
+            or self._safe_category(state.row_rejection_safe_category)
+            != state.row_rejection_safe_category
+            or state.row_api_status_class
+            not in {"unavailable", "1xx", "2xx", "3xx", "4xx", "5xx"}
+            or (
+                state.row_api_error_code is not None
+                and (
+                    isinstance(state.row_api_error_code, bool)
+                    or not isinstance(state.row_api_error_code, int)
+                    or state.row_api_error_code < 1
+                    or state.row_api_error_code > 999999
+                )
+            )
         ):
             return self._failure("state_corrupt")
         return MailboxDocumentJobStateResult(True, "state_loaded", state)
@@ -644,6 +1050,18 @@ class MailboxDocumentJobStateService:
             row_reconciliation_match_cardinality="unavailable",
             row_recovery_state="blocked",
             attachment_blocked_due_to_unresolved_row=False,
+            row_request_contract_version=0,
+            row_request_contract_rearm_count=0,
+            row_mapped_field_count=0,
+            row_included_cell_count=0,
+            row_omitted_field_count=0,
+            row_mapping_validation_passed=False,
+            row_schema_validation_passed=False,
+            row_type_validation_passed=False,
+            row_rejected_field_categories=(),
+            row_rejection_safe_category="none",
+            row_api_status_class="unavailable",
+            row_api_error_code=None,
             success=False,
             status=str(status),
         )

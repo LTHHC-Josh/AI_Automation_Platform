@@ -590,6 +590,8 @@ def test_result_contract_is_phi_safe():
         "column_count",
         "policies",
         "available_columns",
+        "available_column_types",
+        "available_system_column_types",
         "success",
         "status",
     }

@@ -787,6 +787,18 @@ def test_result_contract_is_phi_safe():
         "row_recovery_state",
         "attachment_blocked_due_to_unresolved_row",
         "recoverable",
+        "request_contract_version",
+        "request_contract_rearm_count",
+        "mapped_field_count",
+        "included_cell_count",
+        "omitted_field_count",
+        "mapping_validation_passed",
+        "schema_validation_passed",
+        "type_validation_passed",
+        "rejected_field_categories",
+        "rejection_safe_category",
+        "api_status_class",
+        "api_error_code",
     }
 
     prohibited_names = {

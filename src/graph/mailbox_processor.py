@@ -833,7 +833,18 @@ class MailboxProcessor:
                 continue
             state = discovery.state
             processable_retry = (
-                state.stage == "row_retry_ready" and state.retryable
+                state.stage == "row_retry_ready"
+                and (
+                    (
+                        state.row_attempt_count == 0
+                        and state.retryable
+                    )
+                    or (
+                        state.row_attempt_count > 0
+                        and self.job_state_service
+                        .can_rearm_row_request_contract(state)
+                    )
+                )
             )
             if state.stage not in {"discovered", "processing"} and not processable_retry:
                 result.work_items.append(MailboxDocumentWorkItem(

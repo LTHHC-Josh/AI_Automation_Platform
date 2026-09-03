@@ -13,12 +13,13 @@ class SmartsheetDestinationSchemaResult:
     success: bool
     status: str
     column_types: dict[str, str] = field(default_factory=dict)
+    system_column_types: dict[str, str] = field(default_factory=dict)
 
 
 class SmartsheetDestinationSchemaService:
     """
-    Reads only destination column titles and IDs from the approved
-    AI-output Smartsheet.
+    Reads only destination column titles, IDs, types, and system-column
+    metadata from the approved AI-output Smartsheet.
 
     No row values, mapped values, OCR text, source_text, filenames,
     document paths, or patient data are returned or logged.
@@ -94,6 +95,7 @@ class SmartsheetDestinationSchemaService:
 
         columns = {}
         column_types = {}
+        system_column_types = {}
 
         for column in raw_columns:
             title = getattr(
@@ -151,6 +153,11 @@ class SmartsheetDestinationSchemaService:
                 normalized_title
             ] = column_id
             column_types[normalized_title] = column_type
+            system_column_types[normalized_title] = (
+                self.system_column_type_category(
+                    getattr(column, "system_column_type", None)
+                )
+            )
 
         if not columns:
             return self._failure(
@@ -165,6 +172,7 @@ class SmartsheetDestinationSchemaService:
             success=True,
             status="ready",
             column_types=column_types,
+            system_column_types=system_column_types,
         )
 
     @staticmethod
@@ -177,4 +185,5 @@ class SmartsheetDestinationSchemaService:
             success=False,
             status=status,
             column_types={},
+            system_column_types={},
         )

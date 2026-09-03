@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from src.models.smartsheet_mapping import (
     SmartsheetColumnPolicy,
@@ -80,6 +80,8 @@ class SmartsheetReviewConfigurationResult:
     available_columns: dict[str, int]
     success: bool
     status: str
+    available_column_types: dict[str, str] = field(default_factory=dict)
+    available_system_column_types: dict[str, str] = field(default_factory=dict)
 
 
 class SmartsheetReviewConfigurationService:
@@ -216,6 +218,10 @@ class SmartsheetReviewConfigurationService:
             ),
             success=True,
             status="ready",
+            available_column_types=dict(schema_result.column_types),
+            available_system_column_types=dict(
+                schema_result.system_column_types
+            ),
         )
 
     @staticmethod
@@ -229,4 +235,6 @@ class SmartsheetReviewConfigurationService:
             available_columns={},
             success=False,
             status=status,
+            available_column_types={},
+            available_system_column_types={},
         )

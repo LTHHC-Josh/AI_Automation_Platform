@@ -61,6 +61,18 @@ class MailboxCompleteReviewSmartsheetResult:
     failure_category: str | None = None
     retryable: bool = False
     recoverable: bool = False
+    request_contract_version: int = 0
+    request_contract_rearm_count: int = 0
+    mapped_field_count: int = 0
+    included_cell_count: int = 0
+    omitted_field_count: int = 0
+    mapping_validation_passed: bool = False
+    schema_validation_passed: bool = False
+    type_validation_passed: bool = False
+    rejected_field_categories: tuple[str, ...] = ()
+    rejection_safe_category: str = "none"
+    api_status_class: str = "unavailable"
+    api_error_code: int | None = None
 
 
 class MailboxCompleteReviewSmartsheetService:
@@ -278,6 +290,14 @@ class MailboxCompleteReviewSmartsheetService:
                                 configuration_result
                                 .available_columns
                             ),
+                            available_column_types=dict(
+                                configuration_result
+                                .available_column_types
+                            ),
+                            available_system_column_types=dict(
+                                configuration_result
+                                .available_system_column_types
+                            ),
                             attachment_source_path=(
                                 document.file_path
                             ),
@@ -381,6 +401,50 @@ class MailboxCompleteReviewSmartsheetService:
             ),
             retryable=any(item.retryable for item in recovery_results),
             recoverable=any(item.recoverable for item in recovery_results),
+            request_contract_version=max(
+                (item.request_contract_version for item in recovery_results),
+                default=0,
+            ),
+            request_contract_rearm_count=sum(
+                item.request_contract_rearm_count for item in recovery_results
+            ),
+            mapped_field_count=sum(
+                item.mapped_field_count for item in recovery_results
+            ),
+            included_cell_count=sum(
+                item.included_cell_count for item in recovery_results
+            ),
+            omitted_field_count=sum(
+                item.omitted_field_count for item in recovery_results
+            ),
+            mapping_validation_passed=(
+                bool(recovery_results)
+                and all(
+                    item.mapping_validation_passed for item in recovery_results
+                )
+            ),
+            schema_validation_passed=(
+                bool(recovery_results)
+                and all(
+                    item.schema_validation_passed for item in recovery_results
+                )
+            ),
+            type_validation_passed=(
+                bool(recovery_results)
+                and all(item.type_validation_passed for item in recovery_results)
+            ),
+            rejected_field_categories=tuple(dict.fromkeys(
+                category
+                for item in recovery_results
+                for category in item.rejected_field_categories
+            )),
+            rejection_safe_category=self._aggregate_text(
+                item.rejection_safe_category for item in recovery_results
+            ) if recovery_results else "none",
+            api_status_class=self._aggregate_text(
+                item.api_status_class for item in recovery_results
+            ) if recovery_results else "unavailable",
+            api_error_code=self._aggregate_api_error_code(recovery_results),
         )
 
     @staticmethod
@@ -433,6 +497,15 @@ class MailboxCompleteReviewSmartsheetService:
         if len(distinct) == 1:
             return next(iter(distinct))
         return "multiple_failures"
+
+    @staticmethod
+    def _aggregate_api_error_code(results):
+        values = {
+            item.api_error_code
+            for item in results
+            if item.api_error_code is not None
+        }
+        return next(iter(values)) if len(values) == 1 else None
 
     @staticmethod
     def _failure(

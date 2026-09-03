@@ -171,6 +171,18 @@ def record_mailbox_workflow_summary(
     recoverable: bool = False,
     retryable: bool = False,
     failure_category: str = "none",
+    request_contract_version: int = 0,
+    request_contract_rearm_count: int = 0,
+    mapped_field_count: int = 0,
+    included_cell_count: int = 0,
+    omitted_field_count: int = 0,
+    mapping_validation_passed: bool = False,
+    schema_validation_passed: bool = False,
+    type_validation_passed: bool = False,
+    rejected_field_categories: str = "none",
+    rejection_safe_category: str = "none",
+    api_status_class: str = "unavailable",
+    api_error_code: int | None = None,
     filename_person_components: str = "Unresolved",
     filename_payer_lookup: str = "Unresolved",
     filename_service_lookup: str = "Unresolved",
@@ -511,6 +523,42 @@ def _run_mailbox_application(*, unattended: bool) -> MailboxFullReviewOrchestrat
             if isinstance(result.failure_category, str)
             and _SAFE_CATEGORY.fullmatch(result.failure_category)
             else "none" if not result.failure_category else "sanitized_failure"
+        ),
+        "request_contract_version": result.request_contract_version,
+        "request_contract_rearm_count": result.request_contract_rearm_count,
+        "mapped_field_count": result.mapped_field_count,
+        "included_cell_count": result.included_cell_count,
+        "omitted_field_count": result.omitted_field_count,
+        "mapping_validation_passed": result.mapping_validation_passed,
+        "schema_validation_passed": result.schema_validation_passed,
+        "type_validation_passed": result.type_validation_passed,
+        "rejected_field_categories": (
+            "; ".join(
+                category
+                for category in result.rejected_field_categories
+                if isinstance(category, str)
+                and _SAFE_CATEGORY.fullmatch(category)
+            )
+            if result.rejected_field_categories else "none"
+        ),
+        "rejection_safe_category": (
+            result.rejection_safe_category
+            if isinstance(result.rejection_safe_category, str)
+            and _SAFE_CATEGORY.fullmatch(result.rejection_safe_category)
+            else "sanitized_failure"
+        ),
+        "api_status_class": (
+            result.api_status_class
+            if result.api_status_class
+            in {"unavailable", "1xx", "2xx", "3xx", "4xx", "5xx"}
+            else "unavailable"
+        ),
+        "api_error_code": (
+            result.api_error_code
+            if isinstance(result.api_error_code, int)
+            and not isinstance(result.api_error_code, bool)
+            and 0 < result.api_error_code <= 999999
+            else None
         ),
         "filename_person_components": (
             "Ready" if filename and filename.person_components_ready else "Unresolved"

@@ -88,6 +88,8 @@ class SyntheticConfigurationService:
             status="ready",
             policies=(),
             available_columns={"Synthetic Technical Key": 101},
+            available_column_types={"Synthetic Technical Key": "TEXT_NUMBER"},
+            available_system_column_types={"Synthetic Technical Key": "none"},
         )
 
 

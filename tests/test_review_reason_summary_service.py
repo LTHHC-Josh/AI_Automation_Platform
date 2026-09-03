@@ -66,7 +66,7 @@ def test_mapper_uses_summary_but_preserves_review_output():
         "Service Code: Could not be verified; "
         "Service Code: Below confidence threshold"
     )
-    assert result.values["AI Review Required"] is True
+    assert result.values["AI Review Required"] == "Yes"
 
 
 def test_known_business_rule_maps_to_exact_phi_safe_code():
