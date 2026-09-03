@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import ctypes
-from ctypes import wintypes
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 import json
@@ -12,6 +10,12 @@ from pathlib import Path
 import tempfile
 import time
 from typing import Callable
+
+from src.services.windows_dpapi_service import (
+    WindowsDpapiError,
+    protect_current_user,
+    unprotect_current_user,
+)
 
 
 HANDOFF_LEASE_SECONDS = 15 * 60
@@ -31,64 +35,18 @@ class MailboxAcceptanceHandoff:
     message_identity: str = field(repr=False)
 
 
-class _DataBlob(ctypes.Structure):
-    _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_ubyte))]
-
-
-_crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)
-_kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-_crypt32.CryptProtectData.argtypes = [
-    ctypes.POINTER(_DataBlob), wintypes.LPCWSTR, ctypes.POINTER(_DataBlob),
-    ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(_DataBlob),
-]
-_crypt32.CryptProtectData.restype = wintypes.BOOL
-_crypt32.CryptUnprotectData.argtypes = [
-    ctypes.POINTER(_DataBlob), ctypes.POINTER(wintypes.LPWSTR), ctypes.POINTER(_DataBlob),
-    ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(_DataBlob),
-]
-_crypt32.CryptUnprotectData.restype = wintypes.BOOL
-_kernel32.LocalFree.argtypes = [ctypes.c_void_p]
-_kernel32.LocalFree.restype = ctypes.c_void_p
-
-
-def _blob(data: bytes):
-    buffer = ctypes.create_string_buffer(data)
-    return _DataBlob(len(data), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_ubyte))), buffer
-
-
 def _dpapi_protect(data: bytes) -> bytes:
-    source, source_buffer = _blob(data)
-    entropy, entropy_buffer = _blob(_PURPOSE)
-    output = _DataBlob()
-    if not _crypt32.CryptProtectData(
-        ctypes.byref(source), None, ctypes.byref(entropy), None, None, 1,
-        ctypes.byref(output),
-    ):
-        raise MailboxAcceptanceHandoffError("handoff_encryption_failed")
     try:
-        return ctypes.string_at(output.pbData, output.cbData)
-    finally:
-        _kernel32.LocalFree(output.pbData)
-        del source_buffer, entropy_buffer
+        return protect_current_user(data, purpose=_PURPOSE)
+    except WindowsDpapiError:
+        raise MailboxAcceptanceHandoffError("handoff_encryption_failed") from None
 
 
 def _dpapi_unprotect(data: bytes) -> bytes:
-    source, source_buffer = _blob(data)
-    entropy, entropy_buffer = _blob(_PURPOSE)
-    output = _DataBlob()
-    description = wintypes.LPWSTR()
-    if not _crypt32.CryptUnprotectData(
-        ctypes.byref(source), ctypes.byref(description), ctypes.byref(entropy), None, None, 1,
-        ctypes.byref(output),
-    ):
-        raise MailboxAcceptanceHandoffError("handoff_decryption_failed")
     try:
-        return ctypes.string_at(output.pbData, output.cbData)
-    finally:
-        _kernel32.LocalFree(output.pbData)
-        if description:
-            _kernel32.LocalFree(description)
-        del source_buffer, entropy_buffer
+        return unprotect_current_user(data, purpose=_PURPOSE)
+    except WindowsDpapiError:
+        raise MailboxAcceptanceHandoffError("handoff_decryption_failed") from None
 
 
 class MailboxAcceptanceHandoffService:

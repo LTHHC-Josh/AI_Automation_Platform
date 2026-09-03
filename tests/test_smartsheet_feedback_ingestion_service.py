@@ -216,7 +216,9 @@ def test_duplicate_is_a_successful_skip():
 
 def test_repeat_and_changed_comment_snapshots_are_idempotent():
     with TemporaryDirectory() as directory:
-        storage = SmartsheetFeedbackCaseStorageService(directory)
+        storage = SmartsheetFeedbackCaseStorageService(
+            directory, protect=lambda value: value[::-1]
+        )
         rows = (SmartsheetFeedbackRowReference(row_id=22, flagged=True),)
         first, _, _, _ = build_service(
             rows=rows,
@@ -265,18 +267,21 @@ def test_comment_order_does_not_change_snapshot():
 
 def test_storage_schema_and_filename_are_exact():
     with TemporaryDirectory() as directory:
-        storage = SmartsheetFeedbackCaseStorageService(directory)
+        storage = SmartsheetFeedbackCaseStorageService(
+            directory, protect=lambda value: value[::-1]
+        )
         service, _, _, _ = build_service(
             rows=(SmartsheetFeedbackRowReference(row_id=24, flagged=True),),
             storage=storage,
         )
         service.ingest()
-        paths = list(Path(directory).glob("*.json"))
-        payload = json.loads(paths[0].read_text(encoding="utf-8"))
+        paths = list(Path(directory).glob("*.feedback"))
+        sealed = paths[0].read_bytes()
+        payload = json.loads(sealed[::-1].decode("utf-8"))
         assert set(payload) == storage.ALLOWED_KEYS
-        assert paths[0].name == f"{payload['snapshot_digest']}.json"
-        assert "protected-scope" not in paths[0].read_text(encoding="utf-8")
-        assert paths[0].read_bytes().endswith(b"\n")
+        assert paths[0].name == f"{payload['snapshot_digest']}.feedback"
+        assert b"protected-scope" not in sealed
+        assert b'"row_id"' not in sealed
 
 
 def test_protected_objects_have_safe_representations():

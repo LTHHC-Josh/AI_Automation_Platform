@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": ["implemented", "incomplete", "needs_more_information", "requires_external_system"]
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^$|^[0-9a-f]{40}$"
+    },
+    "compiled": {"type": "boolean"},
+    "focused_tests_passed": {"type": "boolean"},
+    "affected_tests_passed": {"type": "boolean"},
+    "tracker_passed": {"type": "boolean"},
+    "git_safety_passed": {"type": "boolean"},
+    "pushed": {"type": "boolean"},
+    "failure_category": {
+      "type": "string",
+      "enum": ["none", "business_clarification", "external_dependency", "test_failure", "workspace_conflict", "implementation_incomplete", "safety_check_failed"]
+    }
+  },
+  "required": [
+    "outcome",
+    "commit_sha",
+    "compiled",
+    "focused_tests_passed",
+    "affected_tests_passed",
+    "tracker_passed",
+    "git_safety_passed",
+    "pushed",
+    "failure_category"
+  ],
+  "additionalProperties": false
+}

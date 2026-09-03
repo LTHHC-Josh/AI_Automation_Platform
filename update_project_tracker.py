@@ -9919,6 +9919,45 @@ unavailable fails closed, and zero permits at most one leased contract-v2 create
 Verify typed diagnostics, duplicate prevention, attachment gating, mailbox
 finalization, and clean return to waiting before stopdp.
 
+Successful typed-contract recovery and DP Training checkpoint (2026-09-03):
+
+- The controlled unattended recovery reused the exact durable job identity and
+  completed the typed-contract row, attachment, and mailbox lifecycle without a
+  duplicate. Business naming succeeded; category 2067, intake subtype unknown,
+  exact review reason `AI Document Subtype: Unknown`, independent classification
+  confidence, blank optional unavailable fields, unchecked AI Correction, and
+  absence of the misleading sentinel were confirmed using PHI-safe facts only.
+- Implemented the distinct parameterless `document-processor-training` Prefect
+  service with `lthhc-dp-training`, a dedicated process pool/worker, concurrency
+  one and `CANCEL_NEW`, no schedule, zero retries, disabled result persistence,
+  and exact `startdptraining`/`statusdptraining`/`stopdptraining` commands. The
+  health port and process ownership boundaries permit independent live DP and
+  Training operation.
+- Extended the existing feedback seed with exact seven-column validation,
+  least-privilege flagged-row/context reads, paginated comment checkpoints,
+  attachment exclusion, DPAPI-sealed one-row/one-case durability, strict
+  taxonomy/status transitions, proposal/result generations, stale approval
+  protection, write reconciliation, reopen/retest handling, and exact four-field
+  workflow write authority.
+- Added schema-constrained tool-free local analysis and a deterministic PHI-safe
+  Codex task boundary. One valid proposal approval permits one bounded ephemeral
+  implementation process only after clean/synchronized Git and repository-lock
+  checks; no retry/resume or destructive workspace cleanup exists. A distinct
+  human result approval is required after real retest.
+- Compilation, PowerShell 5.1 parsing, focused correction/command/readiness/
+  DPAPI tests, affected Smartsheet mapping/write/recovery/idempotency suites, and
+  isolated Prefect lifecycle/control-wrapper checks passed using synthetic,
+  mock, or local-safe data. No live Smartsheet row/comment read or correction
+  mutation, protected OCR/Ollama, mailbox operation, worker start, or deployment
+  invocation occurred.
+
+Exact next start: perform a metadata/read-only live acceptance of DP Training
+first: verify document-processor-training deployment readiness, command mappings,
+seven-column schema, zero schedules/automations, no active worker/conflicts, and
+the read-only detection contract without reading comment content. Then
+separately authorize one controlled flagged-row/comment acceptance and one
+proposal write before enabling approval-gated Codex dispatch in production.
+
 """
 
 
@@ -9939,10 +9978,12 @@ updates = [
             "supported workflow context. Generic family/subtype-aware automatic "
             "Smartsheet mapping now covers every processed document with the "
             "current explicit policies; the evolving destination schema and "
-            "platform-wide correction/readback contract remain Phase 1 work. "
-            "A read-only injected-reader incorrect-AI feedback boundary now "
-            "has strict boolean handling, protected revisioned storage, and "
-            "synthetic/mock coverage; its live adapter and column remain pending."
+            "platform-wide correction/readback contract now has a first-class "
+            "Prefect-visible DP Training implementation. It extends the prior "
+            "feedback seed with exact correction-column ownership, protected "
+            "comment/case handling, two human approval generations, controlled "
+            "local analysis, and a bounded PHI-safe Codex dispatcher. Production "
+            "row/comment acceptance and mutation gates remain pending."
         ),
     ),
     (
@@ -9951,7 +9992,10 @@ updates = [
         (
             "Implemented PHI boundaries, local AI processing, protected caches, "
             "sanitized Graph failures, explicit destination mapping, and "
-            "PHI-safe diagnostics; broader platform security design continues."
+            "PHI-safe diagnostics. DP Training adds current-user DPAPI-sealed "
+            "correction cases, untrusted-comment schema validation, strict "
+            "human/workflow ownership, PHI-safe Prefect state, and a deterministic "
+            "no-PHI Codex boundary; broader platform security design continues."
         ),
     ),
     (

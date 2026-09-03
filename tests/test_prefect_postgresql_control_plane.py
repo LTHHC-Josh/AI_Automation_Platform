@@ -84,18 +84,31 @@ def test_documented_operator_commands_are_one_physical_line():
 
 def test_synthetic_manual_and_unattended_deployments_are_conservative():
     deployment = read(ROOT / "prefect.yaml")
-    assert deployment.count("entrypoint:") == 3
+    parsed = yaml.safe_load(deployment)
+    assert deployment.count("entrypoint:") == 4
     assert "prefect_control_room.py:phi_safe_control_room_flow" in deployment
     assert "prefect_mailbox_workflow.py:bounded_mailbox_flow" in deployment
-    assert deployment.count("schedule: null") == 3
-    assert deployment.count("parameters: {}") == 3
+    assert deployment.count("schedule: null") == 4
+    assert deployment.count("parameters: {}") == 4
     assert "name: document-processor-manual" in deployment
     assert "limit: 1" in deployment
     assert "collision_strategy: CANCEL_NEW" in deployment
     assert "name: document-processor-live" in deployment
     assert "prefect_mailbox_workflow.py:unattended_mailbox_flow" in deployment
+    training = parsed["deployments"][3]
+    assert training["name"] == "document-processor-training"
+    assert training["schedule"] is None
+    assert training["parameters"] == {}
+    assert training["concurrency_limit"] == {
+        "limit": 1,
+        "collision_strategy": "CANCEL_NEW",
+    }
+    assert training["work_pool"]["name"] == "lthhc-dp-training-process"
+    assert training["entrypoint"] == (
+        "src/orchestration/prefect_document_processor_training.py:"
+        "document_processor_training_flow"
+    )
     assert "retries" not in deployment
-    parsed = yaml.safe_load(deployment)
     mailbox = parsed["deployments"][1]
     assert mailbox == {
         "name": "document-processor-manual",

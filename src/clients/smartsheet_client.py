@@ -99,6 +99,135 @@ class SmartsheetClient:
             include_all=True,
         )
 
+    def get_selected_rows(self, *, column_ids):
+        """Read all rows through a stable, selected-column pagination boundary."""
+        if (
+            not isinstance(column_ids, (list, tuple))
+            or not column_ids
+            or any(
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value <= 0
+                for value in column_ids
+            )
+            or len(set(column_ids)) != len(column_ids)
+        ):
+            raise ValueError("Valid unique selected column IDs are required.")
+        rows = []
+        page = 1
+        page_size = 100
+        expected_version = None
+        expected_total = None
+        seen_row_ids = set()
+        while True:
+            sheet = self.client.Sheets.get_sheet(
+                self.sheet_id,
+                column_ids=list(column_ids),
+                page_size=page_size,
+                page=page,
+            )
+            version = getattr(sheet, "version", None)
+            total = getattr(sheet, "total_row_count", None)
+            if (
+                isinstance(version, bool)
+                or not isinstance(version, int)
+                or version < 0
+                or isinstance(total, bool)
+                or not isinstance(total, int)
+                or total < 0
+            ):
+                raise RuntimeError("Selected sheet response metadata is invalid.")
+            if page == 1:
+                expected_version = version
+                expected_total = total
+            elif version != expected_version or total != expected_total:
+                raise RuntimeError("Sheet changed during selected pagination.")
+            batch = list(getattr(sheet, "rows", []) or [])
+            for row in batch:
+                row_id = getattr(row, "id", None)
+                if (
+                    isinstance(row_id, bool)
+                    or not isinstance(row_id, int)
+                    or row_id <= 0
+                    or row_id in seen_row_ids
+                ):
+                    raise RuntimeError("Selected pagination row identity is invalid.")
+                seen_row_ids.add(row_id)
+            rows.extend(batch)
+            if len(rows) > total:
+                raise RuntimeError("Selected pagination exceeded its row count.")
+            if len(rows) >= total:
+                return expected_version, tuple(rows)
+            if not batch:
+                raise RuntimeError("Selected pagination ended early.")
+            page += 1
+
+    def get_selected_row(self, *, row_id, column_ids):
+        """Read one known row with only selected columns."""
+        if isinstance(row_id, bool) or not isinstance(row_id, int) or row_id <= 0:
+            raise ValueError("A valid row reference is required.")
+        if (
+            not isinstance(column_ids, (list, tuple))
+            or not column_ids
+            or any(
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value <= 0
+                for value in column_ids
+            )
+        ):
+            raise ValueError("Valid selected column IDs are required.")
+        sheet = self.client.Sheets.get_sheet(
+            self.sheet_id,
+            column_ids=list(column_ids),
+            row_ids=[row_id],
+            page_size=1,
+            page=1,
+        )
+        rows = list(getattr(sheet, "rows", []) or [])
+        if len(rows) != 1 or getattr(rows[0], "id", None) != row_id:
+            raise RuntimeError("Selected row is unavailable or ambiguous.")
+        version = getattr(sheet, "version", None)
+        if isinstance(version, bool) or not isinstance(version, int) or version < 0:
+            raise RuntimeError("Selected row response version is invalid.")
+        return version, rows[0]
+
+    def get_row_discussions(self, *, row_id):
+        """Read paginated row comments without requesting comment attachments."""
+        if isinstance(row_id, bool) or not isinstance(row_id, int) or row_id <= 0:
+            raise ValueError("A valid row reference is required.")
+        discussions = []
+        page = 1
+        page_size = 100
+        total = None
+        while True:
+            response = self.client.Discussions.get_row_discussions(
+                self.sheet_id,
+                row_id,
+                include=["comments"],
+                page_size=page_size,
+                page=page,
+                include_all=False,
+            )
+            batch = list(getattr(response, "data", []) or [])
+            raw_total = getattr(response, "total_count", None)
+            if raw_total is None:
+                raw_total = len(batch)
+            if isinstance(raw_total, bool) or not isinstance(raw_total, int) or raw_total < 0:
+                raise RuntimeError("Discussion pagination metadata is invalid.")
+            if page == 1:
+                total = raw_total
+            elif raw_total != total:
+                raise RuntimeError("Discussion count changed during pagination.")
+            discussions.extend(batch)
+            if len(discussions) > total:
+                raise RuntimeError("Discussion pagination exceeded its count.")
+            if len(discussions) >= total:
+                return tuple(discussions)
+            if not batch:
+                raise RuntimeError("Discussion pagination ended early.")
+            page += 1
+
     def list_columns(self):
 
         sheet = self.get_sheet()

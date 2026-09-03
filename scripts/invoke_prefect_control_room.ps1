@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('StartUI', 'Status', 'PrepareRun', 'RunOnce', 'StopWorker', 'StartDP', 'StatusDP', 'StopDP', 'StopControlRoom', 'RestartControlRoom')]
+    [ValidateSet('StartUI', 'Status', 'PrepareRun', 'RunOnce', 'StopWorker', 'StartDP', 'StatusDP', 'StopDP', 'StartDPTraining', 'StatusDPTraining', 'StopDPTraining', 'StopControlRoom', 'RestartControlRoom')]
     [string]$Action,
     [switch]$Json
 )
@@ -15,14 +15,17 @@ $python = Join-Path $repositoryRoot '.venv\Scripts\python.exe'
 $postgresLauncher = Join-Path $PSScriptRoot 'invoke_prefect_postgresql.ps1'
 $workerLauncher = Join-Path $PSScriptRoot 'invoke_prefect_mailbox_worker.ps1'
 $dpLauncher = Join-Path $PSScriptRoot 'invoke_prefect_document_processor.ps1'
+$dpTrainingLauncher = Join-Path $PSScriptRoot 'invoke_prefect_document_processor_training.ps1'
 $readinessProbe = Join-Path $PSScriptRoot 'check_mailbox_prefect_readiness.py'
 $dpStartReadinessProbe = Join-Path $PSScriptRoot 'check_unattended_dp_start_readiness.py'
 $stateDirectory = Join-Path $env:LOCALAPPDATA 'LTHHC\Prefect\control-room'
 $statePath = Join-Path $stateDirectory 'owned-processes.json'
 $apiUrl = 'http://127.0.0.1:4200/api'
 $poolName = 'lthhc-local-process'
+$trainingPoolName = 'lthhc-dp-training-process'
 $deploymentName = 'lthhc-bounded-mailbox/document-processor-manual'
 $unattendedDeploymentName = 'lthhc-unattended-mailbox/document-processor-live'
+$trainingDeploymentName = 'lthhc-dp-training/document-processor-training'
 $freshHeartbeatSeconds = 90
 $startupCheckTimeoutSeconds = 30
 
@@ -187,6 +190,34 @@ function Test-UnattendedDeploymentConfiguration {
     return ($deployment.work_pool_name -eq $poolName -and $propertiesEmpty -and $requiredEmpty -and $limit -eq 1 -and (Get-OptionalProperty $options 'collision_strategy') -eq 'CANCEL_NEW' -and $schedulesEmpty)
 }
 
+function Get-TrainingDeployment {
+    try { return Invoke-PrefectJson -Arguments @('deployment', 'inspect', $trainingDeploymentName, '--output', 'json') } catch {
+        if ($_.Exception.Message -eq 'startup_check_timeout') { throw }
+        return $null
+    }
+}
+
+function Test-TrainingDeploymentConfiguration {
+    $deployment = Get-TrainingDeployment
+    if ($null -eq $deployment) { return $false }
+    $schema = Get-OptionalProperty $deployment 'parameter_openapi_schema'
+    $properties = Get-OptionalProperty $schema 'properties'
+    $required = Get-OptionalProperty $schema 'required'
+    $directLimit = Get-OptionalProperty $deployment 'concurrency_limit'
+    $globalLimit = Get-OptionalProperty $deployment 'global_concurrency_limit'
+    $limit = if ($null -ne $directLimit) { $directLimit } else { Get-OptionalProperty $globalLimit 'limit' }
+    $options = Get-OptionalProperty $deployment 'concurrency_options'
+    $schedules = Get-OptionalProperty $deployment 'schedules'
+    $propertiesEmpty = $null -eq $properties -or @($properties.PSObject.Properties).Count -eq 0
+    $requiredEmpty = $null -eq $required -or @($required).Count -eq 0
+    $schedulesEmpty = $null -eq $schedules -or @($schedules).Count -eq 0
+    try {
+        $pool = Invoke-PrefectJson -Arguments @('work-pool', 'inspect', $trainingPoolName, '--output', 'json')
+        $poolReady = $pool.type -eq 'process' -and $pool.concurrency_limit -eq 1 -and $pool.is_paused -eq $false
+    } catch { $poolReady = $false }
+    return ($poolReady -and $deployment.work_pool_name -eq $trainingPoolName -and $propertiesEmpty -and $requiredEmpty -and $limit -eq 1 -and (Get-OptionalProperty $options 'collision_strategy') -eq 'CANCEL_NEW' -and $schedulesEmpty)
+}
+
 function Get-DeploymentRunConflict($Deployment) {
     if ($null -eq $Deployment -or $null -eq $Deployment.id) { return $true }
     $body = @{ deployments = @{ id = @{ any_ = @($Deployment.id) } }; limit = 200; offset = 0 } | ConvertTo-Json -Depth 5 -Compress
@@ -195,9 +226,9 @@ function Get-DeploymentRunConflict($Deployment) {
     return @($runs | Where-Object { $_.state_type -notin $terminal }).Count -gt 0
 }
 
-function Get-FreshOnlineWorkerCount {
+function Get-FreshOnlineWorkerCount([string]$SelectedPoolName = $poolName) {
     try {
-        $workers = Invoke-RestMethod -Method Post -Uri "$apiUrl/work_pools/$poolName/workers/filter" -ContentType 'application/json' -Body '{"limit":50,"offset":0}' -TimeoutSec 5
+        $workers = Invoke-RestMethod -Method Post -Uri "$apiUrl/work_pools/$SelectedPoolName/workers/filter" -ContentType 'application/json' -Body '{"limit":50,"offset":0}' -TimeoutSec 5
         $cutoff = [DateTimeOffset]::UtcNow.AddSeconds(-$freshHeartbeatSeconds)
         return @($workers | Where-Object { $_.status -eq 'ONLINE' -and $null -ne $_.last_heartbeat_time -and [DateTimeOffset]::Parse($_.last_heartbeat_time) -ge $cutoff }).Count
     } catch { return 0 }
@@ -210,6 +241,8 @@ function Get-ControlPlaneStatus {
         mailbox_run_conflict = $false; manual_deployment_ready = $false
         unattended_deployment_ready = $false
         unattended_run_active = $false
+        training_pool_ready = $false; training_fresh_online_worker_count = 0
+        training_deployment_ready = $false; training_run_active = $false
     }
     try { $result.postgresql_running = (Get-PostgreSqlService).Status -eq 'Running' } catch {}
     $result.prefect_server_reachable = Test-PrefectServerReachable
@@ -223,6 +256,14 @@ function Get-ControlPlaneStatus {
         $result.unattended_deployment_ready = Test-UnattendedDeploymentConfiguration
         if ($null -ne $unattended) { $result.unattended_run_active = Get-DeploymentRunConflict $unattended }
         $result.fresh_online_worker_count = Get-FreshOnlineWorkerCount
+        try {
+            $trainingPool = Invoke-PrefectJson -Arguments @('work-pool', 'inspect', $trainingPoolName, '--output', 'json')
+            $result.training_pool_ready = ($trainingPool.type -eq 'process' -and $trainingPool.concurrency_limit -eq 1 -and $trainingPool.is_paused -eq $false)
+        } catch {}
+        $training = Get-TrainingDeployment
+        $result.training_deployment_ready = Test-TrainingDeploymentConfiguration
+        if ($null -ne $training) { $result.training_run_active = Get-DeploymentRunConflict $training }
+        $result.training_fresh_online_worker_count = Get-FreshOnlineWorkerCount $trainingPoolName
         $body = @{ deployments = @{ id = @{ any_ = @($deployment.id) } }; limit = 200; offset = 0 } | ConvertTo-Json -Depth 5 -Compress
         $runs = Invoke-RestMethod -Method Post -Uri "$apiUrl/flow_runs/filter" -ContentType 'application/json' -Body $body -TimeoutSec 5
         $terminal = @('COMPLETED', 'FAILED', 'CANCELLED', 'CRASHED')
@@ -272,6 +313,61 @@ function Get-DocumentProcessorStatus {
     }
 }
 
+function Get-DocumentProcessorTrainingStatus {
+    $control = Get-ControlPlaneStatus
+    $state = Read-ControlState
+    $owned = $state.ContainsKey('dp_training') -and (Test-OwnedProcess $state.dp_training 'invoke_prefect_document_processor_training.ps1')
+    $recordedExited = $state.ContainsKey('dp_training') -and (Test-RecordedOwnedProcessExited $state.dp_training)
+    $readyPath = Join-Path $stateDirectory 'dp-training-ready.json'
+    $summaryPath = Join-Path $stateDirectory 'dp-training-summary.json'
+    $pollingState = 'stopped'; $lastCheckUtc = $null; $nextCheckUtc = $null; $consecutiveFailures = 0
+    if ($owned -and (Test-Path -LiteralPath $readyPath -PathType Leaf)) {
+        try {
+            $pollState = Get-Content -LiteralPath $readyPath -Raw | ConvertFrom-Json
+            $pollingState = [string]$pollState.polling_state
+            $lastCheckUtc = $pollState.last_check_utc
+            $nextCheckUtc = $pollState.next_check_utc
+            if ($null -ne $pollState.consecutive_failures) { $consecutiveFailures = [int]$pollState.consecutive_failures }
+        } catch { $pollingState = 'state_unreadable' }
+    } elseif ($owned) { $pollingState = 'starting' }
+    $counts = @{flagged_case_count=0;analysis_ready_count=0;awaiting_approval_count=0;retest_required_count=0}
+    if (Test-Path -LiteralPath $summaryPath -PathType Leaf) {
+        try {
+            $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
+            foreach($name in @('flagged_case_count','analysis_ready_count','awaiting_approval_count','retest_required_count')) {
+                $value = Get-OptionalProperty $summary $name
+                if ($null -ne $value) { $counts[$name] = [int]$value }
+            }
+        } catch {}
+    }
+    $trainingMode = 'unavailable'
+    $previousPythonPath = $env:PYTHONPATH
+    try {
+        $env:PYTHONPATH = $repositoryRoot
+        $readiness = Invoke-BoundedProcess -FilePath $python -Arguments @((Join-Path $PSScriptRoot 'check_dp_training_start_readiness.py')) -TimeoutSeconds $startupCheckTimeoutSeconds
+        try { $trainingMode = [string](($readiness.output | Select-Object -Last 1 | ConvertFrom-Json).training_mode) } catch {}
+    } finally { $env:PYTHONPATH = $previousPythonPath }
+    $polling = $owned -and $pollingState -notin @('starting','state_unreadable','stopped')
+    $trainingWorkers = $control.training_fresh_online_worker_count
+    $degraded = ($owned -and (-not $polling -or -not $control.prefect_server_reachable -or -not $control.training_pool_ready -or -not $control.training_deployment_ready -or $trainingWorkers -ne 1)) -or ($state.ContainsKey('dp_training') -and -not $owned -and -not $recordedExited) -or (-not $owned -and $trainingWorkers -gt 0)
+    return [ordered]@{
+        training_running=$owned; training_process_ownership_proven=$owned
+        control_room_reachable=$control.prefect_server_reachable
+        training_pool_ready=$control.training_pool_ready
+        training_deployment_ready=$control.training_deployment_ready
+        training_mode=$trainingMode
+        polling_active=$polling; polling_state=$pollingState
+        current_bounded_run_active=$control.training_run_active
+        last_check_utc=$lastCheckUtc; next_check_utc=$nextCheckUtc
+        consecutive_failures=$consecutiveFailures
+        fresh_online_worker_count=$trainingWorkers; degraded=$degraded
+        flagged_case_count=$counts.flagged_case_count
+        analysis_ready_count=$counts.analysis_ready_count
+        awaiting_approval_count=$counts.awaiting_approval_count
+        retest_required_count=$counts.retest_required_count
+    }
+}
+
 function ConvertTo-OperatorYesNo($Value) {
     if ($Value -eq $true) { return 'Yes' }
     return 'No'
@@ -291,8 +387,36 @@ function Write-ControlPlaneOperatorStatus($Status) {
     Write-Output ''
     Write-OperatorField 'Manual Deployment Ready' (ConvertTo-OperatorYesNo $Status.manual_deployment_ready)
     Write-OperatorField 'Live Deployment Ready' (ConvertTo-OperatorYesNo $Status.unattended_deployment_ready)
+    Write-OperatorField 'Training Deployment Ready' (ConvertTo-OperatorYesNo $Status.training_deployment_ready)
     Write-OperatorField 'Mailbox Run Conflict' (ConvertTo-OperatorYesNo $Status.mailbox_run_conflict)
     Write-OperatorField 'Unattended Run Active' (ConvertTo-OperatorYesNo $Status.unattended_run_active)
+}
+
+function Write-DocumentProcessorTrainingOperatorStatus($Status) {
+    Write-Output 'Document Processor Training Status'
+    Write-Output '----------------------------------'
+    Write-OperatorField 'Training Running' (ConvertTo-OperatorYesNo $Status.training_running)
+    Write-OperatorField 'Ownership Proven' (ConvertTo-OperatorYesNo $Status.training_process_ownership_proven)
+    Write-OperatorField 'Control Room Reachable' (ConvertTo-OperatorYesNo $Status.control_room_reachable)
+    Write-OperatorField 'Training Pool Ready' (ConvertTo-OperatorYesNo $Status.training_pool_ready)
+    Write-OperatorField 'Deployment Ready' (ConvertTo-OperatorYesNo $Status.training_deployment_ready)
+    Write-OperatorField 'Training Mode' $Status.training_mode
+    Write-Output ''
+    Write-OperatorField 'Polling Active' (ConvertTo-OperatorYesNo $Status.polling_active)
+    Write-OperatorField 'Polling State' $Status.polling_state
+    Write-OperatorField 'Current Cycle Active' (ConvertTo-OperatorYesNo $Status.current_bounded_run_active)
+    Write-OperatorField 'Fresh Workers' $Status.fresh_online_worker_count
+    Write-OperatorField 'Degraded' (ConvertTo-OperatorYesNo $Status.degraded)
+    Write-Output ''
+    Write-OperatorField 'Flagged Cases' $Status.flagged_case_count
+    Write-OperatorField 'Analysis Ready' $Status.analysis_ready_count
+    Write-OperatorField 'Awaiting Approval' $Status.awaiting_approval_count
+    Write-OperatorField 'Retest Required' $Status.retest_required_count
+    Write-OperatorField 'Consecutive Failures' $Status.consecutive_failures
+    $lastCheck = if ($null -eq $Status.last_check_utc -or [string]::IsNullOrWhiteSpace([string]$Status.last_check_utc)) { 'Not yet' } else { [string]$Status.last_check_utc }
+    $nextCheck = if ($null -eq $Status.next_check_utc -or [string]::IsNullOrWhiteSpace([string]$Status.next_check_utc)) { 'Not scheduled' } else { [string]$Status.next_check_utc }
+    Write-OperatorField 'Last Check' $lastCheck
+    Write-OperatorField 'Next Check' $nextCheck
 }
 
 function Write-DocumentProcessorOperatorStatus($Status) {
@@ -460,7 +584,7 @@ function Stop-ControlRoomWorker {
 }
 
 function Start-DocumentProcessor {
-    $mutex = New-Object System.Threading.Mutex($false, 'Local\LTHHC-Prefect-DocumentProcessor-Control')
+    $mutex = New-Object System.Threading.Mutex($false, 'Local\LTHHC-Prefect-DocumentServices-Control')
     $mutexAcquired = $false
     $startupOwnedDp = $false
     $startupCompleted = $false
@@ -558,7 +682,7 @@ function Start-DocumentProcessor {
 }
 
 function Stop-DocumentProcessor {
-    $mutex = New-Object System.Threading.Mutex($false, 'Local\LTHHC-Prefect-DocumentProcessor-Control')
+    $mutex = New-Object System.Threading.Mutex($false, 'Local\LTHHC-Prefect-DocumentServices-Control')
     $mutexAcquired = $false
     try {
     $mutexAcquired = $mutex.WaitOne(0)
@@ -589,11 +713,105 @@ function Stop-DocumentProcessor {
     }
 }
 
+function Start-DocumentProcessorTraining {
+    $mutex = New-Object System.Threading.Mutex($false, 'Local\LTHHC-Prefect-DocumentServices-Control')
+    $mutexAcquired = $false; $startupOwned = $false; $startupCompleted = $false
+    Write-StartupProgress 'Starting Document Processor Training...'
+    try {
+        $mutexAcquired = $mutex.WaitOne(0)
+        if (-not $mutexAcquired) { throw 'Another DP Training control action is active.' }
+        $state = Read-ControlState
+        if ($state.ContainsKey('dp_training') -and (Test-OwnedProcess $state.dp_training 'invoke_prefect_document_processor_training.ps1')) {
+            Write-StartupProgress 'Document Processor Training is already running.'
+            return 'dp_training_already_running'
+        }
+        if (-not (Test-PrefectServerReachable) -or -not (Test-PrefectServerBackendSafe)) {
+            throw 'training_control_room_unavailable'
+        }
+        $control = Get-ControlPlaneStatus
+        if (-not ($control.postgresql_running -and $control.training_pool_ready -and $control.training_deployment_ready)) {
+            throw 'training_deployment_unavailable'
+        }
+        if ($control.training_run_active -or $control.training_fresh_online_worker_count -ne 0) {
+            throw 'training_startup_conflict'
+        }
+        $previousPythonPath = $env:PYTHONPATH
+        try {
+            $env:PYTHONPATH = $repositoryRoot
+            $check = Invoke-BoundedProcess -FilePath $python -Arguments @((Join-Path $PSScriptRoot 'check_dp_training_start_readiness.py')) -TimeoutSeconds $startupCheckTimeoutSeconds
+        } finally { $env:PYTHONPATH = $previousPythonPath }
+        if ($check.exit_code -ne 0) { throw 'training_readiness_unavailable' }
+        Start-OwnedComponent -Name 'dp_training' -Script $dpTrainingLauncher -Arguments @() -Marker 'invoke_prefect_document_processor_training.ps1'
+        $startupOwned = $true
+        $deadline = [DateTimeOffset]::UtcNow.AddSeconds(90)
+        while ([DateTimeOffset]::UtcNow -lt $deadline) {
+            $state = Read-ControlState
+            if (-not $state.ContainsKey('dp_training') -or -not (Test-OwnedProcess $state.dp_training 'invoke_prefect_document_processor_training.ps1')) {
+                throw 'training_worker_startup_failed'
+            }
+            if ((Get-FreshOnlineWorkerCount $trainingPoolName) -eq 1) { break }
+            Start-Sleep -Milliseconds 500
+        }
+        if ((Get-FreshOnlineWorkerCount $trainingPoolName) -ne 1) { throw 'training_worker_startup_timeout' }
+        'activate' | Set-Content -LiteralPath (Join-Path $stateDirectory 'dp-training-activate.signal') -Encoding ASCII
+        $readyPath = Join-Path $stateDirectory 'dp-training-ready.json'
+        while ([DateTimeOffset]::UtcNow -lt $deadline -and -not (Test-Path -LiteralPath $readyPath -PathType Leaf)) {
+            Start-Sleep -Milliseconds 500
+        }
+        if (-not (Test-Path -LiteralPath $readyPath -PathType Leaf)) { throw 'training_runtime_readiness_timeout' }
+        $startupCompleted = $true
+        Write-StartupProgress ''
+        Write-StartupProgress 'Document Processor Training started.'
+        Write-StartupProgress 'Polling state: Waiting'
+        return 'dp_training_started'
+    } finally {
+        if ($startupOwned -and -not $startupCompleted) {
+            Stop-OwnedComponent -Name 'dp_training' -Marker 'invoke_prefect_document_processor_training.ps1'
+        }
+        if ($mutexAcquired) { $mutex.ReleaseMutex() }
+        $mutex.Dispose()
+    }
+}
+
+function Stop-DocumentProcessorTraining {
+    $mutex = New-Object System.Threading.Mutex($false, 'Local\LTHHC-Prefect-DocumentServices-Control')
+    $mutexAcquired = $false
+    try {
+        $mutexAcquired = $mutex.WaitOne(0)
+        if (-not $mutexAcquired) { throw 'Another DP Training control action is active.' }
+        $state = Read-ControlState
+        $owned = $state.ContainsKey('dp_training') -and (Test-OwnedProcess $state.dp_training 'invoke_prefect_document_processor_training.ps1')
+        if (-not (Test-PrefectServerReachable)) { throw 'The control room must be reachable to stop DP Training safely.' }
+        $control = Get-ControlPlaneStatus
+        if ($control.training_run_active) {
+            if (-not $owned) { throw 'A DP Training run is active but ownership cannot be proven.' }
+            'stop' | Set-Content -LiteralPath (Join-Path $stateDirectory 'dp-training-stop.signal') -Encoding ASCII
+            return 'dp_training_stop_requested_active_run'
+        }
+        if ($owned) {
+            Stop-OwnedComponent -Name 'dp_training' -Marker 'invoke_prefect_document_processor_training.ps1'
+            return 'dp_training_stopped'
+        }
+        $recordedExited = $state.ContainsKey('dp_training') -and (Test-RecordedOwnedProcessExited $state.dp_training)
+        if ($control.training_fresh_online_worker_count -gt 0 -and -not $recordedExited) {
+            throw 'A fresh DP Training worker is active but ownership cannot be proven.'
+        }
+        if ($state.ContainsKey('dp_training')) { $state.Remove('dp_training'); Write-ControlState $state }
+        if ($recordedExited) { return 'dp_training_already_exited_prefect_heartbeat_settling' }
+        return 'dp_training_already_stopped'
+    } finally {
+        if ($mutexAcquired) { $mutex.ReleaseMutex() }
+        $mutex.Dispose()
+    }
+}
+
 function Stop-ControlRoomInfrastructure {
     $state = Read-ControlState
     $ownedWorker = $state.ContainsKey('worker') -and (Test-OwnedProcess $state.worker 'invoke_prefect_mailbox_worker.ps1')
     $ownedDp = $state.ContainsKey('dp') -and (Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1')
-    if ($ownedWorker -or $ownedDp -or (Get-ControlPlaneStatus).fresh_online_worker_count -gt 0) {
+    $ownedTraining = $state.ContainsKey('dp_training') -and (Test-OwnedProcess $state.dp_training 'invoke_prefect_document_processor_training.ps1')
+    $control = Get-ControlPlaneStatus
+    if ($ownedWorker -or $ownedDp -or $ownedTraining -or $control.fresh_online_worker_count -gt 0 -or $control.training_fresh_online_worker_count -gt 0) {
         throw 'Stop the worker before control-room maintenance.'
     }
     $serverReachable = Test-PrefectServerReachable
@@ -614,6 +832,10 @@ switch ($Action) {
     'StatusDP' {
         $status = Get-DocumentProcessorStatus
         if ($Json) { $status | ConvertTo-Json -Compress } else { Write-DocumentProcessorOperatorStatus $status }
+    }
+    'StatusDPTraining' {
+        $status = Get-DocumentProcessorTrainingStatus
+        if ($Json) { $status | ConvertTo-Json -Compress } else { Write-DocumentProcessorTrainingOperatorStatus $status }
     }
     'StartUI' {
         Start-ControlRoom
@@ -659,6 +881,12 @@ switch ($Action) {
     }
     'StopDP' {
         Write-Output (Stop-DocumentProcessor)
+    }
+    'StartDPTraining' {
+        Start-DocumentProcessorTraining
+    }
+    'StopDPTraining' {
+        Write-Output (Stop-DocumentProcessorTraining)
     }
     'StopControlRoom' {
         Stop-ControlRoomInfrastructure

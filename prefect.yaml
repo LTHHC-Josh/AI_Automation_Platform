@@ -46,3 +46,18 @@ deployments:
       name: lthhc-local-process
       work_queue_name: null
       job_variables: {}
+  - name: document-processor-training
+    description: Operator-owned bounded Smartsheet correction analysis and approval lifecycle.
+    tags:
+      - training
+      - phi-safe
+    schedule: null
+    concurrency_limit:
+      limit: 1
+      collision_strategy: CANCEL_NEW
+    entrypoint: src/orchestration/prefect_document_processor_training.py:document_processor_training_flow
+    parameters: {}
+    work_pool:
+      name: lthhc-dp-training-process
+      work_queue_name: null
+      job_variables: {}

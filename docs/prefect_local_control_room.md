@@ -1,8 +1,9 @@
 # Prefect Local Control Room
 
 This local control room contains one PHI-safe synthetic deployment, one
-manual-only bounded mailbox deployment, and one inactive-by-default unattended
-mailbox deployment against a
+manual-only bounded mailbox deployment, one inactive-by-default unattended
+mailbox deployment, and one inactive-by-default Document Processor Training
+deployment against a
 self-hosted Prefect 3.8.4 server whose control-plane database is native
 PostgreSQL 17.11-1. Registering or inspecting the mailbox deployment does not
 execute it. Microsoft Graph, Smartsheet, OCR/Paddle, Ollama, patient documents,
@@ -37,6 +38,9 @@ stopworker
 startdp
 statusdp
 stopdp
+startdptraining
+statusdptraining
+stopdptraining
 restartui
 stopui
 ```
@@ -57,6 +61,9 @@ Use the single control-room wrapper from a repository-root PowerShell terminal:
 & '.\scripts\invoke_prefect_control_room.ps1' -Action 'StartDP'
 & '.\scripts\invoke_prefect_control_room.ps1' -Action 'StatusDP'
 & '.\scripts\invoke_prefect_control_room.ps1' -Action 'StopDP'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'StartDPTraining'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'StatusDPTraining'
+& '.\scripts\invoke_prefect_control_room.ps1' -Action 'StopDPTraining'
 & '.\scripts\invoke_prefect_control_room.ps1' -Action 'StopControlRoom'
 & '.\scripts\invoke_prefect_control_room.ps1' -Action 'RestartControlRoom'
 ```
@@ -165,6 +172,23 @@ unattended worker does not automatically restart after Windows reboot in this
 checkpoint: run `startui`, verify the control room, then run `startdp`. After a
 worker crash or ambiguous ownership state, use `statusdp`, then `stopdp` to
 settle the owned process state before starting again.
+
+`StartDPTraining` is independent of `StartDP`. It requires the separate
+`lthhc-dp-training-process` process pool, the parameterless
+`lthhc-dp-training/document-processor-training` deployment, concurrency one,
+`CANCEL_NEW`, zero schedules, and zero active training runs. It starts one
+wrapper-owned training worker and repeats bounded five-minute training cycles.
+Its health server uses port `8081`, independently of the live worker's default
+health port.
+The default `schema_only` capability mode reads only destination metadata.
+Later `read_only`, `proposal_write`, and `approval_dispatch` modes remain
+explicit protected-local configuration choices and are never Prefect
+parameters. `StatusDPTraining` exposes only ownership/readiness/polling state,
+safe timestamps, failure counts, and aggregate correction counts.
+`StopDPTraining` finishes the current bounded cycle and stops only the proven
+training process tree. Neither DP command family stops the other, PostgreSQL,
+or the Prefect server. A host reboot requires `startdptraining` again.
+
 `StartUI` is primarily for reboot/crash recovery. The worker remains manual:
 `PrepareRun` starts the guarded worker/handoff path, `RunOnce` invokes one run,
 and `StopWorker` is the routine post-run action. `StopControlRoom` and
@@ -243,7 +267,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 Leave this terminal open. The launcher's `finally` block clears both database
 setting names and all plaintext variables after failure or normal shutdown.
 
-## Terminal 2: synthetic objects and one worker
+## Terminal 2: deployment objects and operator-owned workers
 
 Recreate the synthetic objects in the fresh control plane once:
 
@@ -251,6 +275,8 @@ Recreate the synthetic objects in the fresh control plane once:
 Set-Location 'C:\Projects\LTHHC-AI-Automation-Platform'
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' work-pool create 'lthhc-local-process' --type 'process'
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' work-pool set-concurrency-limit 'lthhc-local-process' 1
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' work-pool create 'lthhc-dp-training-process' --type 'process'
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' work-pool set-concurrency-limit 'lthhc-dp-training-process' 1
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deploy --all
 ```
 

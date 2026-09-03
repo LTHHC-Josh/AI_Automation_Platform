@@ -1629,14 +1629,59 @@ Typed Smartsheet row contract and API-rejection recovery checkpoint:
   protected OCR/Ollama, production Smartsheet document/comment operation,
   attachment upload, or mailbox mutation occurred.
 
+Successful typed-contract live recovery checkpoint:
+
+- The controlled unattended recovery reused the existing durable job identity
+  under request contract version 2. Exact reconciliation and the guarded
+  recovery path completed without a duplicate row.
+- The production Smartsheet row, attachment, and mailbox workflow completed.
+  Business naming behavior produced the expected result.
+- The operator-visible classification remained category `2067`, intake subtype
+  `unknown`, and review reason exactly `AI Document Subtype: Unknown`.
+  Classification confidence remained independently owned.
+- Optional unavailable production fields remained blank, the misleading
+  missing/confidence sentinel was absent, and `AI Correction` initialized
+  unchecked. These are PHI-safe structural facts only.
+
+Document Processor Training implementation checkpoint:
+
+- Added the fourth parameterless Prefect deployment
+  `document-processor-training` with application identity `lthhc-dp-training`,
+  a dedicated `lthhc-dp-training-process` pool, concurrency one with
+  `CANCEL_NEW`, zero flow/task retries, disabled result persistence, no schedule,
+  and no automatic reboot start. Its worker health endpoint uses port 8081 so it
+  can coexist with the live DP worker.
+- Added exact `startdptraining`, `statusdptraining`, and `stopdptraining`
+  operator mappings. Training and live DP have separate workers/process trees,
+  shared serialized ownership-state mutation, and independent stop behavior.
+- Extended the existing Smartsheet feedback seed with seven-column schema/type/
+  writability validation, correction-only discovery, flagged-row protected
+  context loading, paginated Conversations/comment reads, attachment exclusion,
+  incremental comment checkpoints, and one DPAPI-sealed durable case per row.
+- Human ownership remains absolute for `AI Correction`,
+  `Approve AI Correction`, `Approve AI Resolution`, and comments. DP Training
+  alone may update `AI Proposed Correction`, `AI Correction Type`,
+  `AI Correction Status`, and exact result field `AI Resolution Result`.
+- Added controlled correction taxonomy/status transitions, versioned proposal
+  and result hashes, false-to-true approval generation tracking, stale-approval
+  rejection, new-comment reopening, durable write intent/readback reconciliation,
+  one implementation start per cycle, and real-retest resolution approval.
+- Local Ollama analysis treats comments as untrusted evidence, has no tools, is
+  schema/vocabulary constrained, and falls back to `Needs Investigation`.
+  Codex receives only deterministic PHI-safe structural tasks and is guarded by
+  a clean/synchronized Git preflight, global lock, one bounded ephemeral process,
+  no resume/retry, all compile/test/tracker/Git gates, and pushed-commit proof.
+- Capability modes default to metadata-only `schema_only`. Production proposal
+  writes and Codex dispatch each remain behind separate disabled protected-local
+  gates pending controlled acceptance. Synthetic/mock/local-safe tests passed;
+  no live flagged row/comment, protected OCR/Ollama, production correction write,
+  mailbox operation, deployment run, or worker start occurred.
+
 ## CURRENT NEXT START
 
-Refresh the affected Prefect deployment/source registration from the committed
-typed-row contract source, then perform one controlled recovery of the existing
-durable `row_write_api_rejected` job without resending the document. Reuse its
-exact durable identity and reconcile the submission key before any create: one
-match must reconcile existing, multiple or unavailable results must fail closed,
-and zero matches may authorize at most one leased contract-v2 create. Verify the
-typed mapping/schema/value diagnostics, no duplicate row, attachment remains
-blocked until row identity is proven, mailbox finalization occurs only after row
-and attachment completion, and the DP returns cleanly to waiting before stopdp.
+Perform a metadata/read-only live acceptance of DP Training first: verify
+document-processor-training deployment readiness, command mappings, seven-column
+schema, zero schedules/automations, no active worker/conflicts, and read-only
+detection contract without reading comment content. Then separately authorize
+one controlled flagged-row/comment acceptance and one proposal write before
+enabling approval-gated Codex dispatch in production.

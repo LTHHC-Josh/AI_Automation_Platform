@@ -14,6 +14,9 @@ COMMANDS = {
     "startdp": "StartDP",
     "statusdp": "StatusDP",
     "stopdp": "StopDP",
+    "startdptraining": "StartDPTraining",
+    "statusdptraining": "StatusDPTraining",
+    "stopdptraining": "StopDPTraining",
     "restartui": "RestartControlRoom",
     "stopui": "StopControlRoom",
 }
