@@ -9944,6 +9944,11 @@ Successful typed-contract recovery and DP Training checkpoint (2026-09-03):
   implementation process only after clean/synchronized Git and repository-lock
   checks; no retry/resume or destructive workspace cleanup exists. A distinct
   human result approval is required after real retest.
+- Metadata-only registration produced exactly the four intended deployments on
+  current committed local source, zero schedules/automations/active target runs,
+  and a concurrency-one training pool with no worker. A real PowerShell 5.1
+  `-File` profile-installer acceptance exposed and fixed deferred repository-root
+  resolution before the profile was changed.
 - Compilation, PowerShell 5.1 parsing, focused correction/command/readiness/
   DPAPI tests, affected Smartsheet mapping/write/recovery/idempotency suites, and
   isolated Prefect lifecycle/control-wrapper checks passed using synthetic,

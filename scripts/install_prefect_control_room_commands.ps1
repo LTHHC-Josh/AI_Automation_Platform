@@ -1,13 +1,17 @@
 [CmdletBinding()]
 param(
     [string]$ProfilePath = $PROFILE.CurrentUserAllHosts,
-    [string]$RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
+    [string]$RepositoryRoot,
     [switch]$LoadCurrentSession,
     [switch]$SkipExecutionPolicyCheck
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+    $RepositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+}
 
 if (-not $SkipExecutionPolicyCheck) {
     $effectivePolicy = Get-ExecutionPolicy

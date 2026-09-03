@@ -1676,6 +1676,13 @@ Document Processor Training implementation checkpoint:
   gates pending controlled acceptance. Synthetic/mock/local-safe tests passed;
   no live flagged row/comment, protected OCR/Ollama, production correction write,
   mailbox operation, deployment run, or worker start occurred.
+- The metadata-only registration now contains exactly the four intended
+  deployments and no extras. All use current committed local source, empty
+  parameters, and zero schedules; server automations and active target runs are
+  zero. The training pool has concurrency one and no worker. The existing fresh
+  live DP worker remained untouched. A real PowerShell 5.1 `-File` installer
+  acceptance exposed and fixed deferred `$PSScriptRoot` resolution before the
+  profile was changed.
 
 ## CURRENT NEXT START
 
