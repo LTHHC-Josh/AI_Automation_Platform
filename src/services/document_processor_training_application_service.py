@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import asdict
 from datetime import datetime, timezone
-import os
 from typing import Any, Callable
 
 from src.clients.smartsheet_client import SmartsheetClient
@@ -19,6 +18,9 @@ from src.services.smartsheet_feedback_case_storage_service import (
 )
 from src.services.document_processor_training_codex_service import (
     BoundedCodexDispatcher,
+)
+from src.services.document_processor_training_configuration_service import (
+    load_runtime_dp_training_capabilities,
 )
 from src.services.document_processor_training_contracts import (
     AI_CORRECTION,
@@ -70,15 +72,16 @@ class DocumentProcessorTrainingApplicationService:
         self.writer = writer
         self.task_service = task_service
         self.dispatcher = dispatcher
-        self.mode = mode if mode in TRAINING_MODES else "schema_only"
+        if mode not in TRAINING_MODES:
+            raise ValueError("training_mode_invalid")
+        self.mode = mode
 
     @classmethod
     def from_environment(cls) -> "DocumentProcessorTrainingApplicationService":
-        mode = str(os.getenv("DP_TRAINING_MODE", "schema_only") or "").strip().lower()
-        if mode not in TRAINING_MODES:
-            mode = "schema_only"
-        write_enabled = os.getenv("DP_TRAINING_ALLOW_SMARTSHEET_WRITES") == "true"
-        dispatch_enabled = os.getenv("DP_TRAINING_ALLOW_CODEX_DISPATCH") == "true"
+        capabilities = load_runtime_dp_training_capabilities()
+        mode = capabilities.mode
+        write_enabled = capabilities.smartsheet_writes_enabled
+        dispatch_enabled = capabilities.codex_dispatch_enabled
         if mode in {"proposal_write", "approval_dispatch"} and not write_enabled:
             raise RuntimeError("training_smartsheet_write_gate_disabled")
         if mode == "approval_dispatch" and not dispatch_enabled:
@@ -118,6 +121,7 @@ class DocumentProcessorTrainingApplicationService:
                 failure_category=schema.status,
             )
             return TrainingCycleSummary(
+                effective_mode=self.mode,
                 polling_result="failed",
                 failure_category=schema.status,
                 recoverable=True,
@@ -125,7 +129,9 @@ class DocumentProcessorTrainingApplicationService:
             )
         if self.mode == "schema_only":
             self._observe(stage_observer, "training_poll", "completed")
-            return TrainingCycleSummary(polling_result="schema_ready")
+            return TrainingCycleSummary(
+                effective_mode=self.mode, polling_result="schema_ready"
+            )
         try:
             rows = self.reader.read_rows(schema=schema)
         except Exception:
@@ -134,6 +140,7 @@ class DocumentProcessorTrainingApplicationService:
                 failure_category="flagged_row_read_failed",
             )
             return TrainingCycleSummary(
+                effective_mode=self.mode,
                 polling_result="failed",
                 failure_category="flagged_row_read_failed",
                 recoverable=True,
@@ -654,6 +661,7 @@ class DocumentProcessorTrainingApplicationService:
         except Exception:
             return TrainingCycleSummary(
                 flagged_case_count=flagged_count,
+                effective_mode=self.mode,
                 polling_result="completed_with_failures",
                 failure_category="case_summary_unavailable",
                 recoverable=True,
@@ -662,6 +670,7 @@ class DocumentProcessorTrainingApplicationService:
         statuses = [case.status for case in cases]
         return TrainingCycleSummary(
             flagged_case_count=flagged_count,
+            effective_mode=self.mode,
             new_case_count=self._cycle["new"],
             updated_case_count=self._cycle["updated"],
             analysis_ready_count=statuses.count("Analysis Ready"),

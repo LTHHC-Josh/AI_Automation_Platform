@@ -7,6 +7,9 @@ from prefect.client.schemas.filters import TaskRunFilter, TaskRunFilterFlowRunId
 from prefect.testing.utilities import prefect_test_harness
 
 import src.orchestration.prefect_document_processor_training as training
+from src.services.document_processor_training_configuration_service import (
+    DPTrainingConfigurationError,
+)
 from src.services.document_processor_training_contracts import TrainingCycleSummary
 
 
@@ -26,6 +29,7 @@ class SyntheticTrainingApplication:
         stage_observer(stage="proposal_validated", status="completed")
         stage_observer(stage="awaiting_approval", status="completed")
         return TrainingCycleSummary(
+            effective_mode="read_only",
             flagged_case_count=1,
             new_case_count=1,
             analysis_ready_count=1,
@@ -96,6 +100,32 @@ def test_stage_and_summary_inputs_are_allowlisted():
     }
     assert training._STAGE_NAMES["implementation_dispatch"] == "Implementation Dispatch"
     assert "awaiting_approval" not in training._LONG_RUNNING
+
+
+def test_runtime_mode_mismatch_fails_before_application_and_writes_safe_summary():
+    original_factory = training.DocumentProcessorTrainingApplicationService.from_environment
+    original_write = training._write_safe_summary
+    captured = []
+
+    def fail_configuration(cls):
+        raise DPTrainingConfigurationError("training_mode_mismatch")
+
+    training.DocumentProcessorTrainingApplicationService.from_environment = classmethod(
+        fail_configuration
+    )
+    training._write_safe_summary = captured.append
+    try:
+        with prefect_test_harness():
+            state = training.document_processor_training_flow(return_state=True)
+    finally:
+        training.DocumentProcessorTrainingApplicationService.from_environment = original_factory
+        training._write_safe_summary = original_write
+    assert state.is_failed()
+    assert len(captured) == 1
+    assert captured[0].effective_mode == "unavailable"
+    assert captured[0].polling_result == "failed"
+    assert captured[0].failure_category == "training_mode_mismatch"
+    assert captured[0].retryable is False
 
 
 if __name__ == "__main__":

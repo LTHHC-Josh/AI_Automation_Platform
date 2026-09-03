@@ -195,6 +195,7 @@ class CorrectionAnalysis:
 
 @dataclass(frozen=True)
 class TrainingCycleSummary:
+    effective_mode: str = "unavailable"
     flagged_case_count: int = 0
     new_case_count: int = 0
     updated_case_count: int = 0

@@ -9982,6 +9982,36 @@ content remains local/protected, verify no Smartsheet correction-field writes
 occur, verify no Codex dispatch occurs, verify PHI-safe Prefect/status counts,
 then stop DP Training cleanly.
 
+DP Training capability-mode propagation correction (2026-09-03):
+
+- Proved the status path loaded protected `.env` in a short readiness child while
+  the launcher/worker did not receive that environment. The application then
+  captured its silent `schema_only` default before the Smartsheet client loaded
+  dotenv, exactly explaining the observed `schema_ready` cycle. Registered
+  deployment parameters and job variables remained empty; installed Prefect
+  process-worker source confirmed normal worker-environment inheritance.
+- Added a shared absolute-path protected capability loader, explicit required
+  mode validation, startup-frozen mode/gate fingerprint, owned-worker inheritance,
+  per-cycle file/runtime comparison, and fail-closed safe mismatch categories.
+  Capability changes now require a DP Training restart and cannot hot-escalate.
+- `startdptraining` verifies the application-visible safe mode before activation.
+  `statusdptraining` now distinguishes configured and runtime/effective modes and
+  their match. Prefect summaries add only the safe effective mode; the deployment
+  remains parameterless with no job variables.
+- Focused and affected synthetic deterministic/mock/local-safe checks passed for
+  configuration, all four capability modes, readiness, command ownership,
+  PowerShell 5.1, DPAPI protection, Smartsheet mapping/write/recovery, mailbox
+  idempotency/orchestration, and isolated Prefect lifecycle behavior. The real
+  stopped-service status check showed configured `read_only`, runtime
+  `not_running`, zero workers/active cycles, and no degraded state.
+- No production row/comment read, Smartsheet mutation, Codex dispatch, mailbox
+  operation, protected OCR, or Ollama operation occurred during implementation.
+
+Exact next start: perform one controlled live `read_only` acceptance against the
+existing flagged row. Prove configured/runtime mode agreement before polling,
+exactly one protected case discovery/update, no correction-field write, no Codex
+dispatch, PHI-safe Prefect/status output, and clean `stopdptraining` settlement.
+
 """
 
 

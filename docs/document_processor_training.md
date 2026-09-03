@@ -29,12 +29,18 @@ The protected-local `DP_TRAINING_MODE` capability gate has four values:
 - `proposal_write` also permits the four workflow-owned Smartsheet fields.
 - `approval_dispatch` also permits one approval-gated bounded Codex attempt.
 
-The default is `schema_only`. Advancing a production capability mode requires
-a separate controlled acceptance. `proposal_write` and `approval_dispatch`
+The mode must be explicitly present and valid; a missing or invalid value fails
+closed instead of silently defaulting to `schema_only`. The complete capability
+snapshot is frozen when `startdptraining` succeeds. Changing the mode or either
+gate while the service is running causes a safe runtime mismatch until the
+operator runs `stopdptraining` and `startdptraining` again. Advancing a
+production capability mode requires a separate controlled acceptance.
+`proposal_write` and `approval_dispatch`
 also require the exact protected-local
 `DP_TRAINING_ALLOW_SMARTSHEET_WRITES=true` gate. `approval_dispatch` further
 requires `DP_TRAINING_ALLOW_CODEX_DISPATCH=true`. These gates default disabled.
-The mode and gates are never Prefect parameters.
+The mode and gates are never Prefect parameters or deployment job variables.
+Only their PHI-safe mode/fingerprint handshake is inherited by the owned worker.
 
 ## Smartsheet ownership
 
@@ -121,7 +127,8 @@ may be configured for transitions to `Analysis Ready`, `Retest Required`, and
 only the fixed status and an instruction to open the queue; do not include row
 values, filenames, attachment names, comments, or patient information.
 
-`statusdptraining` exposes only runtime ownership, deployment/pool readiness,
-polling state, safe timestamps, consecutive failures, and aggregate case
-counts. Normal reviewers do not need PowerShell, Prefect, Codex, ChatGPT, or
-repository access.
+`statusdptraining` distinguishes the configured and runtime/effective mode and
+shows whether they match. It otherwise exposes only runtime ownership,
+deployment/pool readiness, polling state, safe timestamps, consecutive
+failures, and aggregate case counts. Normal reviewers do not need PowerShell,
+Prefect, Codex, ChatGPT, or repository access.

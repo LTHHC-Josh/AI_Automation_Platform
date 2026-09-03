@@ -26,9 +26,13 @@ def test_exact_training_commands_and_actions_are_installed():
         assert prohibited not in installer.lower()
 
 
-def test_training_launcher_is_parameterless_bounded_and_dedicated():
+def test_training_launcher_freezes_safe_capability_and_is_bounded_and_dedicated():
     source = read(LAUNCHER)
-    assert "param()" in source
+    assert "[string]$ExpectedMode" in source
+    assert "[string]$ExpectedCapabilityFingerprint" in source
+    assert "$env:DP_TRAINING_MODE = $ExpectedMode" in source
+    assert "$env:DP_TRAINING_CAPABILITY_FINGERPRINT = $ExpectedCapabilityFingerprint" in source
+    assert "--require-runtime-match" in source
     assert "lthhc-dp-training/document-processor-training" in source
     assert "lthhc-dp-training-process" in source
     assert "lthhc-dp-training-worker" in source
@@ -67,6 +71,19 @@ def test_training_start_does_not_conflict_with_live_pool_worker():
     assert "$control.fresh_online_worker_count -ne 0" not in block
     assert "$control.unattended_run_active" not in block
     assert "Start-OwnedComponent -Name 'dp_training'" in block
+    assert "'-ExpectedMode',$expectedMode" in block
+    assert "'-ExpectedCapabilityFingerprint',$expectedFingerprint" in block
+    assert "training_runtime_mode_mismatch" in block
+
+
+def test_training_status_distinguishes_configured_and_runtime_modes():
+    source = read(WRAPPER)
+    assert "configured_training_mode=$trainingMode" in source
+    assert "runtime_effective_training_mode=$runtimeMode" in source
+    assert "training_mode_match=$effectiveModeMatch" in source
+    assert "Write-OperatorField 'Configured Mode'" in source
+    assert "Write-OperatorField 'Runtime/Effective Mode'" in source
+    assert "Write-OperatorField 'Mode Match'" in source
 
 
 def test_control_room_shutdown_guards_both_runtime_families():

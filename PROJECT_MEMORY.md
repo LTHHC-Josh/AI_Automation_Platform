@@ -1671,9 +1671,10 @@ Document Processor Training implementation checkpoint:
   Codex receives only deterministic PHI-safe structural tasks and is guarded by
   a clean/synchronized Git preflight, global lock, one bounded ephemeral process,
   no resume/retry, all compile/test/tracker/Git gates, and pushed-commit proof.
-- Capability modes default to metadata-only `schema_only`. Production proposal
-  writes and Codex dispatch each remain behind separate disabled protected-local
-  gates pending controlled acceptance. Synthetic/mock/local-safe tests passed;
+- Capability modes require an explicit protected-local setting; `schema_only`
+  remains the metadata-only mode. Production proposal writes and Codex dispatch
+  each remain behind separate disabled protected-local gates pending controlled
+  acceptance. Synthetic/mock/local-safe tests passed;
   no live flagged row/comment, protected OCR/Ollama, production correction write,
   mailbox operation, deployment run, or worker start occurred.
 - The metadata-only registration now contains exactly the four intended
@@ -1705,11 +1706,43 @@ DP Training read-only activation-preparation checkpoint:
   No production row/comment was read, no Smartsheet or mailbox state was mutated,
   no protected Ollama analysis ran, and no worker/deployment was started.
 
+DP Training capability-mode propagation correction checkpoint:
+
+- The first controlled startup exposed a split configuration path: the status
+  readiness child loaded the ignored repository `.env` and reported `read_only`,
+  while neither parent launcher nor worker received that child-only environment.
+  The application read its mode before the Smartsheet client later loaded the
+  same file, silently captured `schema_only`, and returned `schema_ready` without
+  row discovery. Prefect's process worker inherited its worker environment and
+  did not sanitize the value; deployment parameters and job variables remained
+  empty.
+- Added one absolute-path protected capability loader shared by readiness and the
+  application. Missing, invalid, changed, or runtime-mismatched configuration now
+  fails closed before Smartsheet construction or polling. The validated mode and
+  mutation-gate fingerprint are frozen at startup, inherited by only the owned
+  worker/process tree, and must still match the protected file on every cycle.
+  Capability changes require `stopdptraining` then `startdptraining`.
+- Startup now proves the application-visible safe mode/fingerprint before worker
+  activation. `statusdptraining` distinguishes configured and runtime/effective
+  modes and reports their match without exposing the fingerprint. Prefect cycle
+  summaries include only the effective safe mode alongside existing aggregate
+  fields; configuration mismatch is non-retryable and PHI-safe.
+- Focused and affected synthetic deterministic/mock/local-safe checks passed for
+  all four modes, fail-closed missing/invalid/mismatch behavior, read-only/write/
+  dispatch separation, PowerShell 5.1, protected DPAPI state, Smartsheet mapping/
+  write/recovery, mailbox idempotency/orchestration, and isolated Prefect flows.
+  A stopped-service status acceptance reported configured `read_only`, runtime
+  `not_running`, zero training workers/active cycles, and no degraded state.
+- No production flagged row/comment was read during this correction, no
+  Smartsheet or mailbox state was mutated, and no Codex, protected OCR, or Ollama
+  operation ran.
+
 ## CURRENT NEXT START
 
-Perform one controlled live `read_only` DP Training acceptance against one
-intentionally flagged `AI Correction` row. Start DP Training, verify exactly one
-protected correction case is discovered/updated, verify row/comment content
-remains local/protected, verify no Smartsheet correction-field writes occur,
-verify no Codex dispatch occurs, verify PHI-safe Prefect/status counts, then stop
-DP Training cleanly.
+Perform one controlled live `read_only` DP Training acceptance against the
+existing intentionally flagged `AI Correction` row. Start DP Training and first
+verify configured and runtime/effective modes both report `read_only` with a
+proven match. Then verify exactly one protected correction case is discovered/
+updated, row/comment content remains local/protected, no Smartsheet correction-
+field write or Codex dispatch occurs, Prefect/status output remains PHI-safe, and
+stop DP Training cleanly.

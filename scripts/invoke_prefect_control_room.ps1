@@ -340,6 +340,7 @@ function Get-DocumentProcessorTrainingStatus {
     $readyPath = Join-Path $stateDirectory 'dp-training-ready.json'
     $summaryPath = Join-Path $stateDirectory 'dp-training-summary.json'
     $pollingState = 'stopped'; $lastCheckUtc = $null; $nextCheckUtc = $null; $consecutiveFailures = 0
+    $runtimeMode = 'not_running'; $modeMatch = $false
     if ($owned -and (Test-Path -LiteralPath $readyPath -PathType Leaf)) {
         try {
             $pollState = Get-Content -LiteralPath $readyPath -Raw | ConvertFrom-Json
@@ -347,6 +348,10 @@ function Get-DocumentProcessorTrainingStatus {
             $lastCheckUtc = $pollState.last_check_utc
             $nextCheckUtc = $pollState.next_check_utc
             if ($null -ne $pollState.consecutive_failures) { $consecutiveFailures = [int]$pollState.consecutive_failures }
+            $runtimeValue = Get-OptionalProperty $pollState 'runtime_effective_mode'
+            $matchValue = Get-OptionalProperty $pollState 'mode_match'
+            if ($null -ne $runtimeValue) { $runtimeMode = [string]$runtimeValue }
+            if ($null -ne $matchValue) { $modeMatch = [bool]$matchValue }
         } catch { $pollingState = 'state_unreadable' }
     } elseif ($owned) { $pollingState = 'starting' }
     $counts = @{flagged_case_count=0;analysis_ready_count=0;awaiting_approval_count=0;retest_required_count=0}
@@ -368,13 +373,17 @@ function Get-DocumentProcessorTrainingStatus {
     } finally { $env:PYTHONPATH = $previousPythonPath }
     $polling = $owned -and $pollingState -notin @('starting','state_unreadable','stopped')
     $trainingWorkers = $control.training_fresh_online_worker_count
-    $degraded = ($owned -and (-not $polling -or -not $control.prefect_server_reachable -or -not $control.training_pool_ready -or -not $control.training_deployment_ready -or $trainingWorkers -ne 1)) -or ($state.ContainsKey('dp_training') -and -not $owned -and -not $recordedExited) -or (-not $owned -and $trainingWorkers -gt 0)
+    $effectiveModeMatch = $owned -and $modeMatch -and $runtimeMode -eq $trainingMode
+    $degraded = ($owned -and (-not $polling -or -not $effectiveModeMatch -or -not $control.prefect_server_reachable -or -not $control.training_pool_ready -or -not $control.training_deployment_ready -or $trainingWorkers -ne 1)) -or ($state.ContainsKey('dp_training') -and -not $owned -and -not $recordedExited) -or (-not $owned -and $trainingWorkers -gt 0)
     return [ordered]@{
         training_running=$owned; training_process_ownership_proven=$owned
         control_room_reachable=$control.prefect_server_reachable
         training_pool_ready=$control.training_pool_ready
         training_deployment_ready=$control.training_deployment_ready
         training_mode=$trainingMode
+        configured_training_mode=$trainingMode
+        runtime_effective_training_mode=$runtimeMode
+        training_mode_match=$effectiveModeMatch
         polling_active=$polling; polling_state=$pollingState
         current_bounded_run_active=$control.training_run_active
         last_check_utc=$lastCheckUtc; next_check_utc=$nextCheckUtc
@@ -419,7 +428,9 @@ function Write-DocumentProcessorTrainingOperatorStatus($Status) {
     Write-OperatorField 'Control Room Reachable' (ConvertTo-OperatorYesNo $Status.control_room_reachable)
     Write-OperatorField 'Training Pool Ready' (ConvertTo-OperatorYesNo $Status.training_pool_ready)
     Write-OperatorField 'Deployment Ready' (ConvertTo-OperatorYesNo $Status.training_deployment_ready)
-    Write-OperatorField 'Training Mode' $Status.training_mode
+    Write-OperatorField 'Configured Mode' $Status.configured_training_mode
+    Write-OperatorField 'Runtime/Effective Mode' $Status.runtime_effective_training_mode
+    Write-OperatorField 'Mode Match' (ConvertTo-OperatorYesNo $Status.training_mode_match)
     Write-Output ''
     Write-OperatorField 'Polling Active' (ConvertTo-OperatorYesNo $Status.polling_active)
     Write-OperatorField 'Polling State' $Status.polling_state
@@ -760,7 +771,13 @@ function Start-DocumentProcessorTraining {
             $check = Invoke-BoundedProcess -FilePath $python -Arguments @((Join-Path $PSScriptRoot 'check_dp_training_start_readiness.py')) -TimeoutSeconds $startupCheckTimeoutSeconds
         } finally { $env:PYTHONPATH = $previousPythonPath }
         if ($check.exit_code -ne 0) { throw 'training_readiness_unavailable' }
-        Start-OwnedComponent -Name 'dp_training' -Script $dpTrainingLauncher -Arguments @() -Marker 'invoke_prefect_document_processor_training.ps1'
+        try { $readinessResult = $check.output | Select-Object -Last 1 | ConvertFrom-Json } catch { throw 'training_readiness_invalid' }
+        $expectedMode = [string](Get-OptionalProperty $readinessResult 'configured_mode')
+        $expectedFingerprint = [string](Get-OptionalProperty $readinessResult 'capability_fingerprint')
+        if ($expectedMode -notin @('schema_only','read_only','proposal_write','approval_dispatch') -or $expectedFingerprint -notmatch '^[0-9a-f]{64}$') {
+            throw 'training_readiness_invalid'
+        }
+        Start-OwnedComponent -Name 'dp_training' -Script $dpTrainingLauncher -Arguments @('-ExpectedMode',$expectedMode,'-ExpectedCapabilityFingerprint',$expectedFingerprint) -Marker 'invoke_prefect_document_processor_training.ps1'
         $startupOwned = $true
         $deadline = [DateTimeOffset]::UtcNow.AddSeconds(90)
         while ([DateTimeOffset]::UtcNow -lt $deadline) {
@@ -772,12 +789,24 @@ function Start-DocumentProcessorTraining {
             Start-Sleep -Milliseconds 500
         }
         if ((Get-FreshOnlineWorkerCount $trainingPoolName) -ne 1) { throw 'training_worker_startup_timeout' }
-        'activate' | Set-Content -LiteralPath (Join-Path $stateDirectory 'dp-training-activate.signal') -Encoding ASCII
         $readyPath = Join-Path $stateDirectory 'dp-training-ready.json'
         while ([DateTimeOffset]::UtcNow -lt $deadline -and -not (Test-Path -LiteralPath $readyPath -PathType Leaf)) {
             Start-Sleep -Milliseconds 500
         }
         if (-not (Test-Path -LiteralPath $readyPath -PathType Leaf)) { throw 'training_runtime_readiness_timeout' }
+        try { $runtimeReadiness = Get-Content -LiteralPath $readyPath -Raw | ConvertFrom-Json } catch { throw 'training_runtime_readiness_invalid' }
+        if (
+            [string](Get-OptionalProperty $runtimeReadiness 'configured_mode') -ne $expectedMode -or
+            [string](Get-OptionalProperty $runtimeReadiness 'runtime_effective_mode') -ne $expectedMode -or
+            [bool](Get-OptionalProperty $runtimeReadiness 'mode_match') -ne $true
+        ) { throw 'training_runtime_mode_mismatch' }
+        'activate' | Set-Content -LiteralPath (Join-Path $stateDirectory 'dp-training-activate.signal') -Encoding ASCII
+        while ([DateTimeOffset]::UtcNow -lt $deadline) {
+            try { $runtimeReadiness = Get-Content -LiteralPath $readyPath -Raw | ConvertFrom-Json } catch { throw 'training_runtime_readiness_invalid' }
+            if ([string]$runtimeReadiness.polling_state -ne 'awaiting_activation') { break }
+            Start-Sleep -Milliseconds 250
+        }
+        if ([string]$runtimeReadiness.polling_state -eq 'awaiting_activation') { throw 'training_runtime_activation_timeout' }
         $startupCompleted = $true
         Write-StartupProgress ''
         Write-StartupProgress 'Document Processor Training started.'

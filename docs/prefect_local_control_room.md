@@ -180,10 +180,14 @@ settle the owned process state before starting again.
 wrapper-owned training worker and repeats bounded five-minute training cycles.
 Its health server uses port `8081`, independently of the live worker's default
 health port.
-The default `schema_only` capability mode reads only destination metadata.
-Later `read_only`, `proposal_write`, and `approval_dispatch` modes remain
-explicit protected-local configuration choices and are never Prefect
-parameters. `StatusDPTraining` exposes only ownership/readiness/polling state,
+An explicitly configured `schema_only` capability mode reads only destination
+metadata. Missing or invalid mode configuration fails closed. `read_only`,
+`proposal_write`, and `approval_dispatch` remain explicit protected-local
+choices and are never Prefect parameters or deployment job variables. The
+validated capability snapshot is frozen at startup; a later protected config
+change requires `stopdptraining` followed by `startdptraining` and otherwise
+fails cycles closed. `StatusDPTraining` distinguishes configured and
+runtime/effective modes and exposes only ownership/readiness/polling state,
 safe timestamps, failure counts, and aggregate correction counts.
 `StopDPTraining` finishes the current bounded cycle and stops only the proven
 training process tree. Neither DP command family stops the other, PostgreSQL,

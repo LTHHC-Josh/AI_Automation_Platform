@@ -751,6 +751,25 @@ def test_schema_only_mode_stops_before_row_or_comment_access():
     )
     result = service.run_cycle()
     assert result.polling_result == "schema_ready"
+    assert result.effective_mode == "schema_only"
+
+
+def test_invalid_direct_mode_is_rejected_instead_of_downgraded():
+    try:
+        DocumentProcessorTrainingApplicationService(
+            schema_service=SimpleNamespace(read=schema_result),
+            reader=ForbiddenReader(),
+            repository=MemoryRepository(),
+            analyzer=FlowAnalyzer(),
+            writer=SimpleNamespace(),
+            task_service=PhiSafeImplementationTaskService(),
+            dispatcher=BoundedCodexDispatcher(enabled=False),
+            mode="invalid",
+        )
+    except ValueError as error:
+        assert str(error) == "training_mode_invalid"
+    else:
+        raise AssertionError("Invalid mode silently downgraded")
 
 
 def test_flag_is_reverified_before_comment_or_context_processing():
@@ -974,7 +993,7 @@ def test_prefect_deployment_and_operator_contracts_are_exact():
 
 def test_cycle_summary_has_only_approved_safe_fields():
     assert tuple(field.name for field in fields(TrainingCycleSummary)) == (
-        "flagged_case_count", "new_case_count", "updated_case_count",
+        "effective_mode", "flagged_case_count", "new_case_count", "updated_case_count",
         "analysis_ready_count", "awaiting_approval_count",
         "implementation_authorized_count", "implementation_started_count",
         "implementation_completed_count", "implementation_failed_count",

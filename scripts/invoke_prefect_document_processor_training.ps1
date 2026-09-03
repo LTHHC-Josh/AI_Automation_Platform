@@ -1,5 +1,13 @@
 [CmdletBinding()]
-param()
+param(
+    [Parameter(Mandatory = $true)]
+    [ValidateSet('schema_only', 'read_only', 'proposal_write', 'approval_dispatch')]
+    [string]$ExpectedMode,
+
+    [Parameter(Mandatory = $true)]
+    [ValidatePattern('^[0-9a-f]{64}$')]
+    [string]$ExpectedCapabilityFingerprint
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -31,6 +39,9 @@ function Write-DpTrainingStatus([string]$PollingState, $LastCheckUtc, $NextCheck
         last_check_utc = $LastCheckUtc
         next_check_utc = $NextCheckUtc
         consecutive_failures = $consecutiveFailures
+        configured_mode = $ExpectedMode
+        runtime_effective_mode = $ExpectedMode
+        mode_match = $true
     }
     $status | ConvertTo-Json -Compress | Set-Content -LiteralPath $readyPath -Encoding ASCII
 }
@@ -41,7 +52,13 @@ try {
     $env:PYTHONIOENCODING = 'UTF-8'
     $env:DO_NOT_TRACK = '1'
     $env:PREFECT_WORKER_WEBSERVER_PORT = '8081'
-    $readiness = Start-Process -FilePath $python -ArgumentList @((Join-Path $PSScriptRoot 'check_dp_training_start_readiness.py')) -WindowStyle Hidden -PassThru
+    $env:DP_TRAINING_MODE = $ExpectedMode
+    $env:DP_TRAINING_CAPABILITY_FINGERPRINT = $ExpectedCapabilityFingerprint
+    $readinessArguments = @(
+        (Join-Path $PSScriptRoot 'check_dp_training_start_readiness.py'),
+        '--require-runtime-match'
+    )
+    $readiness = Start-Process -FilePath $python -ArgumentList $readinessArguments -WindowStyle Hidden -PassThru
     if (-not $readiness.WaitForExit($startupCheckTimeoutSeconds * 1000)) {
         if (-not $readiness.HasExited) { $readiness.Kill(); $readiness.WaitForExit() }
         throw 'DP Training readiness timed out.'
@@ -57,6 +74,7 @@ try {
         '--with-healthcheck','--install-policy','never','--no-create-pool-if-not-found'
     )
     $worker = Start-Process -FilePath $prefect -ArgumentList $workerArguments -WindowStyle Hidden -PassThru
+    Write-DpTrainingStatus -PollingState 'awaiting_activation' -LastCheckUtc $null -NextCheckUtc $null
     $activationDeadline = [DateTimeOffset]::UtcNow.AddSeconds(120)
     while (-not (Test-Path -LiteralPath $activationPath -PathType Leaf)) {
         $worker.Refresh()

@@ -17,6 +17,9 @@ from prefect.states import Completed, Failed, Running
 from src.services.document_processor_training_application_service import (
     DocumentProcessorTrainingApplicationService,
 )
+from src.services.document_processor_training_configuration_service import (
+    DPTrainingConfigurationError,
+)
 from src.services.document_processor_training_contracts import TrainingCycleSummary
 
 
@@ -203,6 +206,17 @@ def run_document_processor_training_cycle() -> TrainingCycleSummary:
     try:
         result = DocumentProcessorTrainingApplicationService.from_environment().run_cycle(
             stage_observer=observe
+        )
+    except DPTrainingConfigurationError as error:
+        try:
+            stages.fail_open()
+        except Exception:
+            pass
+        result = TrainingCycleSummary(
+            polling_result="failed",
+            failure_category=_safe_failure_category(error.category),
+            recoverable=False,
+            retryable=False,
         )
     except Exception:
         try:
