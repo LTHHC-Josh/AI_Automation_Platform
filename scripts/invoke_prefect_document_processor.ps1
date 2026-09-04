@@ -12,6 +12,8 @@ $readyPath = Join-Path $readyDirectory 'dp-ready.json'
 $activationPath = Join-Path $readyDirectory 'dp-activate.signal'
 $stopPath = Join-Path $readyDirectory 'dp-stop.signal'
 $deploymentName = 'lthhc-unattended-mailbox/document-processor-live'
+$livePoolName = 'lthhc-dp-live-process'
+$liveWorkerName = 'lthhc-dp-live-worker'
 $basePollSeconds = 300
 $maximumBackoffSeconds = 1800
 $startupCheckTimeoutSeconds = 30
@@ -46,7 +48,7 @@ try {
     Remove-Item -LiteralPath $readyPath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $activationPath -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $stopPath -Force -ErrorAction SilentlyContinue
-    $workerArguments = @('--profile','lthhc-local','worker','start','--pool','lthhc-local-process','--name','lthhc-unattended-dp-worker','--limit','1','--with-healthcheck','--install-policy','never','--no-create-pool-if-not-found')
+    $workerArguments = @('--profile','lthhc-local','worker','start','--pool',$livePoolName,'--name',$liveWorkerName,'--limit','1','--with-healthcheck','--install-policy','never','--no-create-pool-if-not-found')
     $worker = Start-Process -FilePath $prefect -ArgumentList $workerArguments -WindowStyle Hidden -PassThru
     $activationDeadline = [DateTimeOffset]::UtcNow.AddSeconds(120)
     while (-not (Test-Path -LiteralPath $activationPath -PathType Leaf)) {

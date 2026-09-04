@@ -1809,6 +1809,26 @@ Shared Document Processor business context and correction-analysis v2 checkpoint
   Prefect checks passed. No live Smartsheet row/comment was read or mutated, and
   no live DP/DP Training, Codex, mailbox/Graph, OCR, or Ollama operation ran.
 
+Dedicated Live Document Processor work-pool checkpoint:
+
+- Live DP now routes only through the dedicated `lthhc-dp-live-process` pool and
+  explicitly named `lthhc-dp-live-worker`. Manual DP remains on
+  `lthhc-local-process`; DP Training remains on `lthhc-dp-training-process`.
+- `startdp` creates only the Live DP-owned launcher/worker on the live pool.
+  `statusdp` reports the live pool explicitly, and `stopdp` uses only the live
+  ownership record and live-pool heartbeat count. Manual and training stop paths
+  retain their distinct ownership markers and cannot stop Live DP.
+- The local Prefect control plane now has all three process pools registered with
+  concurrency one. The live, manual, and training deployments are parameterless,
+  retain concurrency one with `CANCEL_NEW`, have zero schedules/job variables,
+  and target their exact service pools. Metadata acceptance found zero online
+  workers, zero active target runs, and zero automations; no worker or flow ran.
+- Modified Python compiled. Focused and affected synthetic deterministic/mock,
+  Windows PowerShell 5.1, and isolated local Prefect checks passed. Read-only
+  `statusdp` reported the dedicated live pool ready, stopped, zero workers, and
+  not degraded. No document, mailbox, Smartsheet, OCR, Ollama, or other PHI-
+  sensitive operation ran.
+
 ## CURRENT NEXT START
 
 Perform one controlled live proposal_write DP Training acceptance against the

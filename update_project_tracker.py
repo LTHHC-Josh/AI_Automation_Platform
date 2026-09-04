@@ -10083,6 +10083,34 @@ writes only the four workflow-owned fields, preserves human controls/comments,
 and creates no implementation job or Codex dispatch. An unchanged second cycle
 must be reconciliation-only. Do not approve implementation during acceptance.
 
+Dedicated Live Document Processor work-pool checkpoint (2026-09-04):
+
+- Added and registered `lthhc-dp-live-process` for only the parameterless
+  `document-processor-live` deployment and explicitly named its owned worker
+  `lthhc-dp-live-worker`. Manual DP remains on `lthhc-local-process`; DP Training
+  remains on `lthhc-dp-training-process`.
+- `startdp`, `statusdp`, and `stopdp` now use the dedicated live pool while
+  preserving PID, creation-time, command-line marker, and cross-service conflict
+  guards. Manual and training worker launch/stop ownership remains isolated.
+- Metadata-only local Prefect registration proved all three pools are process
+  pools with concurrency one, all three target deployments retain concurrency
+  one with `CANCEL_NEW`, empty parameters/job variables, and zero schedules.
+  There were zero online workers, active target runs, and automations. No worker
+  or flow was started.
+- Modified Python compiled. Focused/affected synthetic deterministic, mock,
+  Windows PowerShell 5.1, and isolated local Prefect regressions passed. Actual
+  read-only `statusdp` reported the live pool ready, stopped, zero workers, and
+  not degraded. No mailbox/document, Smartsheet, OCR, Ollama, or PHI-sensitive
+  operation ran.
+
+Exact next start: perform one controlled live proposal-write DP Training
+acceptance against the existing active flagged correction case. Prove one
+version-keyed reanalysis under analysis contract v2/business context v1 reuses
+the durable identity/checkpoint, creates one validated new proposal generation,
+writes only the four workflow-owned fields, preserves human controls/comments,
+and creates no implementation job or Codex dispatch. An unchanged second cycle
+must be reconciliation-only. Do not approve implementation during acceptance.
+
 """
 
 
@@ -10115,7 +10143,9 @@ updates = [
             "authoritative. Correction analysis v2 separates business-intent clarity "
             "from technical disposition and permits one version-keyed reanalysis of "
             "the current older-basis case; controlled live proposal-write and "
-            "unchanged-cycle idempotency acceptance remains pending."
+            "unchanged-cycle idempotency acceptance remains pending. Live DP now "
+            "has its own registered Prefect process pool and owned worker identity; "
+            "manual DP and DP Training retain their separate existing pools."
         ),
     ),
     (
@@ -10289,7 +10319,8 @@ updates = [
             "itself, and mapped review reasons now use fixed PHI-safe codes. "
             "Prefect retries, "
             "server-side scheduling, and silent automatic startup remain "
-            "disabled. The "
+            "disabled. Live DP now targets its dedicated registered process pool, "
+            "while manual DP and DP Training remain independently routed. The "
             "pinned Prefect 3.8.4 offline dry-run defect now has a version-bounded "
             "operational exception backed by online migration, exact head, "
             "state-invariant, and synthetic acceptance evidence."

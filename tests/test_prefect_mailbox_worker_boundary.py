@@ -97,7 +97,12 @@ def test_unattended_launcher_uses_same_noninteractive_auth_boundary():
     assert "check_mailbox_worker_auth_readiness.py" in launcher
     assert launcher.index("check_mailbox_worker_auth_readiness.py") < launcher.index("$workerArguments")
     assert "Start-Process -FilePath $prefect" in launcher
-    assert "lthhc-unattended-dp-worker" in launcher
+    assert "$livePoolName = 'lthhc-dp-live-process'" in launcher
+    assert "$liveWorkerName = 'lthhc-dp-live-worker'" in launcher
+    assert "'--pool',$livePoolName" in launcher
+    assert "'--name',$liveWorkerName" in launcher
+    assert "lthhc-local-process" not in launcher
+    assert "lthhc-dp-training-process" not in launcher
     assert "'--limit','1'" in launcher
     assert "$basePollSeconds = 300" in launcher
     assert "$maximumBackoffSeconds = 1800" in launcher

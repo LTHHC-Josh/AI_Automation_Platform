@@ -1347,6 +1347,12 @@ def test_prefect_deployment_and_operator_contracts_are_exact():
         "document-processor-training",
     }
     training = deployments["document-processor-training"]
+    assert deployments["document-processor-manual"]["work_pool"]["name"] == (
+        "lthhc-local-process"
+    )
+    assert deployments["document-processor-live"]["work_pool"]["name"] == (
+        "lthhc-dp-live-process"
+    )
     assert training["schedule"] is None and training["parameters"] == {}
     assert training["concurrency_limit"] == {"limit": 1, "collision_strategy": "CANCEL_NEW"}
     assert training["work_pool"]["name"] == "lthhc-dp-training-process"

@@ -45,6 +45,8 @@ def test_unattended_commands_are_separate_owned_polling_controls():
     assert "invoke_prefect_document_processor.ps1" in start
     assert "invoke_prefect_document_processor.ps1" in start
     assert "fresh_online_worker_count -ne 0" in start
+    assert "live_fresh_online_worker_count -ne 0" in start
+    assert "Get-FreshOnlineWorkerCount $livePoolName" in start
     assert "mailbox_run_conflict" in start and "unattended_run_active" in start
     assert "System.Threading.Mutex" in start and "WaitOne(0)" in start
     assert "check_unattended_dp_start_readiness.py" in text
@@ -98,7 +100,7 @@ $ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[re
 $node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq 'Start-DocumentProcessor'},$true)
 Invoke-Expression $node.Extent.Text
 function Read-ControlState { return @{} }
-function Get-ControlPlaneStatus { return @{postgresql_running=$true;prefect_server_reachable=$true;manual_deployment_ready=$true;unattended_deployment_ready=$true;mailbox_run_conflict=$false;unattended_run_active=$false;fresh_online_worker_count=0} }
+function Get-ControlPlaneStatus { return @{postgresql_running=$true;prefect_server_reachable=$true;live_pool_ready=$true;unattended_deployment_ready=$true;mailbox_run_conflict=$false;unattended_run_active=$false;fresh_online_worker_count=0;live_fresh_online_worker_count=0} }
 function Test-PrefectServerReachable { return $true }
 function Test-PrefectServerBackendSafe { return $true }
 function Invoke-BoundedProcess { return @{exit_code=1;output=@('{"all_ready":false,"failure_category":"graph_auth_unavailable"}')} }
@@ -160,7 +162,7 @@ function Read-ControlState { return @{} }
 function Test-OwnedProcess { return $false }
 function Test-PrefectServerReachable { return $true }
 function Test-PrefectServerBackendSafe { return $true }
-function Get-ControlPlaneStatus { return @{postgresql_running=$true;prefect_server_reachable=$true;manual_deployment_ready=$true;unattended_deployment_ready=$true;mailbox_run_conflict=$false;unattended_run_active=$false;fresh_online_worker_count=0} }
+function Get-ControlPlaneStatus { return @{postgresql_running=$true;prefect_server_reachable=$true;live_pool_ready=$true;unattended_deployment_ready=$true;mailbox_run_conflict=$false;unattended_run_active=$false;fresh_online_worker_count=0;live_fresh_online_worker_count=0} }
 function Invoke-BoundedProcess { return @{exit_code=0;output=@('{"all_ready":true,"failure_category":"none"}')} }
 function Start-OwnedComponent { $global:started=$true }
 function Get-FreshOnlineWorkerCount { throw [System.Management.Automation.PipelineStoppedException]::new() }
@@ -185,13 +187,13 @@ $tokens=$null;$errors=$null
 $ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[ref]$tokens,[ref]$errors)
 $node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq 'Get-DocumentProcessorStatus'},$true)
 Invoke-Expression $node.Extent.Text
-function Get-ControlPlaneStatus { return @{prefect_server_reachable=$true;work_pool_ready=$true;unattended_deployment_ready=$true;unattended_run_active=$false;fresh_online_worker_count=1} }
+function Get-ControlPlaneStatus { return @{prefect_server_reachable=$true;live_pool_ready=$true;unattended_deployment_ready=$true;unattended_run_active=$false;live_fresh_online_worker_count=1} }
 function Read-ControlState { return @{dp=@{pid=42;owned=$true;process_created_utc='synthetic'}} }
 function Test-OwnedProcess { return $global:owned }
 function Test-RecordedOwnedProcessExited { return $global:exited }
 function Test-Path { param([string]$LiteralPath,[object]$PathType) return $global:active }
 function Get-Content { return '{"polling_state":"waiting","last_check_utc":null,"next_check_utc":null,"consecutive_failures":0}' }
-$stateDirectory='synthetic'
+$stateDirectory='synthetic';$livePoolName='lthhc-dp-live-process'
 $global:owned=$true;$global:exited=$false;$global:active=$true;$running=Get-DocumentProcessorStatus
 if(-not $running.dp_running -or $running.degraded){exit 52}
 $global:owned=$false;$global:exited=$false;$global:active=$true;$degraded=Get-DocumentProcessorStatus
@@ -218,11 +220,11 @@ foreach($name in @('ConvertTo-OperatorYesNo','Write-OperatorField','Write-Contro
   $node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq $name},$true)
   Invoke-Expression $node.Extent.Text
 }
-$control=[ordered]@{postgresql_running=$true;prefect_server_reachable=$false;work_pool_ready=$true;fresh_online_worker_count=0;manual_deployment_ready=$true;unattended_deployment_ready=$true;mailbox_run_conflict=$false;unattended_run_active=$false}
-$dp=[ordered]@{dp_running=$false;dp_process_ownership_proven=$false;control_room_reachable=$true;work_pool_ready=$false;unattended_deployment_ready=$true;polling_active=$false;polling_state='stopped';current_bounded_run_active=$false;fresh_online_worker_count=0;degraded=$false;last_check_utc=$null;next_check_utc=$null;consecutive_failures=0}
+$control=[ordered]@{postgresql_running=$true;prefect_server_reachable=$false;work_pool_ready=$true;fresh_online_worker_count=0;live_pool_ready=$true;live_fresh_online_worker_count=0;training_pool_ready=$true;training_fresh_online_worker_count=0;manual_deployment_ready=$true;unattended_deployment_ready=$true;training_deployment_ready=$true;mailbox_run_conflict=$false;unattended_run_active=$false;training_run_active=$false}
+$dp=[ordered]@{dp_running=$false;dp_process_ownership_proven=$false;control_room_reachable=$true;work_pool_name='lthhc-dp-live-process';work_pool_ready=$false;unattended_deployment_ready=$true;polling_active=$false;polling_state='stopped';current_bounded_run_active=$false;fresh_online_worker_count=0;degraded=$false;last_check_utc=$null;next_check_utc=$null;consecutive_failures=0}
 $controlText=(Write-ControlPlaneOperatorStatus $control)-join "`n"
 $dpText=(Write-DocumentProcessorOperatorStatus $dp)-join "`n"
-if($controlText.IndexOf('PostgreSQL Running:') -gt $controlText.IndexOf('Fresh Workers:')){exit 61}
+if($controlText.IndexOf('PostgreSQL Running:') -gt $controlText.IndexOf('Training Fresh Workers:')){exit 61}
 if($controlText -notmatch 'PostgreSQL Running:\s+Yes' -or $controlText -notmatch 'Prefect Server Reachable:\s+No'){exit 62}
 if($dpText.IndexOf('DP Running:') -gt $dpText.IndexOf('Polling Active:')){exit 63}
 if($dpText -notmatch 'Last Check:\s+Not yet' -or $dpText -notmatch 'Next Check:\s+Not scheduled'){exit 64}
@@ -253,7 +255,7 @@ $ast=[System.Management.Automation.Language.Parser]::ParseFile('__WRAPPER__',[re
 $node=$ast.Find({param($item) $item -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $item.Name -eq 'Stop-DocumentProcessor'},$true)
 Invoke-Expression $node.Extent.Text
 function Test-PrefectServerReachable { return $true }
-function Get-ControlPlaneStatus { return @{unattended_run_active=$false;fresh_online_worker_count=1} }
+function Get-ControlPlaneStatus { return @{unattended_run_active=$false;live_fresh_online_worker_count=1} }
 function Read-ControlState { return @{dp=@{pid=42;owned=$true;process_created_utc='synthetic'}} }
 function Test-OwnedProcess { return $global:owned }
 function Test-RecordedOwnedProcessExited { return $global:exited }
@@ -287,6 +289,7 @@ def test_start_ui_neither_starts_worker_nor_runs_deployment_and_opens_ui():
 def test_prepare_delegates_handoff_and_never_invokes_deployment():
     block = source().split("'PrepareRun' {", 1)[1].split("'RunOnce' {", 1)[0]
     assert "fresh_online_worker_count -ne 0" in block
+    assert "live_fresh_online_worker_count -ne 0" in block
     assert "-PrepareAcceptanceHandoff" in block
     assert "deployment run" not in block
 
@@ -300,6 +303,7 @@ def test_run_once_contains_exactly_one_parameterless_watched_invocation():
         assert prohibited not in block
     assert "$status.unattended_run_active" in block
     assert "$manualOwned" in block
+    assert "$status.live_fresh_online_worker_count -ne 0" in block
 
 
 def test_stop_worker_requires_ownership_and_does_not_stop_infrastructure():

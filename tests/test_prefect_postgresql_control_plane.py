@@ -66,6 +66,8 @@ def test_documented_operator_commands_are_one_physical_line():
         "-Action 'Server'",
         "work-pool create 'lthhc-local-process'",
         "work-pool set-concurrency-limit 'lthhc-local-process' 1",
+        "work-pool create 'lthhc-dp-live-process'",
+        "work-pool set-concurrency-limit 'lthhc-dp-live-process' 1",
         "deploy --all",
         "deploy 'src/orchestration/prefect_mailbox_workflow.py:bounded_mailbox_flow'",
         "deployment inspect 'lthhc-bounded-mailbox/document-processor-manual'",
@@ -135,6 +137,11 @@ def test_synthetic_manual_and_unattended_deployments_are_conservative():
     assert unattended["concurrency_limit"] == {
         "limit": 1,
         "collision_strategy": "CANCEL_NEW",
+    }
+    assert unattended["work_pool"] == {
+        "name": "lthhc-dp-live-process",
+        "work_queue_name": None,
+        "job_variables": {},
     }
 
 

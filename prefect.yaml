@@ -43,7 +43,7 @@ deployments:
     entrypoint: src/orchestration/prefect_mailbox_workflow.py:unattended_mailbox_flow
     parameters: {}
     work_pool:
-      name: lthhc-local-process
+      name: lthhc-dp-live-process
       work_queue_name: null
       job_variables: {}
   - name: document-processor-training

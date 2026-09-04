@@ -97,9 +97,11 @@ whose wrapper ownership and command line are proven. It leaves PostgreSQL and
 the Prefect server/UI running. A fresh worker without ownership proof causes a
 PHI-safe failure and must be stopped in its owning terminal.
 
-`StartDP` requires the localhost PostgreSQL/Prefect control room, both reviewed
-parameterless deployments, zero active manual or unattended runs, and zero
-fresh workers. It starts exactly one separately owned unattended launcher. The
+`StartDP` requires the localhost PostgreSQL/Prefect control room, the dedicated
+`lthhc-dp-live-process` pool, the reviewed parameterless live deployment, zero
+active manual or unattended runs, and zero fresh manual or live workers. It
+starts exactly one separately owned unattended launcher and the explicitly
+named `lthhc-dp-live-worker`. The
 wrapper first runs a lightweight PHI-safe startup check for Graph token
 acquisition and protected local-state writability. It does not enumerate the
 mailbox, initialize Paddle, contact Ollama, or inspect Smartsheet. Only after
@@ -108,7 +110,7 @@ boolean-only Graph gate in the worker's process/network boundary before worker
 creation, then enters its five-minute polling loop.
 It never creates a popup or DPAPI handoff. `StatusDP` is read-only and exposes
 the same stable multi-line Yes/No presentation for only ownership,
-control-plane/deployment/pool readiness, polling/run state,
+control-plane/deployment/pool name and readiness, polling/run state,
 safe last/next-check timestamps, consecutive failure count, fresh-worker count,
 and a degraded boolean; `-Json` preserves machine-readable output. If one bounded run is active, `StopDP` records an owned
 stop request and returns `dp_stop_requested_active_run`. The current bounded run
@@ -277,8 +279,11 @@ Recreate the synthetic objects in the fresh control plane once:
 
 ```powershell
 Set-Location 'C:\Projects\LTHHC-AI-Automation-Platform'
+$env:PYTHONIOENCODING='UTF-8'; $env:DO_NOT_TRACK='1'
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' work-pool create 'lthhc-local-process' --type 'process'
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' work-pool set-concurrency-limit 'lthhc-local-process' 1
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' work-pool create 'lthhc-dp-live-process' --type 'process'
+& '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' work-pool set-concurrency-limit 'lthhc-dp-live-process' 1
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' work-pool create 'lthhc-dp-training-process' --type 'process'
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' work-pool set-concurrency-limit 'lthhc-dp-training-process' 1
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deploy --all
@@ -301,13 +306,20 @@ until the operator separately authorizes a real dependency preflight and one
 mailbox run.
 
 The unattended deployment is also parameterless, has concurrency one with
-`CANCEL_NEW`, and has no server-side schedule. Registration does not start a
-worker or flow. Confirm its metadata before the first separately authorized
+`CANCEL_NEW`, has no server-side schedule, and targets only
+`lthhc-dp-live-process`. Registration does not start a worker or flow. Confirm
+its metadata before the first separately authorized
 `startdp`:
 
 ```powershell
 & '.\.venv\Scripts\prefect.exe' --profile 'lthhc-local' deployment inspect 'lthhc-unattended-mailbox/document-processor-live' --output json
 ```
+
+The Work Pools view should show `lthhc-dp-live-process` for the Live DP worker,
+`lthhc-local-process` for the manual worker, and
+`lthhc-dp-training-process` for DP Training. Prefect's native pool status becomes
+ready/green only while a worker for that pool has a fresh heartbeat; stopped or
+stale workers appear not ready/red according to Prefect's own UI behavior.
 
 Start exactly one worker:
 

@@ -21,7 +21,8 @@ $dpStartReadinessProbe = Join-Path $PSScriptRoot 'check_unattended_dp_start_read
 $stateDirectory = Join-Path $env:LOCALAPPDATA 'LTHHC\Prefect\control-room'
 $statePath = Join-Path $stateDirectory 'owned-processes.json'
 $apiUrl = 'http://127.0.0.1:4200/api'
-$poolName = 'lthhc-local-process'
+$manualPoolName = 'lthhc-local-process'
+$livePoolName = 'lthhc-dp-live-process'
 $trainingPoolName = 'lthhc-dp-training-process'
 $deploymentName = 'lthhc-bounded-mailbox/document-processor-manual'
 $unattendedDeploymentName = 'lthhc-unattended-mailbox/document-processor-live'
@@ -163,22 +164,31 @@ function Get-OptionalProperty($Object, [string]$Name) {
     return $property.Value
 }
 
+function Test-DeploymentConfiguration($Deployment, [string]$ExpectedPoolName) {
+    if ($null -eq $Deployment) { return $false }
+    $schema = Get-OptionalProperty $Deployment 'parameter_openapi_schema'
+    $properties = Get-OptionalProperty $schema 'properties'
+    $required = Get-OptionalProperty $schema 'required'
+    $directLimit = Get-OptionalProperty $Deployment 'concurrency_limit'
+    $globalLimit = Get-OptionalProperty $Deployment 'global_concurrency_limit'
+    $limit = if ($null -ne $directLimit) { $directLimit } else { Get-OptionalProperty $globalLimit 'limit' }
+    $options = Get-OptionalProperty $Deployment 'concurrency_options'
+    $schedules = Get-OptionalProperty $Deployment 'schedules'
+    $schedulesEmpty = $null -eq $schedules -or @($schedules).Count -eq 0
+    $propertiesEmpty = $null -eq $properties -or @($properties.PSObject.Properties).Count -eq 0
+    $requiredEmpty = $null -eq $required -or @($required).Count -eq 0
+    return ($Deployment.work_pool_name -eq $ExpectedPoolName -and $schedulesEmpty -and $propertiesEmpty -and $requiredEmpty -and $limit -eq 1 -and (Get-OptionalProperty $options 'collision_strategy') -eq 'CANCEL_NEW')
+}
+
+function Test-ProcessPoolConfiguration($Pool) {
+    return ($null -ne $Pool -and $Pool.type -eq 'process' -and $Pool.concurrency_limit -eq 1 -and $Pool.is_paused -eq $false)
+}
+
 function Test-ControlPlaneConfiguration {
     try {
-        $pool = Invoke-PrefectJson -Arguments @('work-pool', 'inspect', $poolName, '--output', 'json')
+        $pool = Invoke-PrefectJson -Arguments @('work-pool', 'inspect', $manualPoolName, '--output', 'json')
         $deployment = Invoke-PrefectJson -Arguments @('deployment', 'inspect', $deploymentName, '--output', 'json')
-        $schema = Get-OptionalProperty $deployment 'parameter_openapi_schema'
-        $properties = Get-OptionalProperty $schema 'properties'
-        $required = Get-OptionalProperty $schema 'required'
-        $directLimit = Get-OptionalProperty $deployment 'concurrency_limit'
-        $globalLimit = Get-OptionalProperty $deployment 'global_concurrency_limit'
-        $limit = if ($null -ne $directLimit) { $directLimit } else { Get-OptionalProperty $globalLimit 'limit' }
-        $options = Get-OptionalProperty $deployment 'concurrency_options'
-        $schedules = Get-OptionalProperty $deployment 'schedules'
-        $schedulesEmpty = $null -eq $schedules -or @($schedules).Count -eq 0
-        $propertiesEmpty = $null -eq $properties -or @($properties.PSObject.Properties).Count -eq 0
-        $requiredEmpty = $null -eq $required -or @($required).Count -eq 0
-        return ($pool.type -eq 'process' -and $pool.concurrency_limit -eq 1 -and $pool.is_paused -eq $false -and $deployment.work_pool_name -eq $poolName -and $schedulesEmpty -and $propertiesEmpty -and $requiredEmpty -and $limit -eq 1 -and (Get-OptionalProperty $options 'collision_strategy') -eq 'CANCEL_NEW')
+        return ((Test-ProcessPoolConfiguration $pool) -and (Test-DeploymentConfiguration $deployment $manualPoolName))
     } catch {
         if ($_.Exception.Message -eq 'startup_check_timeout') { throw }
         return $false
@@ -195,18 +205,10 @@ function Get-UnattendedDeployment {
 function Test-UnattendedDeploymentConfiguration {
     $deployment = Get-UnattendedDeployment
     if ($null -eq $deployment) { return $false }
-    $schema = Get-OptionalProperty $deployment 'parameter_openapi_schema'
-    $properties = Get-OptionalProperty $schema 'properties'
-    $required = Get-OptionalProperty $schema 'required'
-    $directLimit = Get-OptionalProperty $deployment 'concurrency_limit'
-    $globalLimit = Get-OptionalProperty $deployment 'global_concurrency_limit'
-    $limit = if ($null -ne $directLimit) { $directLimit } else { Get-OptionalProperty $globalLimit 'limit' }
-    $options = Get-OptionalProperty $deployment 'concurrency_options'
-    $schedules = Get-OptionalProperty $deployment 'schedules'
-    $propertiesEmpty = $null -eq $properties -or @($properties.PSObject.Properties).Count -eq 0
-    $requiredEmpty = $null -eq $required -or @($required).Count -eq 0
-    $schedulesEmpty = $null -eq $schedules -or @($schedules).Count -eq 0
-    return ($deployment.work_pool_name -eq $poolName -and $propertiesEmpty -and $requiredEmpty -and $limit -eq 1 -and (Get-OptionalProperty $options 'collision_strategy') -eq 'CANCEL_NEW' -and $schedulesEmpty)
+    try {
+        $pool = Invoke-PrefectJson -Arguments @('work-pool', 'inspect', $livePoolName, '--output', 'json')
+    } catch { $pool = $null }
+    return ((Test-ProcessPoolConfiguration $pool) -and (Test-DeploymentConfiguration $deployment $livePoolName))
 }
 
 function Get-TrainingDeployment {
@@ -219,22 +221,10 @@ function Get-TrainingDeployment {
 function Test-TrainingDeploymentConfiguration {
     $deployment = Get-TrainingDeployment
     if ($null -eq $deployment) { return $false }
-    $schema = Get-OptionalProperty $deployment 'parameter_openapi_schema'
-    $properties = Get-OptionalProperty $schema 'properties'
-    $required = Get-OptionalProperty $schema 'required'
-    $directLimit = Get-OptionalProperty $deployment 'concurrency_limit'
-    $globalLimit = Get-OptionalProperty $deployment 'global_concurrency_limit'
-    $limit = if ($null -ne $directLimit) { $directLimit } else { Get-OptionalProperty $globalLimit 'limit' }
-    $options = Get-OptionalProperty $deployment 'concurrency_options'
-    $schedules = Get-OptionalProperty $deployment 'schedules'
-    $propertiesEmpty = $null -eq $properties -or @($properties.PSObject.Properties).Count -eq 0
-    $requiredEmpty = $null -eq $required -or @($required).Count -eq 0
-    $schedulesEmpty = $null -eq $schedules -or @($schedules).Count -eq 0
     try {
         $pool = Invoke-PrefectJson -Arguments @('work-pool', 'inspect', $trainingPoolName, '--output', 'json')
-        $poolReady = $pool.type -eq 'process' -and $pool.concurrency_limit -eq 1 -and $pool.is_paused -eq $false
-    } catch { $poolReady = $false }
-    return ($poolReady -and $deployment.work_pool_name -eq $trainingPoolName -and $propertiesEmpty -and $requiredEmpty -and $limit -eq 1 -and (Get-OptionalProperty $options 'collision_strategy') -eq 'CANCEL_NEW' -and $schedulesEmpty)
+    } catch { $pool = $null }
+    return ((Test-ProcessPoolConfiguration $pool) -and (Test-DeploymentConfiguration $deployment $trainingPoolName))
 }
 
 function Get-DeploymentRunConflict($Deployment) {
@@ -245,7 +235,7 @@ function Get-DeploymentRunConflict($Deployment) {
     return @($runs | Where-Object { $_.state_type -notin $terminal }).Count -gt 0
 }
 
-function Get-FreshOnlineWorkerCount([string]$SelectedPoolName = $poolName) {
+function Get-FreshOnlineWorkerCount([string]$SelectedPoolName = $manualPoolName) {
     try {
         $workers = Invoke-RestMethod -Method Post -Uri "$apiUrl/work_pools/$SelectedPoolName/workers/filter" -ContentType 'application/json' -Body '{"limit":50,"offset":0}' -TimeoutSec 5
         $cutoff = [DateTimeOffset]::UtcNow.AddSeconds(-$freshHeartbeatSeconds)
@@ -258,8 +248,8 @@ function Get-ControlPlaneStatus {
         postgresql_running = $false; prefect_server_reachable = $false
         work_pool_ready = $false; fresh_online_worker_count = 0
         mailbox_run_conflict = $false; manual_deployment_ready = $false
-        unattended_deployment_ready = $false
-        unattended_run_active = $false
+        live_pool_ready = $false; live_fresh_online_worker_count = 0
+        unattended_deployment_ready = $false; unattended_run_active = $false
         training_pool_ready = $false; training_fresh_online_worker_count = 0
         training_deployment_ready = $false; training_run_active = $false
     }
@@ -267,26 +257,47 @@ function Get-ControlPlaneStatus {
     $result.prefect_server_reachable = Test-PrefectServerReachable
     if (-not $result.prefect_server_reachable) { return $result }
     try {
-        $pool = Invoke-PrefectJson -Arguments @('work-pool', 'inspect', $poolName, '--output', 'json')
+        $pool = Invoke-PrefectJson -Arguments @('work-pool', 'inspect', $manualPoolName, '--output', 'json')
         $result.work_pool_ready = ($pool.type -eq 'process' -and $pool.status -eq 'READY' -and $pool.concurrency_limit -eq 1 -and $pool.is_paused -eq $false)
+    } catch {
+        if ($_.Exception.Message -eq 'startup_check_timeout') { throw }
+    }
+    $result.fresh_online_worker_count = Get-FreshOnlineWorkerCount
+    try {
         $deployment = Invoke-PrefectJson -Arguments @('deployment', 'inspect', $deploymentName, '--output', 'json')
-        $result.manual_deployment_ready = Test-ControlPlaneConfiguration
-        $unattended = Get-UnattendedDeployment
-        $result.unattended_deployment_ready = Test-UnattendedDeploymentConfiguration
-        if ($null -ne $unattended) { $result.unattended_run_active = Get-DeploymentRunConflict $unattended }
-        $result.fresh_online_worker_count = Get-FreshOnlineWorkerCount
-        try {
-            $trainingPool = Invoke-PrefectJson -Arguments @('work-pool', 'inspect', $trainingPoolName, '--output', 'json')
-            $result.training_pool_ready = ($trainingPool.type -eq 'process' -and $trainingPool.concurrency_limit -eq 1 -and $trainingPool.is_paused -eq $false)
-        } catch {}
-        $training = Get-TrainingDeployment
-        $result.training_deployment_ready = Test-TrainingDeploymentConfiguration
-        if ($null -ne $training) { $result.training_run_active = Get-DeploymentRunConflict $training }
-        $result.training_fresh_online_worker_count = Get-FreshOnlineWorkerCount $trainingPoolName
+        $result.manual_deployment_ready = (Test-ProcessPoolConfiguration $pool) -and (Test-DeploymentConfiguration $deployment $manualPoolName)
         $body = @{ deployments = @{ id = @{ any_ = @($deployment.id) } }; limit = 200; offset = 0 } | ConvertTo-Json -Depth 5 -Compress
         $runs = Invoke-RestMethod -Method Post -Uri "$apiUrl/flow_runs/filter" -ContentType 'application/json' -Body $body -TimeoutSec 5
         $terminal = @('COMPLETED', 'FAILED', 'CANCELLED', 'CRASHED')
         $result.mailbox_run_conflict = @($runs | Where-Object { $_.state_type -notin $terminal }).Count -gt 0
+    } catch {
+        if ($_.Exception.Message -eq 'startup_check_timeout') { throw }
+    }
+    try {
+        $livePool = Invoke-PrefectJson -Arguments @('work-pool', 'inspect', $livePoolName, '--output', 'json')
+        $result.live_pool_ready = Test-ProcessPoolConfiguration $livePool
+    } catch {
+        if ($_.Exception.Message -eq 'startup_check_timeout') { throw }
+    }
+    $result.live_fresh_online_worker_count = Get-FreshOnlineWorkerCount $livePoolName
+    try {
+        $unattended = Get-UnattendedDeployment
+        $result.unattended_deployment_ready = (Test-ProcessPoolConfiguration $livePool) -and (Test-DeploymentConfiguration $unattended $livePoolName)
+        if ($null -ne $unattended) { $result.unattended_run_active = Get-DeploymentRunConflict $unattended }
+    } catch {
+        if ($_.Exception.Message -eq 'startup_check_timeout') { throw }
+    }
+    try {
+        $trainingPool = Invoke-PrefectJson -Arguments @('work-pool', 'inspect', $trainingPoolName, '--output', 'json')
+        $result.training_pool_ready = Test-ProcessPoolConfiguration $trainingPool
+    } catch {
+        if ($_.Exception.Message -eq 'startup_check_timeout') { throw }
+    }
+    $result.training_fresh_online_worker_count = Get-FreshOnlineWorkerCount $trainingPoolName
+    try {
+        $training = Get-TrainingDeployment
+        $result.training_deployment_ready = (Test-ProcessPoolConfiguration $trainingPool) -and (Test-DeploymentConfiguration $training $trainingPoolName)
+        if ($null -ne $training) { $result.training_run_active = Get-DeploymentRunConflict $training }
     } catch {
         if ($_.Exception.Message -eq 'startup_check_timeout') { throw }
     }
@@ -314,12 +325,13 @@ function Get-DocumentProcessorStatus {
         } catch { $pollingState = 'state_unreadable' }
     } elseif ($owned) { $pollingState = 'starting' }
     $polling = $owned -and $pollingState -notin @('starting', 'state_unreadable', 'stopped')
-    $degraded = ($owned -and (-not $polling -or -not $control.prefect_server_reachable -or -not $control.work_pool_ready -or -not $control.unattended_deployment_ready -or $control.fresh_online_worker_count -ne 1)) -or ($state.ContainsKey('dp') -and -not $owned -and -not $recordedExited) -or (-not $owned -and $control.fresh_online_worker_count -gt 0)
+    $degraded = ($owned -and (-not $polling -or -not $control.prefect_server_reachable -or -not $control.live_pool_ready -or -not $control.unattended_deployment_ready -or $control.live_fresh_online_worker_count -ne 1)) -or ($state.ContainsKey('dp') -and -not $owned -and -not $recordedExited) -or (-not $owned -and $control.live_fresh_online_worker_count -gt 0)
     return [ordered]@{
         dp_running = $owned
         dp_process_ownership_proven = $owned
         control_room_reachable = $control.prefect_server_reachable
-        work_pool_ready = $control.work_pool_ready
+        work_pool_name = $livePoolName
+        work_pool_ready = $control.live_pool_ready
         unattended_deployment_ready = $control.unattended_deployment_ready
         polling_active = $polling
         polling_state = $pollingState
@@ -327,7 +339,7 @@ function Get-DocumentProcessorStatus {
         last_check_utc = $lastCheckUtc
         next_check_utc = $nextCheckUtc
         consecutive_failures = $consecutiveFailures
-        fresh_online_worker_count = $control.fresh_online_worker_count
+        fresh_online_worker_count = $control.live_fresh_online_worker_count
         degraded = $degraded
     }
 }
@@ -410,8 +422,12 @@ function Write-ControlPlaneOperatorStatus($Status) {
     Write-Output '---------------------------'
     Write-OperatorField 'PostgreSQL Running' (ConvertTo-OperatorYesNo $Status.postgresql_running)
     Write-OperatorField 'Prefect Server Reachable' (ConvertTo-OperatorYesNo $Status.prefect_server_reachable)
-    Write-OperatorField 'Work Pool Ready' (ConvertTo-OperatorYesNo $Status.work_pool_ready)
-    Write-OperatorField 'Fresh Workers' $Status.fresh_online_worker_count
+    Write-OperatorField 'Manual Pool Ready' (ConvertTo-OperatorYesNo $Status.work_pool_ready)
+    Write-OperatorField 'Manual Fresh Workers' $Status.fresh_online_worker_count
+    Write-OperatorField 'Live Pool Ready' (ConvertTo-OperatorYesNo $Status.live_pool_ready)
+    Write-OperatorField 'Live Fresh Workers' $Status.live_fresh_online_worker_count
+    Write-OperatorField 'Training Pool Ready' (ConvertTo-OperatorYesNo $Status.training_pool_ready)
+    Write-OperatorField 'Training Fresh Workers' $Status.training_fresh_online_worker_count
     Write-Output ''
     Write-OperatorField 'Manual Deployment Ready' (ConvertTo-OperatorYesNo $Status.manual_deployment_ready)
     Write-OperatorField 'Live Deployment Ready' (ConvertTo-OperatorYesNo $Status.unattended_deployment_ready)
@@ -455,6 +471,7 @@ function Write-DocumentProcessorOperatorStatus($Status) {
     Write-OperatorField 'DP Running' (ConvertTo-OperatorYesNo $Status.dp_running)
     Write-OperatorField 'Ownership Proven' (ConvertTo-OperatorYesNo $Status.dp_process_ownership_proven)
     Write-OperatorField 'Control Room Reachable' (ConvertTo-OperatorYesNo $Status.control_room_reachable)
+    Write-OperatorField 'Work Pool' $Status.work_pool_name
     Write-OperatorField 'Work Pool Ready' (ConvertTo-OperatorYesNo $Status.work_pool_ready)
     Write-OperatorField 'Live Deployment Ready' (ConvertTo-OperatorYesNo $Status.unattended_deployment_ready)
     Write-Output ''
@@ -638,8 +655,8 @@ function Start-DocumentProcessor {
         $failureCategory = 'deployment_or_conflict_unavailable'
         Write-StartupProgress '[2/5] Checking deployment and conflict state...'
         $status = Get-ControlPlaneStatus
-        if (-not ($status.postgresql_running -and $status.prefect_server_reachable -and $status.manual_deployment_ready -and $status.unattended_deployment_ready)) { throw $failureCategory }
-        if ($status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 0) {
+        if (-not ($status.postgresql_running -and $status.prefect_server_reachable -and $status.live_pool_ready -and $status.unattended_deployment_ready)) { throw $failureCategory }
+        if ($status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 0 -or $status.live_fresh_online_worker_count -ne 0) {
             $failureCategory = 'startup_conflict'
             throw $failureCategory
         }
@@ -675,14 +692,14 @@ function Start-DocumentProcessor {
             if (-not $state.ContainsKey('dp') -or -not (Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1')) {
                 throw $failureCategory
             }
-            if ((Get-FreshOnlineWorkerCount) -eq 1) { break }
+            if ((Get-FreshOnlineWorkerCount $livePoolName) -eq 1) { break }
             if ([DateTimeOffset]::UtcNow -ge $nextWaitingProgress) {
                 Write-StartupProgress 'Still waiting for Prefect worker...'
                 $nextWaitingProgress = [DateTimeOffset]::UtcNow.AddSeconds(15)
             }
             Start-Sleep -Milliseconds 500
         }
-        if ((Get-FreshOnlineWorkerCount) -ne 1) { $failureCategory = 'worker_startup_timeout'; throw $failureCategory }
+        if ((Get-FreshOnlineWorkerCount $livePoolName) -ne 1) { $failureCategory = 'worker_startup_timeout'; throw $failureCategory }
         $activationPath = Join-Path $stateDirectory 'dp-activate.signal'
         'activate' | Set-Content -LiteralPath $activationPath -Encoding ASCII
         $readyPath = Join-Path $stateDirectory 'dp-ready.json'
@@ -731,7 +748,7 @@ function Stop-DocumentProcessor {
         return 'dp_stopped'
     }
     $recordedExited = $state.ContainsKey('dp') -and (Test-RecordedOwnedProcessExited $state.dp)
-    if ((Get-ControlPlaneStatus).fresh_online_worker_count -gt 0 -and -not $recordedExited) {
+    if ((Get-ControlPlaneStatus).live_fresh_online_worker_count -gt 0 -and -not $recordedExited) {
         throw 'A fresh worker is active but unattended ownership cannot be proven.'
     }
     if ($state.ContainsKey('dp')) { $state.Remove('dp'); Write-ControlState $state }
@@ -859,7 +876,7 @@ function Stop-ControlRoomInfrastructure {
     $ownedDp = $state.ContainsKey('dp') -and (Test-OwnedProcess $state.dp 'invoke_prefect_document_processor.ps1')
     $ownedTraining = $state.ContainsKey('dp_training') -and (Test-OwnedProcess $state.dp_training 'invoke_prefect_document_processor_training.ps1')
     $control = Get-ControlPlaneStatus
-    if ($ownedWorker -or $ownedDp -or $ownedTraining -or $control.fresh_online_worker_count -gt 0 -or $control.training_fresh_online_worker_count -gt 0) {
+    if ($ownedWorker -or $ownedDp -or $ownedTraining -or $control.fresh_online_worker_count -gt 0 -or $control.live_fresh_online_worker_count -gt 0 -or $control.training_fresh_online_worker_count -gt 0) {
         throw 'Stop the worker before control-room maintenance.'
     }
     $serverReachable = Test-PrefectServerReachable
@@ -891,7 +908,7 @@ switch ($Action) {
     }
     'PrepareRun' {
         $status = Get-ControlPlaneStatus
-        if (-not ($status.postgresql_running -and $status.prefect_server_reachable -and (Test-PrefectServerBackendSafe) -and $status.manual_deployment_ready -and (Test-ControlPlaneConfiguration)) -or $status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 0) {
+        if (-not ($status.postgresql_running -and $status.prefect_server_reachable -and (Test-PrefectServerBackendSafe) -and $status.manual_deployment_ready -and (Test-ControlPlaneConfiguration)) -or $status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 0 -or $status.live_fresh_online_worker_count -ne 0) {
             throw 'Acceptance preparation control-plane guard failed.'
         }
         Start-OwnedComponent -Name 'worker' -Script $workerLauncher -Arguments @('-PrepareAcceptanceHandoff') -Marker 'invoke_prefect_mailbox_worker.ps1' -Interactive
@@ -917,7 +934,7 @@ switch ($Action) {
         $status = Get-ControlPlaneStatus
         $state = Read-ControlState
         $manualOwned = $state.ContainsKey('worker') -and (Test-OwnedProcess $state.worker 'invoke_prefect_mailbox_worker.ps1')
-        if (-not $manualOwned -or $status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 1) { throw 'Run-once conflict guard failed.' }
+        if (-not $manualOwned -or $status.mailbox_run_conflict -or $status.unattended_run_active -or $status.fresh_online_worker_count -ne 1 -or $status.live_fresh_online_worker_count -ne 0) { throw 'Run-once conflict guard failed.' }
         & $prefect --profile 'lthhc-local' deployment run $deploymentName --watch
         if ($LASTEXITCODE -ne 0) { throw 'Manual bounded mailbox Prefect run failed.' }
     }
