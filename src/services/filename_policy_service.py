@@ -2,6 +2,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from src.models.document_processor_business_context import (
+    DOCUMENT_PROCESSOR_BUSINESS_CONTEXT,
+)
 from src.services.intake_document_naming_service import (
     IntakeDocumentNamingVocabulary,
     IntakeDocumentTypeResolution,
@@ -45,15 +48,19 @@ class FilenamePolicyResult:
     filename_result: str = "technical_fallback"
     placeholder_categories: tuple[str, ...] = ()
     optional_omission_count: int = 0
+    business_context_version: int = (
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.business_context_version
+    )
 
 
 class FilenamePolicyService:
     """Compose the approved intake filename without guessing business values."""
 
     SAFE_EXTENSIONS = {".pdf", ".tif", ".tiff", ".png", ".jpg", ".jpeg"}
-    PAYER_PLACEHOLDER = "[PAYER]"
-    SERVICE_PLACEHOLDER = "[SERVICE]"
-    DATE_PLACEHOLDER = "[DATE]"
+    _PLACEHOLDERS = dict(DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.placeholder_policy)
+    PAYER_PLACEHOLDER = _PLACEHOLDERS["payer"]
+    SERVICE_PLACEHOLDER = _PLACEHOLDERS["service"]
+    DATE_PLACEHOLDER = _PLACEHOLDERS["date"]
 
     def __init__(self, *, builder=None) -> None:
         self.builder = builder or ReferenceFilenameBuilderService()

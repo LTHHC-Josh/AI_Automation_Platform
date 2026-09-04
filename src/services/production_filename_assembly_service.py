@@ -2,6 +2,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+from src.models.document_processor_business_context import (
+    DOCUMENT_PROCESSOR_BUSINESS_CONTEXT,
+)
 from src.models.document import Document
 from src.services.field_validation_diagnostic_service import FieldValidationDiagnosticService
 from src.services.filename_policy_service import (
@@ -53,12 +56,17 @@ class ProductionFilenameAssemblyResult:
         default=None,
         repr=False,
     )
+    business_context_version: int = (
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.business_context_version
+    )
 
 
 class ProductionFilenameAssemblyService:
     """Assemble a business filename from authoritative final field state."""
 
-    MINIMUM_EVIDENCE_CONFIDENCE = 0.85
+    MINIMUM_EVIDENCE_CONFIDENCE = (
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.confidence_policy.field_acceptance
+    )
     CACHE_PATH = Path("data/reference_cache/reference_tables.xlsx")
 
     def __init__(self, *, tables_provider: Callable[[], ReferenceTables | None] | None = None,

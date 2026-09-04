@@ -4,8 +4,16 @@ from dataclasses import dataclass
 import re
 from typing import Any
 
+from src.models.document_processor_business_context import (
+    DOCUMENT_PROCESSOR_BUSINESS_CONTEXT,
+)
 from src.models.document import Document
 from src.services.reference_table_service import LookupResult
+
+
+INTAKE_SUBTYPE_ACCEPTANCE_THRESHOLD = (
+    DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.confidence_policy.intake_subtype_acceptance
+)
 
 
 @dataclass(frozen=True)
@@ -24,76 +32,27 @@ class IntakeDocumentTypeResolution:
     subtype_display: str = ""
     subtype_status: str = "Omitted"
     subtype_source_category: str = "not_applicable"
+    business_context_version: int = (
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.business_context_version
+    )
 
 
 class IntakeDocumentNamingVocabulary:
     """Canonical intake filename vocabulary; values never contain document PHI."""
 
-    DOCUMENT_TYPE_PLACEHOLDER = "[DOCUMENT TYPE]"
-    SUBTYPE_PLACEHOLDER = "[SUBTYPE]"
+    _PLACEHOLDERS = dict(DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.placeholder_policy)
+    DOCUMENT_TYPE_PLACEHOLDER = _PLACEHOLDERS["document_type"]
+    SUBTYPE_PLACEHOLDER = _PLACEHOLDERS["document_subtype"]
 
-    TOP_LEVEL_TOKENS = {
-        "authorization": "AUTH",
-        "2067": "2067",
-        "plan_of_care": "POC",
-        "verification_of_employment": "VOE",
-        "referral": "REFERRAL",
-        "assessment": "ASSESSMENT",
-        "approval_letter": "APPROVAL LETTER",
-        "adverse_determination_letter": "ADVERSE DETERMINATION LETTER",
-        "acknowledgment": "ACK",
-        "3052": "3052",
-        "provider_news": "PROVIDER NEWS",
-        "clinical_practice_guidelines": "CLINICAL PRACTICE GUIDELINES",
-        "bad_fax": "BAD FAX",
-        "spam": "SPAM",
-    }
+    TOP_LEVEL_TOKENS = dict(
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.top_level_naming_tokens
+    )
 
-    AUTHORIZATION_SUBTYPES = (
+    AUTHORIZATION_SUBTYPES = tuple(
         AuthorizationNamingSubtypeDefinition(
-            "init", "INIT", ("INIT", "INITIAL"), True
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "no_change", "NO CHANGE", ("NO CHANGE",)
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "increase", "INCREASE", ("INCREASE",)
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "decrease", "DECREASE", ("DECREASE",)
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "term", "TERM", ("TERM", "TERMINATION")
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "stub", "STUB", ("STUB",)
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "inbound", "INBOUND", ("INBOUND", "INBOUND AUTH")
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "gap_fill", "GAP FILL", ("GAP FILL",)
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "new_services", "NEW SVS", ("NEW SVS", "NEW SERVICES")
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "modification_change",
-            "MOD CHANGE",
-            ("MOD CHANGE", "MODIFICATION CHANGE"),
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "rpm", "RPM", ("RPM", "REMOTE PATIENT MONITORING")
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "readmit", "READMIT", ("READMIT",)
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "tasks_added", "TASKS ADDED", ("TASKS ADDED",)
-        ),
-        AuthorizationNamingSubtypeDefinition(
-            "resume_services", "RESUME SVS", ("RESUME SVS", "RESUME SERVICES")
-        ),
+            item.key, item.token, item.aliases, item.requires_external_context
+        )
+        for item in DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.intake_subtype_taxonomy
     )
 
     _AUTH_BY_KEY = {item.key: item for item in AUTHORIZATION_SUBTYPES}
@@ -114,7 +73,7 @@ class IntakeDocumentNamingVocabulary:
         document: Any,
         *,
         authoritative_subtype: LookupResult | None = None,
-        minimum_confidence: float = 0.85,
+        minimum_confidence: float = INTAKE_SUBTYPE_ACCEPTANCE_THRESHOLD,
     ) -> IntakeDocumentTypeResolution:
         if not isinstance(document, Document):
             return IntakeDocumentTypeResolution(
@@ -225,7 +184,8 @@ class IntakeDocumentNamingVocabulary:
 
     @classmethod
     def validate_document_evidence(
-        cls, evidence: Any, *, minimum_confidence: float = 0.85
+        cls, evidence: Any, *,
+        minimum_confidence: float = INTAKE_SUBTYPE_ACCEPTANCE_THRESHOLD
     ) -> tuple[AuthorizationNamingSubtypeDefinition | None, str]:
         if not isinstance(evidence, dict) or evidence.get("value") in (None, ""):
             return None, "not_present"

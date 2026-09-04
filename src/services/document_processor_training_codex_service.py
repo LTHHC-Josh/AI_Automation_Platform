@@ -25,6 +25,8 @@ class CodexDispatchResult:
     pushed: bool
     commit_sha: str = ""
     retryable: bool = False
+    changed_layers: tuple[str, ...] = ()
+    business_context_version_after: int = 0
 
 
 class BoundedCodexDispatcher:
@@ -143,6 +145,11 @@ class BoundedCodexDispatcher:
                     False, "codex_safety_gate_failed", True, False, False,
                     retryable=False,
                 )
+            if not self._valid_context_result(parsed, task):
+                return CodexDispatchResult(
+                    False, "codex_context_verification_failed", True, False, False,
+                    retryable=False,
+                )
             required_gates = (
                 "compiled",
                 "focused_tests_passed",
@@ -163,7 +170,9 @@ class BoundedCodexDispatcher:
                     retryable=False,
                 )
             return CodexDispatchResult(
-                True, "codex_implemented", True, True, True, commit_sha, False
+                True, "codex_implemented", True, True, True, commit_sha, False,
+                tuple(parsed.get("changed_layers", ())),
+                parsed.get("business_context_version_after", 0),
             )
         except Exception:
             if process is not None and process.poll() is None:
@@ -198,11 +207,35 @@ class BoundedCodexDispatcher:
                 self._git("status", "--porcelain") == ""
                 and self._git("rev-parse", "HEAD") == commit_sha
                 and self._git("rev-parse", "origin/main") == commit_sha
-                and self._git("rev-list", "--left-right", "--count", "HEAD...origin/main").split()
+                and self._git(
+                    "rev-list", "--left-right", "--count", "HEAD...origin/main"
+                ).split()
                 == ["0", "0"]
             )
         except Exception:
             return False
+
+    @staticmethod
+    def _valid_context_result(
+        parsed: dict[str, Any], task: PhiSafeImplementationTask
+    ) -> bool:
+        layers = parsed.get("changed_layers")
+        before = parsed.get("business_context_version_before")
+        after = parsed.get("business_context_version_after")
+        analysis_version = parsed.get("analysis_contract_version")
+        if (
+            not isinstance(layers, list)
+            or any(not isinstance(item, str) for item in layers)
+            or isinstance(before, bool)
+            or not isinstance(before, int)
+            or isinstance(after, bool)
+            or not isinstance(after, int)
+            or before != task.business_context_version
+            or analysis_version != task.analysis_contract_version
+        ):
+            return False
+        context_changed = "Business Context" in layers
+        return after > before if context_changed else after == before
 
     def _git(self, *arguments: str) -> str:
         completed = subprocess.run(
@@ -249,7 +282,10 @@ class BoundedCodexDispatcher:
             "regressions, update tracker and continuity when truth changes, and perform "
             "the full Git/PHI safety review. Commit and push only if every gate passes. "
             "Never access live Smartsheet, mailbox, OCR, Ollama, protected documents, or "
-            "protected local state. Return only the required JSON result.\n\n"
+            "protected local state. Determine which durable layers changed and whether "
+            "the shared business context/rule source needs a generalized update. Never "
+            "create a patient-specific or unsupported payer-specific rule. Return only "
+            "the required JSON result.\n\n"
             + task_json
         )
 

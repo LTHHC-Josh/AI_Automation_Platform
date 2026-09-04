@@ -77,7 +77,20 @@ is not analyzed twice. An edited, added, or deleted comment creates a new input
 generation on the same durable correction case.
 
 After local analysis, the service writes `Analysis Ready` or
-`Needs More Information`. `Approve AI Correction` authorizes only a
+`Needs More Information`. Analysis contract v2 separates whether the desired
+business behavior is clear from whether its technical implementation layer is
+known. A clear proposal may be `Analysis Ready` with a protected technical
+disposition of `Needs Investigation`. `Needs More Information` is reserved for
+missing, materially ambiguous, or conflicting reviewer intent. An external
+authoritative dependency uses `Requires External System`.
+
+The full conversation remains protected audit history, but the analyzer gets
+prior reviewer feedback and the latest/current reviewer feedback as distinct
+inputs. A coherent latest clarification may narrow or correct earlier intent.
+An old AI proposal is never reviewer evidence. The visible correction type is
+the deterministic primary symptom; related types remain protected locally.
+
+`Approve AI Correction` authorizes only a
 false-to-true edge observed for the exact current proposal generation, text,
 type, and comment checkpoint. If the proposal or comments change while the
 checkbox remains true, the old approval is stale. The approver must uncheck it
@@ -110,10 +123,20 @@ instructions. Its output is constrained to approved fields, correction types,
 behavior codes, and subsystem hypotheses, then deterministically validated.
 Invalid output becomes `Needs Investigation`.
 
-Codex receives only an opaque task digest, generation number, controlled field
-names, controlled category/layer values, a fixed behavior-code description,
-and synthetic regression requirements. It never receives row IDs, comments,
-documents, OCR text, filenames, patient values, or protected paths. The
+Analysis contract version and shared business-context version are stored with
+each protected proposal. One unchanged active case created under an older
+version may be reanalyzed once under the current versions, using the same
+durable case identity and comment checkpoint. That creates one new proposal
+generation, invalidates prior approval baselines, and becomes idempotent on the
+next unchanged cycle. `proposal_write` remains incapable of Codex dispatch.
+
+Codex receives only an opaque task digest, proposal generation, business and
+analysis contract versions, controlled primary/related types, controlled
+business concepts/layers, a fixed behavior-code description, and synthetic
+regression requirements. It must inspect whether deterministic code, shared
+business context, taxonomy, prompt rendering, mapping, or reference data is the
+durable generalized layer. It never receives row IDs, comments, documents, OCR
+text, filenames, patient values, or protected paths. The
 dispatcher requires a clean synchronized repository, a global implementation
 lock, one process with a bounded runtime, all test/tracker/Git gates, and a
 verified pushed commit. It never resumes or retries a failed attempt and never

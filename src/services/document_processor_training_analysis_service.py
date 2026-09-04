@@ -9,12 +9,12 @@ from typing import Any
 
 from src.ai.llm.providers.ollama_provider import OllamaProvider
 from src.services.document_processor_training_contracts import (
+    ANALYSIS_CONTRACT_VERSION,
     AFFECTED_FIELDS,
     CORRECTION_TYPES,
     IMPLEMENTATION_LAYERS,
     CorrectionAnalysis,
     local_analysis_schema,
-    safe_behavior_for_code,
     validate_analysis,
 )
 
@@ -24,10 +24,17 @@ class PhiSafeImplementationTask:
     schema_version: int
     task_id: str
     proposal_generation: int
-    correction_type: str
+    business_context_version: int
+    analysis_contract_version: int
+    primary_correction_type: str
+    related_correction_types: tuple[str, ...]
     affected_fields: tuple[str, ...]
     desired_behavior: str
+    behavior_code: str
+    technical_disposition: str
     likely_layers: tuple[str, ...]
+    generalized_business_concepts: tuple[str, ...]
+    shared_context_assessment_required: bool
     synthetic_regression_requirements: tuple[str, ...]
     acceptance_criteria: tuple[str, ...]
     phi_prohibitions: tuple[str, ...]
@@ -44,39 +51,79 @@ class LocalCorrectionAnalysisService:
             result = self.provider.analyze_correction_context(
                 protected_context, schema=local_analysis_schema()
             )
+        except Exception:
+            return self._fallback("provider_failed")
+        try:
             analysis = CorrectionAnalysis(
-                correction_type=result.get("correction_type"),
+                primary_correction_type=result.get("primary_correction_type"),
+                related_correction_types=tuple(
+                    result.get("related_correction_types", ())
+                ),
                 affected_fields=tuple(result.get("affected_fields", ())),
                 behavior_code=result.get("behavior_code"),
-                desired_behavior=result.get("desired_behavior"),
+                desired_behavior="",
                 likely_layers=tuple(result.get("likely_layers", ())),
-                information_sufficient=result.get("information_sufficient"),
+                desired_behavior_sufficient=result.get("desired_behavior_sufficient"),
+                technical_disposition=result.get("technical_disposition"),
+                feedback_relationship=result.get("feedback_relationship"),
+                observed_failure_type=result.get("observed_failure_type"),
+                affected_document_category=result.get("affected_document_category"),
+                desired_intake_subtype=result.get("desired_intake_subtype"),
+                required_filename_components=tuple(
+                    result.get("required_filename_components", ())
+                ),
+                excluded_filename_components=tuple(
+                    result.get("excluded_filename_components", ())
+                ),
             )
             return validate_analysis(analysis)
-        except Exception:
-            return CorrectionAnalysis(
-                correction_type="Needs Investigation",
-                affected_fields=(),
-                behavior_code="needs_investigation",
-                desired_behavior=(
-                    "More reviewer information or local investigation is required "
-                    "before a safe correction can be proposed."
-                ),
-                likely_layers=("Needs Investigation",),
-                information_sufficient=False,
-            )
+        except (TypeError, ValueError) as error:
+            category = self._validation_category(error)
+            return self._fallback(category)
+
+    @staticmethod
+    def _validation_category(error: Exception) -> str:
+        safe = str(error)
+        if "correction_type" in safe:
+            return "taxonomy_invalid"
+        if "field" in safe:
+            return "field_invalid"
+        if "layer" in safe or "technical_disposition" in safe:
+            return "layer_invalid"
+        return "schema_invalid"
+
+    @staticmethod
+    def _fallback(category: str) -> CorrectionAnalysis:
+        return CorrectionAnalysis(
+            primary_correction_type="Needs Investigation",
+            related_correction_types=(),
+            affected_fields=(),
+            behavior_code="needs_investigation",
+            desired_behavior="More reviewer information is required before a correction can be proposed.",
+            likely_layers=("Needs Investigation",),
+            desired_behavior_sufficient=False,
+            technical_disposition="Needs Investigation",
+            feedback_relationship="Insufficient",
+            observed_failure_type="Other",
+            affected_document_category="not_applicable",
+            desired_intake_subtype="not_applicable",
+            required_filename_components=(),
+            excluded_filename_components=(),
+            analysis_outcome_category=category,
+        )
 
 
 class PhiSafeImplementationTaskService:
     """Build a Codex task only from controlled, non-free-text structures."""
 
-    SCHEMA_VERSION = 1
+    SCHEMA_VERSION = 2
 
     def build(
         self,
         *,
         opaque_case_id: str,
         proposal_generation: int,
+        business_context_version: int,
         analysis: CorrectionAnalysis,
     ) -> PhiSafeImplementationTask:
         validated = validate_analysis(analysis)
@@ -89,7 +136,7 @@ class PhiSafeImplementationTaskService:
             or proposal_generation <= 0
         ):
             raise ValueError("implementation_task_identity_invalid")
-        desired = safe_behavior_for_code(validated.behavior_code)
+        desired = validated.desired_behavior
         task_id = hashlib.sha256(
             f"{opaque_case_id}:{proposal_generation}".encode("ascii")
         ).hexdigest()
@@ -109,10 +156,25 @@ class PhiSafeImplementationTaskService:
             schema_version=self.SCHEMA_VERSION,
             task_id=task_id,
             proposal_generation=proposal_generation,
-            correction_type=validated.correction_type,
+            business_context_version=business_context_version,
+            analysis_contract_version=ANALYSIS_CONTRACT_VERSION,
+            primary_correction_type=validated.primary_correction_type,
+            related_correction_types=validated.related_correction_types,
             affected_fields=fields,
             desired_behavior=desired,
+            behavior_code=validated.behavior_code,
+            technical_disposition=validated.technical_disposition,
             likely_layers=validated.likely_layers,
+            generalized_business_concepts=tuple(
+                item for item in dict.fromkeys((
+                    validated.affected_document_category,
+                    validated.desired_intake_subtype,
+                    *validated.required_filename_components,
+                    *validated.excluded_filename_components,
+                ))
+                if item not in {"unknown", "not_applicable"}
+            ),
+            shared_context_assessment_required=True,
             synthetic_regression_requirements=regressions,
             acceptance_criteria=acceptance,
             phi_prohibitions=(
@@ -126,14 +188,25 @@ class PhiSafeImplementationTaskService:
 
     @staticmethod
     def validate(task: Any) -> None:
-        if not isinstance(task, PhiSafeImplementationTask) or task.schema_version != 1:
+        if not isinstance(task, PhiSafeImplementationTask) or task.schema_version != 2:
             raise ValueError("implementation_task_invalid")
-        if task.correction_type not in CORRECTION_TYPES:
+        if task.primary_correction_type not in CORRECTION_TYPES:
             raise ValueError("implementation_task_correction_type_invalid")
+        if any(value not in CORRECTION_TYPES for value in task.related_correction_types):
+            raise ValueError("implementation_task_related_type_invalid")
+        if (
+            isinstance(task.business_context_version, bool)
+            or not isinstance(task.business_context_version, int)
+            or task.business_context_version <= 0
+            or task.analysis_contract_version != ANALYSIS_CONTRACT_VERSION
+        ):
+            raise ValueError("implementation_task_version_invalid")
         if any(field not in AFFECTED_FIELDS for field in task.affected_fields):
             raise ValueError("implementation_task_field_invalid")
         if any(layer not in IMPLEMENTATION_LAYERS for layer in task.likely_layers):
             raise ValueError("implementation_task_layer_invalid")
+        if task.shared_context_assessment_required is not True:
+            raise ValueError("implementation_task_context_assessment_invalid")
         serialized = json.dumps(asdict(task), sort_keys=True, separators=(",", ":"))
         prohibited = (
             "row_id", "sheet_id", "comment_text", "source_text", "document_path",

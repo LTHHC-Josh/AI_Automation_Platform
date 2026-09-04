@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable
 
 from src.clients.smartsheet_client import SmartsheetClient
+from src.models.document_processor_business_context import BUSINESS_CONTEXT_VERSION
 from src.services.document_processor_training_analysis_service import (
     LocalCorrectionAnalysisService,
     PhiSafeImplementationTaskService,
@@ -23,6 +24,7 @@ from src.services.document_processor_training_configuration_service import (
     load_runtime_dp_training_capabilities,
 )
 from src.services.document_processor_training_contracts import (
+    ANALYSIS_CONTRACT_VERSION,
     AI_CORRECTION,
     AI_CORRECTION_STATUS,
     AI_CORRECTION_TYPE,
@@ -222,6 +224,19 @@ class DocumentProcessorTrainingApplicationService:
                 source_row=row,
                 stage_observer=stage_observer,
             )
+        elif self._analysis_upgrade_eligible(correction_case):
+            self._cycle["updated"] += 1
+            correction_case.correction_approval_baseline_seen = False
+            correction_case.correction_approval_previous = None
+            correction_case.resolution_approval_baseline_seen = False
+            correction_case.resolution_approval_previous = None
+            self._transition(correction_case, "New")
+            self._analyze_case(
+                correction_case=correction_case,
+                schema=schema,
+                source_row=row,
+                stage_observer=stage_observer,
+            )
         elif self.mode in {"proposal_write", "approval_dispatch"}:
             self._sync_existing_proposal(
                 correction_case=correction_case,
@@ -244,25 +259,64 @@ class DocumentProcessorTrainingApplicationService:
         self.repository.save(correction_case)
         return 1 if changed else 0
 
+    @staticmethod
+    def _analysis_upgrade_eligible(correction_case: CorrectionCase) -> bool:
+        return (
+            correction_case.implementation_state
+            != HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE
+            and correction_case.implementation_state != "running"
+            and correction_case.status in {
+                "New", "Analysis Ready", "Needs More Information",
+                "Cannot Resolve Yet", "Requires External System",
+            }
+            and (
+                correction_case.analysis_contract_version < ANALYSIS_CONTRACT_VERSION
+                or correction_case.business_context_version < BUSINESS_CONTEXT_VERSION
+            )
+            and correction_case.analysis_attempt_state != "started"
+        )
+
     def _analyze_case(
         self, *, correction_case, schema, source_row, stage_observer
     ) -> None:
+        analysis_attempt_key = stable_digest({
+            "case": correction_case.case_id,
+            "input": correction_case.input_digest,
+            "analysis_contract_version": ANALYSIS_CONTRACT_VERSION,
+            "business_context_version": BUSINESS_CONTEXT_VERSION,
+        })
+        if (
+            correction_case.analysis_attempt_key == analysis_attempt_key
+            and correction_case.analysis_attempt_state == "started"
+        ):
+            return
+        correction_case.analysis_attempt_key = analysis_attempt_key
+        correction_case.analysis_attempt_state = "started"
+        self.repository.save(correction_case)
         if not correction_case.comments:
             analysis = CorrectionAnalysis(
-                correction_type="Needs Investigation",
+                primary_correction_type="Needs Investigation",
+                related_correction_types=(),
                 affected_fields=(),
                 behavior_code="needs_investigation",
-                desired_behavior=(
-                    "More reviewer information is required before a correction can be proposed."
-                ),
+                desired_behavior="",
                 likely_layers=("Needs Investigation",),
-                information_sufficient=False,
+                desired_behavior_sufficient=False,
+                technical_disposition="Needs Investigation",
+                feedback_relationship="Insufficient",
+                observed_failure_type="Other",
+                affected_document_category="not_applicable",
+                desired_intake_subtype="not_applicable",
+                required_filename_components=(),
+                excluded_filename_components=(),
+                analysis_outcome_category="comment_unavailable",
             )
         else:
             self._observe(stage_observer, "local_analysis", "started")
             protected_context = {
                 "row": correction_case.row_snapshot,
-                "comments": correction_case.comments,
+                "prior_reviewer_feedback": correction_case.comments[:-1],
+                "current_reviewer_feedback": correction_case.comments[-1],
             }
             analysis = self.analyzer.analyze(protected_context=protected_context)
             self._observe(stage_observer, "local_analysis", "completed")
@@ -271,16 +325,41 @@ class DocumentProcessorTrainingApplicationService:
         correction_case.proposal_generation += 1
         correction_case.proposal_text = proposal
         correction_case.correction_type = analysis.correction_type
+        correction_case.related_correction_types = list(
+            analysis.related_correction_types
+        )
         correction_case.behavior_code = analysis.behavior_code
         correction_case.affected_fields = list(analysis.affected_fields)
         correction_case.likely_layers = list(analysis.likely_layers)
-        correction_case.proposal_hash = stable_digest({
-            "input": correction_case.input_digest,
-            "generation": correction_case.proposal_generation,
-            "type": analysis.correction_type,
-            "proposal": proposal,
-        })
-        status = "Analysis Ready" if analysis.information_sufficient else "Needs More Information"
+        correction_case.technical_disposition = analysis.technical_disposition
+        correction_case.feedback_relationship = analysis.feedback_relationship
+        correction_case.observed_failure_type = analysis.observed_failure_type
+        correction_case.affected_document_category = (
+            analysis.affected_document_category
+        )
+        correction_case.desired_intake_subtype = analysis.desired_intake_subtype
+        correction_case.required_filename_components = list(
+            analysis.required_filename_components
+        )
+        correction_case.excluded_filename_components = list(
+            analysis.excluded_filename_components
+        )
+        correction_case.analysis_outcome_category = (
+            analysis.analysis_outcome_category
+        )
+        correction_case.analysis_contract_version = ANALYSIS_CONTRACT_VERSION
+        correction_case.business_context_version = BUSINESS_CONTEXT_VERSION
+        correction_case.analysis_attempt_state = "completed"
+        correction_case.proposal_hash = self._proposal_digest(correction_case)
+        status = (
+            "Needs More Information"
+            if not analysis.desired_behavior_sufficient
+            else (
+                "Requires External System"
+                if analysis.technical_disposition == "External Dependency"
+                else "Analysis Ready"
+            )
+        )
         self._transition(correction_case, status)
         self._observe(stage_observer, "proposal_validated", "completed")
         self.repository.save(correction_case)
@@ -327,26 +406,38 @@ class DocumentProcessorTrainingApplicationService:
         if (
             correction_case.proposal_generation <= 0
             or correction_case.status not in {
-                "Analysis Ready", "Needs More Information"
+                "Analysis Ready", "Needs More Information", "Requires External System"
             }
-            or correction_case.proposal_hash != stable_digest({
-                "input": correction_case.input_digest,
-                "generation": correction_case.proposal_generation,
-                "type": correction_case.correction_type,
-                "proposal": correction_case.proposal_text,
-            })
+            or not self._proposal_digest_matches(correction_case)
         ):
             return False
         try:
             validate_analysis(CorrectionAnalysis(
-                correction_type=correction_case.correction_type,
+                primary_correction_type=correction_case.correction_type,
+                related_correction_types=tuple(
+                    correction_case.related_correction_types
+                ),
                 affected_fields=tuple(correction_case.affected_fields),
                 behavior_code=correction_case.behavior_code,
                 desired_behavior=correction_case.proposal_text,
                 likely_layers=tuple(correction_case.likely_layers),
-                information_sufficient=(
-                    correction_case.status == "Analysis Ready"
+                desired_behavior_sufficient=(
+                    correction_case.status != "Needs More Information"
                 ),
+                technical_disposition=correction_case.technical_disposition,
+                feedback_relationship=correction_case.feedback_relationship,
+                observed_failure_type=correction_case.observed_failure_type,
+                affected_document_category=(
+                    correction_case.affected_document_category
+                ),
+                desired_intake_subtype=correction_case.desired_intake_subtype,
+                required_filename_components=tuple(
+                    correction_case.required_filename_components
+                ),
+                excluded_filename_components=tuple(
+                    correction_case.excluded_filename_components
+                ),
+                analysis_outcome_category=correction_case.analysis_outcome_category,
             ))
         except (TypeError, ValueError):
             return False
@@ -438,13 +529,31 @@ class DocumentProcessorTrainingApplicationService:
         task = self.task_service.build(
             opaque_case_id=correction_case.case_id,
             proposal_generation=correction_case.proposal_generation,
+            business_context_version=correction_case.business_context_version,
             analysis=CorrectionAnalysis(
-                correction_type=correction_case.correction_type,
+                primary_correction_type=correction_case.correction_type,
+                related_correction_types=tuple(
+                    correction_case.related_correction_types
+                ),
                 affected_fields=tuple(correction_case.affected_fields),
                 behavior_code=correction_case.behavior_code,
                 desired_behavior=correction_case.proposal_text,
                 likely_layers=tuple(correction_case.likely_layers),
-                information_sufficient=True,
+                desired_behavior_sufficient=True,
+                technical_disposition=correction_case.technical_disposition,
+                feedback_relationship=correction_case.feedback_relationship,
+                observed_failure_type=correction_case.observed_failure_type,
+                affected_document_category=(
+                    correction_case.affected_document_category
+                ),
+                desired_intake_subtype=correction_case.desired_intake_subtype,
+                required_filename_components=tuple(
+                    correction_case.required_filename_components
+                ),
+                excluded_filename_components=tuple(
+                    correction_case.excluded_filename_components
+                ),
+                analysis_outcome_category=correction_case.analysis_outcome_category,
             ),
         )
         def mark_started() -> None:
@@ -493,7 +602,8 @@ class DocumentProcessorTrainingApplicationService:
             correction_case.implementation_commit_sha = result.commit_sha
             correction_case.result_generation += 1
             correction_case.resolution_result = (
-                "The approved behavior was implemented and safety checks passed. "
+                f"The approved {correction_case.correction_type.lower()} behavior was "
+                "implemented and safety checks passed. "
                 "A real document retest is required. If the result is correct, check "
                 "Approve AI Resolution. Reference: " + result.commit_sha[:12]
             )
@@ -602,12 +712,7 @@ class DocumentProcessorTrainingApplicationService:
             return False
         comment_payload = [asdict(comment) for comment in comments]
         return (
-            correction_case.proposal_hash == stable_digest({
-                "input": correction_case.input_digest,
-                "generation": correction_case.proposal_generation,
-                "type": correction_case.correction_type,
-                "proposal": correction_case.proposal_text,
-            })
+            correction_case.proposal_hash == self._proposal_digest(correction_case)
             and
             current.values.get(AI_PROPOSED_CORRECTION) == correction_case.proposal_text
             and current.values.get(AI_CORRECTION_TYPE) == correction_case.correction_type
@@ -617,6 +722,36 @@ class DocumentProcessorTrainingApplicationService:
             and current.values.get(APPROVE_AI_CORRECTION) is True
             and stable_digest(comment_payload) == correction_case.comment_checkpoint_digest
         )
+
+    @staticmethod
+    def _proposal_digest(correction_case: CorrectionCase) -> str:
+        return stable_digest({
+            "input": correction_case.input_digest,
+            "generation": correction_case.proposal_generation,
+            "type": correction_case.correction_type,
+            "related_types": tuple(correction_case.related_correction_types),
+            "proposal": correction_case.proposal_text,
+            "analysis_contract_version": correction_case.analysis_contract_version,
+            "business_context_version": correction_case.business_context_version,
+        })
+
+    @staticmethod
+    def _proposal_digest_matches(correction_case: CorrectionCase) -> bool:
+        if (
+            correction_case.proposal_hash
+            == DocumentProcessorTrainingApplicationService._proposal_digest(
+                correction_case
+            )
+        ):
+            return True
+        if correction_case.analysis_contract_version != 1:
+            return False
+        return correction_case.proposal_hash == stable_digest({
+            "input": correction_case.input_digest,
+            "generation": correction_case.proposal_generation,
+            "type": correction_case.correction_type,
+            "proposal": correction_case.proposal_text,
+        })
 
     def _resolution_is_current(self, *, correction_case, schema) -> bool:
         try:

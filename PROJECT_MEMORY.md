@@ -1762,11 +1762,61 @@ DP Training read-only acceptance and proposal-write preparation checkpoint:
   degraded state. No production row/comment read or Smartsheet mutation occurred
   during preparation.
 
+Shared Document Processor business context and correction-analysis v2 checkpoint:
+
+- Added one PHI-free immutable `DocumentProcessorBusinessContext` at business
+  context version 1. It owns the confirmed document taxonomy, canonical naming
+  tokens, authorization intake subtype vocabulary, filename placeholders and
+  outcomes, field states, current confidence policies, quantity/unit semantics,
+  review/Smartsheet roles, forbidden inferences, and DP Training semantics.
+  Existing deterministic taxonomy, naming, validation, filename, quantity/unit,
+  and review services derive their duplicated constants from this source.
+- Local classification, both extraction attempts, structural learning, and DP
+  Training correction analysis receive compact role-specific rendered views.
+  Intake naming has no separate model call and consumes the same structured
+  vocabulary through deterministic naming services. Context version/role/size
+  are PHI-safe metrics; prompt/context content is not logged or sent to Prefect.
+  Deterministic validation and business rules remain authoritative.
+- Correction analysis contract version 2 separates desired-behavior sufficiency
+  from technical disposition and adds controlled primary/related correction
+  types plus feedback relationship and structural filename/subtype concepts.
+  A coherent latest reviewer clarification is distinct from prior feedback and
+  may narrow it; old AI proposal text remains excluded from reviewer evidence.
+  Clear business intent can become `Analysis Ready` even when the implementation
+  layer needs investigation, while absent/ambiguous/conflicting intent alone uses
+  `Needs More Information`.
+- Filename symptoms are selected deterministically before implementation-layer
+  hypotheses. A supported filename/subtype case uses primary `Filename` with
+  protected related `Document Subtype`; proposal language is rendered only from
+  controlled structural concepts. Reviewer-provided payer, service, date, or
+  subtype values never become production evidence. `AUTH DECREASE` may use
+  explicit validated document evidence; `AUTH INIT` is forced to authoritative
+  external context and `Requires External System`.
+- Protected correction cases migrate in place to state schema version 2. An
+  unchanged active case analyzed under an older analysis/business-context basis
+  can receive exactly one version-keyed reanalysis with the same durable identity
+  and comment checkpoint. It creates one new proposal generation, invalidates
+  prior approval baselines, and is idempotent thereafter. `proposal_write` still
+  cannot create an implementation job or dispatch Codex.
+- Sanitized implementation task schema version 2 carries only controlled
+  versions, primary/related types, structural concepts, behavior, technical
+  disposition, possible durable layers, synthetic regression requirements, and
+  generalization prohibitions. The bounded Codex result must report durable
+  changed layers and prove context-version behavior; local AI can never update
+  shared context directly.
+- Modified Python compiled. Focused and affected synthetic deterministic/mock,
+  local protected-state, PowerShell 5.1, Smartsheet boundary, and isolated local
+  Prefect checks passed. No live Smartsheet row/comment was read or mutated, and
+  no live DP/DP Training, Codex, mailbox/Graph, OCR, or Ollama operation ran.
+
 ## CURRENT NEXT START
 
 Perform one controlled live proposal_write DP Training acceptance against the
-existing historical flagged case. Verify the local AI produces one validated
-proposal/type/status generation and writes only the four workflow-owned fields,
-preserves all human-owned controls/comments, performs no Codex dispatch, and
-remains idempotent on an unchanged second cycle. Do not approve implementation
-for this historical case.
+existing active flagged correction case. Verify exactly one version-keyed
+reanalysis under analysis contract v2 and business context v1 preserves the same
+durable case identity/comment checkpoint, creates one new validated proposal
+generation, selects a symptom-first primary/related type, and writes only the
+four workflow-owned fields. Verify human controls/comments remain unchanged,
+no Codex dispatch or implementation job occurs, and an unchanged second cycle
+is reconciliation-only/idempotent. Do not approve implementation during this
+acceptance.

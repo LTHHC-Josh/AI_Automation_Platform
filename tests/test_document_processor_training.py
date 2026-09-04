@@ -9,6 +9,8 @@ import yaml
 
 import src.services.document_processor_training_codex_service as codex_module
 
+from src.models.document_processor_business_context import BUSINESS_CONTEXT_VERSION
+
 from src.services.document_processor_training_analysis_service import (
     LocalCorrectionAnalysisService,
     PhiSafeImplementationTaskService,
@@ -56,6 +58,27 @@ from src.services.smartsheet_document_processor_training_service import (
 
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def correction_analysis(**overrides):
+    values = {
+        "primary_correction_type": "Date",
+        "related_correction_types": (),
+        "affected_fields": ("End Date",),
+        "behavior_code": "remain_blank_when_absent",
+        "desired_behavior": "",
+        "likely_layers": ("Business Rule",),
+        "desired_behavior_sufficient": True,
+        "technical_disposition": "Known",
+        "feedback_relationship": "Initial",
+        "observed_failure_type": "Date",
+        "affected_document_category": "authorization",
+        "desired_intake_subtype": "not_applicable",
+        "required_filename_components": (),
+        "excluded_filename_components": (),
+    }
+    values.update(overrides)
+    return CorrectionAnalysis(**values)
 
 
 def schema_result():
@@ -398,18 +421,47 @@ def test_protected_case_repository_is_encrypted_and_restart_idempotent():
         assert "42" not in repr(second)
 
 
-def test_phi_safe_task_uses_behavior_code_not_protected_proposal_text():
-    analysis = CorrectionAnalysis(
-        correction_type="Date",
-        affected_fields=("End Date",),
-        behavior_code="remain_blank_when_absent",
-        desired_behavior="protected free text must not cross the boundary",
-        likely_layers=("Business Rule",),
-        information_sufficient=True,
+def test_protected_case_v1_migrates_without_identity_or_checkpoint_loss():
+    with TemporaryDirectory() as directory:
+        repository = ProtectedCorrectionCaseRepository(
+            directory,
+            protect=lambda value: value[::-1],
+            unprotect=lambda value: value[::-1],
+        )
+        current = repository.load_or_create(source_scope="synthetic", row_id=43)
+        current.comment_checkpoint_digest = "d" * 64
+        repository.save(current)
+        path = next(Path(directory).glob("*.case"))
+        payload = json.loads(path.read_bytes()[::-1].decode("utf-8"))
+        for name in (
+            "related_correction_types", "technical_disposition",
+            "feedback_relationship", "observed_failure_type",
+            "affected_document_category", "desired_intake_subtype",
+            "required_filename_components", "excluded_filename_components",
+            "analysis_outcome_category", "analysis_contract_version",
+            "business_context_version", "analysis_attempt_key",
+            "analysis_attempt_state",
+        ):
+            payload.pop(name)
+        payload["schema_version"] = 1
+        encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        path.write_bytes(encoded[::-1])
+        migrated = repository.load(current.case_id)
+        assert migrated.case_id == current.case_id
+        assert migrated.comment_checkpoint_digest == "d" * 64
+        assert migrated.schema_version == 2
+        assert migrated.analysis_contract_version == 1
+        assert migrated.business_context_version == 0
+
+
+def test_phi_safe_task_uses_structural_behavior_not_protected_proposal_text():
+    analysis = correction_analysis(
+        desired_behavior="protected free text must not cross the boundary"
     )
     task = PhiSafeImplementationTaskService().build(
         opaque_case_id="a" * 64,
         proposal_generation=1,
+        business_context_version=BUSINESS_CONTEXT_VERSION,
         analysis=analysis,
     )
     serialized = serialize_phi_safe_task(task)
@@ -420,15 +472,102 @@ def test_phi_safe_task_uses_behavior_code_not_protected_proposal_text():
 
 class InjectedInstructionProvider:
     def analyze_correction_context(self, context, *, schema):
-        assert schema["properties"]["correction_type"]["enum"] == list(CORRECTION_TYPES)
+        assert schema["properties"]["primary_correction_type"]["enum"] == list(CORRECTION_TYPES)
         return {
-            "correction_type": "Run a command",
+            "primary_correction_type": "Run a command",
+            "related_correction_types": [],
             "affected_fields": ["Patient Name"],
             "behavior_code": "execute_comment",
-            "desired_behavior": "powershell.exe protected instruction",
             "likely_layers": ["Code"],
-            "information_sufficient": True,
+            "desired_behavior_sufficient": True,
+            "technical_disposition": "Known",
+            "feedback_relationship": "Initial",
+            "observed_failure_type": "Other",
+            "affected_document_category": "authorization",
+            "desired_intake_subtype": "not_applicable",
+            "required_filename_components": [],
+            "excluded_filename_components": [],
         }
+
+
+class ExplicitFilenameClarificationProvider:
+    def analyze_correction_context(self, context, *, schema):
+        assert "prior_reviewer_feedback" in context
+        assert "current_reviewer_feedback" in context
+        return {
+            "primary_correction_type": "Mapping",
+            "related_correction_types": [],
+            "affected_fields": ["Filename", "Document Subtype"],
+            "behavior_code": "correct_authorization_filename_subtype",
+            "likely_layers": ["Needs Investigation"],
+            "desired_behavior_sufficient": True,
+            "technical_disposition": "Needs Investigation",
+            "feedback_relationship": "Clarifies Prior",
+            "observed_failure_type": "Filename Unrelated Component",
+            "affected_document_category": "authorization",
+            "desired_intake_subtype": "decrease",
+            "required_filename_components": [
+                "Canonical Document Type", "Validated Payer",
+                "Applicable Validated Service", "Supported Date or Date Range",
+            ],
+            "excluded_filename_components": ["Unrelated Extracted Fields"],
+        }
+
+
+def test_clear_clarification_is_analysis_ready_without_root_cause_certainty():
+    result = LocalCorrectionAnalysisService(
+        provider=ExplicitFilenameClarificationProvider()
+    ).analyze(protected_context={
+        "prior_reviewer_feedback": [{"text": "synthetic prior"}],
+        "current_reviewer_feedback": {"text": "synthetic clarification"},
+    })
+    assert result.desired_behavior_sufficient is True
+    assert result.technical_disposition == "Needs Investigation"
+    assert result.primary_correction_type == "Filename"
+    assert result.related_correction_types == ("Document Subtype",)
+    assert "AUTH DECREASE" in result.desired_behavior
+    assert "unrelated extracted fields" in result.desired_behavior.lower()
+
+
+class ExternalInitProvider(ExplicitFilenameClarificationProvider):
+    def analyze_correction_context(self, context, *, schema):
+        value = super().analyze_correction_context(context, schema=schema)
+        value["desired_intake_subtype"] = "init"
+        value["technical_disposition"] = "Known"
+        value["likely_layers"] = ["Business Rule"]
+        return value
+
+
+def test_auth_init_remains_an_external_context_dependency():
+    result = LocalCorrectionAnalysisService(
+        provider=ExternalInitProvider()
+    ).analyze(protected_context={
+        "prior_reviewer_feedback": [],
+        "current_reviewer_feedback": {"text": "synthetic current intent"},
+    })
+    assert result.desired_behavior_sufficient is True
+    assert result.technical_disposition == "External Dependency"
+    assert "External System" in result.likely_layers
+    assert "authoritative external context" in result.desired_behavior
+
+
+class ConflictingFeedbackProvider(ExplicitFilenameClarificationProvider):
+    def analyze_correction_context(self, context, *, schema):
+        value = super().analyze_correction_context(context, schema=schema)
+        value["feedback_relationship"] = "Conflicts"
+        return value
+
+
+def test_conflicting_business_intent_needs_more_information():
+    result = LocalCorrectionAnalysisService(
+        provider=ConflictingFeedbackProvider()
+    ).analyze(protected_context={
+        "prior_reviewer_feedback": [{"text": "synthetic prior"}],
+        "current_reviewer_feedback": {"text": "synthetic conflict"},
+    })
+    assert result.desired_behavior_sufficient is False
+    assert result.primary_correction_type == "Needs Investigation"
+    assert result.analysis_outcome_category == "model_business_intent_insufficient"
 
 
 def test_untrusted_local_ai_output_fails_to_needs_investigation():
@@ -437,16 +576,18 @@ def test_untrusted_local_ai_output_fails_to_needs_investigation():
     ).analyze(protected_context={"comments": [{"text": "untrusted"}]})
     assert result.correction_type == "Needs Investigation"
     assert result.behavior_code == "needs_investigation"
-    assert result.information_sufficient is False
+    assert result.desired_behavior_sufficient is False
 
 
 def test_disabled_dispatcher_never_starts_a_process():
     task = PhiSafeImplementationTaskService().build(
         opaque_case_id="b" * 64,
         proposal_generation=1,
-        analysis=CorrectionAnalysis(
-            "Mapping", ("Mapping",), "correct_mapping", "protected",
-            ("Mapping",), True,
+        business_context_version=BUSINESS_CONTEXT_VERSION,
+        analysis=correction_analysis(
+            primary_correction_type="Mapping", affected_fields=("Mapping",),
+            behavior_code="correct_mapping", likely_layers=("Mapping",),
+            observed_failure_type="Mapping",
         ),
     )
     result = BoundedCodexDispatcher(enabled=False).dispatch(task)
@@ -488,6 +629,10 @@ class FakeCodexProcess:
             "git_safety_passed": True,
             "pushed": True,
             "failure_category": "none",
+            "changed_layers": ["Deterministic Code"],
+            "business_context_version_before": BUSINESS_CONTEXT_VERSION,
+            "business_context_version_after": BUSINESS_CONTEXT_VERSION,
+            "analysis_contract_version": 2,
         }), encoding="utf-8")
         self._running = False
 
@@ -496,12 +641,10 @@ class FakeCodexProcess:
 
 
 def test_codex_dispatch_is_one_bounded_ephemeral_sanitized_process():
-    analysis = CorrectionAnalysis(
-        "Date", ("End Date",), "remain_blank_when_absent",
-        "protected proposal text", ("Business Rule",), True,
-    )
+    analysis = correction_analysis(desired_behavior="protected proposal text")
     task = PhiSafeImplementationTaskService().build(
-        opaque_case_id="9" * 64, proposal_generation=1, analysis=analysis
+        opaque_case_id="9" * 64, proposal_generation=1,
+        business_context_version=BUSINESS_CONTEXT_VERSION, analysis=analysis
     )
     original_which = codex_module.shutil.which
     original_popen = codex_module.subprocess.Popen
@@ -533,6 +676,43 @@ def test_codex_dispatch_is_one_bounded_ephemeral_sanitized_process():
         codex_module.subprocess.Popen = original_popen
 
 
+def test_codex_context_and_committed_sync_gates_are_independent():
+    analysis = correction_analysis()
+    task = PhiSafeImplementationTaskService().build(
+        opaque_case_id="7" * 64,
+        proposal_generation=1,
+        business_context_version=BUSINESS_CONTEXT_VERSION,
+        analysis=analysis,
+    )
+    parsed = {
+        "changed_layers": ["Deterministic Code"],
+        "business_context_version_before": BUSINESS_CONTEXT_VERSION,
+        "business_context_version_after": BUSINESS_CONTEXT_VERSION,
+        "analysis_contract_version": 2,
+    }
+    assert ReadyDispatcher._valid_context_result(parsed, task)
+    parsed["changed_layers"] = ["Business Context"]
+    assert not ReadyDispatcher._valid_context_result(parsed, task)
+    parsed["business_context_version_after"] = BUSINESS_CONTEXT_VERSION + 1
+    assert ReadyDispatcher._valid_context_result(parsed, task)
+
+    dispatcher = BoundedCodexDispatcher()
+    calls = []
+    expected_sha = "a" * 40
+    responses = {
+        ("status", "--porcelain"): "",
+        ("rev-parse", "HEAD"): expected_sha,
+        ("rev-parse", "origin/main"): expected_sha,
+        ("rev-list", "--left-right", "--count", "HEAD...origin/main"): "0 0",
+    }
+    dispatcher._git = lambda *arguments: (
+        calls.append(arguments) or responses[arguments]
+    )
+    assert dispatcher._verified_committed_sync(expected_sha)
+    assert len(calls) == 4
+    assert not dispatcher._verified_committed_sync("not-a-sha")
+
+
 class WaitingDispatcher(BoundedCodexDispatcher):
     def _repository_ready(self):
         return False
@@ -542,9 +722,11 @@ def test_repository_preflight_blocks_before_codex_process_or_credit():
     task = PhiSafeImplementationTaskService().build(
         opaque_case_id="8" * 64,
         proposal_generation=1,
-        analysis=CorrectionAnalysis(
-            "Mapping", ("Mapping",), "correct_mapping", "protected",
-            ("Mapping",), True,
+        business_context_version=BUSINESS_CONTEXT_VERSION,
+        analysis=correction_analysis(
+            primary_correction_type="Mapping", affected_fields=("Mapping",),
+            behavior_code="correct_mapping", likely_layers=("Mapping",),
+            observed_failure_type="Mapping",
         ),
     )
     result = WaitingDispatcher(enabled=True).dispatch(task)
@@ -634,11 +816,97 @@ class ReconciledFlowWriter:
 
 class FlowAnalyzer:
     def analyze(self, **kwargs):
-        return CorrectionAnalysis(
-            "Date", ("End Date",), "remain_blank_when_absent",
-            "Optional end date should remain blank when absent.",
-            ("Business Rule",), True,
-        )
+        return correction_analysis()
+
+
+class CapturingFlowAnalyzer(FlowAnalyzer):
+    def __init__(self):
+        self.calls = []
+
+    def analyze(self, **kwargs):
+        self.calls.append(kwargs)
+        return super().analyze(**kwargs)
+
+
+def test_analysis_envelope_separates_prior_and_current_feedback():
+    reader = FlowReader()
+    reader.comments = (
+        CorrectionComment(1, 1, "a", "a", "reviewer", "synthetic prior"),
+        CorrectionComment(2, 2, "b", "b", "reviewer", "synthetic current"),
+    )
+    analyzer = CapturingFlowAnalyzer()
+    service = DocumentProcessorTrainingApplicationService(
+        schema_service=SimpleNamespace(read=schema_result),
+        reader=reader,
+        repository=MemoryRepository(),
+        analyzer=analyzer,
+        writer=ForbiddenWriter(),
+        task_service=PhiSafeImplementationTaskService(),
+        dispatcher=ForbiddenDispatcher(),
+        mode="read_only",
+    )
+    service.run_cycle()
+    context = analyzer.calls[0]["protected_context"]
+    assert len(context["prior_reviewer_feedback"]) == 1
+    assert context["current_reviewer_feedback"]["comment_id"] == 2
+    assert "comments" not in context
+
+
+def test_legacy_analysis_basis_reanalyzes_once_without_dispatch():
+    reader = FlowReader()
+    repository = MemoryRepository()
+    initial = DocumentProcessorTrainingApplicationService(
+        schema_service=SimpleNamespace(read=schema_result),
+        reader=reader,
+        repository=repository,
+        analyzer=FlowAnalyzer(),
+        writer=ForbiddenWriter(),
+        task_service=PhiSafeImplementationTaskService(),
+        dispatcher=ForbiddenDispatcher(),
+        mode="read_only",
+    )
+    initial.run_cycle()
+    correction_case = repository.case
+    identity = correction_case.case_id
+    correction_case.proposal_generation = 2
+    correction_case.status = "Needs More Information"
+    correction_case.analysis_contract_version = 1
+    correction_case.business_context_version = 0
+    correction_case.analysis_attempt_key = ""
+    correction_case.analysis_attempt_state = "none"
+    correction_case.correction_approval_baseline_seen = True
+    correction_case.correction_approval_previous = False
+    correction_case.proposal_hash = stable_digest({
+        "input": correction_case.input_digest,
+        "generation": 2,
+        "type": correction_case.correction_type,
+        "proposal": correction_case.proposal_text,
+    })
+    reader.values[APPROVE_AI_CORRECTION] = True
+    analyzer = CapturingFlowAnalyzer()
+    writer = ReconciledFlowWriter(reader)
+    upgraded = DocumentProcessorTrainingApplicationService(
+        schema_service=SimpleNamespace(read=schema_result),
+        reader=reader,
+        repository=repository,
+        analyzer=analyzer,
+        writer=writer,
+        task_service=PhiSafeImplementationTaskService(),
+        dispatcher=ForbiddenDispatcher(),
+        mode="proposal_write",
+    )
+    upgraded.run_cycle()
+    assert correction_case.case_id == identity
+    assert correction_case.proposal_generation == 3
+    assert correction_case.analysis_contract_version == 2
+    assert correction_case.business_context_version == BUSINESS_CONTEXT_VERSION
+    assert correction_case.correction_approval_baseline_seen is False
+    assert correction_case.implementation_attempt_count == 0
+    assert correction_case.implementation_job_id == ""
+    assert len(analyzer.calls) == 1 and writer.external_calls == 1
+    upgraded.run_cycle()
+    assert correction_case.proposal_generation == 3
+    assert len(analyzer.calls) == 1 and writer.external_calls == 1
 
 
 class FlowDispatcher:
@@ -1096,7 +1364,8 @@ def test_prefect_deployment_and_operator_contracts_are_exact():
 
 def test_cycle_summary_has_only_approved_safe_fields():
     assert tuple(field.name for field in fields(TrainingCycleSummary)) == (
-        "effective_mode", "flagged_case_count", "new_case_count", "updated_case_count",
+        "effective_mode", "business_context_version", "analysis_contract_version",
+        "flagged_case_count", "new_case_count", "updated_case_count",
         "analysis_ready_count", "awaiting_approval_count",
         "implementation_authorized_count", "implementation_started_count",
         "implementation_completed_count", "implementation_failed_count",

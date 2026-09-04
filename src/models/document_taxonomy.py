@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from src.models.document_processor_business_context import (
+    DOCUMENT_PROCESSOR_BUSINESS_CONTEXT,
+)
+
 
 @dataclass(frozen=True)
 class DocumentFamilyDefinition:
@@ -21,46 +25,14 @@ class DocumentTaxonomyRegistry:
     """Authoritative family/subtype compatibility and legacy routing."""
 
     UNKNOWN = "unknown"
-    DEFINITIONS = (
+    DEFINITIONS = tuple(
         DocumentFamilyDefinition(
-            family="authorization",
-            subtypes=frozenset({
-                "initial", "renewal", "extension", "continuation",
-                "amendment", "partial_approval", "unknown",
-            }),
-            legacy_routes=(
-                ("renewal", "authorization_renewal"),
-                ("extension", "authorization_renewal"),
-                ("continuation", "authorization_renewal"),
-                ("amendment", "authorization_renewal"),
-            ),
-        ),
-        DocumentFamilyDefinition(
-            family="termination",
-            subtypes=frozenset({
-                "authorization_termination", "service_termination", "unknown",
-            }),
-            neutral_rule=True,
-        ),
-        DocumentFamilyDefinition(
-            family="2067",
-            subtypes=frozenset({"utl", "unknown"}),
-            neutral_rule=True,
-        ),
-        *(
-            DocumentFamilyDefinition(
-                family=family,
-                subtypes=frozenset({"unknown"}),
-                neutral_rule=True,
-            )
-            for family in (
-                "referral", "denial", "assessment", "plan_of_care",
-                "verification_of_employment", "approval_letter",
-                "adverse_determination_letter", "acknowledgment", "3052",
-                "provider_news", "clinical_practice_guidelines", "bad_fax",
-                "spam", "claim", "other", "unknown",
-            )
-        ),
+            family=item.family,
+            subtypes=frozenset(item.subtypes),
+            legacy_routes=item.legacy_routes,
+            neutral_rule=item.neutral_rule,
+        )
+        for item in DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.document_taxonomy
     )
     _BY_FAMILY = {definition.family: definition for definition in DEFINITIONS}
 

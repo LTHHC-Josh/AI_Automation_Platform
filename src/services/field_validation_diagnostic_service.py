@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from src.models.document_processor_business_context import (
+    DOCUMENT_PROCESSOR_BUSINESS_CONTEXT,
+)
 from src.models.document import Document
 from src.services.document_field_requirement_service import (
     DocumentFieldRequirementService,
@@ -9,15 +12,20 @@ from src.services.document_field_requirement_service import (
 from src.services.review_reason_summary_service import ReviewReasonSummaryService
 
 
+_FIELD_STATE_VALUES = tuple(
+    name for name, _ in DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.field_state_semantics
+)
+
+
 class FieldValidationState(str, Enum):
-    NOT_PRESENT = "not_present"
-    MISSING_REQUIRED = "missing_required"
-    ACCEPTED = "accepted"
-    LOW_CONFIDENCE = "low_confidence"
-    UNSUPPORTED = "unsupported"
-    CONFLICTING = "conflicting"
-    AMBIGUOUS = "ambiguous"
-    INVALID = "invalid"
+    NOT_PRESENT = _FIELD_STATE_VALUES[0]
+    MISSING_REQUIRED = _FIELD_STATE_VALUES[1]
+    ACCEPTED = _FIELD_STATE_VALUES[2]
+    LOW_CONFIDENCE = _FIELD_STATE_VALUES[3]
+    UNSUPPORTED = _FIELD_STATE_VALUES[4]
+    CONFLICTING = _FIELD_STATE_VALUES[5]
+    AMBIGUOUS = _FIELD_STATE_VALUES[6]
+    INVALID = _FIELD_STATE_VALUES[7]
 
 
 @dataclass(frozen=True)
@@ -51,7 +59,9 @@ class FinalValidationSummary:
 class FieldValidationDiagnosticService:
     """Build PHI-safe field-state diagnostics without returning field values."""
 
-    DEFAULT_ACCEPTANCE_THRESHOLD = 0.85
+    DEFAULT_ACCEPTANCE_THRESHOLD = (
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.confidence_policy.field_acceptance
+    )
     INFORMATIONAL_ACTIONS = frozenset({
         "Authorized units were reconciled from supported service-line evidence",
         "Duplicate service-line evidence was removed",

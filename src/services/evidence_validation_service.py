@@ -5,6 +5,10 @@ from copy import deepcopy
 from datetime import datetime
 from typing import Any
 
+from src.models.document_processor_business_context import (
+    DOCUMENT_PROCESSOR_BUSINESS_CONTEXT,
+)
+
 from src.models.document import (
     AuthorizationServiceLine,
     Document,
@@ -122,9 +126,15 @@ class EvidenceValidationService:
         "%m-%d-%Y",
     )
 
-    TOP_LEVEL_MAX_MODEL_CONFIDENCE = 0.95
-    SERVICE_LINE_LOW_CONFIDENCE_THRESHOLD = 0.85
-    SERVICE_LINE_MAX_MODEL_CONFIDENCE = 0.95
+    TOP_LEVEL_MAX_MODEL_CONFIDENCE = (
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.confidence_policy.model_candidate_maximum
+    )
+    SERVICE_LINE_LOW_CONFIDENCE_THRESHOLD = (
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.confidence_policy.service_line_acceptance
+    )
+    SERVICE_LINE_MAX_MODEL_CONFIDENCE = (
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.confidence_policy.model_candidate_maximum
+    )
     SERVICE_LINE_UNSUPPORTED_CONFIDENCE = 0.50
 
     SERVICE_LINE_MODIFIER_RELATIONSHIP_ACTION = (
@@ -132,10 +142,11 @@ class EvidenceValidationService:
     )
 
     AUTHORIZATION_UNIT_CANONICAL = {
-        "hour": "Hours", "hours": "Hours", "hr": "Hours", "hrs": "Hours",
-        "unit": "Units", "units": "Units",
-        "visit": "Visits", "visits": "Visits",
-        "session": "Sessions", "sessions": "Sessions",
+        alias: canonical
+        for canonical, aliases in (
+            DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.quantity_unit_policy.supported_units
+        )
+        for alias in aliases
     }
 
     def validate(
@@ -271,10 +282,14 @@ class EvidenceValidationService:
         value = unit_evidence.get("value")
         if self._is_empty_value(value):
             unit_evidence.update(
-                value="Hours",
+                value=(
+                    DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.quantity_unit_policy.default_unit
+                ),
                 confidence=quantity_evidence.get("confidence"),
                 source_text="",
-                provenance="business_default_hours",
+                provenance=(
+                    DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.quantity_unit_policy.default_provenance
+                ),
             )
             return
 
@@ -299,7 +314,9 @@ class EvidenceValidationService:
             )
             return
         unit_evidence["value"] = canonical
-        unit_evidence["provenance"] = "explicit_document_evidence"
+        unit_evidence["provenance"] = (
+            DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.quantity_unit_policy.explicit_provenance
+        )
 
     def _cap_top_level_model_confidences(
         self,

@@ -19,7 +19,18 @@
     "failure_category": {
       "type": "string",
       "enum": ["none", "business_clarification", "external_dependency", "test_failure", "workspace_conflict", "implementation_incomplete", "safety_check_failed"]
-    }
+    },
+    "changed_layers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["Deterministic Code", "Business Context", "Taxonomy", "Prompt / Context Rendering", "Mapping", "Reference Data", "External System", "Other"]
+      },
+      "uniqueItems": true
+    },
+    "business_context_version_before": {"type": "integer", "minimum": 1},
+    "business_context_version_after": {"type": "integer", "minimum": 1},
+    "analysis_contract_version": {"type": "integer", "minimum": 1}
   },
   "required": [
     "outcome",
@@ -30,7 +41,11 @@
     "tracker_passed",
     "git_safety_passed",
     "pushed",
-    "failure_category"
+    "failure_category",
+    "changed_layers",
+    "business_context_version_before",
+    "business_context_version_after",
+    "analysis_contract_version"
   ],
   "additionalProperties": false
 }

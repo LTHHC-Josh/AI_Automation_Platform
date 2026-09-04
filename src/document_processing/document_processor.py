@@ -421,6 +421,21 @@ class DocumentProcessor:
             document=document,
             source_extension=document.file_path.suffix.lower() or ".bin",
         )
+        document.processing_metrics["business_context"] = {
+            "classification": document.processing_metrics.get(
+                "classification_ollama", {}
+            ).get("business_context_version"),
+            "extraction_attempts": tuple(
+                item.get("ollama", {}).get("business_context_version")
+                for item in extraction_attempts
+                if isinstance(item.get("ollama"), dict)
+            ),
+            "intake_naming": getattr(
+                document.filename_assembly_result,
+                "business_context_version",
+                None,
+            ),
+        }
 
         selected_validation_wall_seconds = float(
             selected_candidate.processing_metrics.get(
@@ -679,6 +694,9 @@ class DocumentProcessor:
             "eval_duration_seconds": "ollama_eval_duration_seconds",
             "prompt_eval_count": "prompt_token_count",
             "eval_count": "generated_token_count",
+            "business_context_version": "business_context_version",
+            "business_context_role": "business_context_role",
+            "business_context_character_count": "business_context_character_count",
         }
         return {
             target: metrics[source]

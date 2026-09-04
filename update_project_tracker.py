@@ -10041,6 +10041,48 @@ proposal/type/status generation, exact-four-field workflow ownership, preserved
 human controls/comments, zero Codex dispatch, and unchanged-second-cycle
 idempotency. Do not approve implementation for this historical case.
 
+Shared Document Processor business context and correction-analysis v2
+checkpoint (2026-09-04):
+
+- Added one PHI-free immutable business-context version 1 and deterministic
+  role-specific views for live classification, both extraction attempts,
+  structural learning, intake naming, and DP Training. Existing taxonomy,
+  naming, validation, confidence, quantity/unit, filename, review, correction,
+  and external-dependency constants now derive from the shared structured source
+  where they previously duplicated the same business truth.
+- Correction analysis contract version 2 separates clear desired behavior from
+  technical/root-cause certainty. It adds controlled primary/related types,
+  technical disposition, feedback relationship, and structural filename/subtype
+  concepts. Latest reviewer clarification is presented separately from prior
+  history and may coherently narrow it; old AI proposal text is never evidence.
+- Deterministic symptom-first validation maps filename composition failures to
+  primary `Filename` and retains `Document Subtype` as a protected related type.
+  Proposals are rendered from controlled concepts only. Reviewer values cannot
+  become production evidence. `AUTH DECREASE` may use explicit validated
+  document evidence, while `AUTH INIT` remains an authoritative external-system
+  dependency.
+- Protected correction-case schema version 2 migrates version 1 in place and
+  retains durable identity/comment checkpoints. One unchanged active older-basis
+  case may reanalyze exactly once under analysis contract v2/business context v1,
+  create one new proposal generation, invalidate stale approvals, and become
+  idempotent. Proposal-write still cannot dispatch Codex.
+- Sanitized implementation task/result versioning now requires controlled
+  generalized concepts, durable-layer reporting, shared-context assessment,
+  context-version verification, synthetic regressions, and PHI/generalization
+  prohibitions. Local AI never mutates business context.
+- Modified Python compiled. Focused and affected synthetic deterministic/mock,
+  protected-local-state, PowerShell 5.1, Smartsheet boundary, and isolated local
+  Prefect checks passed. No live Smartsheet row/comment read or mutation, DP/DP
+  Training start, Codex dispatch, mailbox/Graph, OCR, or Ollama operation ran.
+
+Exact next start: perform one controlled live proposal-write DP Training
+acceptance against the existing active flagged correction case. Prove one
+version-keyed reanalysis under analysis contract v2/business context v1 reuses
+the durable identity/checkpoint, creates one validated new proposal generation,
+writes only the four workflow-owned fields, preserves human controls/comments,
+and creates no implementation job or Codex dispatch. An unchanged second cycle
+must be reconciliation-only. Do not approve implementation during acceptance.
+
 """
 
 
@@ -10067,9 +10109,13 @@ updates = [
             "comment/case handling, two human approval generations, controlled "
             "local analysis, and a bounded PHI-safe Codex dispatcher. The "
             "read-only flagged-row/comment acceptance passed. The protected "
-            "local mode is now `proposal_write` with Codex dispatch disabled; "
-            "one historical-case proposal-write and unchanged-cycle idempotency "
-            "acceptance remains pending."
+            "local mode is now `proposal_write` with Codex dispatch disabled. "
+            "A shared PHI-free versioned business context now supplies live-model "
+            "and correction-analysis role views while deterministic services remain "
+            "authoritative. Correction analysis v2 separates business-intent clarity "
+            "from technical disposition and permits one version-keyed reanalysis of "
+            "the current older-basis case; controlled live proposal-write and "
+            "unchanged-cycle idempotency acceptance remains pending."
         ),
     ),
     (

@@ -1,6 +1,10 @@
 ﻿from dataclasses import dataclass, field
 from typing import Any
 
+from src.models.document_processor_business_context import (
+    DOCUMENT_PROCESSOR_BUSINESS_CONTEXT,
+)
+
 from src.models.document import Document
 from src.models.document_taxonomy import DocumentTaxonomyRegistry
 from src.services.field_validation_diagnostic_service import (
@@ -39,9 +43,15 @@ class ReviewDecisionService:
     Invalidated fields still require review through validation actions.
     """
 
-    AUTO_APPROVE_CLASSIFICATION_THRESHOLD = 0.90
-    HUMAN_REVIEW_CLASSIFICATION_THRESHOLD = 0.75
-    FIELD_CONFIDENCE_THRESHOLD = 0.85
+    AUTO_APPROVE_CLASSIFICATION_THRESHOLD = (
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.confidence_policy.classification_recommended
+    )
+    HUMAN_REVIEW_CLASSIFICATION_THRESHOLD = (
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.confidence_policy.classification_human_review
+    )
+    FIELD_CONFIDENCE_THRESHOLD = (
+        DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.confidence_policy.field_acceptance
+    )
 
     DOCUMENT_CATEGORIES = set(DocumentTaxonomyRegistry.families())
 

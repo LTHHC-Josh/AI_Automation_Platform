@@ -20,7 +20,7 @@ from src.services.windows_dpapi_service import (
 FEEDBACK_SNAPSHOT_PURPOSE = b"LTHHC Smartsheet feedback snapshot v2"
 CORRECTION_CASE_PURPOSE = b"LTHHC DP training correction case v1"
 CORRECTION_IDENTITY_KEY_PURPOSE = b"LTHHC DP training identity key v1"
-CASE_SCHEMA_VERSION = 1
+CASE_SCHEMA_VERSION = 2
 
 
 class CorrectionCaseStorageError(RuntimeError):
@@ -147,9 +147,22 @@ class CorrectionCase:
     proposal_generation: int = 0
     proposal_text: str = field(default="", repr=False)
     correction_type: str = "Needs Investigation"
+    related_correction_types: list[str] = field(default_factory=list)
     behavior_code: str = "needs_investigation"
     affected_fields: list[str] = field(default_factory=list)
     likely_layers: list[str] = field(default_factory=list)
+    technical_disposition: str = "Needs Investigation"
+    feedback_relationship: str = "Insufficient"
+    observed_failure_type: str = "Other"
+    affected_document_category: str = "not_applicable"
+    desired_intake_subtype: str = "not_applicable"
+    required_filename_components: list[str] = field(default_factory=list)
+    excluded_filename_components: list[str] = field(default_factory=list)
+    analysis_outcome_category: str = "legacy_unversioned"
+    analysis_contract_version: int = 1
+    business_context_version: int = 0
+    analysis_attempt_key: str = ""
+    analysis_attempt_state: str = "none"
     proposal_hash: str = ""
     correction_approval_baseline_seen: bool = False
     correction_approval_previous: bool | None = None
@@ -311,6 +324,36 @@ class ProtectedCorrectionCaseRepository:
         if not isinstance(payload, dict):
             raise CorrectionCaseStorageError("case_state_corrupt")
         names = {item.name for item in CorrectionCase.__dataclass_fields__.values()}
+        schema_version = payload.get("schema_version")
+        if schema_version == 1:
+            new_fields = {
+                "related_correction_types", "technical_disposition",
+                "feedback_relationship", "observed_failure_type",
+                "affected_document_category", "desired_intake_subtype",
+                "required_filename_components", "excluded_filename_components",
+                "analysis_outcome_category", "analysis_contract_version",
+                "business_context_version", "analysis_attempt_key",
+                "analysis_attempt_state",
+            }
+            if set(payload) != names - new_fields:
+                raise CorrectionCaseStorageError("case_schema_unsupported")
+            payload = {
+                **payload,
+                "related_correction_types": [],
+                "technical_disposition": "Needs Investigation",
+                "feedback_relationship": "Insufficient",
+                "observed_failure_type": "Other",
+                "affected_document_category": "not_applicable",
+                "desired_intake_subtype": "not_applicable",
+                "required_filename_components": [],
+                "excluded_filename_components": [],
+                "analysis_outcome_category": "legacy_unversioned",
+                "analysis_contract_version": 1,
+                "business_context_version": 0,
+                "analysis_attempt_key": "",
+                "analysis_attempt_state": "none",
+                "schema_version": CASE_SCHEMA_VERSION,
+            }
         if set(payload) != names or payload.get("schema_version") != CASE_SCHEMA_VERSION:
             raise CorrectionCaseStorageError("case_schema_unsupported")
         if payload.get("case_id") != expected_case_id:
