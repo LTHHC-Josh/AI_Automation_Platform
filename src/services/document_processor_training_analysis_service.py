@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import hashlib
 import json
+import re
 from typing import Any
 
 from src.ai.llm.providers.ollama_provider import OllamaProvider
@@ -12,9 +13,12 @@ from src.services.document_processor_training_contracts import (
     ANALYSIS_CONTRACT_VERSION,
     AFFECTED_FIELDS,
     CORRECTION_TYPES,
+    EXCLUDED_FILENAME_COMPONENTS,
+    FILENAME_COMPONENTS,
     IMPLEMENTATION_LAYERS,
     CorrectionAnalysis,
     local_analysis_schema,
+    normalize_filename_components,
     validate_analysis,
 )
 
@@ -54,6 +58,9 @@ class LocalCorrectionAnalysisService:
         except Exception:
             return self._fallback("provider_failed")
         try:
+            result = self._merge_structural_feedback(
+                result=result, protected_context=protected_context
+            )
             analysis = CorrectionAnalysis(
                 primary_correction_type=result.get("primary_correction_type"),
                 related_correction_types=tuple(
@@ -80,6 +87,105 @@ class LocalCorrectionAnalysisService:
         except (TypeError, ValueError) as error:
             category = self._validation_category(error)
             return self._fallback(category)
+
+    @classmethod
+    def _merge_structural_feedback(
+        cls, *, result: Any, protected_context: dict[str, Any]
+    ) -> Any:
+        """Merge only controlled filename intent; never derive production values."""
+        if not isinstance(result, dict) or not cls._is_filename_analysis(result):
+            return result
+        merged = dict(result)
+        required = list(normalize_filename_components(
+            merged.get("required_filename_components", ())
+        ))
+        excluded = list(merged.get("excluded_filename_components", ()))
+        if any(item not in EXCLUDED_FILENAME_COMPONENTS for item in excluded):
+            return result
+        feedback = protected_context.get("prior_reviewer_feedback", ())
+        entries = list(feedback) if isinstance(feedback, (tuple, list)) else []
+        entries.append(protected_context.get("current_reviewer_feedback"))
+        for entry in entries:
+            text = entry.get("text") if isinstance(entry, dict) else None
+            if not isinstance(text, str):
+                continue
+            for component, directive in cls._filename_component_directives(text).items():
+                if directive and component not in required:
+                    required.append(component)
+                elif directive is False and component in required:
+                    required.remove(component)
+            if cls._excludes_unrelated_fields(text):
+                marker = "Unrelated Extracted Fields"
+                if marker not in excluded:
+                    excluded.append(marker)
+        merged["required_filename_components"] = [
+            item for item in FILENAME_COMPONENTS if item in required
+        ]
+        merged["excluded_filename_components"] = excluded
+        return merged
+
+    @staticmethod
+    def _is_filename_analysis(result: dict[str, Any]) -> bool:
+        return (
+            result.get("primary_correction_type") == "Filename"
+            or result.get("observed_failure_type") in {
+                "Filename Token", "Filename Missing Component",
+                "Filename Unrelated Component",
+            }
+            or result.get("behavior_code") in {
+                "correct_filename", "correct_authorization_filename_subtype",
+            }
+            or "Filename" in result.get("affected_fields", ())
+        )
+
+    @classmethod
+    def _filename_component_directives(cls, text: str) -> dict[str, bool]:
+        normalized = " ".join(text.casefold().split())
+        terms = {
+            "Canonical Document Type": r"(?:canonical|document\s+type|subtype|naming\s+token)",
+            "Payer When Applicable": r"(?:payer|mco)",
+            "Service When Applicable": r"service(?:s|\s+(?:line|code|description|name))?",
+            "Supported Date Representation": r"(?:date(?:s|\s+range)?|start\s+date|end\s+date)",
+        }
+        positive = r"(?:include|use|using|consume|consuming|preserve|retain|add|apply|incorporate)"
+        negative = r"(?:do\s+not|don't|must\s+not|should\s+not|exclude|omit|remove|never)"
+        directives: dict[str, bool] = {}
+        for component, term in terms.items():
+            negative_patterns = (
+                rf"{negative}[^.!?;]{{0,120}}\b{term}\b",
+                rf"\b{term}\b[^.!?;]{{0,120}}{negative}",
+            )
+            negative_spans = [
+                match.span()
+                for pattern in negative_patterns
+                for match in re.finditer(pattern, normalized)
+            ]
+            positive_source = list(normalized)
+            for start, end in negative_spans:
+                positive_source[start:end] = " " * (end - start)
+            positive_text = "".join(positive_source)
+            has_positive = bool(
+                re.search(rf"{positive}[^.!?;]{{0,120}}\b{term}\b", positive_text)
+                or re.search(rf"\b{term}\b[^.!?;]{{0,120}}{positive}", positive_text)
+            )
+            has_negative = bool(negative_spans)
+            if has_positive:
+                directives[component] = True
+            elif has_negative:
+                directives[component] = False
+        return directives
+
+    @staticmethod
+    def _excludes_unrelated_fields(text: str) -> bool:
+        normalized = " ".join(text.casefold().split())
+        negative = r"(?:do\s+not|don't|must\s+not|should\s+not|exclude|omit|remove|never)"
+        non_naming_field = r"(?:status|units?|days?|hours?|diagnos(?:is|es))"
+        return bool(
+            re.search(rf"{negative}[^.!?;]{{0,120}}\bunrelated\b", normalized)
+            or re.search(rf"\bunrelated\b[^.!?;]{{0,120}}{negative}", normalized)
+            or re.search(rf"{negative}[^.!?;]{{0,120}}\b{non_naming_field}\b", normalized)
+            or re.search(rf"\b{non_naming_field}\b[^.!?;]{{0,120}}{negative}", normalized)
+        )
 
     @staticmethod
     def _validation_category(error: Exception) -> str:

@@ -1829,14 +1829,48 @@ Dedicated Live Document Processor work-pool checkpoint:
   not degraded. No document, mailbox, Smartsheet, OCR, Ollama, or other PHI-
   sensitive operation ran.
 
+DP Training supplemental-clarification repair checkpoint:
+
+- A PHI-safe protected-case inspection proved the latest clarification reached
+  analysis contract v2 with all three reviewer-comment revisions, was classified
+  as `Clarifies Prior`, and produced a validated filename analysis. The raw model
+  structure retained only canonical type and payer requirements; service and
+  supported-date concepts were absent before validation. They were not removed by
+  normalization, deterministic rendering, row-state evidence checks, or write
+  idempotency.
+- Analysis contract version 3 now requires additive clarification semantics:
+  compatible desired-behavior requirements accumulate chronologically, while a
+  newer explicit conflict overrides only the affected component. A deterministic
+  controlled merge extracts only filename-policy directives from protected
+  feedback and never treats reviewer values as production evidence.
+- The controlled filename proposal vocabulary now expresses canonical document
+  type, payer when applicable, service when applicable, and supported date
+  representation. The renderer requires a range only when both applicable dates
+  are explicitly and deterministically supported, otherwise uses a supported
+  single applicable date, and retains the approved `[DATE]` placeholder for an
+  unresolved applicable naming date. Neither AUTH nor any AUTH subtype implies a
+  range, and `AUTH INIT` retains its authoritative external-context restriction.
+- Business context remains version 1 because shared model-visible business truth
+  did not change; the analysis interpretation/contract changed. The existing
+  active contract-v2 case is eligible for exactly one same-identity, same-comment-
+  checkpoint reanalysis under contract v3. The version-keyed attempt invalidates
+  stale approval state, can create one new validated proposal generation, and is
+  idempotent on later unchanged cycles. `proposal_write` remains unable to create
+  an implementation job or dispatch Codex.
+- Modified Python compiled. Focused and affected synthetic deterministic/mock,
+  naming/business-context, PowerShell 5.1, and isolated local Prefect checks
+  passed. No live Smartsheet mutation, Codex dispatch, mailbox/Graph, OCR, or live
+  Ollama operation ran.
+
 ## CURRENT NEXT START
 
 Perform one controlled live proposal_write DP Training acceptance against the
-existing active flagged correction case. Verify exactly one version-keyed
-reanalysis under analysis contract v2 and business context v1 preserves the same
-durable case identity/comment checkpoint, creates one new validated proposal
-generation, selects a symptom-first primary/related type, and writes only the
-four workflow-owned fields. Verify human controls/comments remain unchanged,
-no Codex dispatch or implementation job occurs, and an unchanged second cycle
-is reconciliation-only/idempotent. Do not approve implementation during this
-acceptance.
+existing active flagged correction case. Verify exactly one unchanged-input,
+analysis-contract-v2-to-v3 reanalysis under business context v1 preserves the
+same durable case identity and comment checkpoint, creates one new validated
+proposal generation containing canonical subtype/document type, payer when
+applicable, service when applicable, and supported date representation, and
+writes only the four workflow-owned fields. Verify human controls/comments remain
+unchanged, no Codex dispatch or implementation job occurs, and an unchanged
+second cycle is reconciliation-only/idempotent. Do not approve implementation
+during this acceptance.

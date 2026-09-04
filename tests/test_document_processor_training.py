@@ -29,6 +29,7 @@ from src.services.document_processor_training_codex_service import (
     CodexDispatchResult,
 )
 from src.services.document_processor_training_contracts import (
+    ANALYSIS_CONTRACT_VERSION,
     AI_CORRECTION,
     AI_CORRECTION_STATUS,
     AI_CORRECTION_TYPE,
@@ -507,8 +508,8 @@ class ExplicitFilenameClarificationProvider:
             "affected_document_category": "authorization",
             "desired_intake_subtype": "decrease",
             "required_filename_components": [
-                "Canonical Document Type", "Validated Payer",
-                "Applicable Validated Service", "Supported Date or Date Range",
+                "Canonical Document Type", "Payer When Applicable",
+                "Service When Applicable", "Supported Date Representation",
             ],
             "excluded_filename_components": ["Unrelated Extracted Fields"],
         }
@@ -527,6 +528,147 @@ def test_clear_clarification_is_analysis_ready_without_root_cause_certainty():
     assert result.related_correction_types == ("Document Subtype",)
     assert "AUTH DECREASE" in result.desired_behavior
     assert "unrelated extracted fields" in result.desired_behavior.lower()
+
+
+class SupplementalFilenameClarificationProvider(ExplicitFilenameClarificationProvider):
+    def analyze_correction_context(self, context, *, schema):
+        value = super().analyze_correction_context(context, schema=schema)
+        value["required_filename_components"] = [
+            "Canonical Document Type", "Payer When Applicable",
+        ]
+        return value
+
+
+def test_prior_filename_intent_and_supplemental_clarification_are_merged():
+    result = LocalCorrectionAnalysisService(
+        provider=SupplementalFilenameClarificationProvider()
+    ).analyze(protected_context={
+        "prior_reviewer_feedback": [{
+            "text": (
+                "Use the canonical document type token and include the validated "
+                "payer in the business filename."
+            )
+        }],
+        "current_reviewer_feedback": {
+            "text": (
+                "Also include the applicable validated service. Use a supported date "
+                "range when both applicable dates are supported; otherwise use the "
+                "supported single date. Do not add unrelated extracted fields."
+            )
+        },
+    })
+    assert result.required_filename_components == (
+        "Canonical Document Type",
+        "Payer When Applicable",
+        "Service When Applicable",
+        "Supported Date Representation",
+    )
+    assert result.excluded_filename_components == ("Unrelated Extracted Fields",)
+    assert "applicable validated service" in result.desired_behavior.lower()
+    assert "supported single applicable date" in result.desired_behavior.lower()
+    assert "both applicable dates" in result.desired_behavior.lower()
+    assert "[DATE]" in result.desired_behavior
+
+
+def test_newer_filename_clarification_overrides_only_conflicting_component():
+    result = LocalCorrectionAnalysisService(
+        provider=SupplementalFilenameClarificationProvider()
+    ).analyze(protected_context={
+        "prior_reviewer_feedback": [{
+            "text": (
+                "Include the validated payer and include the applicable validated "
+                "service in the filename."
+            )
+        }],
+        "current_reviewer_feedback": {
+            "text": (
+                "Do not include service in the filename. Retain the validated payer "
+                "and use the supported date when available."
+            )
+        },
+    })
+    assert "Payer When Applicable" in result.required_filename_components
+    assert "Supported Date Representation" in result.required_filename_components
+    assert "Service When Applicable" not in result.required_filename_components
+
+
+def test_filename_date_representation_is_conditional_and_evidence_only():
+    result = LocalCorrectionAnalysisService(
+        provider=ExplicitFilenameClarificationProvider()
+    ).analyze(protected_context={
+        "prior_reviewer_feedback": [],
+        "current_reviewer_feedback": {
+            "text": (
+                "Use the supported naming date or date range. Synthetic payer value, "
+                "synthetic service value, and 2099-01-01 are examples only."
+            )
+        },
+    })
+    proposal = result.desired_behavior
+    assert "range only when both applicable dates" in proposal
+    assert "otherwise use the supported single applicable date" in proposal
+    assert "approved [DATE] placeholder" in proposal
+    assert "Never manufacture an end date" in proposal
+    assert "AUTH subtype inherently requires a date range" in proposal
+    assert "Synthetic payer value" not in proposal
+    assert "synthetic service value" not in proposal
+    assert "2099-01-01" not in proposal
+
+
+def test_auth_decrease_without_date_feedback_does_not_imply_a_range():
+    result = LocalCorrectionAnalysisService(
+        provider=SupplementalFilenameClarificationProvider()
+    ).analyze(protected_context={
+        "prior_reviewer_feedback": [{
+            "text": "Use the canonical document type and validated payer in the filename."
+        }],
+        "current_reviewer_feedback": {
+            "text": "Preserve those filename requirements and exclude unrelated fields."
+        },
+    })
+    assert "Supported Date Representation" not in result.required_filename_components
+    assert "date range" not in result.desired_behavior.lower()
+
+
+class AuthorizationWithoutSubtypeProvider(SupplementalFilenameClarificationProvider):
+    def analyze_correction_context(self, context, *, schema):
+        value = super().analyze_correction_context(context, schema=schema)
+        value["desired_intake_subtype"] = "unknown"
+        value["related_correction_types"] = []
+        return value
+
+
+def test_authorization_family_alone_does_not_imply_a_date_range():
+    result = LocalCorrectionAnalysisService(
+        provider=AuthorizationWithoutSubtypeProvider()
+    ).analyze(protected_context={
+        "prior_reviewer_feedback": [],
+        "current_reviewer_feedback": {
+            "text": "Use the canonical document type and validated payer in the filename."
+        },
+    })
+    assert "Supported Date Representation" not in result.required_filename_components
+    assert "date range" not in result.desired_behavior.lower()
+
+
+def test_non_naming_status_quantity_and_diagnosis_are_excluded_structurally():
+    result = LocalCorrectionAnalysisService(
+        provider=SupplementalFilenameClarificationProvider()
+    ).analyze(protected_context={
+        "prior_reviewer_feedback": [],
+        "current_reviewer_feedback": {
+            "text": (
+                "Do not add status, units, days, hours, or diagnosis to the filename."
+            )
+        },
+    })
+    assert result.excluded_filename_components == ("Unrelated Extracted Fields",)
+    proposal = result.desired_behavior.lower()
+    assert "status" not in proposal
+    assert "units" not in proposal
+    assert "days" not in proposal
+    assert "hours" not in proposal
+    assert "diagnosis" not in proposal
 
 
 class ExternalInitProvider(ExplicitFilenameClarificationProvider):
@@ -632,7 +774,7 @@ class FakeCodexProcess:
             "changed_layers": ["Deterministic Code"],
             "business_context_version_before": BUSINESS_CONTEXT_VERSION,
             "business_context_version_after": BUSINESS_CONTEXT_VERSION,
-            "analysis_contract_version": 2,
+            "analysis_contract_version": ANALYSIS_CONTRACT_VERSION,
         }), encoding="utf-8")
         self._running = False
 
@@ -688,7 +830,7 @@ def test_codex_context_and_committed_sync_gates_are_independent():
         "changed_layers": ["Deterministic Code"],
         "business_context_version_before": BUSINESS_CONTEXT_VERSION,
         "business_context_version_after": BUSINESS_CONTEXT_VERSION,
-        "analysis_contract_version": 2,
+        "analysis_contract_version": ANALYSIS_CONTRACT_VERSION,
     }
     assert ReadyDispatcher._valid_context_result(parsed, task)
     parsed["changed_layers"] = ["Business Context"]
@@ -852,7 +994,7 @@ def test_analysis_envelope_separates_prior_and_current_feedback():
     assert "comments" not in context
 
 
-def test_legacy_analysis_basis_reanalyzes_once_without_dispatch():
+def test_previous_analysis_basis_reanalyzes_once_without_dispatch():
     reader = FlowReader()
     repository = MemoryRepository()
     initial = DocumentProcessorTrainingApplicationService(
@@ -870,8 +1012,8 @@ def test_legacy_analysis_basis_reanalyzes_once_without_dispatch():
     identity = correction_case.case_id
     correction_case.proposal_generation = 2
     correction_case.status = "Needs More Information"
-    correction_case.analysis_contract_version = 1
-    correction_case.business_context_version = 0
+    correction_case.analysis_contract_version = ANALYSIS_CONTRACT_VERSION - 1
+    correction_case.business_context_version = BUSINESS_CONTEXT_VERSION
     correction_case.analysis_attempt_key = ""
     correction_case.analysis_attempt_state = "none"
     correction_case.correction_approval_baseline_seen = True
@@ -898,7 +1040,7 @@ def test_legacy_analysis_basis_reanalyzes_once_without_dispatch():
     upgraded.run_cycle()
     assert correction_case.case_id == identity
     assert correction_case.proposal_generation == 3
-    assert correction_case.analysis_contract_version == 2
+    assert correction_case.analysis_contract_version == ANALYSIS_CONTRACT_VERSION
     assert correction_case.business_context_version == BUSINESS_CONTEXT_VERSION
     assert correction_case.correction_approval_baseline_seen is False
     assert correction_case.implementation_attempt_count == 0

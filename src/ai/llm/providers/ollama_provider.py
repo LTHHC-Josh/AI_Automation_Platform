@@ -639,8 +639,11 @@ class OllamaProvider(LLMProvider):
                 "requested JSON structure. Do not reproduce patient values, names, IDs, "
                 "dates, filenames, comment quotations, or document text. Describe only "
                 "the structural behavior that should change. The current reviewer "
-                "feedback is the latest revision: a coherent clarification may narrow "
-                "or correct prior feedback while prior feedback remains audit context. "
+                "feedback is the latest revision, not a standalone replacement. Merge "
+                "every compatible desired-behavior requirement from prior feedback with "
+                "the current clarification. The current clarification may add to, narrow, "
+                "or correct prior feedback and overrides only the portion it conflicts "
+                "with; it does not need to restate compatible prior requirements. "
                 "Use Conflicts only when the current intent cannot be reconciled. Decide "
                 "desired_behavior_sufficient from business intent, independently of "
                 "technical root-cause certainty. Unknown implementation layer may be "
@@ -649,6 +652,13 @@ class OllamaProvider(LLMProvider):
                 "not primary merely because validated values feed another result. A "
                 "filename-composition symptom is Filename and an upstream intake subtype "
                 "may be a related type. Reviewer values never become field evidence."
+                " For filename structure: Canonical Document Type means the supported "
+                "canonical document/subtype token; Payer When Applicable and Service "
+                "When Applicable mean consume only already validated applicable values; "
+                "Supported Date Representation means use a range only when both applicable "
+                "dates are deterministically supported, otherwise a supported single date, "
+                "and use existing placeholder policy when an applicable date is unresolved. "
+                "Neither AUTH nor an AUTH subtype inherently requires a date range."
             ),
             user_prompt="PROTECTED CORRECTION CONTEXT\n" + prompt_text,
             schema=deepcopy(schema),

@@ -10111,6 +10111,44 @@ writes only the four workflow-owned fields, preserves human controls/comments,
 and creates no implementation job or Codex dispatch. An unchanged second cycle
 must be reconciliation-only. Do not approve implementation during acceptance.
 
+DP Training supplemental-clarification repair (2026-09-04):
+
+- PHI-safe protected-case forensics proved the latest clarification reached
+  analysis contract v2 with all three reviewer-comment revisions. The validated
+  raw model structure omitted service and supported-date requirements; no later
+  validation, normalization, rendering, row-state, or write-idempotency boundary
+  removed them.
+- Analysis contract version 3 now merges compatible filename-policy requirements
+  chronologically and lets a newer explicit conflict override only its affected
+  component. The deterministic merge emits controlled structural concepts only;
+  reviewer values never become production evidence.
+- The proposal vocabulary and renderer now support canonical document type,
+  payer when applicable, service when applicable, and conditional supported date
+  representation. A range requires two explicitly and deterministically supported
+  applicable dates; otherwise a supported single date or the approved unresolved
+  `[DATE]` policy applies. AUTH and AUTH DECREASE do not imply a range, and AUTH
+  INIT retains its external-context restriction.
+- Business context remains version 1 because shared business semantics did not
+  change. The existing active contract-v2 case is eligible exactly once for an
+  unchanged-input contract-v3 reanalysis with the same durable identity and
+  comment checkpoint. Stale approval state is invalidated, a changed validated
+  output creates one proposal generation, and later unchanged cycles are
+  idempotent. Proposal-write remains non-dispatchable.
+- Modified Python compiled. Focused and affected synthetic deterministic/mock,
+  naming/business-context, PowerShell 5.1, and isolated local Prefect tests passed.
+  No live Smartsheet mutation, Codex dispatch, mailbox/Graph, OCR, or live Ollama
+  operation ran.
+
+Exact next start: perform one controlled live proposal-write DP Training
+acceptance against the existing active flagged correction case. Verify exactly
+one unchanged-input analysis-contract-v2-to-v3 reanalysis under business context
+v1 preserves durable case identity and comment checkpoint, creates one validated
+proposal generation containing canonical type, payer when applicable, service
+when applicable, and supported date representation, writes only workflow-owned
+fields, and preserves human controls/comments. Verify zero implementation jobs or
+Codex dispatch and unchanged-second-cycle idempotency. Do not approve
+implementation during acceptance.
+
 """
 
 
@@ -10140,9 +10178,11 @@ updates = [
             "local mode is now `proposal_write` with Codex dispatch disabled. "
             "A shared PHI-free versioned business context now supplies live-model "
             "and correction-analysis role views while deterministic services remain "
-            "authoritative. Correction analysis v2 separates business-intent clarity "
-            "from technical disposition and permits one version-keyed reanalysis of "
-            "the current older-basis case; controlled live proposal-write and "
+            "authoritative. Correction analysis v3 preserves compatible prior "
+            "filename intent across supplemental clarifications, deterministically "
+            "represents applicable service and supported date behavior without using "
+            "reviewer values as production evidence, and permits one version-keyed "
+            "reanalysis of the current contract-v2 case; controlled proposal-write and "
             "unchanged-cycle idempotency acceptance remains pending. Live DP now "
             "has its own registered Prefect process pool and owned worker identity; "
             "manual DP and DP Training retain their separate existing pools."

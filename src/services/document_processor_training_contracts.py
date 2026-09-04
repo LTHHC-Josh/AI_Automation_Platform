@@ -32,7 +32,7 @@ WORKFLOW_OWNED_COLUMNS = frozenset({
 })
 REQUIRED_COLUMNS = HUMAN_OWNED_COLUMNS | WORKFLOW_OWNED_COLUMNS
 
-ANALYSIS_CONTRACT_VERSION = 2
+ANALYSIS_CONTRACT_VERSION = 3
 CORRECTION_TYPES = DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.correction_types
 TECHNICAL_DISPOSITIONS = (
     DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.technical_dispositions
@@ -116,10 +116,16 @@ OBSERVED_FAILURE_TYPES = (
 
 FILENAME_COMPONENTS = (
     "Canonical Document Type",
-    "Validated Payer",
-    "Applicable Validated Service",
-    "Supported Date or Date Range",
+    "Payer When Applicable",
+    "Service When Applicable",
+    "Supported Date Representation",
 )
+
+LEGACY_FILENAME_COMPONENT_ALIASES = {
+    "Validated Payer": "Payer When Applicable",
+    "Applicable Validated Service": "Service When Applicable",
+    "Supported Date or Date Range": "Supported Date Representation",
+}
 
 EXCLUDED_FILENAME_COMPONENTS = ("Unrelated Extracted Fields",)
 
@@ -180,7 +186,7 @@ HISTORICAL_ACCEPTANCE_RESULT = (
 )
 
 _SAFE_FIELD_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9 /_-]{0,79}$")
-_SAFE_BEHAVIOR_TEXT = re.compile(r"^[A-Za-z][A-Za-z0-9 .,;:()/_'\-]{0,1499}$")
+_SAFE_BEHAVIOR_TEXT = re.compile(r"^[A-Za-z][A-Za-z0-9 .,;:()/_'\[\]\-]{0,1499}$")
 
 
 @dataclass(frozen=True, repr=False)
@@ -296,8 +302,8 @@ def validate_analysis(value: Any) -> CorrectionAnalysis:
         value.related_correction_types, allowed=CORRECTION_TYPES
     )
     layers = _normalize_vocab(value.likely_layers, allowed=IMPLEMENTATION_LAYERS)
-    required_components = _normalize_vocab(
-        value.required_filename_components, allowed=FILENAME_COMPONENTS
+    required_components = normalize_filename_components(
+        value.required_filename_components
     )
     excluded_components = _normalize_vocab(
         value.excluded_filename_components, allowed=EXCLUDED_FILENAME_COMPONENTS
@@ -450,32 +456,63 @@ def _render_desired_behavior(
     required_components: tuple[str, ...], excluded_components: tuple[str, ...],
     technical_disposition: str,
 ) -> str:
-    if correction_type == "Filename" and subtype not in {"unknown", "not_applicable"}:
-        definitions = {
-            item.key: item
-            for item in DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.intake_subtype_taxonomy
-        }
-        definition = definitions[subtype]
-        evidence = (
-            "authoritative external context"
-            if definition.requires_external_context
-            else "validated document evidence"
-        )
-        category_text = "authorization documents" if category == "authorization" else "supported documents"
-        proposal = (
-            f"For {category_text}, when the {definition.token} intake subtype is directly supported by "
-            f"{evidence}, use the canonical AUTH {definition.token} document type token in the business filename."
-        )
-        if required_components:
-            proposal += " Include " + ", ".join(
-                component.lower() for component in required_components
-            ) + " according to the established naming convention."
+    if correction_type == "Filename":
+        if subtype not in {"unknown", "not_applicable"}:
+            definitions = {
+                item.key: item
+                for item in DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.intake_subtype_taxonomy
+            }
+            definition = definitions[subtype]
+            evidence = (
+                "authoritative external context"
+                if definition.requires_external_context
+                else "validated document evidence"
+            )
+            category_text = (
+                "authorization documents"
+                if category == "authorization" else "supported documents"
+            )
+            proposal = (
+                f"For {category_text}, when the {definition.token} intake subtype is directly supported by "
+                f"{evidence}, use the canonical AUTH {definition.token} document type token in the business filename."
+            )
+        else:
+            proposal = (
+                "Build the business filename from the canonical document and subtype token "
+                "supported by deterministic evidence."
+            )
+        if "Payer When Applicable" in required_components:
+            proposal += " Use the validated payer when applicable."
+        if "Service When Applicable" in required_components:
+            proposal += " Use the applicable validated service."
+        if "Supported Date Representation" in required_components:
+            proposal += (
+                " Use a supported date range only when both applicable dates are explicitly and "
+                "deterministically supported; otherwise use the supported single applicable date. "
+                "If an applicable naming date is unresolved, use the approved [DATE] placeholder. "
+                "Never manufacture an end date; neither AUTH nor an AUTH subtype inherently requires a date range."
+            )
         if excluded_components:
             proposal += " Do not add unrelated extracted fields to the filename."
+        proposal += (
+            " Reviewer feedback defines desired behavior only and never supplies actual filename values."
+        )
         if technical_disposition == "Needs Investigation":
             proposal += " The implementation layer requires repository investigation."
         return proposal
     return BEHAVIOR_CODES[behavior_code]
+
+
+def normalize_filename_components(values: Iterable[str] | Any) -> tuple[str, ...]:
+    """Normalize legacy structural labels into the current controlled vocabulary."""
+    if not isinstance(values, (tuple, list)):
+        raise ValueError("correction_vocabulary_invalid")
+    normalized = []
+    for value in values:
+        item = value.strip() if isinstance(value, str) else ""
+        item = LEGACY_FILENAME_COMPONENT_ALIASES.get(item, item)
+        normalized.append(item)
+    return _normalize_vocab(normalized, allowed=FILENAME_COMPONENTS)
 
 
 def _normalize_vocab(
