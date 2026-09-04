@@ -151,6 +151,12 @@ TRAINING_MODES = (
     "approval_dispatch",
 )
 
+HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE = "historical_acceptance_blocked"
+HISTORICAL_ACCEPTANCE_RESULT = (
+    "Historical feedback acceptance only. Verify current behavior through a real "
+    "retest before authorizing any implementation."
+)
+
 _SAFE_FIELD_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9 /_-]{0,79}$")
 _SAFE_BEHAVIOR_TEXT = re.compile(r"^[A-Za-z][A-Za-z0-9 .,;:()/_'\-]{0,1499}$")
 

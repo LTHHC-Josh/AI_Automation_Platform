@@ -10012,6 +10012,35 @@ existing flagged row. Prove configured/runtime mode agreement before polling,
 exactly one protected case discovery/update, no correction-field write, no Codex
 dispatch, PHI-safe Prefect/status output, and clean `stopdptraining` settlement.
 
+DP Training read-only acceptance and proposal-write preparation (2026-09-04):
+
+- The operator-confirmed live read-only acceptance proved matching configured
+  and effective mode, exactly one flagged case, protected case creation/update,
+  no correction-field write, no Codex dispatch, no failure, and clean return to
+  waiting.
+- The retained case has one durable validated proposal generation and zero
+  implementation attempts, job identities, or consumed approval generations.
+  It is durably marked historical acceptance input and cannot authorize an
+  implementation even in a later dispatch-capable mode.
+- Corrected mode-promotion behavior so proposal-write publishes the unchanged
+  durable validated generation without reanalysis or a duplicate generation;
+  exact unchanged readback makes a later cycle reconciliation-only.
+- Restricted approval authorization and implementation-job creation to
+  approval-dispatch. Proposal-write cannot consume approval, create a job, or
+  launch Codex. Historical output carries fixed current-state/retest guidance
+  rather than claiming the earlier issue remains in current code.
+- Protected mode is proposal-write, Smartsheet writes are enabled, and Codex
+  dispatch is explicitly disabled. PHI-safe readiness and stopped-service status
+  passed with zero training workers. Focused and affected tests were synthetic,
+  mock, protected-local-state, or isolated local Prefect only. No production row
+  or comment was read and no Smartsheet/mailbox mutation occurred.
+
+Exact next start: perform one controlled live proposal-write DP Training
+acceptance against the existing historical flagged case. Verify one validated
+proposal/type/status generation, exact-four-field workflow ownership, preserved
+human controls/comments, zero Codex dispatch, and unchanged-second-cycle
+idempotency. Do not approve implementation for this historical case.
+
 """
 
 
@@ -10037,9 +10066,10 @@ updates = [
             "feedback seed with exact correction-column ownership, protected "
             "comment/case handling, two human approval generations, controlled "
             "local analysis, and a bounded PHI-safe Codex dispatcher. The "
-            "protected local mode is now `read_only`; one controlled live "
-            "flagged-row/comment acceptance remains pending before any mutation "
-            "gate is considered."
+            "read-only flagged-row/comment acceptance passed. The protected "
+            "local mode is now `proposal_write` with Codex dispatch disabled; "
+            "one historical-case proposal-write and unchanged-cycle idempotency "
+            "acceptance remains pending."
         ),
     ),
     (

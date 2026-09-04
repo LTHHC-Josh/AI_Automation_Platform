@@ -36,6 +36,8 @@ from src.services.document_processor_training_contracts import (
     APPROVE_AI_RESOLUTION,
     CORRECTION_STATUSES,
     CORRECTION_TYPES,
+    HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE,
+    HISTORICAL_ACCEPTANCE_RESULT,
     REQUIRED_COLUMNS,
     WORKFLOW_OWNED_COLUMNS,
     CorrectionAnalysis,
@@ -606,6 +608,30 @@ class FlowWriter:
         return SimpleNamespace(success=True, status="workflow_write_reconciled")
 
 
+class ReconciledFlowWriter:
+    def __init__(self, reader):
+        self.reader = reader
+        self.external_calls = 0
+
+    def write(self, *, updates, expected_proposal_hash_values=None, **kwargs):
+        assert set(updates) <= WORKFLOW_OWNED_COLUMNS
+        expected = expected_proposal_hash_values or {}
+        assert all(self.reader.values.get(title) == value for title, value in expected.items())
+        if all(self.reader.values.get(title) == value for title, value in updates.items()):
+            return SimpleNamespace(
+                success=True,
+                status="workflow_write_already_reconciled",
+                request_attempted=False,
+            )
+        self.external_calls += 1
+        self.reader.values.update(updates)
+        return SimpleNamespace(
+            success=True,
+            status="workflow_write_reconciled",
+            request_attempted=True,
+        )
+
+
 class FlowAnalyzer:
     def analyze(self, **kwargs):
         return CorrectionAnalysis(
@@ -807,6 +833,83 @@ def test_read_only_mode_analyzes_without_smartsheet_write_or_codex():
     assert repository.case.status == "Analysis Ready"
     assert result.analysis_ready_count == 1
     assert reader.values[AI_PROPOSED_CORRECTION] is None
+
+
+def test_proposal_write_publishes_existing_read_only_generation_once():
+    reader = FlowReader()
+    repository = MemoryRepository()
+    read_only = DocumentProcessorTrainingApplicationService(
+        schema_service=SimpleNamespace(read=schema_result),
+        reader=reader,
+        repository=repository,
+        analyzer=FlowAnalyzer(),
+        writer=ForbiddenWriter(),
+        task_service=PhiSafeImplementationTaskService(),
+        dispatcher=ForbiddenDispatcher(),
+        mode="read_only",
+    )
+    read_only.run_cycle()
+    assert repository.case.proposal_generation == 1
+    repository.case.implementation_state = HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE
+    repository.case.resolution_result = HISTORICAL_ACCEPTANCE_RESULT
+    writer = ReconciledFlowWriter(reader)
+    proposal_write = DocumentProcessorTrainingApplicationService(
+        schema_service=SimpleNamespace(read=schema_result),
+        reader=reader,
+        repository=repository,
+        analyzer=ForbiddenAnalyzer(),
+        writer=writer,
+        task_service=PhiSafeImplementationTaskService(),
+        dispatcher=ForbiddenDispatcher(),
+        mode="proposal_write",
+    )
+    human_before = {
+        title: reader.values[title]
+        for title in (AI_CORRECTION, APPROVE_AI_CORRECTION, APPROVE_AI_RESOLUTION)
+    }
+    proposal_write.run_cycle()
+    assert repository.case.proposal_generation == 1
+    assert writer.external_calls == 1
+    assert reader.values[AI_PROPOSED_CORRECTION] == repository.case.proposal_text
+    assert reader.values[AI_CORRECTION_TYPE] == repository.case.correction_type
+    assert reader.values[AI_CORRECTION_STATUS] == repository.case.status
+    assert reader.values[AI_RESOLUTION_RESULT] == HISTORICAL_ACCEPTANCE_RESULT
+    assert human_before == {title: reader.values[title] for title in human_before}
+    proposal_write.run_cycle()
+    assert repository.case.proposal_generation == 1
+    assert writer.external_calls == 1
+
+
+def test_proposal_write_never_authorizes_or_dispatches_an_approval_edge():
+    service, reader, repository = build_flow_service(
+        mode="proposal_write", dispatcher=ForbiddenDispatcher()
+    )
+    service.run_cycle()
+    reader.values[APPROVE_AI_CORRECTION] = True
+    service.run_cycle()
+    assert repository.case.status == "Analysis Ready"
+    assert repository.case.implementation_state == "none"
+    assert repository.case.implementation_job_id == ""
+    assert repository.case.implementation_attempt_count == 0
+    assert repository.case.correction_approval_consumed_generation == 0
+    assert reader.values[APPROVE_AI_CORRECTION] is True
+
+
+def test_historical_acceptance_block_survives_approval_dispatch_mode():
+    service, reader, repository = build_flow_service(
+        mode="proposal_write", dispatcher=ForbiddenDispatcher()
+    )
+    service.run_cycle()
+    repository.case.implementation_state = HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE
+    repository.case.resolution_result = HISTORICAL_ACCEPTANCE_RESULT
+    service.mode = "approval_dispatch"
+    reader.values[APPROVE_AI_CORRECTION] = True
+    service.run_cycle()
+    assert repository.case.status == "Analysis Ready"
+    assert repository.case.implementation_state == HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE
+    assert repository.case.implementation_job_id == ""
+    assert repository.case.implementation_attempt_count == 0
+    assert repository.case.correction_approval_consumed_generation == 0
 
 
 class ForbiddenAnalyzer:

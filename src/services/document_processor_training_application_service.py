@@ -31,6 +31,8 @@ from src.services.document_processor_training_contracts import (
     APPROVE_AI_CORRECTION,
     APPROVE_AI_RESOLUTION,
     ALLOWED_STATUS_TRANSITIONS,
+    HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE,
+    HISTORICAL_ACCEPTANCE_RESULT,
     REQUIRED_COLUMNS,
     TRAINING_MODES,
     CorrectionAnalysis,
@@ -220,6 +222,13 @@ class DocumentProcessorTrainingApplicationService:
                 source_row=row,
                 stage_observer=stage_observer,
             )
+        elif self.mode in {"proposal_write", "approval_dispatch"}:
+            self._sync_existing_proposal(
+                correction_case=correction_case,
+                schema=schema,
+                source_row=row,
+                stage_observer=stage_observer,
+            )
         self._advance_approval(
             correction_case=correction_case,
             row=row,
@@ -281,10 +290,21 @@ class DocumentProcessorTrainingApplicationService:
                 AI_CORRECTION_TYPE: analysis.correction_type,
                 AI_CORRECTION_STATUS: status,
             }
+            if (
+                correction_case.implementation_state
+                == HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE
+            ):
+                correction_case.resolution_result = HISTORICAL_ACCEPTANCE_RESULT
+                updates[AI_RESOLUTION_RESULT] = HISTORICAL_ACCEPTANCE_RESULT
             if source_row.values.get(AI_RESOLUTION_RESULT) not in {None, ""}:
                 updates[AI_RESOLUTION_RESULT] = (
-                    "New reviewer feedback reopened this correction. Review the revised "
-                    "proposal and use a new approval edge before implementation."
+                    HISTORICAL_ACCEPTANCE_RESULT
+                    if correction_case.implementation_state
+                    == HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE
+                    else (
+                        "New reviewer feedback reopened this correction. Review the revised "
+                        "proposal and use a new approval edge before implementation."
+                    )
                 )
             written = self._write_case_fields(
                 correction_case=correction_case,
@@ -300,8 +320,71 @@ class DocumentProcessorTrainingApplicationService:
                 self._transition(correction_case, "Cannot Resolve Yet")
                 self.repository.save(correction_case)
 
+    def _sync_existing_proposal(
+        self, *, correction_case, schema, source_row, stage_observer
+    ) -> bool:
+        """Publish one already-validated durable generation after mode promotion."""
+        if (
+            correction_case.proposal_generation <= 0
+            or correction_case.status not in {
+                "Analysis Ready", "Needs More Information"
+            }
+            or correction_case.proposal_hash != stable_digest({
+                "input": correction_case.input_digest,
+                "generation": correction_case.proposal_generation,
+                "type": correction_case.correction_type,
+                "proposal": correction_case.proposal_text,
+            })
+        ):
+            return False
+        try:
+            validate_analysis(CorrectionAnalysis(
+                correction_type=correction_case.correction_type,
+                affected_fields=tuple(correction_case.affected_fields),
+                behavior_code=correction_case.behavior_code,
+                desired_behavior=correction_case.proposal_text,
+                likely_layers=tuple(correction_case.likely_layers),
+                information_sufficient=(
+                    correction_case.status == "Analysis Ready"
+                ),
+            ))
+        except (TypeError, ValueError):
+            return False
+        updates = {
+            AI_PROPOSED_CORRECTION: correction_case.proposal_text,
+            AI_CORRECTION_TYPE: correction_case.correction_type,
+            AI_CORRECTION_STATUS: correction_case.status,
+        }
+        if (
+            correction_case.implementation_state
+            == HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE
+        ):
+            correction_case.resolution_result = HISTORICAL_ACCEPTANCE_RESULT
+            updates[AI_RESOLUTION_RESULT] = HISTORICAL_ACCEPTANCE_RESULT
+        return self._write_case_fields(
+            correction_case=correction_case,
+            schema=schema,
+            updates=updates,
+            expected_values={
+                title: source_row.values.get(title)
+                for title in updates
+            },
+            stage_observer=stage_observer,
+        )
+
     def _advance_approval(self, *, correction_case, row, schema, stage_observer) -> None:
         current = row.values.get(APPROVE_AI_CORRECTION)
+        if (
+            correction_case.implementation_state
+            == HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE
+        ):
+            return
+        if self.mode != "approval_dispatch":
+            correction_case.correction_approval_baseline_seen = current is not True
+            correction_case.correction_approval_previous = (
+                False if current is not True else None
+            )
+            return
         if current is not True:
             correction_case.correction_approval_baseline_seen = True
             correction_case.correction_approval_previous = False
@@ -329,7 +412,6 @@ class DocumentProcessorTrainingApplicationService:
         if (
             correction_case.status != "Approved for Implementation"
             or correction_case.implementation_state not in {"authorized", "waiting"}
-            or self.mode != "approval_dispatch"
             or self._implementation_dispatched
         ):
             return

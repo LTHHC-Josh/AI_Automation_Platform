@@ -42,6 +42,14 @@ requires `DP_TRAINING_ALLOW_CODEX_DISPATCH=true`. These gates default disabled.
 The mode and gates are never Prefect parameters or deployment job variables.
 Only their PHI-safe mode/fingerprint handshake is inherited by the owned worker.
 
+Promoting an unchanged case from `read_only` to `proposal_write` publishes the
+single durable validated proposal generation; it does not analyze the same
+input again. Exact readback makes later unchanged cycles reconciliation-only.
+`proposal_write` never creates an implementation authorization or job, even if
+an approval checkbox is already selected. Historical acceptance cases may be
+durably marked implementation-blocked and display fixed current-state/retest
+guidance while retaining the same proposal generation.
+
 ## Smartsheet ownership
 
 There are seven correction columns plus the existing row Conversations area.

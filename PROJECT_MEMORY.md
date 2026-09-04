@@ -1737,12 +1737,36 @@ DP Training capability-mode propagation correction checkpoint:
   Smartsheet or mailbox state was mutated, and no Codex, protected OCR, or Ollama
   operation ran.
 
+DP Training read-only acceptance and proposal-write preparation checkpoint:
+
+- The operator-confirmed live `read_only` acceptance ran with matching
+  configured/effective mode, discovered exactly one flagged row, and created or
+  updated exactly one protected correction case. No correction-field write,
+  Codex dispatch, or failure occurred, and DP Training returned to waiting.
+- The retained case has exactly one durable validated proposal generation and
+  zero implementation attempts, implementation job identities, or consumed
+  approval generations. It is now durably marked as historical acceptance input
+  so it cannot authorize implementation, even in a later dispatch-capable mode.
+- Corrected promotion behavior so an unchanged case analyzed in `read_only` can
+  publish its existing validated generation after `proposal_write` is enabled.
+  It is not reanalyzed and does not create another generation; exact unchanged
+  readback makes later cycles reconciliation-only.
+- Approval authorization and implementation-job creation are now exclusive to
+  `approval_dispatch`. `proposal_write` can never consume an approval edge,
+  create an implementation job, or dispatch Codex. Historical cases also carry
+  fixed current-state/retest guidance without asserting that an older issue
+  remains present in current code.
+- Protected configuration is `proposal_write` with the Smartsheet-write gate
+  enabled and Codex-dispatch gate explicitly disabled. Readiness and stopped-
+  service status report the configured mode, zero training workers, and no
+  degraded state. No production row/comment read or Smartsheet mutation occurred
+  during preparation.
+
 ## CURRENT NEXT START
 
-Perform one controlled live `read_only` DP Training acceptance against the
-existing intentionally flagged `AI Correction` row. Start DP Training and first
-verify configured and runtime/effective modes both report `read_only` with a
-proven match. Then verify exactly one protected correction case is discovered/
-updated, row/comment content remains local/protected, no Smartsheet correction-
-field write or Codex dispatch occurs, Prefect/status output remains PHI-safe, and
-stop DP Training cleanly.
+Perform one controlled live proposal_write DP Training acceptance against the
+existing historical flagged case. Verify the local AI produces one validated
+proposal/type/status generation and writes only the four workflow-owned fields,
+preserves all human-owned controls/comments, performs no Codex dispatch, and
+remains idempotent on an unchanged second cycle. Do not approve implementation
+for this historical case.
