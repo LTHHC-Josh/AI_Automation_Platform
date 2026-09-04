@@ -379,7 +379,7 @@ def build_proposal(analysis: CorrectionAnalysis) -> str:
     validated = validate_analysis(analysis)
     if not validated.desired_behavior_sufficient:
         return validated.desired_behavior
-    proposal = validated.desired_behavior
+    proposal = _render_reviewer_proposal(validated)
     if len(proposal) > 1500 or not _SAFE_BEHAVIOR_TEXT.fullmatch(proposal):
         raise ValueError("correction_proposal_invalid")
     return proposal
@@ -501,6 +501,52 @@ def _render_desired_behavior(
             proposal += " The implementation layer requires repository investigation."
         return proposal
     return BEHAVIOR_CODES[behavior_code]
+
+
+def _render_reviewer_proposal(analysis: CorrectionAnalysis) -> str:
+    """Render concise reviewer text only from validated structural analysis."""
+    if analysis.primary_correction_type != "Filename":
+        return analysis.desired_behavior
+
+    required = analysis.required_filename_components
+    if "Canonical Document Type" in required:
+        if analysis.affected_document_category == "authorization":
+            if analysis.desired_intake_subtype == "init":
+                lead = (
+                    "Use the authorization subtype supported by authoritative "
+                    "external context in the filename"
+                )
+            else:
+                lead = "Use the supported authorization subtype in the filename"
+        elif analysis.desired_intake_subtype not in {"unknown", "not_applicable"}:
+            lead = "Use the supported document subtype in the filename"
+        else:
+            lead = "Use the supported document type in the filename"
+    else:
+        lead = "Update the filename"
+
+    components = []
+    if "Payer When Applicable" in required:
+        components.append("validated payer")
+    if "Service When Applicable" in required:
+        components.append("applicable service")
+    if "Supported Date Representation" in required:
+        components.append("the supported date or date range")
+    if components:
+        lead += " and include " + _format_reviewer_items(components)
+
+    proposal = lead + "."
+    if analysis.excluded_filename_components:
+        proposal += " Exclude unrelated extracted fields from the filename."
+    return proposal
+
+
+def _format_reviewer_items(values: list[str]) -> str:
+    if len(values) == 1:
+        return values[0]
+    if len(values) == 2:
+        return " and ".join(values)
+    return ", ".join(values[:-1]) + ", and " + values[-1]
 
 
 def normalize_filename_components(values: Iterable[str] | Any) -> tuple[str, ...]:

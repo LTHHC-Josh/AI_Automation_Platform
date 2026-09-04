@@ -1862,15 +1862,38 @@ DP Training supplemental-clarification repair checkpoint:
   passed. No live Smartsheet mutation, Codex dispatch, mailbox/Graph, OCR, or live
   Ollama operation ran.
 
+DP Training reviewer-facing proposal rendering checkpoint:
+
+- `AI Proposed Correction` now receives a concise deterministic business summary
+  rendered only from validated structural analysis. Filename proposals identify
+  the supported document/subtype behavior and the applicable validated payer,
+  service, and supported date/date-range components in one short sentence, with a
+  second short exclusion sentence only when the structure requires it.
+- Detailed evidence boundaries, placeholder behavior, date-selection constraints,
+  technical disposition, and implementation context remain in the protected
+  validated analysis. The PHI-safe implementation-task builder reconstructs that
+  detailed behavior from the persisted controlled structure rather than using the
+  shortened reviewer text as its authority.
+- Analysis contract remains version 3 and business context remains version 1.
+  This is presentation-only: clarification precedence, structural requirements,
+  proposal generation/hash binding, approval ownership, case persistence,
+  idempotency, and proposal-write dispatch prohibition are unchanged.
+- Synthetic coverage proves a normal minimal follow-up comment creates exactly one
+  new proposal generation while retained compatible feedback supplies the full
+  structure; the next unchanged cycle is a no-op. Modified Python compiled, and
+  focused plus affected DP Training, business-context, naming, PowerShell 5.1,
+  and isolated Prefect checks passed. No live Smartsheet correction processing,
+  mailbox/Graph, OCR, live Ollama, or Codex operation ran.
+
 ## CURRENT NEXT START
 
-Perform one controlled live proposal_write DP Training acceptance against the
-existing active flagged correction case. Verify exactly one unchanged-input,
-analysis-contract-v2-to-v3 reanalysis under business context v1 preserves the
-same durable case identity and comment checkpoint, creates one new validated
-proposal generation containing canonical subtype/document type, payer when
-applicable, service when applicable, and supported date representation, and
-writes only the four workflow-owned fields. Verify human controls/comments remain
-unchanged, no Codex dispatch or implementation job occurs, and an unchanged
-second cycle is reconciliation-only/idempotent. Do not approve implementation
-during this acceptance.
+Add one normal minimal reviewer comment, such as `again`, to the existing active
+correction case, then perform one controlled live `proposal_write` DP Training
+acceptance. Verify the ordinary comment revision creates exactly one new proposal
+generation, retains the prior compatible canonical subtype/document type, payer,
+applicable service, and supported date/date-range structure, and writes a concise
+reviewer-facing `AI Proposed Correction` plus only the workflow-owned type/status
+fields needed for the generation. Verify human controls/comments remain unchanged,
+no Codex dispatch or implementation job occurs, and an unchanged following cycle
+is reconciliation-only/idempotent. Do not approve implementation during this
+acceptance, and stop DP Training cleanly afterward.

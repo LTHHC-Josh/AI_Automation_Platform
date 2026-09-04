@@ -10149,6 +10149,36 @@ fields, and preserves human controls/comments. Verify zero implementation jobs o
 Codex dispatch and unchanged-second-cycle idempotency. Do not approve
 implementation during acceptance.
 
+DP Training reviewer-facing proposal rendering refinement (2026-09-04):
+
+- Kept analysis contract v3 and business context v1 unchanged. The validated
+  structural analysis still retains filename subtype, payer, service, supported
+  date representation, exclusions, evidence boundaries, placeholder policy,
+  technical disposition, and implementation context.
+- Refined only `build_proposal`, the deterministic `AI Proposed Correction`
+  presentation boundary. It now emits a concise business summary from controlled
+  structure and omits internal validation, evidence, placeholder, technical, and
+  implementation boilerplate. Reviewer text and patient-specific values are never
+  copied into the summary.
+- The protected implementation-task builder continues reconstructing the detailed
+  behavior from validated structural fields. Proposal generations, hash binding,
+  human checkbox ownership, clarification precedence, protected case storage,
+  idempotency, and proposal-write dispatch prohibition remain unchanged.
+- Synthetic tests prove a minimal normal follow-up comment creates one new
+  generation without replacing compatible prior context, preserves the complete
+  filename structure, and becomes a no-op on the next unchanged cycle. Modified
+  Python compiled; focused and affected DP Training, business-context, naming,
+  PowerShell 5.1, and isolated Prefect checks passed. No live Smartsheet correction
+  processing, mailbox/Graph, OCR, live Ollama, or Codex operation ran.
+
+Exact next start: add one normal minimal reviewer comment, such as `again`, to the
+existing active correction case, then run one controlled live proposal-write DP
+Training acceptance. Verify exactly one new generation retains the full prior
+compatible filename structure and writes the concise reviewer proposal plus only
+the required workflow-owned type/status fields. Verify human controls/comments
+remain unchanged, zero implementation job/Codex dispatch, unchanged-next-cycle
+idempotency, and a clean DP Training stop. Do not approve implementation.
+
 """
 
 
@@ -10182,8 +10212,10 @@ updates = [
             "filename intent across supplemental clarifications, deterministically "
             "represents applicable service and supported date behavior without using "
             "reviewer values as production evidence, and permits one version-keyed "
-            "reanalysis of the current contract-v2 case; controlled proposal-write and "
-            "unchanged-cycle idempotency acceptance remains pending. Live DP now "
+            "reanalysis of the current contract-v2 case. Reviewer-facing proposals now "
+            "render concise business summaries while protected structural analysis "
+            "remains authoritative; minimal-comment proposal-write and unchanged-cycle "
+            "idempotency acceptance remains pending. Live DP now "
             "has its own registered Prefect process pool and owned worker identity; "
             "manual DP and DP Training retain their separate existing pools."
         ),

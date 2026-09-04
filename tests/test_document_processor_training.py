@@ -48,6 +48,7 @@ from src.services.document_processor_training_contracts import (
     CorrectionRow,
     CorrectionSchemaResult,
     TrainingCycleSummary,
+    build_proposal,
     normalize_checkbox,
 )
 from src.services.smartsheet_document_processor_training_service import (
@@ -530,6 +531,53 @@ def test_clear_clarification_is_analysis_ready_without_root_cause_certainty():
     assert "unrelated extracted fields" in result.desired_behavior.lower()
 
 
+def test_filename_reviewer_proposal_is_concise_without_changing_analysis():
+    result = LocalCorrectionAnalysisService(
+        provider=ExplicitFilenameClarificationProvider()
+    ).analyze(protected_context={
+        "prior_reviewer_feedback": [],
+        "current_reviewer_feedback": {
+            "text": (
+                "Use the supported authorization subtype with validated payer, "
+                "applicable service, and supported dates. A synthetic member value "
+                "must not appear in the proposal."
+            )
+        },
+    })
+
+    assert result.required_filename_components == (
+        "Canonical Document Type",
+        "Payer When Applicable",
+        "Service When Applicable",
+        "Supported Date Representation",
+    )
+    assert "approved [DATE] placeholder" in result.desired_behavior
+    assert "Never manufacture an end date" in result.desired_behavior
+    assert "Reviewer feedback defines desired behavior only" in result.desired_behavior
+    assert "implementation layer requires repository investigation" in result.desired_behavior
+
+    proposal = build_proposal(result)
+    assert proposal == (
+        "Use the supported authorization subtype in the filename and include "
+        "validated payer, applicable service, and the supported date or date range. "
+        "Exclude unrelated extracted fields from the filename."
+    )
+    for internal_detail in (
+        "production evidence", "manufacture an end date", "inherently requires",
+        "placeholder", "deterministically", "implementation layer", "contract version",
+    ):
+        assert internal_detail not in proposal
+    assert "synthetic member value" not in proposal.casefold()
+    implementation_task = PhiSafeImplementationTaskService().build(
+        opaque_case_id="a" * 64,
+        proposal_generation=1,
+        business_context_version=BUSINESS_CONTEXT_VERSION,
+        analysis=result,
+    )
+    assert implementation_task.desired_behavior == result.desired_behavior
+    assert implementation_task.desired_behavior != proposal
+
+
 class SupplementalFilenameClarificationProvider(ExplicitFilenameClarificationProvider):
     def analyze_correction_context(self, context, *, schema):
         value = super().analyze_correction_context(context, schema=schema)
@@ -954,6 +1002,83 @@ class ReconciledFlowWriter:
             status="workflow_write_reconciled",
             request_attempted=True,
         )
+
+
+class CountingSupplementalFilenameProvider(SupplementalFilenameClarificationProvider):
+    def __init__(self):
+        self.call_count = 0
+
+    def analyze_correction_context(self, context, *, schema):
+        self.call_count += 1
+        return super().analyze_correction_context(context, schema=schema)
+
+
+def test_minimal_followup_comment_preserves_context_and_advances_once():
+    reader = FlowReader()
+    reader.comments = (
+        CorrectionComment(
+            1,
+            1,
+            "a",
+            "a",
+            "reviewer",
+            (
+                "Use the supported authorization subtype in the filename and include "
+                "validated payer, applicable service, and supported dates. Do not add "
+                "unrelated extracted fields."
+            ),
+        ),
+    )
+    repository = MemoryRepository()
+    provider = CountingSupplementalFilenameProvider()
+    analyzer = LocalCorrectionAnalysisService(provider=provider)
+    writer = ReconciledFlowWriter(reader)
+    service = DocumentProcessorTrainingApplicationService(
+        schema_service=SimpleNamespace(read=schema_result),
+        reader=reader,
+        repository=repository,
+        analyzer=analyzer,
+        writer=writer,
+        task_service=PhiSafeImplementationTaskService(),
+        dispatcher=ForbiddenDispatcher(),
+        mode="proposal_write",
+    )
+
+    first = service.run_cycle()
+    first_proposal = repository.case.proposal_text
+    assert first.new_case_count == 1
+    assert repository.case.proposal_generation == 1
+    assert provider.call_count == 1
+    assert repository.case.required_filename_components == [
+        "Canonical Document Type",
+        "Payer When Applicable",
+        "Service When Applicable",
+        "Supported Date Representation",
+    ]
+
+    reader.comments = (*reader.comments, CorrectionComment(
+        1, 2, "b", "b", "reviewer", "again"
+    ))
+    second = service.run_cycle()
+    assert second.updated_case_count == 1
+    assert repository.case.proposal_generation == 2
+    assert provider.call_count == 2
+    assert repository.case.proposal_text == first_proposal
+    assert repository.case.required_filename_components == [
+        "Canonical Document Type",
+        "Payer When Applicable",
+        "Service When Applicable",
+        "Supported Date Representation",
+    ]
+    assert repository.case.implementation_job_id == ""
+    assert repository.case.implementation_attempt_count == 0
+    assert repository.case.correction_approval_consumed_generation == 0
+
+    third = service.run_cycle()
+    assert third.updated_case_count == 0
+    assert repository.case.proposal_generation == 2
+    assert provider.call_count == 2
+    assert writer.external_calls == 1
 
 
 class FlowAnalyzer:
