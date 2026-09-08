@@ -33,7 +33,11 @@ def tracker_updates():
         node
         for node in tree.body
         if isinstance(node, ast.Assign)
-        and any(isinstance(target, ast.Name) and target.id == "updates" for target in node.targets)
+        and any(
+            isinstance(target, ast.Name)
+            and target.id == "PROJECT_SMARTSHEET_TASKS"
+            for target in node.targets
+        )
     )
     return {name: status for name, status, _ in ast.literal_eval(assignment.value)}
 
@@ -61,10 +65,13 @@ def test_uncertain_tasks_are_not_newly_forced_to_completion():
 
 def test_durable_tracker_rule_and_single_next_start_exist():
     agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8-sig")
-    memory = (ROOT / "PROJECT_MEMORY.md").read_text(encoding="utf-8-sig")
+    state = (ROOT / "PROJECT_STATE.md").read_text(encoding="utf-8-sig")
+    history = (ROOT / "PROJECT_HISTORY.md").read_text(encoding="utf-8-sig")
     assert "reconcile affected tracked WBS/task rows" in agents
     assert "never infer completion without evidence" in agents.lower()
-    assert memory.count("## CURRENT NEXT START") == 1
+    assert state.count("## CURRENT NEXT START") == 1
+    assert "authoritative, complete, Git-owned historical record" in history
+    assert "PROJECT_SMARTSHEET" in agents
 
 
 if __name__ == "__main__":

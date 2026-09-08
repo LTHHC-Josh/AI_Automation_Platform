@@ -277,9 +277,11 @@ class BoundedCodexDispatcher:
     def _prompt(task_json: str) -> str:
         return (
             "Implement exactly one approved PHI-safe correction task. Read AGENTS.md "
-            "and all PROJECT_MEMORY.md first. Preserve uncommitted work. Inspect callers "
+            "and all PROJECT_STATE.md, then the latest relevant PROJECT_HISTORY.md "
+            "checkpoint first. Preserve uncommitted work. Inspect callers "
             "and tests, make the smallest safe change, compile, run focused and affected "
-            "regressions, update tracker and continuity when truth changes, and perform "
+            "regressions, update PROJECT_STATE, PROJECT_HISTORY, PROJECT_SMARTSHEET, "
+            "and tracker when truth changes, and perform "
             "the full Git/PHI safety review. Commit and push only if every gate passes. "
             "Never access live Smartsheet, mailbox, OCR, Ollama, protected documents, or "
             "protected local state. Determine which durable layers changed and whether "

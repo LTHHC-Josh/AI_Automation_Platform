@@ -157,10 +157,23 @@ If a command fails due to wrong path, stale anchor, parser error, wrong module, 
 
 Tracker file: `update_project_tracker.py`
 
+Project continuity layers:
+
+- `PROJECT_STATE.md`: authoritative current project truth and exactly one
+  `CURRENT NEXT START`.
+- `PROJECT_HISTORY.md`: authoritative complete cumulative checkpoint history.
+- `PROJECT_SMARTSHEET.md` / `PROJECT_SMARTSHEET`: non-authoritative bounded
+  Smartsheet presentation and sync layer.
+
 After meaningful tested work:
 
 - inspect its current structure and insertion boundary
-- record feature, files, tests, results, real/mock classification, PHI handling, limitations, and exact next start
+- append the full feature checkpoint to `PROJECT_HISTORY.md`, including files,
+  tests, results, real/mock classification, PHI handling, limitations, and exact
+  next start
+- reconcile current truth and the single exact next start in `PROJECT_STATE.md`
+- add the structured latest-checkpoint record used to derive
+  `PROJECT_SMARTSHEET`
 - reconcile affected tracked WBS/task rows
 - if work starts a tracked task, mark it `In Progress`
 - if committed evidence proves a tracked task complete, mark it `Completed`
@@ -191,7 +204,9 @@ After commit:
 ## Project Continuity
 
 Current project state and the authoritative next starting point are
-maintained in `PROJECT_MEMORY.md`.
+maintained in `PROJECT_STATE.md`. Complete detailed history is maintained in
+`PROJECT_HISTORY.md`. Smartsheet receives only the non-authoritative bounded
+`PROJECT_SMARTSHEET` presentation.
 
 `AGENTS.md` contains durable repository rules. Do not duplicate volatile
 current-work state here.
@@ -199,8 +214,8 @@ current-work state here.
 When the operator says `begin day`:
 
 - read `AGENTS.md`
-- read all of `PROJECT_MEMORY.md`
-- inspect the latest relevant checkpoint in `update_project_tracker.py`
+- read all of `PROJECT_STATE.md`
+- inspect the latest relevant checkpoint in `PROJECT_HISTORY.md`
 - inspect the current Git branch, status, and local/remote synchronization
 - preserve and reconcile any uncommitted work
 - inspect files, callers, interfaces, and tests relevant to
@@ -215,9 +230,11 @@ Microsoft Graph, patient-document, or Smartsheet operations.
 When the operator says `end of day`:
 
 - reach the smallest safe tested checkpoint
+- append the complete checkpoint to `PROJECT_HISTORY.md`
+- reconcile current truth in `PROJECT_STATE.md`
 - run focused and affected regressions
 - update `update_project_tracker.py`
-- update `PROJECT_MEMORY.md`
+- refresh the derived `PROJECT_SMARTSHEET.md` presentation
 - keep exactly one authoritative `CURRENT NEXT START`
 - run the project tracker and require `Not Found : 0` and `Failed : 0`
 - complete Git safety review

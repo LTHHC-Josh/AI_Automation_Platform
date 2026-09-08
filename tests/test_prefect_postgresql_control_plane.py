@@ -147,26 +147,32 @@ def test_synthetic_manual_and_unattended_deployments_are_conservative():
 
 def test_operational_exception_is_version_bounded_and_evidence_gated():
     guide = read(GUIDE)
-    continuity = read(ROOT / "PROJECT_MEMORY.md")
-    tracker = read(ROOT / "update_project_tracker.py")
-    for source in (guide, continuity, tracker):
+    continuity = read(ROOT / "PROJECT_STATE.md")
+    history = read(ROOT / "PROJECT_HISTORY.md")
+    for source in (guide, continuity, history):
         assert "Prefect 3.8.4" in source
         assert "9e9dadc36797" in source
         assert "14dc68cc5853" in source
         assert "version" in source.lower()
     assert "dry-run-only" in guide
     assert "must be rechecked on every Prefect version change" in guide
-    assert "lthhc-bounded-mailbox/manual-local" in continuity
+    assert "document-processor-manual" in continuity
+    assert "lthhc-bounded-mailbox" in continuity
     assert "prefect_mailbox_workflow.py:bounded_mailbox_flow" in read(
         ROOT / "prefect.yaml"
     )
 
 
-def test_tracker_and_memory_parse_without_embedded_runtime_secret():
+def test_tracker_and_project_layers_parse_without_embedded_runtime_secret():
     ast.parse(read(ROOT / "update_project_tracker.py"))
-    continuity = read(ROOT / "PROJECT_MEMORY.md")
-    assert "postgresql+asyncpg://prefect_server:" not in continuity
-    assert "postgres-password.txt" not in continuity
+    for path in (
+        ROOT / "PROJECT_STATE.md",
+        ROOT / "PROJECT_HISTORY.md",
+        ROOT / "PROJECT_SMARTSHEET.md",
+    ):
+        continuity = read(path)
+        assert "postgresql+asyncpg://prefect_server:" not in continuity
+        assert "postgres-password.txt" not in continuity
 
 
 if __name__ == "__main__":

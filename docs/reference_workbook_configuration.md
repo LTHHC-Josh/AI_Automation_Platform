@@ -9,7 +9,7 @@ already present in the platform. Operators must configure both values locally:
   workbook file.
 
 Do not place real identifiers in source control, tests, logs, tracker output, or
-project memory. The values belong in the existing ignored local environment
+project state or history. The values belong in the existing ignored local environment
 configuration boundary.
 
 The source reads `eTag`, `lastModifiedDateTime`, and `size` metadata. `eTag` is
