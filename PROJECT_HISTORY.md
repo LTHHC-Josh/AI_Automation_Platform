@@ -13181,3 +13181,53 @@ Exact next start: Verify this bounded implementation result and local/remote Git
   "exact_next_start": "Verify this bounded implementation result and local/remote Git synchronization in the owning acceptance workflow. Separately authorize a real document retest and verify unchanged human inputs and following-cycle idempotency before resolution approval. Do not reuse a stale context-version approval; keep training stopped outside acceptance."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Same-Generation Runtime Recovery Acceptance Passed - 2026-09-08
+
+The operator authorized the one-time infrastructure recovery and its real retest.
+Preflight proved stopped training, zero fresh workers/runs, clean synchronized
+Git and unchanged standalone runtime 0.153.4. Existing normal-config/schema probes
+had passed. Recovery verified exact current proposal, comment checkpoint, context
+and checked human approval, then reserved the single audit grant without resetting
+consumed approval or altering human inputs. No new proposal/case was created.
+
+One bounded shared-application cycle dispatched the sanitized implementation:
+started 1, completed 1, failed 0, failure category none. Parent verified the result
+contract and pushed/clean commit 331442e252acb8d7caf775c3e54df0c6164d7dff.
+The next unchanged application cycle started zero implementations. Exact in-memory
+before/after checks proved human checkboxes/comments unchanged, same generation,
+same consumed approval, and four cumulative attempts (three prior failures plus
+one successful recovery). Durable status is Retest Required. No resolution was
+approved. This acceptance used the real shared application/dispatcher, not Prefect
+worker startup or a deployment invocation; the stopped wrapper's last-cycle counts
+can still reflect its previous run.
+
+The child implemented supported filename date ownership and business context v2.
+Its 167 synthetic/mock checks and tracker passed; parent recovery/affected checks
+totaled 98 before acceptance. The child prompt was corrected to permit only the
+approved PHI-safe project tracker while denying document/correction integrations.
+Recovery writer preconditions allow reading human approval cells, never writing
+them. No human feedback or identifiers were emitted.
+
+All four existing deployments refreshed. Prefect ignores --version with --all;
+individual --name registration then proved exact implementation version and
+repository source. No schedules/parameters added; manual/live/training concurrency
+remains one/CANCEL_NEW. Training stopped, no fresh worker or active bounded run,
+no degraded state. No mailbox, document OCR/Ollama, document row/attachment write,
+mailbox mutation, or comment write occurred. Approved correction reads and only
+workflow-owned status/result writes occurred. This is not real document acceptance.
+
+Final files: three continuity layers only. Protected paths remain ignored.
+Continuity/recovery regressions and tracker are rerun before final commit.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Real one-time same-proposal recovery completed the approved filename correction.",
+  "key_result": "One implementation succeeded; following cycle started zero. Human inputs, generation and consumed approval unchanged. Retest Required; source registrations verified.",
+  "tests": "Child: 167 synthetic/mock checks and tracker passed. Parent: 98 recovery/affected checks; live bounded recovery and no-retry readback passed.",
+  "phi_handling": "Approved correction reads/workflow-only writes; no human-input writes, document operations, or exposed protected values.",
+  "limitation_acceptance": "Training stopped. Real document retest still required before resolution approval; old persisted filenames are unchanged.",
+  "exact_next_start": "Perform one controlled unattended real-document retest with a different eligible document. Verify supported filename components and date ownership, single date versus supported range/placeholder, final validated values and review reasons, Workflow Summary, and clean return to waiting before stopdp. Inspect the result before checking Approve AI Resolution on the existing correction case. Keep DP Training stopped until the separately controlled resolution step. Do not resend the identical processed document as a new-output test; recovery preserves its persisted attachment name."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

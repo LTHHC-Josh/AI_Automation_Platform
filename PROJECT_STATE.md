@@ -345,11 +345,17 @@ Operator commands remain:
 
 ## Current Limitations and Pending Acceptance
 
-- The latest fresh-approval cycle recorded one failed implementation attempt:
-  codex_failed, exit 1. The unchanged following live cycle did not retry it.
-  All human-checkbox and comment comparisons were unchanged, as was the proposal
-  generation. Training stopped and proposal_write / dispatch disabled were
-  restored. No document correction was implemented; this approval is consumed.
+- The explicitly authorized same-generation runtime recovery passed: one new
+  implementation completed, zero failed, and the following unchanged application
+  cycle started zero attempts. Human checkboxes/comments, case identity, proposal
+  generation, and consumed approval were unchanged. The case is Retest Required.
+  Implementation commit: 331442e252acb8d7caf775c3e54df0c6164d7dff, pushed/synced.
+  This was a bounded shared-application acceptance, not a worker/deployment run.
+  Training remains stopped with configured proposal_write / dispatch disabled.
+  All four deployments were individually refreshed and verified against that
+  source commit, with no schedules or new workers. A real document retest is
+  still required. Earlier failure/approval-cycle descriptions below are history,
+  not a requirement to generate another proposal for this completed correction.
 - Configured runtime startup is now proven: the API explicitly rejected standalone
   CLI 0.151.0 because gpt-6-astra requires a newer Codex version. Upgraded the
   installed official @openai/codex package to 0.153.4 without changing the model,
@@ -357,8 +363,8 @@ Operator commands remain:
   repository-directory synthetic launches passed with the exact training result
   schema, exit 0, and zero tool actions. No ignore-config/rules overrides were
   used. This verifies startup/result compatibility, not correction implementation.
-  The earlier consumed approval remains consumed. Training stays stopped and
-  dispatch disabled until a separately controlled fresh approval acceptance.
+  The consumed approval remains consumed; explicit audited infrastructure
+  recovery subsequently completed the correction without resetting it.
 - After the CLI fix, registration was refreshed and one new proposal generation
   was created on the existing case in proposal_write mode. Exact readback,
   retained filename structure/subtype, zero dispatches, unchanged attempt counts,
@@ -435,4 +441,11 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Verify this bounded implementation result and local/remote Git synchronization in the owning acceptance workflow. Separately authorize a real document retest and verify unchanged human inputs and following-cycle idempotency before resolution approval. Do not reuse a stale context-version approval; keep training stopped outside acceptance.
+Perform one controlled unattended real-document retest with a different eligible
+document. Verify supported filename components and date ownership, single date
+versus supported range/placeholder, final validated values and review reasons,
+Workflow Summary, and clean return to waiting before stopdp. Inspect the result
+before checking Approve AI Resolution on the existing correction case. Keep DP
+Training stopped until the separately controlled resolution step. Do not resend
+the identical processed document as a new-output test; recovery preserves its
+persisted attachment name.

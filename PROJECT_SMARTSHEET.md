@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-08
-Work: Implemented one approved PHI-safe AUTH DECREASE filename correction.
-Result: Prevents unrelated top-level/service-line endpoints forming a range; preserves supported single date and canonical validated components. Shared context v1 to v2.
-Tests: 153 focused/affected synthetic/mock tests passed; Python compiled. Continuity/tracker gates checked before commit.
-PHI: Synthetic inputs only; no protected data or document/correction integration. Only approved project tracker sync.
-Status: Real document retest and separate resolution approval remain pending; persisted recovery filenames stay authoritative.
-Next: Verify this bounded implementation result and local/remote Git synchronization in the owning acceptance workflow. Separately authorize a real document retest and verify unchanged human inputs and following-cycle idempotency before resolution approval. Do not reuse a stale context-version approval; keep training stopped outside acceptance.
+Work: Real one-time same-proposal recovery completed the approved filename correction.
+Result: One implementation succeeded; following cycle started zero. Human inputs, generation and consumed approval unchanged. Retest Required; source registrations verified.
+Tests: Child: 167 synthetic/mock checks and tracker passed. Parent: 98 recovery/affected checks; live bounded recovery and no-retry readback passed.
+PHI: Approved correction reads/workflow-only writes; no human-input writes, document operations, or exposed protected values.
+Status: Training stopped. Real document retest still required before resolution approval; old persisted filenames are unchanged.
+Next: Perform one controlled unattended real-document retest with a different eligible document. Verify supported filename components and date ownership, single date versus supported range/placeholder, final validated values and review reasons, Workflow Summary, and clean return to waiting before stopdp. Inspect the result before checking Approve AI Resolution on the existing correction case. Keep DP Training stopped until the separately controlled resolution step. Do not resend the identical processed document as a new-output test; recovery preserves its persisted attachment name.
 
 ## Safety Contract
 
