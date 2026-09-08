@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-08
-Work: Retained safe DP Training dispatch diagnostics and corrected failed-cycle reporting; reconciled prior live acceptance records.
-Result: Proposal acceptance passed. The later approved attempt failed with unavailable historical cause. Schema 3 preserves case identity and consumed approvals; failed cycles now fail Prefect.
-Tests: 94 synthetic/mock/isolated Prefect checks passed; modified Python compiled. Harness temporary-database cleanup warning noted.
-PHI: No document/feedback operations or child dispatch; fixed categories and counts only. Tracker presentation sync only.
-Status: Training stopped and dispatch disabled. No blind retry; original child cause remains unknown.
-Next: Perform a PHI-free isolated Codex runtime/result-contract smoke check without repository edits or production integration access; resolve any diagnosed dispatch prerequisite before refreshing training registration and proposing a new generation with a fresh human approval edge. Do not retry the consumed approval generation.
+Work: Fixed reproduced Codex result-schema API rejection while preserving deterministic result validation.
+Result: Unsupported uniqueItems moved to local enforcement. Real isolated CLI probe changed from rejected to valid synthetic result with zero tool actions.
+Tests: 90 synthetic/mock checks passed; modified Python compiled; real PHI-free before/after protocol test verified the fix.
+PHI: No protected document/feedback access or implementation dispatch; tracker/control-plane maintenance only.
+Status: Training remains stopped; historical cause not reconstructed; full implementation acceptance requires a new generation and fresh approval.
+Next: Refresh affected training source registration if required, then create a new proposal generation on the existing correction case using a normal reviewer comment. Verify proposal correctness, require a fresh Approve AI Correction false-to-true edge, perform one controlled implementation acceptance, and verify retained safe diagnostics, commit/push gates, unchanged human controls, and no retry on the following cycle. Do not approve resolution until a separate document retest passes; stop DP Training afterward.
 
 ## Safety Contract
 

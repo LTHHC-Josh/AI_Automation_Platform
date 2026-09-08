@@ -25,8 +25,7 @@
       "items": {
         "type": "string",
         "enum": ["Deterministic Code", "Business Context", "Taxonomy", "Prompt / Context Rendering", "Mapping", "Reference Data", "External System", "Other"]
-      },
-      "uniqueItems": true
+      }
     },
     "business_context_version_before": {"type": "integer", "minimum": 1},
     "business_context_version_after": {"type": "integer", "minimum": 1},

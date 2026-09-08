@@ -333,8 +333,13 @@ Operator commands remain:
   specific cause. No code changes resulted; its approval remains consumed.
   Do not infer authentication, transport, model, or implementation cause.
 - Training remains stopped in proposal_write mode with dispatch disabled. The
-  diagnostic fix is synthetic-tested; a PHI-free runtime/result-contract smoke
-  check is required before another deliberately revised and approved generation.
+  diagnostic fix is synthetic-tested. A PHI-free CLI 0.151.0 protocol test proved
+  the result schema was rejected for uniqueItems before result generation. The
+  unsupported keyword is removed; uniqueness and exact result-layer vocabulary
+  remain enforced locally. The corrected real protocol test passed with no tool
+  actions. This reproduces a current blocker but does not reconstruct the lost
+  historical child failure. A new generation and fresh human approval are still
+  required before another implementation attempt.
 - Windows PowerShell 7 ownership-status behavior differed from supported 5.1
   during acceptance. A timestamp-conversion issue is suspected, not proven.
   Use Windows PowerShell 5.1 for the wrappers pending separate investigation.
@@ -373,7 +378,10 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Perform a PHI-free isolated Codex runtime/result-contract smoke check without
-repository edits or production integration access; resolve any diagnosed dispatch
-prerequisite before refreshing training registration and proposing a new generation
-with a fresh human approval edge. Do not retry the consumed approval generation.
+Refresh affected training source registration if required, then create a new
+proposal generation on the existing correction case using a normal reviewer
+comment. Verify proposal correctness, require a fresh Approve AI Correction
+false-to-true edge, perform one controlled implementation acceptance, and verify
+retained safe diagnostics, commit/push gates, unchanged human controls, and no
+retry on the following cycle. Do not approve resolution until a separate document
+retest passes; stop DP Training afterward.

@@ -15,6 +15,12 @@ from src.services.document_processor_training_analysis_service import (
     serialize_phi_safe_task,
 )
 
+# Result vocabulary differs intentionally from proposal-analysis layer labels.
+CODEX_RESULT_LAYERS = frozenset({
+    "Deterministic Code", "Business Context", "Taxonomy", "Prompt / Context Rendering",
+    "Mapping", "Reference Data", "External System", "Other",
+})
+
 
 @dataclass(frozen=True)
 class CodexDispatchResult:
@@ -253,7 +259,9 @@ class BoundedCodexDispatcher:
         analysis_version = parsed.get("analysis_contract_version")
         if (
             not isinstance(layers, list)
-            or any(not isinstance(item, str) for item in layers)
+            or any(not isinstance(item, str) or item not in CODEX_RESULT_LAYERS for item in layers)
+            # The structured-output API rejects uniqueItems; enforce it locally.
+            or len(layers) != len(set(layers))
             or isinstance(before, bool)
             or not isinstance(before, int)
             or isinstance(after, bool)

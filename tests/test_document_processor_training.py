@@ -1649,6 +1649,29 @@ def test_cycle_summary_has_only_approved_safe_fields():
     )
 
 
+def test_codex_result_schema_uses_supported_shape_and_local_unique_layers():
+    from src.services.document_processor_training_codex_service import CODEX_RESULT_LAYERS
+    schema = json.loads((Path(__file__).resolve().parents[1] / BoundedCodexDispatcher.RESULT_SCHEMA).read_text(encoding="utf-8"))
+    assert "uniqueItems" not in json.dumps(schema)
+    assert set(schema["properties"]["changed_layers"]["items"]["enum"]) == CODEX_RESULT_LAYERS
+    assert schema["additionalProperties"] is False
+    assert set(schema["required"]) == set(schema["properties"])
+    task = PhiSafeImplementationTaskService().build(
+        opaque_case_id="9" * 64, proposal_generation=1,
+        business_context_version=BUSINESS_CONTEXT_VERSION, analysis=correction_analysis(),
+    )
+    result = {
+        "changed_layers": ["Deterministic Code"],
+        "business_context_version_before": BUSINESS_CONTEXT_VERSION,
+        "business_context_version_after": BUSINESS_CONTEXT_VERSION,
+        "analysis_contract_version": ANALYSIS_CONTRACT_VERSION,
+    }
+    assert BoundedCodexDispatcher._valid_context_result(result, task)
+    for invalid in (["Deterministic Code", "Deterministic Code"], ["unsupported"], [{}], None):
+        result["changed_layers"] = invalid
+        assert not BoundedCodexDispatcher._valid_context_result(result, task)
+
+
 def test_dispatch_diagnostics_are_fixed_categories_and_bounded_exit_codes():
     result = CodexDispatchResult(False, "sensitive arbitrary child text", True, False, False,
                                  exit_code="secret")

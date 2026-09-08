@@ -12809,3 +12809,53 @@ until the runtime prerequisite has been checked.
   "exact_next_start": "Perform a PHI-free isolated Codex runtime/result-contract smoke check without repository edits or production integration access; resolve any diagnosed dispatch prerequisite before refreshing training registration and proposing a new generation with a fresh human approval edge. Do not retry the consumed approval generation."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Codex Result Schema Runtime Compatibility - 2026-09-08
+
+The isolated PHI-free protocol test used installed codex-cli 0.151.0, an ephemeral
+temporary workspace, read-only sandbox, no approved tool actions, synthetic stdin,
+and the exact repo result schema. User configuration and rules were excluded for
+the probe; existing CLI authentication was reused without reading credentials.
+Raw child output stayed in memory and only fixed categories/counts were reported.
+Before the fix: exit 1, result_schema_unique_items_rejected, no result, zero tool
+actions. After the fix: exit 0, valid synthetic incomplete result, zero tool
+actions. The test did not request or claim an implementation, test success, commit,
+or push. It did not consume a correction approval or access protected cases.
+
+The API rejects uniqueItems in the output schema. Removed that keyword and added
+local duplicate-layer rejection and exact result-vocabulary validation before
+accepting a successful implementation. The schema's required fields, enum values,
+version gates, commit verification, and additionalProperties=false remain intact.
+An initial synthetic test caught use of the distinct proposal vocabulary; this was
+corrected to the exact Codex result vocabulary and covered by a schema-alignment
+test. The prior live failure's discarded diagnostics cannot prove historical cause;
+this is a reproducible present defect, not a guessed historical attribution.
+
+Files changed: src/contracts/dp_training_codex_result.schema.json,
+src/services/document_processor_training_codex_service.py,
+tests/test_document_processor_training.py, PROJECT_STATE.md, PROJECT_HISTORY.md,
+PROJECT_SMARTSHEET.md, and tracker presentation. No PowerShell source changed.
+
+Validation: modified Python compiled; final synthetic/mock runs passed 54 training,
+5 configuration, 5 readiness, 7 Windows PowerShell 5.1 command, 5 business-context,
+11 continuity, and 3 tracker/WBS tests (90 total, zero failed). One real external
+PHI-free CLI test failed as expected before the fix and one passed afterward.
+No mailbox/Graph, OCR/Ollama, production document write/upload, correction feedback,
+comments, or live implementation dispatch occurred. Tracker presentation and safe
+source registration are the only intended project/control-plane writes.
+
+Remaining acceptance: a full production-configured implementation attempt has not
+passed. No blind retry or consumed-approval re-arm is authorized. Use the same case,
+a deliberately new proposal generation, fresh human approval, and bounded execution.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Fixed reproduced Codex result-schema API rejection while preserving deterministic result validation.",
+  "key_result": "Unsupported uniqueItems moved to local enforcement. Real isolated CLI probe changed from rejected to valid synthetic result with zero tool actions.",
+  "tests": "90 synthetic/mock checks passed; modified Python compiled; real PHI-free before/after protocol test verified the fix.",
+  "phi_handling": "No protected document/feedback access or implementation dispatch; tracker/control-plane maintenance only.",
+  "limitation_acceptance": "Training remains stopped; historical cause not reconstructed; full implementation acceptance requires a new generation and fresh approval.",
+  "exact_next_start": "Refresh affected training source registration if required, then create a new proposal generation on the existing correction case using a normal reviewer comment. Verify proposal correctness, require a fresh Approve AI Correction false-to-true edge, perform one controlled implementation acceptance, and verify retained safe diagnostics, commit/push gates, unchanged human controls, and no retry on the following cycle. Do not approve resolution until a separate document retest passes; stop DP Training afterward."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
