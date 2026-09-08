@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-BUSINESS_CONTEXT_VERSION = 1
+BUSINESS_CONTEXT_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -176,6 +176,8 @@ DOCUMENT_PROCESSOR_BUSINESS_CONTEXT = DocumentProcessorBusinessContext(
         "Persisted recovery filenames are authoritative and are never recomputed.",
         "Reviewer comments never provide actual filename component values.",
         "Accepted payer or service values remain accepted when only their authoritative naming token is unresolved.",
+        "Use a range only for two explicitly supported applicable dates; otherwise use the supported single date or [DATE]. Never manufacture an end date; AUTH and its subtypes do not require a range.",
+        "Include only the approved filename components, never unrelated extracted fields.",
     ),
     filename_outcomes=("complete_business", "partial_business", "technical_fallback"),
     placeholder_policy=(

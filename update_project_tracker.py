@@ -163,7 +163,10 @@ PROJECT_SMARTSHEET_TASKS = [
         "In Progress",
         (
             "Completed the first successful single-item production end-to-end "
-            "run; broader system scenarios and remaining integrations continue."
+            "run; broader system scenarios and remaining integrations continue. "
+            "Approved AUTH DECREASE filename correction passed 153 synthetic/mock "
+            "checks; date ownership and shared context v2 are covered. Real document "
+            "retest remains pending."
         ),
     ),
     (

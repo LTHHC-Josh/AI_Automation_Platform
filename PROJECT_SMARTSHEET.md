@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-08
-Work: Added explicit one-time same-proposal recovery after verified CLI infrastructure repair.
-Result: Preserves human controls, feedback, consumed approval and identity; exact rechecks, durable reservation and operation lock prevent blind/concurrent retries.
-Tests: 83 focused/affected synthetic/mock tests passed, including 7 recovery cases and PowerShell 5.1; Python compilation passed.
-PHI: Synthetic tests only; no document operations or human-input writes. Sealed audit, safe diagnostics.
-Status: Live same-generation recovery pending. Stale locks fail closed. Real document retest remains required after implementation.
-Next: Perform the explicitly authorized one-time runtime-repair recovery of the existing unchanged approved correction generation. Recheck runtime readiness and exact proposal, feedback, human controls, and context; preserve consumed approval and case identity. Run one bounded implementation and verify commit/push gates, unchanged human inputs, and an idempotent following cycle. Keep training stopped outside acceptance. A real document test and separate resolution approval remain required after successful implementation.
+Work: Implemented one approved PHI-safe AUTH DECREASE filename correction.
+Result: Prevents unrelated top-level/service-line endpoints forming a range; preserves supported single date and canonical validated components. Shared context v1 to v2.
+Tests: 153 focused/affected synthetic/mock tests passed; Python compiled. Continuity/tracker gates checked before commit.
+PHI: Synthetic inputs only; no protected data or document/correction integration. Only approved project tracker sync.
+Status: Real document retest and separate resolution approval remain pending; persisted recovery filenames stay authoritative.
+Next: Verify this bounded implementation result and local/remote Git synchronization in the owning acceptance workflow. Separately authorize a real document retest and verify unchanged human inputs and following-cycle idempotency before resolution approval. Do not reuse a stale context-version approval; keep training stopped outside acceptance.
 
 ## Safety Contract
 

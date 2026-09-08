@@ -81,7 +81,7 @@ validated production row write.
 ## Shared Business Context and Taxonomy
 
 The repo-owned, PHI-free `DocumentProcessorBusinessContext` is the shared model
-context source. Current `business_context_version` is 1. Role-specific views are
+context source. Current `business_context_version` is 2. Role-specific views are
 rendered for live classification, extraction, structural learning, intake
 naming, and DP Training. Prompt context explains constraints; deterministic code
 remains authoritative.
@@ -205,7 +205,7 @@ workers, and no degraded state.
 
 Current versions:
 
-- `business_context_version`: 1
+- `business_context_version`: 2
 - `analysis_contract_version`: 3
 - protected correction-case schema version: 3
 - sanitized implementation-task schema version: 2
@@ -307,6 +307,14 @@ Operator commands remain:
 - `startdptraining`, `statusdptraining`, `stopdptraining`
 
 ## Current Verified Baseline
+
+- Approved PHI-safe AUTH DECREASE naming correction is synthetic-tested: a
+  top-level date can borrow a service-line endpoint only when the opposite
+  endpoint agrees. Supported single dates remain single; unresolved dates use
+  [DATE]. Canonical subtype, validated payer/service, and unrelated-field
+  exclusion are covered. Shared context v2 now includes the generalized date
+  and component rules; training rendering retains its 4,096-character bound.
+  No real document retest or correction-row operation occurred.
 
 - Project continuity is separated into authoritative current state, authoritative
   complete history, and a non-authoritative Smartsheet presentation. Hash checks
@@ -427,10 +435,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Perform the explicitly authorized one-time runtime-repair recovery of the existing
-unchanged approved correction generation. Recheck runtime readiness and exact
-proposal, feedback, human controls, and context; preserve consumed approval and
-case identity. Run one bounded implementation and verify commit/push gates,
-unchanged human inputs, and an idempotent following cycle. Keep training stopped
-outside acceptance. A real document test and separate resolution approval remain
-required after successful implementation.
+Verify this bounded implementation result and local/remote Git synchronization in the owning acceptance workflow. Separately authorize a real document retest and verify unchanged human inputs and following-cycle idempotency before resolution approval. Do not reuse a stale context-version approval; keep training stopped outside acceptance.

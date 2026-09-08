@@ -341,6 +341,55 @@ def test_result_repr_does_not_expose_the_business_filename():
     assert "SYNTHETIC" not in repr(result)
 
 
+def test_decrease_uses_validated_components_and_only_applicable_date_range():
+    from copy import deepcopy
+
+    for line_start, line_end, expected_date in (
+        ("2026-09-01", "2026-09-30", "090126-093026"),
+        ("2026-08-01", "2026-09-30", "090126"),
+        (None, "2026-09-30", "090126"),
+        ("2026-09-01", None, "090126"),
+    ):
+        subject = authorization(subtype="DECREASE")
+        EvidenceValidationService().validate(subject)
+        IntakeDocumentNamingVocabulary.apply(subject)
+        subject.service_lines = [AuthorizationServiceLine(
+            service_code="T0000", start_date=line_start, end_date=line_end,
+            confidence=0.95,
+        )]
+        subject.field_evidence["approved_visits"] = evidence(17)
+        before = deepcopy(subject)
+        result = assemble(subject)
+        assert result.policy_result.filename == (
+            f"EXAMPLE, SYNTHETIC_PLAN_SERVICE_AUTH DECREASE_{expected_date}.PDF"
+        )
+        assert subject == before
+
+
+def test_decrease_unresolved_evidence_is_placeholder_and_review_safe():
+    for subtype_source, confidence, expected_subtype in (
+        ("DECREASE", 0.95, "DECREASE"),
+        ("Unrelated synthetic evidence", 0.95, "[SUBTYPE]"),
+        ("DECREASE", 0.50, "[SUBTYPE]"),
+        ("", None, "[SUBTYPE]"),
+    ):
+        subject = authorization(subtype=None, date=None)
+        subject.field_evidence["intake_document_subtype"] = evidence(
+            "DECREASE" if confidence is not None else None,
+            confidence, subtype_source,
+        )
+        EvidenceValidationService().validate(subject)
+        IntakeDocumentNamingVocabulary.apply(subject)
+        result = assemble(subject)
+        assert result.policy_result.filename.endswith(
+            f"_AUTH {expected_subtype}_[DATE].PDF"
+        )
+        assert result.policy_result.review_required is True
+        if expected_subtype == "[SUBTYPE]":
+            assert subject.intake_subtype_support_status == "unknown"
+        assert subject.field_evidence["start_date"]["value"] is None
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

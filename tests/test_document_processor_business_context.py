@@ -24,8 +24,8 @@ from src.services.review_decision_service import ReviewDecisionService
 
 def test_shared_context_is_valid_deterministic_and_phi_free():
     service = DocumentProcessorBusinessContextService()
-    assert service.context.business_context_version == BUSINESS_CONTEXT_VERSION == 1
-    assert service.digest(service.context) == BUSINESS_CONTEXT_SEMANTIC_DIGESTS[1]
+    assert service.context.business_context_version == BUSINESS_CONTEXT_VERSION == 2
+    assert service.digest(service.context) == BUSINESS_CONTEXT_SEMANTIC_DIGESTS[BUSINESS_CONTEXT_VERSION]
     serialized = json.dumps(asdict(service.context), sort_keys=True).lower()
     for prohibited in (
         "patient_value", "member_value", "row_id", "sheet_id", "comment_text",
@@ -41,7 +41,7 @@ def test_every_existing_local_model_role_has_a_bounded_context_view():
         "classification", "extraction", "intake_naming_subtype",
         "dp_training_correction", "structural_learning",
     }
-    assert all(view.business_context_version == 1 for view in views.values())
+    assert all(view.business_context_version == BUSINESS_CONTEXT_VERSION for view in views.values())
     assert views["dp_training_correction"].rendered_character_count <= 4096
     assert "AUTH INIT" in views["extraction"].rendered_text
     assert "AUTH DECREASE" in views["extraction"].rendered_text
@@ -102,7 +102,7 @@ def test_live_prompts_include_role_and_version_without_model_contact():
         "structural_learning": provider._learning_analysis_prompt(),
     }
     for role, prompt in prompts.items():
-        assert "DOCUMENT PROCESSOR BUSINESS CONTEXT v1" in prompt
+        assert f"DOCUMENT PROCESSOR BUSINESS CONTEXT v{BUSINESS_CONTEXT_VERSION}" in prompt
         assert f"ROLE: {role}" in prompt
     assert "AUTH INIT" in prompts["extraction"]
     assert "external" in prompts["extraction"].lower()

@@ -138,8 +138,14 @@ class ProductionFilenameAssemblyService:
         start_date = self._accepted_scalar(document, "start_date")
         end_date = self._accepted_scalar(document, "end_date")
         line_start, line_end = self._service_line_dates(document)
-        start_date = start_date or line_start
-        end_date = end_date or line_end
+        # A line endpoint belongs to the document interval only when its
+        # opposite endpoint agrees. Never stitch unrelated supported dates.
+        if start_date is None and end_date is None:
+            start_date, end_date = line_start, line_end
+        elif start_date is not None and end_date is None and line_start == start_date:
+            end_date = line_end
+        elif end_date is not None and start_date is None and line_end == end_date:
+            start_date = line_start
 
         service_lookup = None
         service_identities = self._service_identities(document)

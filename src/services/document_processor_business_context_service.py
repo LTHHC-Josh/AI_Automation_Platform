@@ -25,6 +25,7 @@ CONTEXT_ROLES = (
 )
 
 BUSINESS_CONTEXT_SEMANTIC_DIGESTS = {
+    2: "62cad3e31e8583bfff400407da1ff1996bd41b6e7a579700da43fd3db9a17b3f",
     1: "68f3c29bb03a892b6ecf7dc807f382150053f71f49c7595e0732402b3199a0f7",
 }
 
@@ -203,13 +204,14 @@ class DocumentProcessorBusinessContextService:
             "pipeline_semantics": ">".join(context.pipeline_semantics),
             "document_taxonomy": ",".join(item.family for item in context.document_taxonomy),
             "external_context_dependencies": (
-                "AUTH INIT requires authoritative external context; other approved AUTH subtypes may use "
-                "explicit validated evidence; unknown subtype is valid and independent of category confidence"
+                "AUTH INIT needs authoritative external context; other AUTH subtypes need validated evidence; "
+                "unknown valid; subtype independent of category confidence"
             ),
             "filename_policy": (
-                f"{context.filename_policy[0]}; optional absent=omit; expected unresolved=approved placeholder; "
-                "persisted recovery name=authoritative; comments never supply values; accepted values remain "
-                "accepted when naming token is unresolved"
+                f"{context.filename_policy[0]}; optional=omit; unresolved=placeholder; "
+                "persisted=authoritative; comments!=values; token miss!=invalid value; "
+                "range=2 supported applicable dates; else single/[DATE]; never invent end; "
+                "AUTH/subtype range optional; no extra fields"
             ),
             "field_state_semantics": (
                 "not_present=optional blank/no review; missing_required=blank/specific review; "

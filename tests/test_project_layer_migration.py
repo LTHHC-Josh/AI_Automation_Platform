@@ -5,6 +5,7 @@ import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+from src.models.document_processor_business_context import BUSINESS_CONTEXT_VERSION
 from src.services.project_smartsheet_service import (
     PROJECT_SMARTSHEET_COMMENT_MAX_CHARS,
     bound_project_smartsheet_comment,
@@ -73,7 +74,7 @@ def test_project_state_is_current_focused_with_one_next_start():
     assert "PROJECT_STATE.md" in state
     assert "PROJECT_HISTORY.md" in state
     assert "PROJECT_SMARTSHEET.md" in state
-    assert "business_context_version`: 1" in state
+    assert f"business_context_version`: {BUSINESS_CONTEXT_VERSION}" in state
     assert "analysis_contract_version`: 3" in state
 
 

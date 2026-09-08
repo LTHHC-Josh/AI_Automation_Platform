@@ -13114,3 +13114,70 @@ operations occurred. Tracker receives only a safe project checkpoint.
   "exact_next_start": "Perform the explicitly authorized one-time runtime-repair recovery of the existing unchanged approved correction generation. Recheck runtime readiness and exact proposal, feedback, human controls, and context; preserve consumed approval and case identity. Run one bounded implementation and verify commit/push gates, unchanged human inputs, and an idempotent following cycle. Keep training stopped outside acceptance. A real document test and separate resolution approval remain required after successful implementation."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+
+## Approved Supported Authorization Filename Correction - 2026-09-08
+
+Implemented exactly one approved structural filename task. The existing canonical
+AUTH DECREASE vocabulary already resolves explicit validated evidence. Inspection
+found production assembly independently filled absent top-level date endpoints
+from service lines, allowing unrelated intervals to form a range. The smallest
+correction permits that fallback only when the opposite endpoint agrees; wholly
+line-owned dates keep their existing path. No end date is inferred from AUTH or
+its subtype. Validated payer/service naming and approved placeholders remain.
+Synthetic coverage asserts exact DECREASE composition, single/range behavior,
+unresolved/unsupported/low-confidence subtype safety, missing date placeholder,
+unrelated quantity exclusion, and no mutation of final document state.
+
+Durable layers changed: Deterministic Code, Business Context, Prompt / Context
+Rendering, and Other (tests/continuity/tracker). Shared-context assessment found
+the date rules in project state but absent from the versioned shared source.
+Added generalized supported-date and unrelated-field rules, advanced context 1
+to 2, registered its semantic digest, and updated bounded training rendering.
+Taxonomy, mapping, references, thresholds, and external systems are unchanged.
+Analysis contract remains 3. No patient-specific or payer-specific rule was added.
+
+Files: src/services/production_filename_assembly_service.py,
+src/models/document_processor_business_context.py,
+src/services/document_processor_business_context_service.py,
+tests/test_intake_filename_architecture.py,
+tests/test_document_processor_business_context.py,
+tests/test_project_layer_migration.py, PROJECT_STATE.md,
+PROJECT_HISTORY.md, generated PROJECT_SMARTSHEET.md, update_project_tracker.py.
+Initial working tree was clean; no preexisting uncommitted work was displaced.
+
+Compilation passed in the repository virtual environment. Focused tests: intake
+architecture 20 and business context 5. Affected regressions: production assembly
+28, filename policy 12, validated inputs 10, attachment naming 5, reference
+builder 4, processor integration 13, persistent idempotency 2, training 54.
+Total 153 passed, zero failed, synthetic deterministic/mock classification.
+Default Python initially lacked requests; using the existing virtual environment
+resolved that environment issue. Context-bound tests caught oversized rendering;
+compact equivalent wording passed without increasing the 4,096-character limit.
+Continuity 11 and tracker 3 tests passed (167 total synthetic/mock checks).
+The continuity version assertion now follows the shared version constant.
+Approved real project-tracker synchronization passed: Updated 2, Unchanged 36,
+Not Found 0 / Failed 0. No document/correction integration was used. System Testing stays In Progress; no broader
+WBS completion is inferred. Full diff, ignore, staging, commit and push gates apply.
+
+PHI handling: synthetic fixtures only, local temporary synthetic state, no real
+patient values/files/identifiers, mailbox, OCR, Ollama, protected state, document
+or correction rows/comments accessed. Only approved PHI-safe project tracker
+synchronization may contact Smartsheet. No real document acceptance is claimed.
+Persisted attachment names remain authoritative; this does not rename old output.
+Context v2 may invalidate old analysis/approval baselines; the owning workflow
+must enforce current-version checks rather than silently reusing approval.
+
+Exact next start: Verify this bounded implementation result and local/remote Git synchronization in the owning acceptance workflow. Separately authorize a real document retest and verify unchanged human inputs and following-cycle idempotency before resolution approval. Do not reuse a stale context-version approval; keep training stopped outside acceptance.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Implemented one approved PHI-safe AUTH DECREASE filename correction.",
+  "key_result": "Prevents unrelated top-level/service-line endpoints forming a range; preserves supported single date and canonical validated components. Shared context v1 to v2.",
+  "tests": "153 focused/affected synthetic/mock tests passed; Python compiled. Continuity/tracker gates checked before commit.",
+  "phi_handling": "Synthetic inputs only; no protected data or document/correction integration. Only approved project tracker sync.",
+  "limitation_acceptance": "Real document retest and separate resolution approval remain pending; persisted recovery filenames stay authoritative.",
+  "exact_next_start": "Verify this bounded implementation result and local/remote Git synchronization in the owning acceptance workflow. Separately authorize a real document retest and verify unchanged human inputs and following-cycle idempotency before resolution approval. Do not reuse a stale context-version approval; keep training stopped outside acceptance."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
