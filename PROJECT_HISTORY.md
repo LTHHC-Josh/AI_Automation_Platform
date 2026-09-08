@@ -12947,3 +12947,45 @@ no protected values appeared in diagnostics. AI Correction ownership is unchange
   "exact_next_start": "Refresh training source registration for the CLI argument fix, then create a new proposal generation on the same correction case using a normal reviewer comment with Approve AI Correction unchecked. Verify the proposal, obtain a fresh human approval edge, and perform one controlled implementation acceptance. Verify safe diagnostics, commit/push gates, unchanged human controls, and no retry on the following cycle. Do not reuse the consumed approval or approve resolution before a separate document retest passes; stop DP Training afterward."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Post-launch-fix Proposal Cycle and Readback Limitation - 2026-09-08
+
+The operator supplied a new comment with correction approval unchecked.
+Preflight verified one changed existing case, clean synchronized Git, stopped
+training, and proposal_write with dispatch disabled. Training registration was
+refreshed to the committed launch fix. One owned PowerShell 5.1 cycle created
+exactly one proposal generation; exact Smartsheet readback, retained structure
+and subtype, unchanged implementation attempt counts, no approval consumption,
+and zero implementation starts were verified. Training returned to waiting and
+was stopped. No application code changed or implementation was attempted.
+
+The aggregate before/after snapshot across flagged rows did not match. The
+acceptance harness therefore reported incomplete at readback rather than claiming
+unchanged human inputs. The original snapshot existed only in process memory
+and was not retained after exit; its exact difference cannot be reconstructed.
+A subsequent approved read-only check of the unique active case proved current
+proposal and processed comment-checkpoint agreement, AI Correction checked,
+both approvals unchecked, and a ready false-edge approval baseline. No cause or
+actor is inferred for the earlier snapshot mismatch. Future dispatch must repeat
+the application's exact-current-proposal/comment/approval checks.
+
+Files changed: PROJECT_STATE.md, PROJECT_HISTORY.md, generated
+PROJECT_SMARTSHEET.md only. Real external proposal acceptance was partial as
+described, not a fully passed unchanged-input acceptance. Continuity/tracker
+regressions and tracker synchronization are checked before commit. Approved
+feedback reads/local analysis and workflow-owned proposal writes occurred; no
+document processing, mailbox access/mutation, production document row creation
+or attachment upload, comment write, or Codex implementation dispatch occurred.
+Protected values remained in approved processing; diagnostics were booleans/counts.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Refreshed training registration and generated one new proposal after the CLI launch fix.",
+  "key_result": "Exact proposal readback and retained structure/subtype; no dispatch or approval consumption; training stopped. Current active-case comment/proposal checkpoint matches with approvals unchecked.",
+  "tests": "Real proposal-cycle checks passed except aggregate unchanged-input snapshot. Continuity/tracker regressions checked before commit.",
+  "phi_handling": "Approved feedback reads/local analysis/proposal writes only; no document or implementation operations; protected values not emitted.",
+  "limitation_acceptance": "Aggregate initial/final controls/comments snapshot differed; cause not reconstructed. Reverify current inputs before fresh approval dispatch.",
+  "exact_next_start": "Have the reviewer inspect the current AI Proposed Correction and approve it only if correct. Before a controlled implementation acceptance, reverify the exact proposal/comment checkpoint and fresh Approve AI Correction edge; refresh source registration if required. Verify safe diagnostics, commit/push gates, human controls, and no retry on the following cycle. Preserve any concurrent reviewer change and stop for stale approval. Do not approve resolution before a separate document retest passes; stop DP Training afterward."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

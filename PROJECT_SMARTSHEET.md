@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-08
-Work: Diagnosed and fixed mutually exclusive CLI arguments after one controlled approval dispatch failed.
-Result: Retained exit 2; removed redundant sandbox argument while preserving automatic review and workspace-write. Following live cycle did not retry; training stopped and dispatch disabled.
-Tests: 90 synthetic/mock checks passed; modified Python compiled. Real isolated PHI-free argument/result-schema probes passed after correction; protocol exit 0 with zero tool actions.
-PHI: Approved feedback reads/workflow-state writes only; no document processing or comment writes; safe categories/counts retained.
-Status: Launch fix verified, document correction not implemented. Failed approval remains consumed; production-configured implementation acceptance still pending.
-Next: Refresh training source registration for the CLI argument fix, then create a new proposal generation on the same correction case using a normal reviewer comment with Approve AI Correction unchecked. Verify the proposal, obtain a fresh human approval edge, and perform one controlled implementation acceptance. Verify safe diagnostics, commit/push gates, unchanged human controls, and no retry on the following cycle. Do not reuse the consumed approval or approve resolution before a separate document retest passes; stop DP Training afterward.
+Work: Refreshed training registration and generated one new proposal after the CLI launch fix.
+Result: Exact proposal readback and retained structure/subtype; no dispatch or approval consumption; training stopped. Current active-case comment/proposal checkpoint matches with approvals unchecked.
+Tests: Real proposal-cycle checks passed except aggregate unchanged-input snapshot. Continuity/tracker regressions checked before commit.
+PHI: Approved feedback reads/local analysis/proposal writes only; no document or implementation operations; protected values not emitted.
+Status: Aggregate initial/final controls/comments snapshot differed; cause not reconstructed. Reverify current inputs before fresh approval dispatch.
+Next: Have the reviewer inspect the current AI Proposed Correction and approve it only if correct. Before a controlled implementation acceptance, reverify the exact proposal/comment checkpoint and fresh Approve AI Correction edge; refresh source registration if required. Verify safe diagnostics, commit/push gates, human controls, and no retry on the following cycle. Preserve any concurrent reviewer change and stop for stale approval. Do not approve resolution before a separate document retest passes; stop DP Training afterward.
 
 ## Safety Contract
 

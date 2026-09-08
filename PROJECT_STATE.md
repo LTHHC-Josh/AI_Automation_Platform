@@ -326,6 +326,15 @@ Operator commands remain:
 
 ## Current Limitations and Pending Acceptance
 
+- After the CLI fix, registration was refreshed and one new proposal generation
+  was created on the existing case in proposal_write mode. Exact readback,
+  retained filename structure/subtype, zero dispatches, unchanged attempt counts,
+  and no approval consumption were verified; training stopped. The aggregate
+  before/after human-controls/comments snapshot differed, so full unchanged-input
+  acceptance is not claimed. A subsequent read-only check proved the active
+  proposal/comment checkpoint matches, AI Correction remains checked, both
+  approval boxes are unchecked, and its fresh-approval baseline is ready. The
+  initial snapshot was memory-only; the mismatch cause is not reconstructed.
 - The subsequent fresh-approval implementation acceptance recorded exactly one
   failed attempt with retained codex_failed / exit 2. The installed CLI rejected
   the dispatcher's mutually exclusive --sandbox and --approve-for-me arguments.
@@ -393,10 +402,10 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Refresh training source registration for the CLI argument fix, then create a new
-proposal generation on the same correction case using a normal reviewer comment
-with Approve AI Correction unchecked. Verify the proposal, obtain a fresh human
-approval edge, and perform one controlled implementation acceptance. Verify safe
-diagnostics, commit/push gates, unchanged human controls, and no retry on the
-following cycle. Do not reuse the consumed approval or approve resolution before
-a separate document retest passes; stop DP Training afterward.
+Have the reviewer inspect the current AI Proposed Correction and approve it only
+if correct. Before a controlled implementation acceptance, reverify the exact
+proposal/comment checkpoint and fresh Approve AI Correction edge; refresh source
+registration if required. Verify safe diagnostics, commit/push gates, human
+controls, and no retry on the following cycle. Preserve any concurrent reviewer
+change and stop for stale approval. Do not approve resolution before a separate
+document retest passes; stop DP Training afterward.
