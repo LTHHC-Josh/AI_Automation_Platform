@@ -12859,3 +12859,36 @@ a deliberately new proposal generation, fresh human approval, and bounded execut
   "exact_next_start": "Refresh affected training source registration if required, then create a new proposal generation on the existing correction case using a normal reviewer comment. Verify proposal correctness, require a fresh Approve AI Correction false-to-true edge, perform one controlled implementation acceptance, and verify retained safe diagnostics, commit/push gates, unchanged human controls, and no retry on the following cycle. Do not approve resolution until a separate document retest passes; stop DP Training afterward."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Post-schema-fix Controlled Proposal Acceptance - 2026-09-08
+
+The operator unchecked correction approval and supplied a new ordinary comment
+on the existing case. A protected in-memory preflight found exactly one revised
+existing flagged case and confirmed proposal_write with dispatch disabled. The
+supported Windows PowerShell 5.1 owned wrapper ran one training cycle and was
+stopped afterward. Real external feedback reads and workflow-owned proposal
+writes passed: generation increment one, exact proposal readback, compatible
+filename structure and subtype retained, human controls and comments unchanged.
+Implementation attempt count, job identity, and consumed approval generation
+remained unchanged; implementation_started_count was zero. No live inbox DP,
+mailbox access/mutation, document OCR, document row creation/attachment upload,
+comment writes, or implementation dispatch occurred. Training analysis used the
+approved existing local integration; no protected values were emitted.
+
+Application code was unchanged. Files changed: PROJECT_STATE.md,
+PROJECT_HISTORY.md, and generated PROJECT_SMARTSHEET.md. A temporary acceptance
+helper held protected facts only in memory and emitted booleans/counts. This
+acceptance did not exercise the unchanged following cycle or implementation.
+The new proposal still requires human review and a fresh approval edge.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Passed controlled post-schema-fix proposal acceptance on the existing correction case.",
+  "key_result": "Exactly one new generation; exact readback, compatible structure and subtype retained; human controls/comments unchanged; no implementation dispatch; training stopped.",
+  "tests": "Real proposal-only acceptance passed. Continuity and tracker regressions checked separately before checkpoint commit.",
+  "phi_handling": "Approved feedback reads/local analysis/proposal writes only; protected values remained local or in Smartsheet; safe booleans/counts reported.",
+  "limitation_acceptance": "Reviewer must inspect the new proposal. No implementation or unchanged-following-cycle acceptance was performed in this cycle.",
+  "exact_next_start": "Have the reviewer inspect the new AI Proposed Correction on the existing case. If correct, require a fresh Approve AI Correction false-to-true edge, refresh training source registration if required, and perform one controlled implementation acceptance. Verify retained safe diagnostics, commit/push gates, unchanged human controls, and no retry on the following cycle. Do not approve resolution until a separate document retest passes; stop DP Training afterward."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

@@ -326,6 +326,12 @@ Operator commands remain:
 
 ## Current Limitations and Pending Acceptance
 
+- The post-schema-fix controlled proposal-write cycle passed on the existing
+  correction case after a normal new comment and unchecked approval. Exactly one
+  new generation was created; exact readback, compatible filename structure and
+  subtype, unchanged human controls/comments, and unchanged implementation
+  attempts/job/consumed approval were verified. Training was stopped. This cycle
+  did not exercise an unchanged following cycle or implementation dispatch.
 - The controlled concise proposal-write acceptance passed: one changed case,
   one new generation, retained compatible structure, unchanged human controls,
   and an idempotent following cycle. The reviewer accepted the presentation.
@@ -378,10 +384,9 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Refresh affected training source registration if required, then create a new
-proposal generation on the existing correction case using a normal reviewer
-comment. Verify proposal correctness, require a fresh Approve AI Correction
-false-to-true edge, perform one controlled implementation acceptance, and verify
-retained safe diagnostics, commit/push gates, unchanged human controls, and no
-retry on the following cycle. Do not approve resolution until a separate document
-retest passes; stop DP Training afterward.
+Have the reviewer inspect the new AI Proposed Correction on the existing case.
+If correct, require a fresh Approve AI Correction false-to-true edge, refresh
+training source registration if required, and perform one controlled implementation
+acceptance. Verify retained safe diagnostics, commit/push gates, unchanged human
+controls, and no retry on the following cycle. Do not approve resolution until a
+separate document retest passes; stop DP Training afterward.
