@@ -532,7 +532,7 @@ class OllamaProvider(LLMProvider):
         result = self._chat(
             system_prompt=self._extraction_prompt_for_attempt(
                 normalized_attempt
-            ),
+            ) + self._approved_correction_guidance(document_type),
             user_prompt=(
                 "The document was classified as: "
                 f"{document_type}\n\n"
@@ -668,6 +668,15 @@ class OllamaProvider(LLMProvider):
         self._last_request_metrics["seed"] = self.seed
         self._attach_context_metrics("dp_training_correction")
         return result
+
+    def _approved_correction_guidance(self, document_type: str) -> str:
+        from src.services.local_correction_memory_service import ApprovedDocumentLessons
+        from src.services.document_processor_training_contracts import BEHAVIOR_CODES
+        guidance = ApprovedDocumentLessons().render(document_type)
+        code = getattr(self, "correction_guidance_code", None)
+        if code in BEHAVIOR_CODES and code not in {"needs_investigation", "external_dependency"}:
+            guidance = (guidance + "\n" + BEHAVIOR_CODES[code]).strip()
+        return ("\nCORRECTION GUIDANCE (not evidence; deterministic validation still required):\n" + guidance) if guidance else ""
 
     def _business_context_view(self, role: str) -> BusinessContextView:
         service = getattr(self, "business_context", None)
@@ -1639,6 +1648,30 @@ Return only JSON matching the required schema.
 
         return value
 
+    def _verify_local_inference_target(self) -> None:
+        from urllib.parse import urlsplit
+        target = urlsplit(self.base_url)
+        if (target.scheme != "http" or target.hostname not in {"localhost", "127.0.0.1", "::1"}
+                or target.username or target.password or target.query or target.fragment
+                or target.path not in {"", "/"}):
+            raise RuntimeError("local_model_endpoint_required")
+        try:
+            # Metadata only, before any protected prompt. Cloud aliases are rejected
+            # even when the Ollama HTTP server itself is on localhost.
+            response = requests.post(
+                self.base_url + "/api/show", json={"model": self.model},
+                timeout=self.timeout, allow_redirects=False,
+                proxies={"http": "", "https": ""},
+            )
+            if response.status_code != 200:
+                raise ValueError()
+            data = response.json()
+            if (not isinstance(data, dict) or data.get("remote_host") or data.get("remote_model")
+                    or not isinstance(data.get("model_info"), dict) or not data["model_info"]):
+                raise ValueError()
+        except Exception:
+            raise RuntimeError("local_model_identity_unproven") from None
+
     def _chat(
         self,
         system_prompt: str,
@@ -1646,6 +1679,7 @@ Return only JSON matching the required schema.
         schema: dict,
         seed: int,
     ) -> dict:
+        self._verify_local_inference_target()
         endpoint = (
             f"{self.base_url}"
             f"{self.CHAT_ENDPOINT}"
@@ -1678,6 +1712,8 @@ Return only JSON matching the required schema.
                 endpoint,
                 json=payload,
                 timeout=self.timeout,
+                allow_redirects=False,
+                proxies={"http": "", "https": ""},
             )
 
             response.raise_for_status()
@@ -1694,20 +1730,11 @@ Return only JSON matching the required schema.
                 f"{self.timeout} seconds."
             ) from ex
 
-        except requests.HTTPError as ex:
-            detail = self._get_error_detail(
-                response
-            )
+        except requests.HTTPError:
+            raise RuntimeError("local_model_http_error") from None
 
-            raise RuntimeError(
-                "Ollama returned an HTTP error: "
-                f"{response.status_code}. {detail}"
-            ) from ex
-
-        except requests.RequestException as ex:
-            raise RuntimeError(
-                f"Ollama request failed: {ex}"
-            ) from ex
+        except requests.RequestException:
+            raise RuntimeError("local_model_request_failed") from None
 
         try:
             response_payload = response.json()

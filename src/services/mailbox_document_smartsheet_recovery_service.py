@@ -479,6 +479,16 @@ class MailboxDocumentSmartsheetRecoveryService:
             return self._failure(
                 stored.status, row_action=row_action,
                 attachment_action=attachment_action)
+        # Best-effort protected source index for future SAME-document corrections.
+        # This cannot change the authoritative completed business outcome.
+        try:
+            from src.services.evidence_only_correction_executor import LocalCorrectionSource
+            LocalCorrectionSource().bind(
+                row_id=stored.state.smartsheet_row_id, work_item=work_item,
+                state=stored.state,
+            )
+        except Exception:
+            pass
         return MailboxDocumentSmartsheetRecoveryResult(
             True, True, True, True, "completed", row_action, attachment_action,
             filename_diagnostic or self._persisted_filename_diagnostic(state),

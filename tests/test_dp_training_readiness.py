@@ -77,8 +77,8 @@ def test_write_and_dispatch_modes_fail_closed_until_exact_gates():
     dispatch_blocked = run_with(configured(
         "approval_dispatch", DP_TRAINING_ALLOW_SMARTSHEET_WRITES="true"
     ))
-    assert not dispatch_blocked["all_ready"]
-    assert dispatch_blocked["failure_category"] == "codex_dispatch_gate_disabled"
+    assert dispatch_blocked["all_ready"]
+    assert dispatch_blocked["failure_category"] == "none"
     ready = run_with(configured(
         "approval_dispatch",
         DP_TRAINING_ALLOW_SMARTSHEET_WRITES="true",

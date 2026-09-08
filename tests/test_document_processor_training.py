@@ -1648,6 +1648,8 @@ def test_cycle_summary_has_only_approved_safe_fields():
         "implementation_authorized_count", "implementation_started_count",
         "implementation_completed_count", "implementation_failed_count",
         "retest_required_count", "resolved_count",
+        "correction_applied_count", "awaiting_resolution_count",
+        "approved_lesson_count", "codex_dispatch_count",
         "needs_more_information_count", "requires_external_system_count",
         "polling_result", "failure_category", "recoverable", "retryable",
     )

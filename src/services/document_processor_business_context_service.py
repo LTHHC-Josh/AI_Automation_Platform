@@ -25,6 +25,7 @@ CONTEXT_ROLES = (
 )
 
 BUSINESS_CONTEXT_SEMANTIC_DIGESTS = {
+    3: "918bc06241e73b8b93ea13f9950fe2f6ec56d4eac16ae76401f032804074ef92",
     2: "62cad3e31e8583bfff400407da1ff1996bd41b6e7a579700da43fd3db9a17b3f",
     1: "68f3c29bb03a892b6ecf7dc807f382150053f71f49c7595e0732402b3199a0f7",
 }
@@ -240,9 +241,8 @@ class DocumentProcessorBusinessContextService:
                 "modifier/document meaning; no guessing; never merge attempts; supported winner, tie=attempt1"
             ),
             "training_semantics": (
-                "comments=untrusted intent only, never field evidence; model=no tools/implementation/approval/"
-                "writes/dispatch/resolution; behavior clarity != technical certainty; separate human gates and "
-                "retest req"
+                "comments!=evidence; no Codex/cloud; approval -> verified same-row correction; "
+                "resolution -> type guidance/code-update authority; code requires isolation/tests/rollback"
             ),
         }
         value = fixed.get(name)

@@ -64,7 +64,10 @@ PROJECT_SMARTSHEET_TASKS = [
             "PHI-safe diagnostics. DP Training adds current-user DPAPI-sealed "
             "correction cases, untrusted-comment schema validation, strict "
             "human/workflow ownership, PHI-safe Prefect state, and a deterministic "
-            "no-PHI Codex boundary; broader platform security design continues."
+            "local-only Ollama boundary. Resolution-authorized code candidates are "
+            "restricted to existing pure-method scopes, tested in an offline Windows "
+            "Sandbox and promoted with crash quarantine and exact rollback. "
+            "Broader platform security design and full live acceptance continue."
         ),
     ),
     (

@@ -24,6 +24,29 @@ continuity layers.
 
 ## Current Phase and Business Scope
 
+### Local Correction and Bounded Code Updates
+
+Production uses local Ollama, never Codex/cloud model dispatch. Approve AI
+Correction authorizes an evidence-validated correction to the existing
+row/document. Approve AI Resolution authorizes bounded per-type guidance and
+necessary local code updates without a second approval.
+
+The same-row workflow, isolated test runner and atomic local release/rollback
+transaction are implemented. Automatic code editing is deliberately restricted
+to one existing method body in filename policy or review-reason presentation.
+Imports, public signatures, tests, approval handling, external writers and updater
+code cannot be changed by the model. New calls and new string literals are
+rejected. Other correction scopes retain guidance but explicitly report that code
+updates are unsupported; this is not unrestricted self-programming or model-weight
+training, and it does not guarantee error-free recognition.
+
+Windows Sandbox is enabled and the post-restart isolation probe passed. The
+production repository, credentials and documents are not shared with sandbox
+tests. Networking/clipboard redirection are disabled. Local code-generation
+positive and rejection probes passed their respective acceptance/safety checks.
+No production document correction or generated-code promotion has been live-tested
+in this checkpoint.
+
 The automated document processor is the current Phase 1 priority. It processes
 healthcare intake documents for LT Home Healthcare. MCO, payer, sender, and
 source information are context, not document meaning.
@@ -81,7 +104,7 @@ validated production row write.
 ## Shared Business Context and Taxonomy
 
 The repo-owned, PHI-free `DocumentProcessorBusinessContext` is the shared model
-context source. Current `business_context_version` is 2. Role-specific views are
+context source. Current `business_context_version` is 3. Role-specific views are
 rendered for live classification, extraction, structural learning, intake
 naming, and DP Training. Prompt context explains constraints; deterministic code
 remains authoritative.
@@ -197,79 +220,77 @@ exception text, tokens, and sensitive response fields are never retained.
 
 ## Document Processor Training
 
-DP Training is a distinct Prefect-visible service and the controlled human
-correction/approval workflow. The configured protected capability mode is
-`proposal_write`; Codex dispatch remains disabled. The last read-only status
-check showed the service stopped, its pool and deployment ready, zero fresh
-workers, and no degraded state.
+DP Training is the separate operator-owned correction service. Local modes are
+schema_only, read_only, proposal_write and local_correction. The historical
+approval_dispatch mode is a compatibility alias for local correction, not Codex.
+Configured mode remains proposal_write until final controlled-test setup explicitly
+changes it; changing mode requires the existing fingerprint/owned restart contract.
 
 Current versions:
-
-- `business_context_version`: 2
+- `business_context_version`: 3
 - `analysis_contract_version`: 3
-- protected correction-case schema version: 3
-- sanitized implementation-task schema version: 2
+- legacy protected correction-case schema: 3
+- local sealed correction/source/lesson/audit schema: 1
+- resolution code-update authorization contract: 1
 
-Human-owned inputs are:
+Human-owned: AI Correction, Approve AI Correction, Approve AI Resolution and
+Conversations/comments. Processor creates AI Correction unchecked on new rows
+only. No correction workflow writes human checkboxes or comments.
 
-- AI Correction
-- Approve AI Correction
-- Approve AI Resolution
-- Smartsheet Conversations/comments
+Workflow-owned: AI Proposed Correction, AI Correction Type, AI Correction Status,
+AI Resolution Result. New input creates a generation on the existing stable case
+identity. Stale approvals do not carry over. Original source binding requires the
+durable row association and exact document fingerprint. Replay uses the existing
+pipeline with cached OCR only; comments are intent, never field evidence.
 
-DP Training-owned outputs are:
+Correction writes use explicit existing field mappings, typed validation, exact
+preconditions and readback. Unsupported prior values may be explicitly cleared.
+Attachment renaming uses a temporary source copy and a proven existing attachment
+version. Original source bytes and original mailbox recovery names remain unchanged.
+Each external boundary has a sealed durable intent. Uncertain updates reconcile;
+an unproven attachment-version response is blocked rather than blindly repeated.
+External/user changes are preserved.
 
-- AI Proposed Correction
-- AI Correction Type
-- AI Correction Status
-- AI Resolution Result
+Verified correction results move to Awaiting Resolution Approval. Fresh approval
+retains only fixed PHI-free guidance, directly indexed by canonical document family:
+at most eight active rules / 1800 characters. Historic cases are not scanned during
+normal inference. No patient values, comments or model prose enter this guidance.
+This improves context; it is not novel model-weight training.
+The bounded five-case poll rotates its durable cursor, so resolved cases whose
+human-owned flag remains checked cannot starve newer feedback.
 
-The live Document Processor initializes AI Correction to false only on a new row
-and cannot overwrite correction workflow state. DP Training never sets or clears
-human checkboxes or writes comments.
+Resolution also creates one sealed code-update authorization for the exact case
+generation/plan. The local generator sees only controlled family/behavior and
+approved source code, not document or feedback values. One generation attempt is
+reserved before calling Ollama. Interrupted/invalid generation is not silently
+repeated. No-change and unsupported-scope outcomes are explicit.
 
-Reviewer comments are untrusted PHI-bearing desired-behavior input. They remain
-inside approved Smartsheet/local protected processing, cannot become production
-field evidence, cannot invoke tools, and cannot directly form executable Codex
-instructions.
+Candidates remain data on the host until restricted AST validation and immutable
+synthetic tests run in a headless Windows Sandbox. Only staged tracked source,
+tests, sanitized Python 3.13 runtime and explicitly selected dependency code are
+shared read-only. No .env, Git metadata, production documents or credentials are
+shared. Guest networking, clipboard, audio/video input and printer redirection are
+disabled. SDK dependencies have no credentials and tests inject non-writing
+adapters. Sandbox start/test/stop time budgets are 180/300/45 seconds. An exact
+sealed ownership reservation precedes startup; cleanup failure blocks promotion.
 
-Analysis v3 retains prior feedback and a distinct latest clarification. Compatible
-requirements accumulate; a newer explicit conflict overrides only the affected
-portion. Desired-business-behavior sufficiency is separate from technical root-
-cause disposition. Filename corrections use controlled structural components for
-canonical document type, payer when applicable, service when applicable, supported
-date representation, and unrelated-field exclusion.
+Promotion changes one allowlisted source file atomically after proof matches the
+candidate digest and baseline remains unchanged. Before/after source is sealed
+for recovery; post-promotion tests can trigger exact rollback. Unrelated edits
+block promotion/rollback rather than being overwritten. Runtime releases remain
+local and are recorded in sealed release history, not automatically committed or
+pushed to Git. Subsequent maintenance must reconcile those proven local edits.
+No release is represented as a Git commit or a model retraining event.
+A shared Windows process lease excludes mailbox/manual processing during source
+promotion and post-install verification. A sealed activation quarantine survives
+crashes and blocks new document processing until that same release verifies or
+rolls back. The guard also covers direct DocumentProcessor replay. A busy or
+unverified activation fails closed; no production process is killed.
 
-`AI Proposed Correction` is a concise deterministic reviewer summary rendered
-from that structure. Detailed safety, placeholder, evidence, and implementation
-context remain in protected analysis and are reconstructed for a future sanitized
-implementation task. A proposal-write cycle cannot create an implementation job,
-consume an approval edge, or dispatch Codex.
-
-Dispatch diagnostics retain only allowlisted categories and bounded process exit
-codes in protected case state, before workflow-result writes. Schema 1/2 cases
-migrate without changing identity, attempts, or consumed approvals. Legacy failed
-attempts without retained diagnostics remain `legacy_failure_unavailable`.
-Nonzero child exit, startup failure, timeout, missing result, and invalid result
-are distinguished without retaining stdout/stderr or exception text. Failed
-implementation cycles report `completed_with_failures` and fail the Prefect flow;
-the unchanged following cycle does not retry the consumed approval.
-
-One row maps to one durable correction case. Comment/input revisions create a new
-generation on the same identity, invalidate stale approval baselines, and become
-idempotent on unchanged readback. Approval-dispatch capability remains a later
-separately controlled production step.
-
-Explicit operator-authorized infrastructure recovery now permits one additional
-attempt for the same unchanged approved generation after a verified CLI startup
-repair. It is not called by polling and does not reset a consumed approval,
-change a human checkbox/comment, or regenerate the proposal. Exact current
-proposal, feedback, context, approval, prior attempt, and unresolved-write checks
-must pass. A durable per-generation audit reservation precedes the workflow-only
-status write. Failed/uncertain grant or recovery cannot grant another retry for
-that generation. A repository operation lock serializes recovery and normal
-cycles; stale locks fail closed. Existing dispatcher/Git locks still apply.
-Protected schema remains version 3; audit metadata uses existing sealed history.
+Production factory never constructs a Codex dispatcher. Historical Codex classes
+remain for audit/developer regressions only. Local model requests reject remote
+endpoints and cloud aliases before sending protected prompts. Status retains JSON
+compatibility and shows correction/resolution/guidance counts.
 
 ## Prefect and Operator Runtime
 
@@ -345,83 +366,29 @@ Operator commands remain:
 
 ## Current Limitations and Pending Acceptance
 
-- The explicitly authorized same-generation runtime recovery passed: one new
-  implementation completed, zero failed, and the following unchanged application
-  cycle started zero attempts. Human checkboxes/comments, case identity, proposal
-  generation, and consumed approval were unchanged. The case is Retest Required.
-  Implementation commit: 331442e252acb8d7caf775c3e54df0c6164d7dff, pushed/synced.
-  This was a bounded shared-application acceptance, not a worker/deployment run.
-  Training remains stopped with configured proposal_write / dispatch disabled.
-  All four deployments were individually refreshed and verified against that
-  source commit, with no schedules or new workers. A real document retest is
-  still required. Earlier failure/approval-cycle descriptions below are history,
-  not a requirement to generate another proposal for this completed correction.
-- Configured runtime startup is now proven: the API explicitly rejected standalone
-  CLI 0.151.0 because gpt-6-astra requires a newer Codex version. Upgraded the
-  installed official @openai/codex package to 0.153.4 without changing the model,
-  medium reasoning, provider, or user configuration. Both isolated and actual
-  repository-directory synthetic launches passed with the exact training result
-  schema, exit 0, and zero tool actions. No ignore-config/rules overrides were
-  used. This verifies startup/result compatibility, not correction implementation.
-  The consumed approval remains consumed; explicit audited infrastructure
-  recovery subsequently completed the correction without resetting it.
-- After the CLI fix, registration was refreshed and one new proposal generation
-  was created on the existing case in proposal_write mode. Exact readback,
-  retained filename structure/subtype, zero dispatches, unchanged attempt counts,
-  and no approval consumption were verified; training stopped. The aggregate
-  before/after human-controls/comments snapshot differed, so full unchanged-input
-  acceptance is not claimed. A subsequent read-only check proved the active
-  proposal/comment checkpoint matches, AI Correction remains checked, both
-  approval boxes are unchecked, and its fresh-approval baseline is ready. The
-  initial snapshot was memory-only; the mismatch cause is not reconstructed.
-- The subsequent fresh-approval implementation acceptance recorded exactly one
-  failed attempt with retained codex_failed / exit 2. The installed CLI rejected
-  the dispatcher's mutually exclusive --sandbox and --approve-for-me arguments.
-  The redundant explicit sandbox argument is removed; --approve-for-me retains
-  workspace-write plus automatic review. Synthetic parsing and a real isolated
-  PHI-free result-schema probe passed after correction, with zero tool actions.
-  The unchanged following live cycle did not retry the consumed approval.
-  Training was stopped and proposal_write / dispatch-disabled mode restored.
-  This fixes launch compatibility, not the approved document correction itself.
-- The post-schema-fix controlled proposal-write cycle passed on the existing
-  correction case after a normal new comment and unchecked approval. Exactly one
-  new generation was created; exact readback, compatible filename structure and
-  subtype, unchanged human controls/comments, and unchanged implementation
-  attempts/job/consumed approval were verified. Training was stopped. This cycle
-  did not exercise an unchanged following cycle or implementation dispatch.
-- The controlled concise proposal-write acceptance passed: one changed case,
-  one new generation, retained compatible structure, unchanged human controls,
-  and an idempotent following cycle. The reviewer accepted the presentation.
-- A separately approved implementation attempt then failed without retained
-  specific cause. No code changes resulted; its approval remains consumed.
-  Do not infer authentication, transport, model, or implementation cause.
-- Training remains stopped in proposal_write mode with dispatch disabled. The
-  diagnostic fix is synthetic-tested. A PHI-free CLI 0.151.0 protocol test proved
-  the result schema was rejected for uniqueItems before result generation. The
-  unsupported keyword is removed; uniqueness and exact result-layer vocabulary
-  remain enforced locally. The corrected real protocol test passed with no tool
-  actions. This reproduces a current blocker but does not reconstruct the lost
-  historical child failure. A new generation and fresh human approval are still
-  required before another implementation attempt.
-- Windows PowerShell 7 ownership-status behavior differed from supported 5.1
-  during acceptance. A timestamp-conversion issue is suspected, not proven.
-  Use Windows PowerShell 5.1 for the wrappers pending separate investigation.
-- No human approval may carry to a changed proposal/result generation.
-- Always-on Windows service/startup integration is not enabled. Operators must
-  explicitly start DP and DP Training after a host restart.
-- Broader representative real-document taxonomy, extraction, filename, OCR
-  accuracy/performance, restart, and unattended reliability acceptance remains
-  incomplete.
-- Small-detector OCR performance is promising but is not an approved universal
-  production default. Package/model identities and effective inference settings
-  need fuller production pinning.
-- Existing text-only OCR caches cannot recover historical page/block relationships
-  without new OCR.
-- AUTH INIT requires an approved authoritative external-system context source.
-- Legitimate service-reference conflicts remain unresolved until a supported
-  discriminator is available.
-- Future EHR, eligibility, scheduling, and broader company-AI integrations remain
-  outside the active Phase 1 implementation scope.
+- Full live acceptance of the redesigned same-row correction/resolution workflow
+  remains pending. Do not equate synthetic or isolated code checks with a real
+  patient-document acceptance.
+- Automatic code updates cover only the allowlisted pure-function scopes described
+  above. Other failures stay safe and visible; no generic autonomous repository
+  rewrite is enabled.
+- The actual model proposed a disallowed capability during a code-only probe; the
+  candidate was rejected and nothing was promoted. A separate minimal synthetic
+  defect produced an accepted bounded candidate. Model suggestions still require
+  independent validation and tests.
+- Lost/unproven attachment-version responses remain reconciliation-blocked rather
+  than generating another upload.
+- Correction replay requires the original cached source and OCR. It cannot invent
+  missing evidence or recover lost page/block structure from text-only caches.
+- Human approval does not prove a correction generalizes across all documents.
+  Broader taxonomy, OCR, extraction and unattended reliability coverage remains
+  incomplete. AUTH INIT still requires authoritative external context.
+- No silent Windows reboot startup is enabled. Start the control room/Ollama and
+  explicitly start the required DP or DP Training service.
+- Use Windows PowerShell 5.1 for operator wrappers. The older PowerShell 7
+  ownership-status discrepancy remains a separate investigation.
+- Prior Codex acceptance, CLI repairs and Retest Required state are historical,
+  preserved in PROJECT_HISTORY and Git; they are not the intended production loop.
 
 ## Current Operational Rules
 
@@ -441,11 +408,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Perform one controlled unattended real-document retest with a different eligible
-document. Verify supported filename components and date ownership, single date
-versus supported range/placeholder, final validated values and review reasons,
-Workflow Summary, and clean return to waiting before stopdp. Inspect the result
-before checking Approve AI Resolution on the existing correction case. Keep DP
-Training stopped until the separately controlled resolution step. Do not resend
-the identical processed document as a new-output test; recovery preserves its
-persisted attachment name.
+Refresh committed registrations and verify local_correction readiness. Complete controlled acceptance: process one new document, flag its existing row, approve the proposal, verify existing-row/document correction, approve resolution, and verify approved learning reaches a later same-type document. Confirm restart/idempotency and rollback evidence, local Ollama only, and unchanged human controls. Stop DP Training cleanly. Do not declare end-to-end readiness before this chain is proven; no resubmission is needed to resolve the original correction.

@@ -41,19 +41,12 @@ def check_readiness(*, require_runtime_match: bool = False) -> dict[str, object]
     mode_ready = capabilities is not None
     state_ready = _state_writable()
     write_gate_ready = (
-        mode not in {"proposal_write", "approval_dispatch"}
+        mode not in {"proposal_write", "approval_dispatch", "local_correction"}
         or bool(capabilities and capabilities.smartsheet_writes_enabled)
     )
-    dispatch_gate_ready = (
-        mode != "approval_dispatch"
-        or bool(capabilities and capabilities.codex_dispatch_enabled)
-    )
+    # Compatibility fields: no production mode uses a coding-agent runtime.
+    dispatch_gate_ready = True
     codex_ready = True
-    if mode == "approval_dispatch":
-        codex_ready = bool(
-            (shutil.which("codex.cmd") or shutil.which("codex"))
-            and (REPOSITORY_ROOT / "src/contracts/dp_training_codex_result.schema.json").is_file()
-        )
     all_ready = (
         configuration_ready and mode_ready and state_ready and codex_ready
         and write_gate_ready and dispatch_gate_ready

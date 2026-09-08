@@ -86,29 +86,27 @@ class DocumentProcessorTrainingApplicationService:
         capabilities = load_runtime_dp_training_capabilities()
         mode = capabilities.mode
         write_enabled = capabilities.smartsheet_writes_enabled
-        dispatch_enabled = capabilities.codex_dispatch_enabled
-        if mode in {"proposal_write", "approval_dispatch"} and not write_enabled:
+        if mode in {"proposal_write", "approval_dispatch", "local_correction"} and not write_enabled:
             raise RuntimeError("training_smartsheet_write_gate_disabled")
-        if mode == "approval_dispatch" and not dispatch_enabled:
-            raise RuntimeError("training_codex_dispatch_gate_disabled")
         client = SmartsheetClient(
             sheet_id_env_var="SMARTSHEET_AI_DESTINATION_SHEET_ID"
         )
         reader = SmartsheetCorrectionReader(client=client)
-        return cls(
+        from src.services.local_document_correction_workflow import LocalDocumentCorrectionWorkflow
+        from src.services.evidence_only_correction_executor import EvidenceOnlyCorrectionExecutor
+        from src.services.local_correction_memory_service import LocalCorrectionStore
+        from src.services.local_code_update_service import LocalCodeUpdateService
+        from pathlib import Path
+        local_store = LocalCorrectionStore()
+        return LocalDocumentCorrectionWorkflow(
             schema_service=SmartsheetCorrectionSchemaService(client=client),
             reader=reader,
             repository=ProtectedCorrectionCaseRepository(),
             analyzer=LocalCorrectionAnalysisService(),
             writer=SmartsheetCorrectionWriter(client=client, reader=reader),
-            task_service=PhiSafeImplementationTaskService(),
-            dispatcher=BoundedCodexDispatcher(
-                enabled=(
-                    mode == "approval_dispatch"
-                    and write_enabled
-                    and dispatch_enabled
-                )
-            ),
+            executor=EvidenceOnlyCorrectionExecutor(client=client),
+            store=local_store,
+            code_updates=LocalCodeUpdateService(root=Path(__file__).resolve().parents[2], store=local_store),
             mode=mode,
         )
 

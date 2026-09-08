@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('schema_only', 'read_only', 'proposal_write', 'approval_dispatch')]
+    [ValidateSet('schema_only', 'read_only', 'proposal_write', 'approval_dispatch', 'local_correction')]
     [string]$ExpectedMode,
 
     [Parameter(Mandatory = $true)]

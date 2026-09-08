@@ -38,10 +38,15 @@ _STAGE_NAMES = {
     "retest_required": "Retest Required",
     "resolution_approved": "Resolution Approved",
     "case_resolved": "Case Resolved",
+    "local_correction": "Local Same-Document Correction",
+    "awaiting_resolution": "Awaiting Resolution Approval",
+    "local_code_update": "Local Code Update Verification",
 }
 _LONG_RUNNING = {
     "training_poll", "case_loaded", "local_analysis", "proposal_write",
     "implementation_dispatch",
+    "local_correction",
+    "local_code_update",
 }
 _SAFE_CATEGORY = re.compile(r"^[a-z][a-z0-9_]{0,79}$")
 

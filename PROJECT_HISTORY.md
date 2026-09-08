@@ -13231,3 +13231,134 @@ Continuity/recovery regressions and tracker are rerun before final commit.
   "exact_next_start": "Perform one controlled unattended real-document retest with a different eligible document. Verify supported filename components and date ownership, single date versus supported range/placeholder, final validated values and review reasons, Workflow Summary, and clean return to waiting before stopdp. Inspect the result before checking Approve AI Resolution on the existing correction case. Keep DP Training stopped until the separately controlled resolution step. Do not resend the identical processed document as a new-output test; recovery preserves its persisted attachment name."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Local-Only Correction Redesign - Partial Checkpoint 2026-09-08
+
+User superseded Codex production dispatch with local Ollama only. Approve AI
+Correction authorizes correction of the existing row/document; Approve AI
+Resolution authorizes bounded learning and necessary automatic code updates,
+without another manual approval. This is not model-weight training and does not
+promise error-free processing. Generated code cannot execute with production
+credentials merely because tests pass.
+
+Preserved partial work: DPAPI source/case/audit storage; original cached-evidence
+replay; explicit typed same-row updates and null clears; owned attachment version
+updates; per-boundary durable reservation/readback; no retry of an unresolved
+write; human checkboxes/comments unchanged. Production factory selects local
+workflow, never Codex. Ollama role context/local-target guard and bounded eight-rule,
+1800-character document-family guidance are implemented. This continuation added
+exact-resolution code-update authorization, idempotent across restart, with fixed
+safe fields only. No executable backend is connected. Result presentation states
+that application code has not changed. Context v3 supersedes the uncommitted
+no-code-ever restriction, but analyzer output cannot authorize itself.
+
+Files span training wrappers/readiness/factory/contracts/Prefect observer, Ollama
+provider, shared business context, mailbox completion source index, new local
+correction memory/workflow/evidence executor and code-update authorization services,
+and their synthetic tests. Full current diff is preserved, not committed as complete.
+Earlier partial checks are not treated as final acceptance. This continuation ran
+5 authorization, 25 local correction, 5 shared context, 54 legacy training,
+5 readiness, 5 configuration, 7 PowerShell command, and 10 AI Correction tests:
+116 passed after correcting context wording and the safe summary-field allowlist.
+Modified Python compiled. Diff whitespace and protected ignore checks passed.
+
+Remaining: independently enforced execution isolation, local code generation,
+immutable regression gate, deployment quiescence/promotion/rollback, integration
+with pending authorization, full affected regressions, continuity reconciliation
+and live acceptance. Docker/Windows Sandbox commands and virtualization services
+were not found by the limited local discovery; this is not proof that the host
+cannot support isolation. No installation, production code promotion, live DP,
+worker, mailbox, OCR/Ollama inference, document Smartsheet operation or comment
+operation occurred in this continuation. No new live-test readiness is claimed.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Partial local-only same-row correction and resolution-authorized learning implementation.",
+  "key_result": "Existing-row correction/readback and bounded type guidance are synthetic-tested. Resolution records one code-update authorization; execution remains blocked pending verified isolation.",
+  "tests": "116 focused synthetic/mock checks passed, including PowerShell 5.1 command tests; modified Python compiled and diff/ignore checks passed.",
+  "phi_handling": "No live document/model/row/comment operations in this continuation. No protected values exposed. Project tracker sync only.",
+  "limitation_acceptance": "Uncommitted and not live-ready. No isolated code runner or promotion/rollback adapter yet; no automatic code deployment claimed.",
+  "exact_next_start": "Implement and verify the isolated local-Ollama code-generation/test/promotion runner for resolution-authorized updates, with no production credentials or protected-data access, independent immutable safety tests, crash-safe promotion and rollback. Preserve the pending same-resolution authorization and same-row correction work. Complete affected regressions, tracker and Git gates before any live acceptance; do not start DP or DP Training yet."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Local Correction, Isolated Updates and Acceptance Gates - 2026-09-08
+
+Preserved the interrupted local-only redesign. Production factory now selects
+the same-row local workflow; legacy Codex classes are not instantiated even when
+the historical dispatch switch is enabled. Local Ollama identity checks reject
+remote endpoints/cloud aliases. Approve AI Correction authorizes evidence-only
+existing-row and attachment-version correction; Approve AI Resolution authorizes
+bounded per-family guidance and constrained necessary local code updates.
+
+Added source-only local generation, one existing method-body AST guard, immutable
+six-suite regression staging, headless network-disabled Windows Sandbox runner,
+sealed ownership before VM startup, exact owned cleanup, candidate-digest proof,
+atomic one-file release and exact rollback. New imports/calls/string literals,
+signatures, approval/writer/updater changes and arbitrary repository edits are
+denied. Current automatic code scopes are filename policy and review presentation;
+unsupported scopes are explicitly reported, not falsely marked installed. Runtime
+releases are local sealed provenance, not automatic Git commits or weight training.
+
+User enabled/restarted Windows Sandbox. Real isolation probes proved guest
+execution, no active network adapter and no production repository visibility.
+The real six-suite runner passed with cleanup proven. Credential-dependent naming
+fixtures were corrected to inject non-writing adapters, preserving assertions.
+A real code-only Ollama synthetic candidate passed the AST contract; another
+candidate was denied for capability expansion. No generated production code was
+promoted. No document values or comments entered these model/VM probes.
+
+The explicit end-to-end acceptance clarification added a later-document prompt
+test after resolution/restart, plus interrupted-promotion recovery tests. Found
+and closed a promotion window: a shared Windows process lease now excludes manual,
+unattended and direct document processing during post-install verification. A
+sealed quarantine survives a crash; only same-release verification or exact
+rollback clears it. Unrelated edits and external processes remain untouched.
+
+Files changed: training wrapper/readiness/factory/contracts/Prefect observer;
+Ollama provider and shared business context; mailbox source-binding hook;
+DocumentProcessor and full mailbox orchestration source guard; local correction
+memory/workflow/evidence executor; code authorization/candidate/test/release/update
+services; Windows Sandbox runner and source-activation gate; focused correction,
+code-update, authorization, isolation, activation, context, readiness, training and
+naming-fixture tests; tracker and the three continuity layers.
+
+Validation at this checkpoint: modified Python compiled. Focused synthetic/mock
+checks passed: correction 29, code pipeline 13, authorization 5, sandbox 9,
+activation 5, context 5, legacy training 54, readiness 5. Affected checks passed:
+configuration 5, PowerShell commands 7, AI Correction 10, destination typing 18,
+mapping 25, filename assembly 28, intake naming 20, filename policy 12, review
+presentation 14, reference builder 4, document processor 19, full orchestration
+15, orchestration 11, durable recovery 21, isolated Prefect 5. Prefect emitted a
+temporary SQLite cleanup warning after passing; this is not a production failure.
+Two initially misnamed test paths were skipped then corrected and executed.
+Final continuity/tracker/PowerShell 5.1/Git gates follow this record before commit.
+Final gates passed: continuity 11 and tracker reconciliation 3, bringing the
+focused/affected total to 353 unique checks. Actual Windows PowerShell 5.1 parsed
+both modified wrappers with zero errors. Tracker Not Found: 0 / Failed: 0.
+The final six-suite real Sandbox run passed, exit zero and cleanup proven.
+The polling fairness regression proves checked resolved cases cannot starve
+later feedback; only a bounded numeric cursor is retained. A stale generated
+summary was regenerated before the successful continuity/tracker rerun.
+
+Full live chain remains unproven: new document processing, reviewer flag/proposal
+approval, same-row/document correction, resolution approval, and useful approved
+learning on a later document. Synthetic stages do not prove clinical correctness
+or generalization. Configured training mode remains proposal_write until controlled
+setup; no DP/worker/deployment start, mailbox/Graph content, document OCR/Ollama,
+production document row/attachment write, mailbox mutation or comment operation
+occurred in this implementation checkpoint. Project tracker is the only external
+Smartsheet sync. Bounded learning is fixed guidance, not unrestricted self-teaching.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Local-only same-row correction, resolution learning and isolated code-update transaction implemented.",
+  "key_result": "Existing-row readback, family-scoped learning reuse, crash quarantine and exact rollback are synthetic-tested. No production Codex dispatch.",
+  "tests": "353 focused/affected checks passed; real offline Sandbox and code-only Ollama probes completed. PowerShell 5.1 parse and tracker 0/0 passed.",
+  "phi_handling": "Synthetic/code-only probes; no document, mailbox or correction-row/comment operations. Project tracker only.",
+  "limitation_acceptance": "Live full-chain acceptance pending. Code updates limited to filename/review method bodies; guidance is not weight training.",
+  "exact_next_start": "Refresh committed registrations and verify local_correction readiness. Complete controlled acceptance: process one new document, flag its existing row, approve the proposal, verify existing-row/document correction, approve resolution, and verify approved learning reaches a later same-type document. Confirm restart/idempotency and rollback evidence, local Ollama only, and unchanged human controls. Stop DP Training cleanly. Do not declare end-to-end readiness before this chain is proven; no resubmission is needed to resolve the original correction."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

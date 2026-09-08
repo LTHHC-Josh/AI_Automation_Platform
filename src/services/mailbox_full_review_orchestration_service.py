@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 import inspect
 from typing import Any
+from src.services.local_source_activation_gate import guard_document_source
 
 from src.graph.mailbox_processor import (
     MailboxAcceptanceGuardError,
@@ -151,6 +152,7 @@ class MailboxFullReviewOrchestrationService:
             acceptance_handoff_service or MailboxAcceptanceHandoffService()
         )
 
+    @guard_document_source
     def run(
         self,
         *,
@@ -505,6 +507,7 @@ class MailboxFullReviewOrchestrationService:
             self._observe(stage_observer, "completed", "completed", action_started_at)
         return result
 
+    @guard_document_source
     def run_selected_acceptance(
         self,
         *,
@@ -538,6 +541,7 @@ class MailboxFullReviewOrchestrationService:
             stage_observer=stage_observer,
         )
 
+    @guard_document_source
     def run_handoff_acceptance(
         self,
         *,
@@ -577,6 +581,7 @@ class MailboxFullReviewOrchestrationService:
             stage_observer=stage_observer,
         )
 
+    @guard_document_source
     def run_unattended_once(
         self,
         *,

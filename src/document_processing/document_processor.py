@@ -1,6 +1,7 @@
 from pathlib import Path
 from time import perf_counter
 from typing import Any
+from src.services.local_source_activation_gate import guard_document_source
 
 from src.ai.llm.llm_service import LLMService
 from src.ai.ocr.ocr_service import OCRService
@@ -108,6 +109,7 @@ class DocumentProcessor:
         self.intake_document_naming = IntakeDocumentNamingVocabulary()
         self.filename_assembly = ProductionFilenameAssemblyService()
 
+    @guard_document_source
     def process(
         self,
         file_path: str | Path,

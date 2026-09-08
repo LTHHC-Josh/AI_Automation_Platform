@@ -366,11 +366,11 @@ function Get-DocumentProcessorTrainingStatus {
             if ($null -ne $matchValue) { $modeMatch = [bool]$matchValue }
         } catch { $pollingState = 'state_unreadable' }
     } elseif ($owned) { $pollingState = 'starting' }
-    $counts = @{flagged_case_count=0;analysis_ready_count=0;awaiting_approval_count=0;retest_required_count=0}
+    $counts = @{flagged_case_count=0;analysis_ready_count=0;awaiting_approval_count=0;retest_required_count=0;awaiting_resolution_count=0;correction_applied_count=0;approved_lesson_count=0}
     if (Test-Path -LiteralPath $summaryPath -PathType Leaf) {
         try {
             $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
-            foreach($name in @('flagged_case_count','analysis_ready_count','awaiting_approval_count','retest_required_count')) {
+            foreach($name in @('flagged_case_count','analysis_ready_count','awaiting_approval_count','retest_required_count','awaiting_resolution_count','correction_applied_count','approved_lesson_count')) {
                 $value = Get-OptionalProperty $summary $name
                 if ($null -ne $value) { $counts[$name] = [int]$value }
             }
@@ -405,6 +405,9 @@ function Get-DocumentProcessorTrainingStatus {
         analysis_ready_count=$counts.analysis_ready_count
         awaiting_approval_count=$counts.awaiting_approval_count
         retest_required_count=$counts.retest_required_count
+        awaiting_resolution_count=$counts.awaiting_resolution_count
+        correction_applied_count=$counts.correction_applied_count
+        approved_lesson_count=$counts.approved_lesson_count
     }
 }
 
@@ -457,7 +460,9 @@ function Write-DocumentProcessorTrainingOperatorStatus($Status) {
     Write-OperatorField 'Flagged Cases' $Status.flagged_case_count
     Write-OperatorField 'Analysis Ready' $Status.analysis_ready_count
     Write-OperatorField 'Awaiting Approval' $Status.awaiting_approval_count
-    Write-OperatorField 'Retest Required' $Status.retest_required_count
+    Write-OperatorField 'Awaiting Resolution' $Status.awaiting_resolution_count
+    Write-OperatorField 'Corrections Applied' $Status.correction_applied_count
+    Write-OperatorField 'Guidance Approved' $Status.approved_lesson_count
     Write-OperatorField 'Consecutive Failures' $Status.consecutive_failures
     $lastCheck = if ($null -eq $Status.last_check_utc -or [string]::IsNullOrWhiteSpace([string]$Status.last_check_utc)) { 'Not yet' } else { [string]$Status.last_check_utc }
     $nextCheck = if ($null -eq $Status.next_check_utc -or [string]::IsNullOrWhiteSpace([string]$Status.next_check_utc)) { 'Not scheduled' } else { [string]$Status.next_check_utc }
@@ -791,7 +796,7 @@ function Start-DocumentProcessorTraining {
         try { $readinessResult = $check.output | Select-Object -Last 1 | ConvertFrom-Json } catch { throw 'training_readiness_invalid' }
         $expectedMode = [string](Get-OptionalProperty $readinessResult 'configured_mode')
         $expectedFingerprint = [string](Get-OptionalProperty $readinessResult 'capability_fingerprint')
-        if ($expectedMode -notin @('schema_only','read_only','proposal_write','approval_dispatch') -or $expectedFingerprint -notmatch '^[0-9a-f]{64}$') {
+        if ($expectedMode -notin @('schema_only','read_only','proposal_write','approval_dispatch','local_correction') -or $expectedFingerprint -notmatch '^[0-9a-f]{64}$') {
             throw 'training_readiness_invalid'
         }
         Start-OwnedComponent -Name 'dp_training' -Script $dpTrainingLauncher -Arguments @('-ExpectedMode',$expectedMode,'-ExpectedCapabilityFingerprint',$expectedFingerprint) -Marker 'invoke_prefect_document_processor_training.ps1'

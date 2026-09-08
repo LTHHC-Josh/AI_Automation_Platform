@@ -13,6 +13,13 @@ from src.services.mailbox_document_job_state_service import MailboxDocumentJobSt
 from src.services.mailbox_document_smartsheet_recovery_service import MailboxDocumentSmartsheetRecoveryService
 
 
+def isolated_recovery(**kwargs):
+    # Filename-state tests must never construct credential-bearing API adapters.
+    return MailboxDocumentSmartsheetRecoveryService(
+        submission_key_configuration_service=object(),
+        configuration_service=object(), write_service=object(), **kwargs)
+
+
 def evidence(value, confidence=0.95):
     return {"value": value, "confidence": confidence, "source_text": f"Supported: {value}"}
 
@@ -175,7 +182,7 @@ def test_recovery_persists_exact_business_name_before_external_write():
             stage="row_write_pending",
             lease_token=lease.lease_token,
         ).state
-        recovery = MailboxDocumentSmartsheetRecoveryService(
+        recovery = isolated_recovery(
             job_state_service=jobs,
             filename_assembly_service=ProductionFilenameAssemblyService(tables_provider=tables),
         )
@@ -381,7 +388,7 @@ def test_recovery_never_recomputes_a_persisted_technical_name():
             attachment_filename=technical_name,
             attachment_naming_status="technical_fallback",
         ).state
-        recovery = MailboxDocumentSmartsheetRecoveryService(
+        recovery = isolated_recovery(
             job_state_service=jobs,
             filename_assembly_service=ProductionFilenameAssemblyService(
                 tables_provider=tables
@@ -424,7 +431,7 @@ def test_recovery_persists_partial_business_name_and_never_recomputes_it():
         ).state
         subject = document()
         subject.field_evidence["payer"] = evidence("UNMAPPED PLAN")
-        recovery = MailboxDocumentSmartsheetRecoveryService(
+        recovery = isolated_recovery(
             job_state_service=jobs,
             filename_assembly_service=ProductionFilenameAssemblyService(
                 tables_provider=tables
@@ -452,7 +459,7 @@ def test_recovery_persists_partial_business_name_and_never_recomputes_it():
             def evaluate(self, **kwargs):
                 raise AssertionError("persisted attachment name was recomputed")
 
-        resumed = MailboxDocumentSmartsheetRecoveryService(
+        resumed = isolated_recovery(
             job_state_service=jobs,
             filename_assembly_service=MustNotEvaluate(),
         )

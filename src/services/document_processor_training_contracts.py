@@ -45,6 +45,8 @@ CORRECTION_STATUSES = (
     "Approved for Implementation",
     "Implementation In Progress",
     "Retest Required",
+    "Awaiting Resolution Approval",
+    "Correction In Progress",
     "Resolved",
     "Rejected",
     "Needs More Information",
@@ -178,6 +180,7 @@ TRAINING_MODES = (
     "read_only",
     "proposal_write",
     "approval_dispatch",
+    "local_correction",
 )
 
 HISTORICAL_ACCEPTANCE_IMPLEMENTATION_STATE = "historical_acceptance_blocked"
@@ -260,6 +263,10 @@ class TrainingCycleSummary:
     implementation_failed_count: int = 0
     retest_required_count: int = 0
     resolved_count: int = 0
+    correction_applied_count: int = 0
+    awaiting_resolution_count: int = 0
+    approved_lesson_count: int = 0
+    codex_dispatch_count: int = 0
     needs_more_information_count: int = 0
     requires_external_system_count: int = 0
     polling_result: str = "completed"
