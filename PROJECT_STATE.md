@@ -331,15 +331,15 @@ Operator commands remain:
   All human-checkbox and comment comparisons were unchanged, as was the proposal
   generation. Training stopped and proposal_write / dispatch disabled were
   restored. No document correction was implemented; this approval is consumed.
-- The normal standalone CLI configuration selects gpt-6-astra / medium. Isolated
-  no-tools synthetic probes reproduce exit 1, absent result, model-metadata
-  fallback and an invalid-model/session requirement. The exact unmet requirement
-  is not yet safely classified; a WebSocket-related diagnostic context does not
-  independently prove a transport defect. The app-bundled CLI 0.153.4 did not
-  complete its bounded probe, so it is not a verified replacement for standalone
-  CLI 0.151.0. No model/provider/global configuration was changed. Previous
-  probes that ignored user configuration do not establish production readiness.
-  No further live approval cycle should run before configured readiness passes.
+- Configured runtime startup is now proven: the API explicitly rejected standalone
+  CLI 0.151.0 because gpt-6-astra requires a newer Codex version. Upgraded the
+  installed official @openai/codex package to 0.153.4 without changing the model,
+  medium reasoning, provider, or user configuration. Both isolated and actual
+  repository-directory synthetic launches passed with the exact training result
+  schema, exit 0, and zero tool actions. No ignore-config/rules overrides were
+  used. This verifies startup/result compatibility, not correction implementation.
+  The earlier consumed approval remains consumed. Training stays stopped and
+  dispatch disabled until a separately controlled fresh approval acceptance.
 - After the CLI fix, registration was refreshed and one new proposal generation
   was created on the existing case in proposal_write mode. Exact readback,
   retained filename structure/subtype, zero dispatches, unchanged attempt counts,
@@ -416,11 +416,10 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Resolve the configured Codex implementation runtime prerequisite using bounded
-PHI-free diagnostics without consuming another correction approval. Classify the
-Astra model/session requirement and prove the actual intended launch, model,
-configuration, result contract, and cleanup before another live acceptance. Do
-not silently change the model or retry the consumed generation. Only after
-readiness passes, arrange a new proposal generation and fresh human approval on
-the same case. Keep training stopped and dispatch disabled meanwhile; do not
-approve resolution before a separate document retest passes.
+With configured Astra startup verified on standalone Codex 0.153.4, arrange one
+new proposal generation and fresh human approval on the same correction case;
+never reset the consumed approval. Verify the exact current proposal and comment
+checkpoint, then perform one controlled implementation acceptance with safe
+diagnostics, commit/push gates, unchanged human controls, and no retry of a
+consumed generation. Keep training stopped and dispatch disabled outside that
+acceptance. Do not approve resolution before a separate document retest passes.

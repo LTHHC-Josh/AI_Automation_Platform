@@ -13038,3 +13038,39 @@ values or raw child diagnostics were emitted. Temporary helpers are removed.
   "exact_next_start": "Resolve the configured Codex implementation runtime prerequisite using bounded PHI-free diagnostics without consuming another correction approval. Classify the Astra model/session requirement and prove the actual intended launch, model, configuration, result contract, and cleanup before another live acceptance. Do not silently change the model or retry the consumed generation. Only after readiness passes, arrange a new proposal generation and fresh human approval on the same case. Keep training stopped and dispatch disabled meanwhile; do not approve resolution before a separate document retest passes."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Standalone Astra Runtime Upgrade and Verified Startup - 2026-09-08
+
+A synthetic no-tools request using normal configuration recovered the exact safe
+API rejection: gpt-6-astra requires a newer Codex version. This establishes the
+startup cause, not a speculative WebSocket/authentication defect. The installed
+official @openai/codex package was upgraded from 0.151.0 to 0.153.4. Model,
+reasoning effort, provider, user configuration, application code, durable case,
+approval consumption, and production data were not changed.
+
+Two real external synthetic protocol checks passed: an isolated directory and
+the actual repository working directory. Both used normal configured Astra,
+the current dispatcher approval option, ephemeral execution, and the exact
+training result schema. Both returned exit 0 and the expected deliberately
+incomplete synthetic result, with zero tool actions. Neither used ignore-config
+or ignore-rules. Probes had bounded timeouts and owned-child cleanup. No live
+training, mailbox, OCR/Ollama, document write/upload, or comments were accessed.
+
+This is a runtime installation fix, not implementation of the approved correction.
+The consumed generation is not rearmed. Training remains stopped and dispatch
+disabled. Source files did not change and do not require deployment refresh for
+this package upgrade. Continuity and dispatcher/readiness regressions are run
+before commit; tracker synchronization must report Not Found 0 / Failed 0.
+Files changed: PROJECT_STATE.md, PROJECT_HISTORY.md, PROJECT_SMARTSHEET.md.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Fixed configured Astra startup by upgrading standalone Codex from 0.151.0 to 0.153.4.",
+  "key_result": "Exact API rejection proved an outdated CLI. Normal-config synthetic launches passed in isolated and actual project directories; exit 0, exact result schema, zero tools.",
+  "tests": "Two real synthetic API protocol checks passed; dispatcher/readiness and continuity/tracker regressions run before commit.",
+  "phi_handling": "Synthetic inputs only; no live training, document processing, comments, or approval changes. Tracker receives only safe project summary.",
+  "limitation_acceptance": "Startup fixed; document correction not implemented. Previous approval remains consumed; no model/config switch.",
+  "exact_next_start": "With configured Astra startup verified on standalone Codex 0.153.4, arrange one new proposal generation and fresh human approval on the same correction case; never reset the consumed approval. Verify the exact current proposal and comment checkpoint, then perform one controlled implementation acceptance with safe diagnostics, commit/push gates, unchanged human controls, and no retry of a consumed generation. Keep training stopped and dispatch disabled outside that acceptance. Do not approve resolution before a separate document retest passes."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
