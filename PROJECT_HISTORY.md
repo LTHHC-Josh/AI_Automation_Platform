@@ -13074,3 +13074,43 @@ Files changed: PROJECT_STATE.md, PROJECT_HISTORY.md, PROJECT_SMARTSHEET.md.
   "exact_next_start": "With configured Astra startup verified on standalone Codex 0.153.4, arrange one new proposal generation and fresh human approval on the same correction case; never reset the consumed approval. Verify the exact current proposal and comment checkpoint, then perform one controlled implementation acceptance with safe diagnostics, commit/push gates, unchanged human controls, and no retry of a consumed generation. Keep training stopped and dispatch disabled outside that acceptance. Do not approve resolution before a separate document retest passes."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Explicit Same-Proposal Infrastructure Recovery - 2026-09-08
+
+The operator explicitly approved recovery of an unchanged previously approved
+proposal after a verified infrastructure repair, without checkbox/comment edits.
+Added authorize_runtime_recovery as an administrative application operation, not
+a polling trigger. Caller attestation must represent proven pre-implementation
+CLI failure and a passed configured runtime/schema probe, not inference from a
+generic exit code. Exact expected prior attempt and one eligible case are required.
+Current proposal/hash, comment checkpoint, production context and human approval
+are verified. Pending write ambiguity blocks recovery. A sealed per-generation
+reservation is persisted before the workflow-owned status write. Consumed approval,
+attempt history, proposal generation and case/job identity are never reset.
+Ordinary dispatch rechecks exact current approval; one successful recovery reaches
+Retest Required. Failed recovery is not automatically retried or granted again.
+
+Production repository operation locking serializes cycles/recovery; existing
+implementation lock and clean/synchronized Git guards remain. Stale operation
+locks fail closed rather than guessing process ownership. No schema migration:
+the fixed repair audit is stored in the existing sealed transition history.
+
+Files: training application and contracts, protected correction storage, new
+test_dp_training_runtime_recovery.py, and the three continuity layers. Python
+compilation passed. Synthetic/mock focused/affected tests: recovery 7, training
+54, configuration 5, readiness 5, PowerShell 5.1 commands 7, business context 5:
+83 passed, 0 failed. Continuity/tracker regressions run before commit. No live
+recovery has occurred at this checkpoint; no patient data or external document
+operations occurred. Tracker receives only a safe project checkpoint.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Added explicit one-time same-proposal recovery after verified CLI infrastructure repair.",
+  "key_result": "Preserves human controls, feedback, consumed approval and identity; exact rechecks, durable reservation and operation lock prevent blind/concurrent retries.",
+  "tests": "83 focused/affected synthetic/mock tests passed, including 7 recovery cases and PowerShell 5.1; Python compilation passed.",
+  "phi_handling": "Synthetic tests only; no document operations or human-input writes. Sealed audit, safe diagnostics.",
+  "limitation_acceptance": "Live same-generation recovery pending. Stale locks fail closed. Real document retest remains required after implementation.",
+  "exact_next_start": "Perform the explicitly authorized one-time runtime-repair recovery of the existing unchanged approved correction generation. Recheck runtime readiness and exact proposal, feedback, human controls, and context; preserve consumed approval and case identity. Run one bounded implementation and verify commit/push gates, unchanged human inputs, and an idempotent following cycle. Keep training stopped outside acceptance. A real document test and separate resolution approval remain required after successful implementation."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

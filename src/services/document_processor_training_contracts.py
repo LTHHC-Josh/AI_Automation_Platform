@@ -70,7 +70,8 @@ ALLOWED_STATUS_TRANSITIONS = {
     "Resolved": frozenset({"New"}),
     "Rejected": frozenset({"New"}),
     "Needs More Information": frozenset({"New", "Rejected"}),
-    "Cannot Resolve Yet": frozenset({"New"}),
+    # The extra edge is used only by explicit verified runtime recovery.
+    "Cannot Resolve Yet": frozenset({"New", "Approved for Implementation"}),
     "Requires External System": frozenset({"New"}),
 }
 

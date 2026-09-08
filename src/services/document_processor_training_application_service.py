@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -112,6 +113,89 @@ class DocumentProcessorTrainingApplicationService:
         )
 
     def run_cycle(self, *, stage_observer: StageObserver | None = None) -> TrainingCycleSummary:
+        # Production storage serializes normal cycles and explicit recovery.
+        # In-memory injected test repositories need no filesystem lock.
+        with getattr(self.repository, "exclusive_operation", nullcontext)():
+            return self._run_cycle(stage_observer=stage_observer)
+
+    def authorize_runtime_recovery(
+        self, *, operator_authorized: bool, runtime_probe_passed: bool,
+        repair_category: str, expected_attempt_count: int,
+    ) -> str:
+        """Explicit administrative operation; NEVER called by polling.
+
+        The caller must prove the previous failure was pre-implementation and
+        the repaired configured runtime passes the actual result-schema probe.
+        Generic exit codes alone are not evidence of a repaired infrastructure
+        failure. The operator authorization applies only to this exact attempt.
+        """
+        if (operator_authorized is not True or runtime_probe_passed is not True
+                or repair_category != "verified_codex_cli_startup_repair"
+                or self.mode != "approval_dispatch"
+                or type(expected_attempt_count) is not int):
+            return "runtime_recovery_not_authorized"
+        with getattr(self.repository, "exclusive_operation", nullcontext)():
+            cases = self.repository.list_cases()
+            if any(c.implementation_state in {"running", "authorized", "waiting"} for c in cases):
+                return "runtime_recovery_conflict"
+            eligible = [c for c in cases if (
+                c.status == "Cannot Resolve Yet" and c.implementation_state == "failed"
+                and c.implementation_failure_category == "codex_failed"
+                and c.implementation_exit_code in {1, 2}
+                and c.implementation_attempt_count == expected_attempt_count
+                and expected_attempt_count > 0
+                and c.proposal_generation > 0
+                and c.correction_approval_consumed_generation == c.proposal_generation
+                and not c.implementation_commit_sha and not c.pending_feedback
+            )]
+            if len(eligible) != 1:
+                return "runtime_recovery_not_eligible"
+            case = eligible[0]
+            if any(event.get("runtime_recovery_generation") == str(case.proposal_generation)
+                   for event in case.transition_history):
+                return "runtime_recovery_already_used"
+            schema = self.schema_service.read()
+            if not schema.success:
+                return "runtime_recovery_schema_unavailable"
+            if not self._reconcile_write_intent(correction_case=case, schema=schema):
+                return "runtime_recovery_write_unresolved"
+            if not self._proposal_is_current(
+                correction_case=case, schema=schema,
+                allowed_statuses={"Cannot Resolve Yet"},
+            ):
+                return "runtime_recovery_stale_approval"
+            # Also compare approved production context; naming/feedback cannot
+            # silently change under an unchanged proposal string.
+            current = self.reader.read_context_row(row_id=case.row_id, schema=schema)
+            context = {k: v for k, v in current.values.items() if k not in REQUIRED_COLUMNS}
+            if stable_digest(context) != stable_digest(case.row_snapshot):
+                return "runtime_recovery_stale_context"
+            # Reserve once BEFORE external writes. A crash cannot grant a second
+            # recovery. Do not decrement attempts or reset consumed approvals.
+            case.transition_history.append({
+                "status": case.status,
+                "at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "runtime_recovery_generation": str(case.proposal_generation),
+                "prior_attempt_count": str(case.implementation_attempt_count),
+                "repair_category": repair_category,
+            })
+            self.repository.save(case)
+            if not self._write_case_fields(
+                correction_case=case, schema=schema,
+                updates={AI_CORRECTION_STATUS: "Approved for Implementation"},
+                expected_values={AI_CORRECTION_STATUS: "Cannot Resolve Yet",
+                    AI_PROPOSED_CORRECTION: case.proposal_text,
+                    AI_CORRECTION_TYPE: case.correction_type,
+                    AI_CORRECTION: True, APPROVE_AI_CORRECTION: True},
+                stage_observer=None,
+            ):
+                return "runtime_recovery_write_unresolved"
+            self._transition(case, "Approved for Implementation")
+            case.implementation_state = "authorized"
+            self.repository.save(case)
+            return "runtime_recovery_authorized"
+
+    def _run_cycle(self, *, stage_observer: StageObserver | None = None) -> TrainingCycleSummary:
         self._cycle = {
             "new": 0, "updated": 0, "authorized": 0,
             "started": 0, "completed": 0, "failed": 0, "resolved": 0,
@@ -712,7 +796,7 @@ class DocumentProcessorTrainingApplicationService:
         self._observe(stage_observer, "resolution_approved", "completed")
         self._observe(stage_observer, "case_resolved", "completed")
 
-    def _proposal_is_current(self, *, correction_case, schema) -> bool:
+    def _proposal_is_current(self, *, correction_case, schema, allowed_statuses=None) -> bool:
         try:
             current = self.reader.read_row(row_id=correction_case.row_id, schema=schema)
             comments = self.reader.read_comments(row_id=correction_case.row_id)
@@ -725,7 +809,8 @@ class DocumentProcessorTrainingApplicationService:
             current.values.get(AI_PROPOSED_CORRECTION) == correction_case.proposal_text
             and current.values.get(AI_CORRECTION_TYPE) == correction_case.correction_type
             and current.values.get(AI_CORRECTION_STATUS)
-            in {"Analysis Ready", "Approved for Implementation"}
+            in (allowed_statuses if allowed_statuses is not None else
+                {"Analysis Ready", "Approved for Implementation"})
             and current.values.get(AI_CORRECTION) is True
             and current.values.get(APPROVE_AI_CORRECTION) is True
             and stable_digest(comment_payload) == correction_case.comment_checkpoint_digest

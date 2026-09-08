@@ -260,6 +260,17 @@ generation on the same identity, invalidate stale approval baselines, and become
 idempotent on unchanged readback. Approval-dispatch capability remains a later
 separately controlled production step.
 
+Explicit operator-authorized infrastructure recovery now permits one additional
+attempt for the same unchanged approved generation after a verified CLI startup
+repair. It is not called by polling and does not reset a consumed approval,
+change a human checkbox/comment, or regenerate the proposal. Exact current
+proposal, feedback, context, approval, prior attempt, and unresolved-write checks
+must pass. A durable per-generation audit reservation precedes the workflow-only
+status write. Failed/uncertain grant or recovery cannot grant another retry for
+that generation. A repository operation lock serializes recovery and normal
+cycles; stale locks fail closed. Existing dispatcher/Git locks still apply.
+Protected schema remains version 3; audit metadata uses existing sealed history.
+
 ## Prefect and Operator Runtime
 
 The local control room uses self-hosted Prefect 3.8.4 with PostgreSQL 17.11.
@@ -416,10 +427,10 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-With configured Astra startup verified on standalone Codex 0.153.4, arrange one
-new proposal generation and fresh human approval on the same correction case;
-never reset the consumed approval. Verify the exact current proposal and comment
-checkpoint, then perform one controlled implementation acceptance with safe
-diagnostics, commit/push gates, unchanged human controls, and no retry of a
-consumed generation. Keep training stopped and dispatch disabled outside that
-acceptance. Do not approve resolution before a separate document retest passes.
+Perform the explicitly authorized one-time runtime-repair recovery of the existing
+unchanged approved correction generation. Recheck runtime readiness and exact
+proposal, feedback, human controls, and context; preserve consumed approval and
+case identity. Run one bounded implementation and verify commit/push gates,
+unchanged human inputs, and an idempotent following cycle. Keep training stopped
+outside acceptance. A real document test and separate resolution approval remain
+required after successful implementation.

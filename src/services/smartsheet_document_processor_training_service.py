@@ -330,7 +330,8 @@ class SmartsheetCorrectionWriter:
         except Exception:
             return CorrectionWriteResult(False, "workflow_write_precondition_unavailable", 0, False, True)
         expected = expected_proposal_hash_values or {}
-        if not isinstance(expected, dict) or not set(expected) <= WORKFLOW_OWNED_COLUMNS:
+        # Human-owned cells may be read-only preconditions, never write targets.
+        if not isinstance(expected, dict) or not set(expected) <= REQUIRED_COLUMNS:
             return CorrectionWriteResult(False, "workflow_write_precondition_invalid", 0, False, True)
         if any(before.values.get(title) != value for title, value in expected.items()):
             return CorrectionWriteResult(False, "workflow_write_stale", 0, False, True)

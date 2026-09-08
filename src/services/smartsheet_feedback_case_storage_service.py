@@ -1,4 +1,5 @@
 import base64
+from contextlib import contextmanager
 import hashlib
 import hmac
 import os
@@ -208,6 +209,23 @@ class ProtectedCorrectionCaseRepository:
         self._injected_protect = protect
         self._injected_unprotect = unprotect
         self.utc_now = utc_now or (lambda: datetime.now(timezone.utc))
+
+    @contextmanager
+    def exclusive_operation(self):
+        """Serialize cycles and explicit recovery; stale locks fail closed."""
+        self.directory.mkdir(parents=True, exist_ok=True)
+        path = self.directory / ".training-operation.lock"
+        try:
+            descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            raise CorrectionCaseStorageError("training_operation_locked") from None
+        try:
+            os.write(descriptor, str(os.getpid()).encode("ascii"))
+            os.fsync(descriptor)
+            yield
+        finally:
+            os.close(descriptor)
+            path.unlink()
 
     def case_id(self, *, source_scope: str, row_id: int) -> str:
         if not isinstance(source_scope, str) or not source_scope.strip():
