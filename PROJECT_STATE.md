@@ -326,6 +326,15 @@ Operator commands remain:
 
 ## Current Limitations and Pending Acceptance
 
+- The subsequent fresh-approval implementation acceptance recorded exactly one
+  failed attempt with retained codex_failed / exit 2. The installed CLI rejected
+  the dispatcher's mutually exclusive --sandbox and --approve-for-me arguments.
+  The redundant explicit sandbox argument is removed; --approve-for-me retains
+  workspace-write plus automatic review. Synthetic parsing and a real isolated
+  PHI-free result-schema probe passed after correction, with zero tool actions.
+  The unchanged following live cycle did not retry the consumed approval.
+  Training was stopped and proposal_write / dispatch-disabled mode restored.
+  This fixes launch compatibility, not the approved document correction itself.
 - The post-schema-fix controlled proposal-write cycle passed on the existing
   correction case after a normal new comment and unchecked approval. Exactly one
   new generation was created; exact readback, compatible filename structure and
@@ -384,9 +393,10 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Have the reviewer inspect the new AI Proposed Correction on the existing case.
-If correct, require a fresh Approve AI Correction false-to-true edge, refresh
-training source registration if required, and perform one controlled implementation
-acceptance. Verify retained safe diagnostics, commit/push gates, unchanged human
-controls, and no retry on the following cycle. Do not approve resolution until a
-separate document retest passes; stop DP Training afterward.
+Refresh training source registration for the CLI argument fix, then create a new
+proposal generation on the same correction case using a normal reviewer comment
+with Approve AI Correction unchecked. Verify the proposal, obtain a fresh human
+approval edge, and perform one controlled implementation acceptance. Verify safe
+diagnostics, commit/push gates, unchanged human controls, and no retry on the
+following cycle. Do not reuse the consumed approval or approve resolution before
+a separate document retest passes; stop DP Training afterward.

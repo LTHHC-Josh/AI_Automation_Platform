@@ -857,6 +857,10 @@ def test_codex_dispatch_is_one_bounded_ephemeral_sanitized_process():
             process = FakeCodexProcess.calls[0]
             assert "--ephemeral" in process.command
             assert "--approve-for-me" in process.command
+            # The installed CLI makes this mutually exclusive with --sandbox.
+            assert "--sandbox" not in process.command
+            assert "-s" not in process.command
+            assert "--dangerously-bypass-approvals-and-sandbox" not in process.command
             assert "resume" not in process.command
             assert process.timeout == 15
             assert "protected proposal text" not in process.prompt

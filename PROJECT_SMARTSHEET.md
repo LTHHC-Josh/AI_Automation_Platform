@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-08
-Work: Passed controlled post-schema-fix proposal acceptance on the existing correction case.
-Result: Exactly one new generation; exact readback, compatible structure and subtype retained; human controls/comments unchanged; no implementation dispatch; training stopped.
-Tests: Real proposal-only acceptance passed. Continuity and tracker regressions checked separately before checkpoint commit.
-PHI: Approved feedback reads/local analysis/proposal writes only; protected values remained local or in Smartsheet; safe booleans/counts reported.
-Status: Reviewer must inspect the new proposal. No implementation or unchanged-following-cycle acceptance was performed in this cycle.
-Next: Have the reviewer inspect the new AI Proposed Correction on the existing case. If correct, require a fresh Approve AI Correction false-to-true edge, refresh training source registration if required, and perform one controlled implementation acceptance. Verify retained safe diagnostics, commit/push gates, unchanged human controls, and no retry on the following cycle. Do not approve resolution until a separate document retest passes; stop DP Training afterward.
+Work: Diagnosed and fixed mutually exclusive CLI arguments after one controlled approval dispatch failed.
+Result: Retained exit 2; removed redundant sandbox argument while preserving automatic review and workspace-write. Following live cycle did not retry; training stopped and dispatch disabled.
+Tests: 90 synthetic/mock checks passed; modified Python compiled. Real isolated PHI-free argument/result-schema probes passed after correction; protocol exit 0 with zero tool actions.
+PHI: Approved feedback reads/workflow-state writes only; no document processing or comment writes; safe categories/counts retained.
+Status: Launch fix verified, document correction not implemented. Failed approval remains consumed; production-configured implementation acceptance still pending.
+Next: Refresh training source registration for the CLI argument fix, then create a new proposal generation on the same correction case using a normal reviewer comment with Approve AI Correction unchecked. Verify the proposal, obtain a fresh human approval edge, and perform one controlled implementation acceptance. Verify safe diagnostics, commit/push gates, unchanged human controls, and no retry on the following cycle. Do not reuse the consumed approval or approve resolution before a separate document retest passes; stop DP Training afterward.
 
 ## Safety Contract
 

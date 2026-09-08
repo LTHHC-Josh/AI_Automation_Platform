@@ -12892,3 +12892,58 @@ The new proposal still requires human review and a fresh approval edge.
   "exact_next_start": "Have the reviewer inspect the new AI Proposed Correction on the existing case. If correct, require a fresh Approve AI Correction false-to-true edge, refresh training source registration if required, and perform one controlled implementation acceptance. Verify retained safe diagnostics, commit/push gates, unchanged human controls, and no retry on the following cycle. Do not approve resolution until a separate document retest passes; stop DP Training afterward."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Controlled Dispatch Argument Rejection and Fix - 2026-09-08
+
+The operator confirmed a fresh Approve AI Correction edge after reviewing the
+current proposal. Protected preflight verified exactly one eligible existing
+case, current proposal/type/comment digest, unchecked resolution approval,
+clean synchronized Git, and no active training worker/run. Training source was
+refreshed. The owned Windows PowerShell 5.1 runtime temporarily used
+approval_dispatch with dispatch enabled. Exactly one implementation attempt was
+recorded; it failed with retained codex_failed and exit 2. No implementation
+commit or document correction resulted. The consumed generation was not rearmed.
+The unchanged following live cycle recorded zero additional dispatches. Human
+controls/comments and proposal generation were unchanged. Training was stopped;
+proposal_write and disabled dispatch were restored using only exact gate edits.
+
+Installed codex-cli 0.151.0 deterministically rejects the dispatch command's
+combination of --sandbox workspace-write and --approve-for-me. A synthetic
+argument probe reproduced exit 2 with the mutual-exclusion diagnostic. Removing
+only the explicit sandbox pair passed argument parsing and stopped at an
+intentionally absent schema before any model task. An isolated real PHI-free
+protocol probe with the corrected approval option and exact result schema then
+returned exit 0, the expected deliberately incomplete synthetic result, and zero
+tool actions. User configuration/rules were excluded in that protocol probe;
+production-configured implementation still requires separate acceptance. The
+installed CLI help establishes that --approve-for-me selects workspace-write
+plus automatic review; no sandbox bypass or weaker approval policy was added.
+OpenAI Docs was consulted; installed CLI evidence established this version-specific
+argument contract. The earlier discarded historical failure is not reconstructed.
+
+Changed files: src/services/document_processor_training_codex_service.py,
+tests/test_document_processor_training.py, PROJECT_STATE.md, PROJECT_HISTORY.md,
+and generated PROJECT_SMARTSHEET.md. Regression assertions prohibit the conflicting
+sandbox flag and dangerous bypass in the approved bounded launch. Both modified
+Python files compiled. The final direct synthetic/mock test runs passed 54
+training, 5 configuration, 5 readiness, 7 Windows PowerShell 5.1 command, 5
+business-context, 11 continuity, and 3 tracker tests: 90 passed, zero failed.
+Tracker synchronization, full diff/protected-path review, and Git synchronization
+are checked before this checkpoint is committed.
+Temporary probes emit only safe categories/counts and are removed after use.
+No mailbox/Graph content, document OCR, production document row creation/upload,
+mailbox mutation, or comment write occurred. Existing training feedback reads and
+workflow-owned status/result writes were the approved production integration;
+no protected values appeared in diagnostics. AI Correction ownership is unchanged.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Diagnosed and fixed mutually exclusive CLI arguments after one controlled approval dispatch failed.",
+  "key_result": "Retained exit 2; removed redundant sandbox argument while preserving automatic review and workspace-write. Following live cycle did not retry; training stopped and dispatch disabled.",
+  "tests": "90 synthetic/mock checks passed; modified Python compiled. Real isolated PHI-free argument/result-schema probes passed after correction; protocol exit 0 with zero tool actions.",
+  "phi_handling": "Approved feedback reads/workflow-state writes only; no document processing or comment writes; safe categories/counts retained.",
+  "limitation_acceptance": "Launch fix verified, document correction not implemented. Failed approval remains consumed; production-configured implementation acceptance still pending.",
+  "exact_next_start": "Refresh training source registration for the CLI argument fix, then create a new proposal generation on the same correction case using a normal reviewer comment with Approve AI Correction unchecked. Verify the proposal, obtain a fresh human approval edge, and perform one controlled implementation acceptance. Verify safe diagnostics, commit/push gates, unchanged human controls, and no retry on the following cycle. Do not reuse the consumed approval or approve resolution before a separate document retest passes; stop DP Training afterward."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

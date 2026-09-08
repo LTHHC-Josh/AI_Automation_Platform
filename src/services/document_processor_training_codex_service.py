@@ -117,8 +117,8 @@ class BoundedCodexDispatcher:
                 codex,
                 "exec",
                 "--ephemeral",
-                "--sandbox",
-                "workspace-write",
+                # This option selects workspace-write plus automatic review.
+                # CLI 0.151.0 rejects combining it with an explicit --sandbox.
                 "--approve-for-me",
                 "--cd",
                 str(self.repository_root),
