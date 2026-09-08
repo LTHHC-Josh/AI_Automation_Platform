@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-08
-Work: Refreshed training registration and generated one new proposal after the CLI launch fix.
-Result: Exact proposal readback and retained structure/subtype; no dispatch or approval consumption; training stopped. Current active-case comment/proposal checkpoint matches with approvals unchecked.
-Tests: Real proposal-cycle checks passed except aggregate unchanged-input snapshot. Continuity/tracker regressions checked before commit.
-PHI: Approved feedback reads/local analysis/proposal writes only; no document or implementation operations; protected values not emitted.
-Status: Aggregate initial/final controls/comments snapshot differed; cause not reconstructed. Reverify current inputs before fresh approval dispatch.
-Next: Have the reviewer inspect the current AI Proposed Correction and approve it only if correct. Before a controlled implementation acceptance, reverify the exact proposal/comment checkpoint and fresh Approve AI Correction edge; refresh source registration if required. Verify safe diagnostics, commit/push gates, human controls, and no retry on the following cycle. Preserve any concurrent reviewer change and stop for stale approval. Do not approve resolution before a separate document retest passes; stop DP Training afterward.
+Work: Controlled dispatch failed at configured CLI startup; stopped live approval cycling pending runtime readiness.
+Result: One attempt, retained exit 1, no automatic retry; all human controls/comments unchanged; training stopped and dispatch disabled. No document correction implemented.
+Tests: Live implementation acceptance failed; following-cycle no-retry/ownership checks passed. Synthetic configured CLI probes reproduced failure; bundled comparison incomplete.
+PHI: Approved training feedback/state integration only; no document processing or comment writes; fixed diagnostic categories/counts only.
+Status: Exact Astra model/session prerequisite remains unresolved. Earlier ignore-config probes do not prove production readiness; no model switch or approval rearm.
+Next: Resolve the configured Codex implementation runtime prerequisite using bounded PHI-free diagnostics without consuming another correction approval. Classify the Astra model/session requirement and prove the actual intended launch, model, configuration, result contract, and cleanup before another live acceptance. Do not silently change the model or retry the consumed generation. Only after readiness passes, arrange a new proposal generation and fresh human approval on the same case. Keep training stopped and dispatch disabled meanwhile; do not approve resolution before a separate document retest passes.
 
 ## Safety Contract
 

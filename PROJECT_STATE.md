@@ -326,6 +326,20 @@ Operator commands remain:
 
 ## Current Limitations and Pending Acceptance
 
+- The latest fresh-approval cycle recorded one failed implementation attempt:
+  codex_failed, exit 1. The unchanged following live cycle did not retry it.
+  All human-checkbox and comment comparisons were unchanged, as was the proposal
+  generation. Training stopped and proposal_write / dispatch disabled were
+  restored. No document correction was implemented; this approval is consumed.
+- The normal standalone CLI configuration selects gpt-6-astra / medium. Isolated
+  no-tools synthetic probes reproduce exit 1, absent result, model-metadata
+  fallback and an invalid-model/session requirement. The exact unmet requirement
+  is not yet safely classified; a WebSocket-related diagnostic context does not
+  independently prove a transport defect. The app-bundled CLI 0.153.4 did not
+  complete its bounded probe, so it is not a verified replacement for standalone
+  CLI 0.151.0. No model/provider/global configuration was changed. Previous
+  probes that ignored user configuration do not establish production readiness.
+  No further live approval cycle should run before configured readiness passes.
 - After the CLI fix, registration was refreshed and one new proposal generation
   was created on the existing case in proposal_write mode. Exact readback,
   retained filename structure/subtype, zero dispatches, unchanged attempt counts,
@@ -402,10 +416,11 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Have the reviewer inspect the current AI Proposed Correction and approve it only
-if correct. Before a controlled implementation acceptance, reverify the exact
-proposal/comment checkpoint and fresh Approve AI Correction edge; refresh source
-registration if required. Verify safe diagnostics, commit/push gates, human
-controls, and no retry on the following cycle. Preserve any concurrent reviewer
-change and stop for stale approval. Do not approve resolution before a separate
-document retest passes; stop DP Training afterward.
+Resolve the configured Codex implementation runtime prerequisite using bounded
+PHI-free diagnostics without consuming another correction approval. Classify the
+Astra model/session requirement and prove the actual intended launch, model,
+configuration, result contract, and cleanup before another live acceptance. Do
+not silently change the model or retry the consumed generation. Only after
+readiness passes, arrange a new proposal generation and fresh human approval on
+the same case. Keep training stopped and dispatch disabled meanwhile; do not
+approve resolution before a separate document retest passes.

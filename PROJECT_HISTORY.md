@@ -12989,3 +12989,52 @@ Protected values remained in approved processing; diagnostics were booleans/coun
   "exact_next_start": "Have the reviewer inspect the current AI Proposed Correction and approve it only if correct. Before a controlled implementation acceptance, reverify the exact proposal/comment checkpoint and fresh Approve AI Correction edge; refresh source registration if required. Verify safe diagnostics, commit/push gates, human controls, and no retry on the following cycle. Preserve any concurrent reviewer change and stop for stale approval. Do not approve resolution before a separate document retest passes; stop DP Training afterward."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Configured Runtime Acceptance Failure - 2026-09-08
+
+The operator checked Approve AI Correction for the current proposal. Protected
+preflight verified exactly one fresh eligible approval, current proposal/type
+and comment checkpoint, clean synchronized Git, and no training conflict.
+Training registration was refreshed. One controlled approval_dispatch cycle
+recorded one attempt that exited with retained codex_failed / exit 1. No approved
+document correction or implementation commit resulted. The unchanged following
+live cycle started zero additional implementations. Safe final per-field checks
+showed zero changes to each human checkbox and zero changed comment checkpoints;
+the active case and proposal generation were unchanged. Training stopped and
+proposal_write / disabled dispatch were restored. No consumed approval was reset.
+
+The prior argument conflict is absent. Diagnostic-only synthetic probes using
+the normal user CLI configuration reproduced exit 1 and no result/tool actions.
+The selected model is gpt-6-astra at medium reasoning. Allowlisted diagnostics
+establish a model-metadata fallback and invalid-model/session requirement, but
+not its precise unmet capability. A WebSocket diagnostic context was observed;
+it does not prove that transport is the root cause. No unsupported-account or
+authentication cause is claimed. Standalone CLI is 0.151.0; a comparison with the
+app-bundled 0.153.4 failed to complete its 120-second subprocess probe. That is
+not proof that the bundled runtime supports this production contract. Probe
+cleanup completed; a process-marker check found zero remaining synthetic probes.
+No global configuration, model selection, provider, or application code changed.
+OpenAI Docs was used for troubleshooting guidance; local diagnostic evidence
+remains authoritative for this installation. Ignoring user configuration in
+earlier successful protocol probes did not test the configured production model.
+
+Files changed: PROJECT_STATE.md, PROJECT_HISTORY.md, generated
+PROJECT_SMARTSHEET.md only. The live implementation acceptance failed safely;
+the following no-retry and human-ownership checks passed. Continuity/tracker
+regressions and tracker synchronization are checked before checkpoint commit.
+Approved training feedback reads/workflow-state writes occurred. No document
+processing, mailbox/Graph document access, document OCR, production document row
+creation/upload, mailbox mutation, or comment writes occurred. No protected
+values or raw child diagnostics were emitted. Temporary helpers are removed.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Controlled dispatch failed at configured CLI startup; stopped live approval cycling pending runtime readiness.",
+  "key_result": "One attempt, retained exit 1, no automatic retry; all human controls/comments unchanged; training stopped and dispatch disabled. No document correction implemented.",
+  "tests": "Live implementation acceptance failed; following-cycle no-retry/ownership checks passed. Synthetic configured CLI probes reproduced failure; bundled comparison incomplete.",
+  "phi_handling": "Approved training feedback/state integration only; no document processing or comment writes; fixed diagnostic categories/counts only.",
+  "limitation_acceptance": "Exact Astra model/session prerequisite remains unresolved. Earlier ignore-config probes do not prove production readiness; no model switch or approval rearm.",
+  "exact_next_start": "Resolve the configured Codex implementation runtime prerequisite using bounded PHI-free diagnostics without consuming another correction approval. Classify the Astra model/session requirement and prove the actual intended launch, model, configuration, result contract, and cleanup before another live acceptance. Do not silently change the model or retry the consumed generation. Only after readiness passes, arrange a new proposal generation and fresh human approval on the same case. Keep training stopped and dispatch disabled meanwhile; do not approve resolution before a separate document retest passes."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
