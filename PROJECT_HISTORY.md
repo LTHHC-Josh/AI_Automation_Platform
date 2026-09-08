@@ -13362,3 +13362,38 @@ Smartsheet sync. Bounded learning is fixed guidance, not unrestricted self-teach
   "exact_next_start": "Refresh committed registrations and verify local_correction readiness. Complete controlled acceptance: process one new document, flag its existing row, approve the proposal, verify existing-row/document correction, approve resolution, and verify approved learning reaches a later same-type document. Confirm restart/idempotency and rollback evidence, local Ollama only, and unchanged human controls. Stop DP Training cleanly. Do not declare end-to-end readiness before this chain is proven; no resubmission is needed to resolve the original correction."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Local Correction Pre-Live Registration - 2026-09-08
+
+Implementation 7a3dfe63452c3cd6d77a21c8a676a6f6745563e0 committed/pushed;
+local/remote divergence zero and clean source. Refreshed all four existing
+deployments individually with that version. Read-only verification proved unique
+names, exact entrypoints, repository pull-step directory, expected pools,
+parameterless operation and zero schedules/automations/active runs. Manual/live/
+training retain one/CANCEL_NEW. No unexpected deployments or fresh workers.
+Installed API query limit is 200; source directory is in set_working_directory
+pull steps, not the legacy nullable path property. Probe was corrected accordingly.
+
+Changed only the ignored local training mode from proposal_write to
+local_correction. Configuration/protected-state/write-gate readiness passed;
+local Ollama identity metadata proved local, without inference. Both DP runtimes
+remain stopped; test Sandbox inventory is empty. No worker/deployment invocation,
+document processing, row/attachment/comment operation or mailbox mutation occurred.
+Registration is control-plane maintenance, not live acceptance.
+
+Files: three continuity layers only for this pre-live checkpoint. Prior 353
+synthetic/mock/isolated checks and real code-only probes remain the tested baseline.
+Continuity/tracker checks rerun before final metadata commit. No unrestricted
+automatic code editing or full live acceptance is claimed.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Local correction implementation pushed; four source registrations and local-only readiness verified.",
+  "key_result": "Same-row correction, resolution guidance and guarded local code updates implemented. Training configured local_correction but stopped; no workers or active runs.",
+  "tests": "353 checks passed; real offline Sandbox/code-only Ollama probes passed their gates. PowerShell 5.1 and tracker 0/0 passed.",
+  "phi_handling": "Control-plane registration and local metadata only; no document or correction-row/comment operations.",
+  "limitation_acceptance": "Full live chain remains pending. Automatic code scope is filename/review method bodies; bounded guidance is not weight training.",
+  "exact_next_start": "Complete controlled acceptance: process one new document, flag its existing row, approve the proposal, verify existing-row/document correction, approve resolution, and verify approved learning reaches a later same-type document. Confirm restart/idempotency and rollback evidence, local Ollama only, and unchanged human controls. Stop DP Training cleanly. Source registrations and local_correction prerequisites are verified; do not declare end-to-end readiness before this chain is proven. No resubmission is needed to resolve the original correction."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

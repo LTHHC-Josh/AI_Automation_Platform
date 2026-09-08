@@ -223,8 +223,8 @@ exception text, tokens, and sensitive response fields are never retained.
 DP Training is the separate operator-owned correction service. Local modes are
 schema_only, read_only, proposal_write and local_correction. The historical
 approval_dispatch mode is a compatibility alias for local correction, not Codex.
-Configured mode remains proposal_write until final controlled-test setup explicitly
-changes it; changing mode requires the existing fingerprint/owned restart contract.
+Configured mode is local_correction; the service remains stopped pending controlled
+acceptance. Startup uses the existing fingerprint/owned restart contract.
 
 Current versions:
 - `business_context_version`: 3
@@ -408,4 +408,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Refresh committed registrations and verify local_correction readiness. Complete controlled acceptance: process one new document, flag its existing row, approve the proposal, verify existing-row/document correction, approve resolution, and verify approved learning reaches a later same-type document. Confirm restart/idempotency and rollback evidence, local Ollama only, and unchanged human controls. Stop DP Training cleanly. Do not declare end-to-end readiness before this chain is proven; no resubmission is needed to resolve the original correction.
+Complete controlled acceptance: process one new document, flag its existing row, approve the proposal, verify existing-row/document correction, approve resolution, and verify approved learning reaches a later same-type document. Confirm restart/idempotency and rollback evidence, local Ollama only, and unchanged human controls. Stop DP Training cleanly. Source registrations and local_correction prerequisites are verified; do not declare end-to-end readiness before this chain is proven. No resubmission is needed to resolve the original correction.
