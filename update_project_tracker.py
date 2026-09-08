@@ -44,8 +44,11 @@ PROJECT_SMARTSHEET_TASKS = [
             "reviewer values as production evidence, and permits one version-keyed "
             "reanalysis of the current contract-v2 case. Reviewer-facing proposals now "
             "render concise business summaries while protected structural analysis "
-            "remains authoritative; minimal-comment proposal-write and unchanged-cycle "
-            "idempotency acceptance remains pending. Live DP now "
+            "remains authoritative. Minimal-comment proposal-write and unchanged-cycle "
+            "idempotency acceptance passed. A later approved dispatch failed with "
+            "unavailable historical cause; safe diagnostics and failed-cycle reporting "
+            "are now synthetic-tested. Training is stopped, dispatch disabled, and "
+            "the consumed approval is not retried. Live DP now "
             "has its own registered Prefect process pool and owned worker identity; "
             "manual DP and DP Training retain their separate existing pools."
         ),

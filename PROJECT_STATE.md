@@ -207,7 +207,7 @@ Current versions:
 
 - `business_context_version`: 1
 - `analysis_contract_version`: 3
-- protected correction-case schema version: 2
+- protected correction-case schema version: 3
 - sanitized implementation-task schema version: 2
 
 Human-owned inputs are:
@@ -245,6 +245,15 @@ from that structure. Detailed safety, placeholder, evidence, and implementation
 context remain in protected analysis and are reconstructed for a future sanitized
 implementation task. A proposal-write cycle cannot create an implementation job,
 consume an approval edge, or dispatch Codex.
+
+Dispatch diagnostics retain only allowlisted categories and bounded process exit
+codes in protected case state, before workflow-result writes. Schema 1/2 cases
+migrate without changing identity, attempts, or consumed approvals. Legacy failed
+attempts without retained diagnostics remain `legacy_failure_unavailable`.
+Nonzero child exit, startup failure, timeout, missing result, and invalid result
+are distinguished without retaining stdout/stderr or exception text. Failed
+implementation cycles report `completed_with_failures` and fail the Prefect flow;
+the unchanged following cycle does not retry the consumed approval.
 
 One row maps to one durable correction case. Comment/input revisions create a new
 generation on the same identity, invalidate stale approval baselines, and become
@@ -317,10 +326,18 @@ Operator commands remain:
 
 ## Current Limitations and Pending Acceptance
 
-- The concise reviewer-facing proposal requires one controlled live
-  `proposal_write` acceptance using an ordinary new comment revision.
-- Approval-gated Codex dispatch is implemented but must remain disabled until its
-  prerequisite live acceptance and separate production authorization.
+- The controlled concise proposal-write acceptance passed: one changed case,
+  one new generation, retained compatible structure, unchanged human controls,
+  and an idempotent following cycle. The reviewer accepted the presentation.
+- A separately approved implementation attempt then failed without retained
+  specific cause. No code changes resulted; its approval remains consumed.
+  Do not infer authentication, transport, model, or implementation cause.
+- Training remains stopped in proposal_write mode with dispatch disabled. The
+  diagnostic fix is synthetic-tested; a PHI-free runtime/result-contract smoke
+  check is required before another deliberately revised and approved generation.
+- Windows PowerShell 7 ownership-status behavior differed from supported 5.1
+  during acceptance. A timestamp-conversion issue is suspected, not proven.
+  Use Windows PowerShell 5.1 for the wrappers pending separate investigation.
 - No human approval may carry to a changed proposal/result generation.
 - Always-on Windows service/startup integration is not enabled. Operators must
   explicitly start DP and DP Training after a host restart.
@@ -356,13 +373,7 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Add one normal minimal reviewer comment, such as `again`, to the existing active
-correction case, then perform one controlled live `proposal_write` DP Training
-acceptance. Verify the ordinary comment revision creates exactly one new proposal
-generation, retains the prior compatible canonical subtype/document type, payer,
-applicable service, and supported date/date-range structure, and writes a concise
-reviewer-facing `AI Proposed Correction` plus only the workflow-owned type/status
-fields needed for the generation. Verify human controls/comments remain unchanged,
-no Codex dispatch or implementation job occurs, and an unchanged following cycle
-is reconciliation-only/idempotent. Do not approve implementation during this
-acceptance, and stop DP Training cleanly afterward.
+Perform a PHI-free isolated Codex runtime/result-contract smoke check without
+repository edits or production integration access; resolve any diagnosed dispatch
+prerequisite before refreshing training registration and proposing a new generation
+with a fresh human approval edge. Do not retry the consumed approval generation.

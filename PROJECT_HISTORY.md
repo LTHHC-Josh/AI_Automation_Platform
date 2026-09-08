@@ -12742,3 +12742,70 @@ idempotency, and a clean DP Training stop. Do not approve implementation.
         ),
     ),
 <!-- LEGACY_TRACKER_UPDATES_END -->
+
+## DP Training Failure Diagnostics and Acceptance Reconciliation - 2026-09-08
+
+Final checkpoint gates: project tracker returned Updated 1, Unchanged 37,
+Not Found 0, Failed 0. Continuity/WBS tests passed again after regeneration.
+Protected paths remained ignored and reviewed Git diff passed whitespace checks.
+The verified isolated test database/journals were removed after the test process
+exited; no production runtime was terminated. Temporary patch artifacts were
+removed from the chat workspace; the prior acceptance reports remain preserved.
+
+The local PHI-safe acceptance reports recorded one successful controlled
+proposal_write acceptance: one changed case among two flagged cases, one proposal
+generation, retained compatible structure, matching concise readback, unchanged
+human controls/comments, no dispatch, idempotent following cycle, and clean stop.
+The reviewer subsequently accepted the presentation and separately approved one
+implementation attempt. That attempt failed; no code changed and no automatic
+retry occurred. Training was stopped and capability returned to proposal_write
+with dispatch disabled. These reports had not yet been incorporated into Git
+continuity. Original failure cause is unavailable, not guessed.
+
+Source inspection proved that child output was discarded, result files removed,
+and dispatch failure category was not retained in the case. Cycle summaries could
+say completed/none despite implementation_failed_count being positive. The fix
+persists fixed categories and bounded exit codes before workflow-result writes,
+distinguishes startup/nonzero-exit/timeout/missing-result/invalid-result boundaries,
+and makes failed cycles fail Prefect after preserving their safe summary. Raw
+child output, result text, exception text, identifiers, and protected values are
+not diagnostics. Schema 3 migrates existing schema 1/2 cases without changing
+identity or consuming/re-arming approvals. Historical unknown failures are labeled
+legacy_failure_unavailable. No existing protected case was migrated live here.
+
+Files changed: dispatcher, training application, protected case repository,
+Prefect training adapter, training and Prefect tests, current state, history,
+derived Smartsheet presentation, and tracker task presentation.
+
+Validation: modified Python compiled; 53 focused training tests, 5 configuration,
+5 readiness, 7 Windows PowerShell 5.1 command tests, 5 business-context, 11 continuity,
+3 tracker/WBS, and 5 isolated Prefect tests passed (94 total, zero failed).
+Synthetic deterministic/mock tests only; temporary isolated Prefect servers were
+used, not production deployments or workers. The Prefect harness emitted a
+Windows temporary-database cleanup warning after successful tests; this does not
+prove a production runtime issue. No PowerShell source was changed.
+
+Current read-only control-plane check: training stopped, no active bounded run,
+zero fresh training workers, pool/deployment ready, proposal_write configured,
+not degraded. No production mailbox/Graph, OCR/Ollama, document write/upload, or
+feedback/comment access occurred during this implementation. Project tracker
+presentation synchronization is the only intended external write at this checkpoint.
+
+Limitations: the old child failure cannot be reconstructed. A nonzero child exit
+still does not distinguish authentication/network/model causes; no such cause is
+claimed. A PHI-free isolated runtime check is next. No consumed approval was
+retried or silently re-armed. Separate PowerShell 7 ownership compatibility
+remains unproven; use the supported 5.1 wrapper. Deployment refresh is deferred
+until the runtime prerequisite has been checked.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "Retained safe DP Training dispatch diagnostics and corrected failed-cycle reporting; reconciled prior live acceptance records.",
+  "key_result": "Proposal acceptance passed. The later approved attempt failed with unavailable historical cause. Schema 3 preserves case identity and consumed approvals; failed cycles now fail Prefect.",
+  "tests": "94 synthetic/mock/isolated Prefect checks passed; modified Python compiled. Harness temporary-database cleanup warning noted.",
+  "phi_handling": "No document/feedback operations or child dispatch; fixed categories and counts only. Tracker presentation sync only.",
+  "limitation_acceptance": "Training stopped and dispatch disabled. No blind retry; original child cause remains unknown.",
+  "exact_next_start": "Perform a PHI-free isolated Codex runtime/result-contract smoke check without repository edits or production integration access; resolve any diagnosed dispatch prerequisite before refreshing training registration and proposing a new generation with a fresh human approval edge. Do not retry the consumed approval generation."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

@@ -128,6 +128,31 @@ def test_runtime_mode_mismatch_fails_before_application_and_writes_safe_summary(
     assert captured[0].retryable is False
 
 
+def test_implementation_failure_fails_flow_after_retaining_safe_summary():
+    original_factory = training.DocumentProcessorTrainingApplicationService.from_environment
+    original_write = training._write_safe_summary
+    captured = []
+    class FailedApplication:
+        def run_cycle(self, *, stage_observer):
+            return TrainingCycleSummary(
+                implementation_started_count=1, implementation_failed_count=1,
+                polling_result="completed_with_failures", failure_category="codex_failed",
+            )
+    training.DocumentProcessorTrainingApplicationService.from_environment = classmethod(
+        lambda cls: FailedApplication()
+    )
+    training._write_safe_summary = captured.append
+    try:
+        with prefect_test_harness():
+            state = training.document_processor_training_flow(return_state=True)
+    finally:
+        training.DocumentProcessorTrainingApplicationService.from_environment = original_factory
+        training._write_safe_summary = original_write
+    assert state.is_failed()
+    assert len(captured) == 1 and captured[0].failure_category == "codex_failed"
+    assert not captured[0].retryable
+
+
 if __name__ == "__main__":
     tests = [value for name, value in tuple(globals().items()) if name.startswith("test_")]
     for test in tests:

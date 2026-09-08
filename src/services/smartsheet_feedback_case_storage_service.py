@@ -20,7 +20,7 @@ from src.services.windows_dpapi_service import (
 FEEDBACK_SNAPSHOT_PURPOSE = b"LTHHC Smartsheet feedback snapshot v2"
 CORRECTION_CASE_PURPOSE = b"LTHHC DP training correction case v1"
 CORRECTION_IDENTITY_KEY_PURPOSE = b"LTHHC DP training identity key v1"
-CASE_SCHEMA_VERSION = 2
+CASE_SCHEMA_VERSION = 3
 
 
 class CorrectionCaseStorageError(RuntimeError):
@@ -171,6 +171,8 @@ class CorrectionCase:
     implementation_state: str = "none"
     implementation_attempt_count: int = 0
     implementation_commit_sha: str = ""
+    implementation_failure_category: str = "none"
+    implementation_exit_code: int | None = None
     result_generation: int = 0
     resolution_result: str = field(default="", repr=False)
     resolution_hash: str = ""
@@ -325,6 +327,7 @@ class ProtectedCorrectionCaseRepository:
             raise CorrectionCaseStorageError("case_state_corrupt")
         names = {item.name for item in CorrectionCase.__dataclass_fields__.values()}
         schema_version = payload.get("schema_version")
+        diagnostic_fields = {"implementation_failure_category", "implementation_exit_code"}
         if schema_version == 1:
             new_fields = {
                 "related_correction_types", "technical_disposition",
@@ -335,7 +338,7 @@ class ProtectedCorrectionCaseRepository:
                 "business_context_version", "analysis_attempt_key",
                 "analysis_attempt_state",
             }
-            if set(payload) != names - new_fields:
+            if set(payload) != names - new_fields - diagnostic_fields:
                 raise CorrectionCaseStorageError("case_schema_unsupported")
             payload = {
                 **payload,
@@ -352,6 +355,18 @@ class ProtectedCorrectionCaseRepository:
                 "business_context_version": 0,
                 "analysis_attempt_key": "",
                 "analysis_attempt_state": "none",
+                "schema_version": 2,
+            }
+        if payload.get("schema_version") == 2:
+            if set(payload) != names - diagnostic_fields:
+                raise CorrectionCaseStorageError("case_schema_unsupported")
+            payload = {
+                **payload,
+                "implementation_failure_category": (
+                    "legacy_failure_unavailable" if payload.get("implementation_state") == "failed"
+                    else "none"
+                ),
+                "implementation_exit_code": None,
                 "schema_version": CASE_SCHEMA_VERSION,
             }
         if set(payload) != names or payload.get("schema_version") != CASE_SCHEMA_VERSION:

@@ -4,13 +4,13 @@
 
 ## Current Smartsheet Summary
 
-Date: 2026-09-04
-Work: Migrated project continuity into authoritative current-state and complete-history layers with a separate bounded Smartsheet presentation.
-Result: All legacy memory, journal, and tracker-update content is preserved with hash-verified boundaries; no Smartsheet failure can remove the Git history.
-Tests: 70 focused and affected synthetic deterministic/mock checks passed with zero failures; modified Python compiled.
-PHI: Repository continuity remains PHI-free; no document-processing integration ran.
-Status: The next controlled DP Training proposal-write acceptance remains pending.
-Next: Add one normal minimal reviewer comment, such as `again`, to the existing active correction case, then perform one controlled live `proposal_write` DP Training acceptance. Verify the ordinary comment revision creates exactly one new proposal generation, retains the prior compatible canonical subtype/document type, payer, applicable service, and supported date/date-range structure, and writes a concise reviewer-facing `AI Proposed Correction` plus only the workflow-owned type/status fields needed for the generation. Verify human controls/comments remain unchanged, no Codex dispatch or implementation job occurs, and an unchanged following cycle is reconciliation-only/idempotent. Do not approve implementation during this acceptance, and stop DP Training cleanly afterward.
+Date: 2026-09-08
+Work: Retained safe DP Training dispatch diagnostics and corrected failed-cycle reporting; reconciled prior live acceptance records.
+Result: Proposal acceptance passed. The later approved attempt failed with unavailable historical cause. Schema 3 preserves case identity and consumed approvals; failed cycles now fail Prefect.
+Tests: 94 synthetic/mock/isolated Prefect checks passed; modified Python compiled. Harness temporary-database cleanup warning noted.
+PHI: No document/feedback operations or child dispatch; fixed categories and counts only. Tracker presentation sync only.
+Status: Training stopped and dispatch disabled. No blind retry; original child cause remains unknown.
+Next: Perform a PHI-free isolated Codex runtime/result-contract smoke check without repository edits or production integration access; resolve any diagnosed dispatch prerequisite before refreshing training registration and proposing a new generation with a fresh human approval edge. Do not retry the consumed approval generation.
 
 ## Safety Contract
 

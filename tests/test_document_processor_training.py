@@ -443,6 +443,7 @@ def test_protected_case_v1_migrates_without_identity_or_checkpoint_loss():
             "analysis_outcome_category", "analysis_contract_version",
             "business_context_version", "analysis_attempt_key",
             "analysis_attempt_state",
+            "implementation_failure_category", "implementation_exit_code",
         ):
             payload.pop(name)
         payload["schema_version"] = 1
@@ -451,7 +452,7 @@ def test_protected_case_v1_migrates_without_identity_or_checkpoint_loss():
         migrated = repository.load(current.case_id)
         assert migrated.case_id == current.case_id
         assert migrated.comment_checkpoint_digest == "d" * 64
-        assert migrated.schema_version == 2
+        assert migrated.schema_version == 3
         assert migrated.analysis_contract_version == 1
         assert migrated.business_context_version == 0
 
@@ -1646,6 +1647,118 @@ def test_cycle_summary_has_only_approved_safe_fields():
         "needs_more_information_count", "requires_external_system_count",
         "polling_result", "failure_category", "recoverable", "retryable",
     )
+
+
+def test_dispatch_diagnostics_are_fixed_categories_and_bounded_exit_codes():
+    result = CodexDispatchResult(False, "sensitive arbitrary child text", True, False, False,
+                                 exit_code="secret")
+    assert result.status == "codex_dispatch_failed"
+    assert result.exit_code is None
+    assert "sensitive" not in repr(result)
+    for invalid_status in (None, [], {}):
+        assert CodexDispatchResult(False, invalid_status, True, False, False).status == "codex_dispatch_failed"
+    for invalid in (True, 2**40, -(2**40)):
+        assert CodexDispatchResult(False, "codex_failed", True, False, False,
+                                   exit_code=invalid).exit_code is None
+
+
+def test_dispatch_failure_boundaries_keep_no_raw_child_output():
+    from unittest.mock import patch
+    task = PhiSafeImplementationTaskService().build(
+        opaque_case_id="9" * 64, proposal_generation=1,
+        business_context_version=BUSINESS_CONTEXT_VERSION, analysis=correction_analysis(),
+    )
+    for boundary, expected in (
+        ("exit", "codex_failed"), ("missing", "codex_result_missing"),
+        ("invalid", "codex_result_invalid"), ("timeout", "codex_timeout"),
+        ("spawn", "codex_process_start_failed"),
+    ):
+        class FailureProcess(FakeCodexProcess):
+            def __init__(self, command, **kwargs):
+                assert kwargs["stdout"] == codex_module.subprocess.DEVNULL
+                assert kwargs["stderr"] == codex_module.subprocess.DEVNULL
+                if boundary == "spawn":
+                    raise OSError("secret exception text")
+                super().__init__(command, **kwargs)
+
+            def communicate(self, prompt, timeout):
+                if boundary == "timeout":
+                    raise codex_module.subprocess.TimeoutExpired("secret command", timeout)
+                self._running = False
+                self.returncode = 7 if boundary == "exit" else 0
+                if boundary == "invalid":
+                    self.output_path.write_text("secret invalid result", encoding="utf-8")
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            schema = root / ReadyDispatcher.RESULT_SCHEMA
+            schema.parent.mkdir(parents=True)
+            schema.write_text("{}", encoding="ascii")
+            started = []
+            killed = []
+            dispatcher = ReadyDispatcher(repository_root=root, enabled=True)
+            dispatcher._terminate_process_tree = killed.append
+            with patch.object(codex_module.shutil, "which", return_value="synthetic-codex"), \
+                 patch.object(codex_module.subprocess, "Popen", FailureProcess):
+                result = dispatcher.dispatch(task, on_started=lambda: started.append(True))
+            assert result.status == expected and not result.success and not result.retryable
+            assert result.attempt_started == (boundary != "spawn")
+            assert len(started) == int(boundary != "spawn")
+            assert bool(killed) == (boundary == "timeout")
+            assert result.exit_code == (7 if boundary == "exit" else 0 if boundary in {"missing", "invalid"} else None)
+            assert "secret" not in repr(result)
+            assert not (root / dispatcher.LOCK_PATH).exists()
+            assert not (root / dispatcher.LOCK_PATH).with_suffix(".result.json").exists()
+
+
+def test_failed_dispatch_persists_safe_diagnostics_and_cannot_retry_consumed_edge():
+    class FailingDispatcher:
+        def dispatch(self, task, *, on_started):
+            on_started()
+            return CodexDispatchResult(False, "codex_failed", True, False, False, exit_code=7)
+    service, reader, repository = build_flow_service(dispatcher=FailingDispatcher())
+    service.run_cycle()
+    reader.values[APPROVE_AI_CORRECTION] = True
+    summary = service.run_cycle()
+    assert summary.polling_result == "completed_with_failures"
+    assert summary.failure_category == "codex_failed"
+    assert summary.implementation_failed_count == 1
+    assert not summary.retryable and not summary.recoverable
+    assert repository.case.implementation_failure_category == "codex_failed"
+    assert repository.case.implementation_exit_code == 7
+    generation = repository.case.correction_approval_consumed_generation
+    following = service.run_cycle()
+    assert following.polling_result == "completed"
+    assert repository.case.implementation_attempt_count == 1
+    assert repository.case.correction_approval_consumed_generation == generation
+    assert reader.values[APPROVE_AI_CORRECTION] is True
+    assert reader.values[AI_CORRECTION] is True
+
+
+def test_case_v2_failure_migration_preserves_consumed_approval_and_unknown_cause():
+    with TemporaryDirectory() as directory:
+        repository = ProtectedCorrectionCaseRepository(
+            directory, protect=lambda value: value[::-1], unprotect=lambda value: value[::-1],
+        )
+        case = repository.load_or_create(source_scope="synthetic", row_id=44)
+        case.implementation_state = "failed"
+        case.implementation_attempt_count = 1
+        case.correction_approval_consumed_generation = 3
+        repository.save(case)
+        path = next(Path(directory).glob("*.case"))
+        payload = json.loads(path.read_bytes()[::-1])
+        payload.pop("implementation_failure_category")
+        payload.pop("implementation_exit_code")
+        payload["schema_version"] = 2
+        path.write_bytes(json.dumps(payload).encode("utf-8")[::-1])
+        migrated = repository.load(case.case_id)
+        assert migrated.schema_version == 3
+        assert migrated.implementation_failure_category == "legacy_failure_unavailable"
+        assert migrated.implementation_exit_code is None
+        assert migrated.implementation_attempt_count == 1
+        assert migrated.correction_approval_consumed_generation == 3
+        repository.save(migrated)
+        assert repository.load(case.case_id).implementation_failure_category == "legacy_failure_unavailable"
 
 
 if __name__ == "__main__":

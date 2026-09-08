@@ -117,6 +117,7 @@ class DocumentProcessorTrainingApplicationService:
             "started": 0, "completed": 0, "failed": 0, "resolved": 0,
         }
         self._implementation_dispatched = False
+        self._implementation_failure_category = "none"
         self._observe(stage_observer, "training_poll", "started")
         schema = self.schema_service.read()
         if not schema.success:
@@ -577,7 +578,13 @@ class DocumentProcessorTrainingApplicationService:
             self._observe(stage_observer, "implementation_dispatch", "started")
 
         result = self.dispatcher.dispatch(task, on_started=mark_started)
+        correction_case.implementation_failure_category = "none" if result.success else result.status
+        correction_case.implementation_exit_code = result.exit_code
+        # Persist the safe result before any external workflow-field write.
+        self.repository.save(correction_case)
         if not result.attempt_started:
+            if not result.retryable:
+                self._implementation_failure_category = result.status
             correction_case.implementation_state = "waiting"
             correction_case.resolution_result = (
                 "Implementation is approved and waiting for a safe repository and "
@@ -636,6 +643,7 @@ class DocumentProcessorTrainingApplicationService:
                 self.repository.save(correction_case)
         else:
             self._cycle["failed"] += 1
+            self._implementation_failure_category = result.status
             correction_case.implementation_state = "failed"
             target = {
                 "codex_needs_more_information": "Needs More Information",
@@ -900,6 +908,13 @@ class DocumentProcessorTrainingApplicationService:
             resolved_count=statuses.count("Resolved"),
             needs_more_information_count=statuses.count("Needs More Information"),
             requires_external_system_count=statuses.count("Requires External System"),
+            polling_result=(
+                "completed_with_failures" if self._implementation_failure_category != "none"
+                else "completed"
+            ),
+            failure_category=self._implementation_failure_category,
+            recoverable=False,
+            retryable=False,
         )
 
     @staticmethod

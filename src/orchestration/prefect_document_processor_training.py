@@ -231,7 +231,7 @@ def run_document_processor_training_cycle() -> TrainingCycleSummary:
         record_training_summary(**asdict(result))
     except Exception:
         pass
-    if result.polling_result == "failed":
+    if result.polling_result in {"failed", "completed_with_failures"}:
         category = _safe_failure_category(result.failure_category)
         raise SanitizedTrainingRunError(
             f"stage=dp_training status=failed failure_category={category} "

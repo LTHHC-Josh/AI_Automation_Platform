@@ -27,6 +27,26 @@ class CodexDispatchResult:
     retryable: bool = False
     changed_layers: tuple[str, ...] = ()
     business_context_version_after: int = 0
+    exit_code: int | None = None
+
+    def __post_init__(self) -> None:
+        # Never accept arbitrary child/adapter text as an operator diagnostic.
+        if not isinstance(self.status, str) or self.status not in CODEX_DISPATCH_STATUSES:
+            object.__setattr__(self, "status", "codex_dispatch_failed")
+            object.__setattr__(self, "success", False)
+        if type(self.exit_code) is not int or not -(2**31) <= self.exit_code < 2**32:
+            object.__setattr__(self, "exit_code", None)
+
+
+CODEX_DISPATCH_STATUSES = frozenset({
+    "codex_task_invalid", "codex_dispatch_disabled", "codex_repository_waiting",
+    "codex_repository_locked", "codex_lock_unavailable", "codex_runtime_unavailable",
+    "codex_timeout", "codex_failed", "codex_requires_external_system",
+    "codex_needs_more_information", "codex_incomplete", "codex_safety_gate_failed",
+    "codex_context_verification_failed", "codex_git_verification_failed",
+    "codex_implemented", "codex_dispatch_failed", "codex_process_start_failed",
+    "codex_result_missing", "codex_result_invalid",
+})
 
 
 class BoundedCodexDispatcher:
@@ -125,9 +145,16 @@ class BoundedCodexDispatcher:
                 )
             if process.returncode != 0:
                 return CodexDispatchResult(
-                    False, "codex_failed", True, False, False, retryable=False
+                    False, "codex_failed", True, False, False, retryable=False,
+                    exit_code=process.returncode,
                 )
             parsed = self._read_result(result_path)
+            if parsed is None:
+                return CodexDispatchResult(
+                    False,
+                    "codex_result_invalid" if result_path.exists() else "codex_result_missing",
+                    True, False, False, exit_code=process.returncode,
+                )
             if parsed and parsed.get("outcome") == "requires_external_system":
                 return CodexDispatchResult(
                     False, "codex_requires_external_system", True, False, False,
@@ -178,7 +205,8 @@ class BoundedCodexDispatcher:
             if process is not None and process.poll() is None:
                 self._terminate_process_tree(process.pid)
             return CodexDispatchResult(
-                False, "codex_dispatch_failed", process_started, False, False,
+                False, "codex_dispatch_failed" if process_started else "codex_process_start_failed",
+                process_started, False, False,
                 retryable=False,
             )
         finally:
