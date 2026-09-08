@@ -115,6 +115,10 @@ def test_production_exclusive_lock_and_recovery_audit_survive_restart():
         assert not (Path(d)/".training-operation.lock").exists()
 
 def test_real_writer_checks_approval_without_writing_it():
+    from src.services.document_processor_training_codex_service import BoundedCodexDispatcher
+    prompt = BoundedCodexDispatcher._prompt("{}")
+    assert "Only the approved PHI-safe project tracker" in prompt
+    assert "never read/write document or correction rows/comments" in prompt
     schema = fixture["schema_result"]()
     values = {title: None for title in fixture["REQUIRED_COLUMNS"]}
     values[APPROVAL] = True
