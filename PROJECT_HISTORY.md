@@ -13397,3 +13397,54 @@ automatic code editing or full live acceptance is claimed.
   "exact_next_start": "Complete controlled acceptance: process one new document, flag its existing row, approve the proposal, verify existing-row/document correction, approve resolution, and verify approved learning reaches a later same-type document. Confirm restart/idempotency and rollback evidence, local Ollama only, and unchanged human controls. Stop DP Training cleanly. Source registrations and local_correction prerequisites are verified; do not declare end-to-end readiness before this chain is proven. No resubmission is needed to resolve the original correction."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Controlled New-Document Acceptance - 2026-09-08
+
+Operator supplied one new inbox test document and explicitly authorized the
+controlled run. Clean synchronized b8860b1 source was verified; registered runtime
+source remained 7a3dfe6 with no subsequent code changes. startdp passed all five
+startup stages. One owned live worker executed exactly one observed bounded flow.
+
+Real evidence: exact candidate readiness/reverification passed, acquisition and
+OCR completed, local classification and Extraction Attempt 1 ran, deterministic
+validation/business actions completed. No retry or second extraction attempt.
+Workflow Summary: completed, document_count=1, written_count=1, failed_count=0,
+row_action=created, attachment_action=uploaded, row_attempt_count=1,
+attachment_attempt_count=1, completed_document_count=1, row_outcome_proven=true.
+Initial exact reconciliation found zero matches before the confirmed create.
+Filename result partial_business with three placeholders; review required with
+four reasons. Values, filenames, IDs, source evidence and reason payloads were
+not exposed.
+
+Narrow readback used the single newly updated durable job and only the explicitly
+selected AI Correction checkbox column. Durable stage attachment_written, exact
+row identity proven, one row/upload attempt, protected correction source binding
+ready, and AI Correction=false were confirmed. DP status then proved waiting,
+no active bounded run and zero failures; stopdp returned dp_stopped. Training
+was not started. The reviewer must assess the output in Smartsheet before
+flagging an actual issue and approving any proposed correction.
+
+This is real Graph, approved local OCR/Ollama, production row/attachment and
+mailbox-finalization acceptance, not synthetic evidence. No raw document data
+entered Codex output. No comment access/write, correction-row update, human
+checkbox modification, generated-code update or learning approval occurred.
+The observation helper initially queried default ID order instead of newest
+runs; corrected expected-start descending order identified the one actual run.
+No second run was created by diagnostics.
+
+Files changed: current state, appended history and generated tracker summary only.
+Full correction-to-learning chain remains pending; successful ingestion is not
+proof of correction correctness or learned generalization. Continuity/tracker
+checks and Git gates follow before committing this milestone.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-08",
+  "work_summary": "First new-document live acceptance completed under the local-only correction implementation.",
+  "key_result": "One row created and one attachment uploaded; one extraction attempt, zero failures. AI Correction unchecked, correction source bound, DP returned to waiting and stopped.",
+  "tests": "Real production pipeline and narrow checkbox/durable-state readback passed. Prior 353 regression checks remain baseline.",
+  "phi_handling": "Authorized Graph/local OCR/Ollama/Smartsheet document processing; only safe counts/statuses exposed. No comment or correction operation.",
+  "limitation_acceptance": "Partial business filename and human review required. Reviewer assessment, correction/resolution approvals and later-document learning acceptance remain pending.",
+  "exact_next_start": "Review the newly created acceptance row. If a real correction is needed, the reviewer flags AI Correction and adds a comment, leaving both approval boxes unchecked. Run controlled local_correction training, review and approve the proposal, verify the same-row/document correction, then approve resolution and verify bounded learning on a later same-type document. Preserve human controls, restart/idempotency and rollback protections. Do not declare full-chain acceptance complete yet; do not resend the original document."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

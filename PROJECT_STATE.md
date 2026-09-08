@@ -329,6 +329,11 @@ Operator commands remain:
 
 ## Current Verified Baseline
 
+- Current controlled new-document run completed with one new row and attachment,
+  zero failures and one extraction attempt. Partial business filename and review
+  required are awaiting reviewer assessment. AI Correction initialized unchecked;
+  protected correction source binding is proven. DP returned to waiting and stopped.
+
 - Approved PHI-safe AUTH DECREASE naming correction is synthetic-tested: a
   top-level date can borrow a service-line endpoint only when the opposite
   endpoint agrees. Supported single dates remain single; unresolved dates use
@@ -408,4 +413,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Complete controlled acceptance: process one new document, flag its existing row, approve the proposal, verify existing-row/document correction, approve resolution, and verify approved learning reaches a later same-type document. Confirm restart/idempotency and rollback evidence, local Ollama only, and unchanged human controls. Stop DP Training cleanly. Source registrations and local_correction prerequisites are verified; do not declare end-to-end readiness before this chain is proven. No resubmission is needed to resolve the original correction.
+Review the newly created acceptance row. If a real correction is needed, the reviewer flags AI Correction and adds a comment, leaving both approval boxes unchecked. Run controlled local_correction training, review and approve the proposal, verify the same-row/document correction, then approve resolution and verify bounded learning on a later same-type document. Preserve human controls, restart/idempotency and rollback protections. Do not declare full-chain acceptance complete yet; do not resend the original document.
