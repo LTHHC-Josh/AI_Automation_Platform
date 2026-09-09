@@ -13764,3 +13764,41 @@ no complete workflow acceptance is claimed.
   "exact_next_start": "Refresh source registration and prepare one controlled same-document correction verification of whitespace-tolerant authoritative payer lookup, short-year date support and comma-separated service naming. Preserve the blocked case and audit history, retain human approval controls, and resolve any remaining individual service lookup ambiguity without guessing. Capture safe final naming diagnostics before presenting a new verified proposal; do not resend the document or approve an incomplete correction. The existing reference sheet is authoritative and no replacement payer list is needed. Training remains stopped; full acceptance is pending."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Controlled Replay: Payer and Dates Resolved, Service Still Unresolved - 2026-09-09
+
+Registered training source b1fab8a and ran one bounded local training cycle with
+graceful stop requested. Same case advanced under preparation contract 3 to a
+proposal with one row update and an attachment-name change. No correction was
+applied. Sealed final diagnostics prove accepted payer/start/end, two accepted
+service codes/modifiers and both lines' accepted date endpoints. Payer and date
+naming readiness are true; disputed service-line date reason is absent from the
+proposed review text. Service-line status remains unsupported, not guessed.
+Service naming readiness is false and the proposed name still contains [SERVICE].
+Exact individual reference failure category was not retained; do not claim a
+specific missing/ambiguous mapping is proven by this replay. Training stop reported
+already exited with heartbeat settling. No document resubmission or mailbox run.
+
+Requested-component coverage now blocks a proposed attachment change when an
+explicitly requested payer/service component still has its placeholder. A change
+to payer alone cannot be called the requested full filename correction. Unrelated
+unknown subtype placeholders remain allowed. Existing saved proposals use the
+same guard before approval. Files: local_document_correction_workflow.py,
+test_local_document_correction.py and continuity layers. Python compiled;
+45 correction plus 54 training synthetic/mock tests passed (99). Prior 10 human
+ownership checks remain valid. Tracker/continuity gates precede commit.
+Live local Ollama/cached-OCR and approved proposal operations occurred; diagnostics
+only exposed booleans, confidences and field states. No correction upload, human
+checkbox change, cloud dispatch, source-code promotion or mailbox mutation.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Controlled same-case replay verified payer/date fixes; blocked incomplete service naming correction.",
+  "key_result": "Payer and both service-line date checks pass. Service token still unresolved. Partial improvement cannot satisfy explicitly requested missing components.",
+  "tests": "99 correction/training synthetic checks passed; live local replay diagnostics verified payer/date readiness. Full correction not applied.",
+  "phi_handling": "Approved local replay/proposal path; only safe diagnostics emitted. No correction upload, human-control change, mailbox mutation or cloud dispatch.",
+  "limitation_acceptance": "Service lookup outcome needs narrower diagnosis. Do not approve an incomplete filename proposal or claim end-to-end completion.",
+  "exact_next_start": "Publish the tested requested-component coverage guard to the saved same-case proposal without repeating inference. Payer naming and both service-line dates passed controlled replay; service naming remains unresolved despite accepted code/modifier evidence. Diagnose exact individual service reference outcomes with value-free lookup diagnostics before any further correction replay. Preserve verified work, case/job identity, audit and human controls; do not approve the partial filename correction, guess mappings or resend the document. Full acceptance remains pending."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

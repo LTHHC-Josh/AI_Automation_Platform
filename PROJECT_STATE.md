@@ -272,6 +272,8 @@ projection; it never flattens line dates/quantity/status into top-level columns.
 Unrelated replay changes still block aggregate correction. Verified-action
 coverage means a requested filename correction cannot be Analysis Ready
 when the saved plan contains no attachment-name change. Existing incomplete plans
+also remain blocked when explicitly requested payer/service components still
+contain placeholders, even if another filename component has improved.
 are retained for audit and blocked before approval can apply them. Proposal text
 describes verified actions, and stale workflow-owned resolution text is cleared.
 Preparation errors retain
@@ -457,4 +459,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Refresh source registration and prepare one controlled same-document correction verification of whitespace-tolerant authoritative payer lookup, short-year date support and comma-separated service naming. Preserve the blocked case and audit history, retain human approval controls, and resolve any remaining individual service lookup ambiguity without guessing. Capture safe final naming diagnostics before presenting a new verified proposal; do not resend the document or approve an incomplete correction. The existing reference sheet is authoritative and no replacement payer list is needed. Training remains stopped; full acceptance is pending.
+Publish the tested requested-component coverage guard to the saved same-case proposal without repeating inference. Payer naming and both service-line dates passed controlled replay; service naming remains unresolved despite accepted code/modifier evidence. Diagnose exact individual service reference outcomes with value-free lookup diagnostics before any further correction replay. Preserve verified work, case/job identity, audit and human controls; do not approve the partial filename correction, guess mappings or resend the document. Full acceptance remains pending.

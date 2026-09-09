@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Enabled one audited same-case preparation upgrade after verified naming fixes.
-Result: Incomplete filename plan may regenerate once with unchecked approvals; uncertain writes remain excluded. Value-free diagnostics persist before mapping failure.
-Tests: 108 synthetic/mock correction, training and feedback checks passed; modified Python compiled.
-PHI: Safe status only; no document processing or correction in this checkpoint. Diagnostics leakage regression passed.
-Status: Controlled live same-case preparation remains pending. No approval or complete correction acceptance claimed.
-Next: Refresh source registration and prepare one controlled same-document correction verification of whitespace-tolerant authoritative payer lookup, short-year date support and comma-separated service naming. Preserve the blocked case and audit history, retain human approval controls, and resolve any remaining individual service lookup ambiguity without guessing. Capture safe final naming diagnostics before presenting a new verified proposal; do not resend the document or approve an incomplete correction. The existing reference sheet is authoritative and no replacement payer list is needed. Training remains stopped; full acceptance is pending.
+Work: Controlled same-case replay verified payer/date fixes; blocked incomplete service naming correction.
+Result: Payer and both service-line date checks pass. Service token still unresolved. Partial improvement cannot satisfy explicitly requested missing components.
+Tests: 99 correction/training synthetic checks passed; live local replay diagnostics verified payer/date readiness. Full correction not applied.
+PHI: Approved local replay/proposal path; only safe diagnostics emitted. No correction upload, human-control change, mailbox mutation or cloud dispatch.
+Status: Service lookup outcome needs narrower diagnosis. Do not approve an incomplete filename proposal or claim end-to-end completion.
+Next: Publish the tested requested-component coverage guard to the saved same-case proposal without repeating inference. Payer naming and both service-line dates passed controlled replay; service naming remains unresolved despite accepted code/modifier evidence. Diagnose exact individual service reference outcomes with value-free lookup diagnostics before any further correction replay. Preserve verified work, case/job identity, audit and human controls; do not approve the partial filename correction, guess mappings or resend the document. Full acceptance remains pending.
 
 ## Safety Contract
 

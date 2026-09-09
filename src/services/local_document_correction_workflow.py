@@ -33,7 +33,7 @@ def preparation_failure_category(error):
     value = error.args[0] if isinstance(error, ValueError) and len(error.args) == 1 else None
     return value if isinstance(value, str) and value in PREPARATION_FAILURE_CATEGORIES else "correction_preparation_unavailable"
 
-def verified_proposal(plan, affected_fields):
+def verified_proposal(plan, affected_fields, required_filename_components=()):
     """Describe verified actions, not an unfulfilled model-requested outcome."""
     updates = plan.get("updates", {})
     if not isinstance(updates, dict):
@@ -45,6 +45,14 @@ def verified_proposal(plan, affected_fields):
                      if set(updates) <= review_columns
                      else f"Update {len(updates)} row fields from verified document evidence.")
     if plan.get("attachment"):
+        name = str(plan["attachment"].get("name", ""))
+        placeholders = {
+            "Payer When Applicable": "[PAYER]",
+            "Service When Applicable": "[SERVICE]",
+        }
+        if any(placeholders.get(component, "\0") in name
+               for component in required_filename_components):
+            raise ValueError("correction_requested_filename_unresolved")
         parts.append("Correct the document filename.")
     elif "Filename" in affected_fields:
         raise ValueError("correction_requested_filename_unresolved")
@@ -220,7 +228,7 @@ class LocalDocumentCorrectionWorkflow:
                     state["plan"] = self.executor.prepare(row_id, context, analysis)
                     state["status"] = "Analysis Ready"
                     state["phase"] = "proposed"
-                    state["proposal"] = verified_proposal(state["plan"], analysis.affected_fields)
+                    state["proposal"] = verified_proposal(state["plan"], analysis.affected_fields, analysis.required_filename_components)
                 except Exception as error:
                     state["preparation_failure_category"] = preparation_failure_category(error)
                     state["phase"] = "blocked"
@@ -247,14 +255,14 @@ class LocalDocumentCorrectionWorkflow:
             self._record_blocked(state, counts)
         if state["phase"] == "proposed":
             try:
-                presentation = verified_proposal(state["plan"], state["analysis"]["affected_fields"])
+                presentation = verified_proposal(state["plan"], state["analysis"]["affected_fields"], state["analysis"].get("required_filename_components", ()))
             except ValueError as error:
                 self.store.save("audit", stable_digest(state), state)
                 state["phase"] = "blocked"
                 state["status"] = "Cannot Resolve Yet"
                 state["preparation_failure_category"] = preparation_failure_category(error)
                 state["proposal"] = "The requested correction could not be verified. No correction will be applied."
-                state["result"] = "The filename remains unresolved. The proposed review-only change does not resolve the requested filename correction."
+                state["result"] = "The requested filename correction remains incomplete. No correction will be applied; verified work and feedback are retained."
                 self.store.save("case", key, state)
                 self._record_blocked(state, counts)
                 self._publish(row_id, schema, state, row)

@@ -678,6 +678,19 @@ def test_preparation_diagnostics_exclude_document_values_before_mapping_failure(
     assert "synthetic.pdf" not in repr(records)
 
 
+def test_requested_filename_components_must_resolve_before_proposal_approval():
+    from src.services.local_document_correction_workflow import verified_proposal
+    for component, token in (("Payer When Applicable","[PAYER]"),
+                             ("Service When Applicable","[SERVICE]")):
+        plan={"updates":{},"attachment":{"name":"SYNTHETIC_"+token+".PDF"}}
+        try: verified_proposal(plan,("Filename",),(component,))
+        except ValueError as error: assert str(error)=="correction_requested_filename_unresolved"
+        else: raise AssertionError("incomplete requested component accepted")
+    assert "Correct the document filename" in verified_proposal(
+        {"updates":{},"attachment":{"name":"SYNTHETIC_PLAN_SERVICE_AUTH [SUBTYPE].PDF"}},
+        ("Filename",),("Payer When Applicable","Service When Applicable"))
+
+
 if __name__=="__main__":
     tests=[v for k,v in list(globals().items()) if k.startswith("test_")]
     for test in tests: test()
