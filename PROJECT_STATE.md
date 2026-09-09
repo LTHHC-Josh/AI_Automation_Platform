@@ -389,8 +389,10 @@ Operator commands remain:
   unchecked. The full polling sweep was not started, so other flagged cases were
   untouched. The verified plan was saved but initial publication failed locally:
   the writer rejected the requested blank stale-resolution clear. That narrow
-  contract mismatch is now synthetic-tested; publication-only readback is next,
-  with no additional model replay. Training remains stopped.
+  contract mismatch is fixed and publication-only live readback succeeded. The
+  existing case is Analysis Ready, its proposal matches the saved verified plan,
+  stale resolution text is blank and human controls are unchanged. Publication
+  used zero model calls and applied zero corrections. Training remains stopped.
 
 - Controlled local_correction cycle on 2026-09-09 processed three flagged cases;
   all became blocked, with zero corrections and zero Codex dispatches. The newest
@@ -484,4 +486,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Publish and read back the existing verified same-case proposal without reanalysis or evidence replay. Payer, comma-separated service tokens and dates now resolve; only unknown subtype remains. Then obtain human Approve AI Correction, verify the existing-row/document correction, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Preserve human controls and other flagged cases. Do not resend the document. Training remains stopped.
+Obtain human Approve AI Correction for the existing Analysis Ready proposal. Payer, comma-separated service tokens and dates are verified; only unknown subtype remains. Apply the saved same-row/document plan without reanalysis, verify row and attachment readback, then obtain human Approve AI Resolution and prove bounded same-type learning reuse. Preserve human controls and other flagged cases. Do not resend the document. Training remains stopped pending the human approval.

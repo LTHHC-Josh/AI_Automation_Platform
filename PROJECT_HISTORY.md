@@ -13957,3 +13957,34 @@ contain booleans/categories only. Publication-only verification follows this fix
   "exact_next_start": "Publish and read back the existing verified same-case proposal without reanalysis or evidence replay. Payer, comma-separated service tokens and dates now resolve; only unknown subtype remains. Then obtain human Approve AI Correction, verify the existing-row/document correction, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Preserve human controls and other flagged cases. Do not resend the document. Training remains stopped."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Same-Case Proposal Publication Verified - 2026-09-09
+
+After 2a26ce8 was committed/pushed, one publication-only operation used the
+existing production writer and correction-case lock. Exact input/context,
+unchecked approvals and the saved verified plan were checked first. Readback
+proves Analysis Ready, exact proposal/type match, stale AI Resolution Result
+cleared and all three human controls unchanged. No generation, inference,
+correction write or attachment upload occurred. The previous scoped local replay
+already proved payer/service/date naming readiness, comma-separated services and
+absence of the disputed date warning. Only unknown subtype remains unresolved.
+Other flagged cases were not advanced. The runtime/worker was not started.
+
+Files: continuity layers only for this live acceptance checkpoint; prior code
+checkpoint has 115 focused synthetic/mock plus 14 continuity checks passing.
+Only value-free booleans/categories were emitted. Temporary scoped verification
+helpers are removed after use. Approved management tracker sync and Git gates
+complete the checkpoint. Human correction approval is now the real boundary;
+resolution approval, actual correction and later learning reuse remain unproven.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Published and verified the existing complete requested correction proposal.",
+  "key_result": "Analysis Ready readback matches saved plan; stale result cleared and human controls unchanged. Payer/services/dates resolved; only unknown subtype remains.",
+  "tests": "115 focused plus 14 continuity synthetic/mock checks passed. Live publication-only readback passed with zero model calls or applied corrections.",
+  "phi_handling": "Approved workflow-owned fields only; safe booleans emitted. No mailbox, cloud model, document correction, attachment upload or human-control write.",
+  "limitation_acceptance": "Awaiting human correction approval. Actual correction, resolution approval and learning reuse remain pending; Training stopped.",
+  "exact_next_start": "Obtain human Approve AI Correction for the existing Analysis Ready proposal. Payer, comma-separated service tokens and dates are verified; only unknown subtype remains. Apply the saved same-row/document plan without reanalysis, verify row and attachment readback, then obtain human Approve AI Resolution and prove bounded same-type learning reuse. Preserve human controls and other flagged cases. Do not resend the document. Training remains stopped pending the human approval."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
