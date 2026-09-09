@@ -4,7 +4,7 @@ from src.services.document_processor_training_contracts import (
     AI_CORRECTION, AI_PROPOSED_CORRECTION, AI_CORRECTION_TYPE,
     AI_CORRECTION_STATUS, AI_RESOLUTION_RESULT, APPROVE_AI_CORRECTION,
     APPROVE_AI_RESOLUTION, REQUIRED_COLUMNS, TrainingCycleSummary,
-    build_proposal, validate_analysis,
+    build_proposal, validate_analysis, CorrectionAnalysis,
     TRAINING_MODES,
 )
 from src.services.smartsheet_feedback_case_storage_service import stable_digest
@@ -12,7 +12,7 @@ from src.services.local_correction_memory_service import LocalCorrectionStore, A
 from src.services.local_code_update_authorization import LocalCodeUpdateAuthorization
 
 # Fixed categories only: exception messages may contain protected SDK/model data.
-PREPARATION_CONTRACT_VERSION = 3
+PREPARATION_CONTRACT_VERSION = 4
 PREPARATION_FAILURE_CATEGORIES = frozenset({
     "correction_field_not_mapped", "correction_source_outside_scope",
     "correction_source_identity_unproven", "correction_row_identity_unproven",
@@ -193,13 +193,14 @@ class LocalDocumentCorrectionWorkflow:
             and (state.get("plan") is None or (
                 state.get("preparation_failure_category") == "correction_requested_filename_unresolved"
                 and isinstance(state.get("plan"), dict)
-                and not state["plan"].get("attachment")
             ))
             and state.get("preparation_contract_version", 1) < PREPARATION_CONTRACT_VERSION
             and row.values.get(APPROVE_AI_CORRECTION) is not True
             and row.values.get(APPROVE_AI_RESOLUTION) is not True
         )
         if not state or digest != state["input_digest"] or state["phase"] == "superseded" or upgrade_blocked:
+            prior_analysis = (state.get("analysis") if upgrade_blocked
+                              and digest == state["input_digest"] else None)
             if state:
                 self.store.save("audit", stable_digest(state), state)
             generation = (state or {}).get("generation", 0) + 1
@@ -208,10 +209,16 @@ class LocalDocumentCorrectionWorkflow:
                 "preparation_contract_version":PREPARATION_CONTRACT_VERSION,
             })
             self._observe("local_analysis", "started")
-            analysis = validate_analysis(self.analyzer.analyze(protected_context={
-                "row": context, "prior_reviewer_feedback": comments[:-1],
-                "current_reviewer_feedback": comments[-1] if comments else {},
-            }))
+            if isinstance(prior_analysis, dict):
+                # Feedback/context are unchanged: reuse validated intent, not
+                # old document values. Original-source replay still validates
+                # the new plan, and human approvals never carry over.
+                analysis = validate_analysis(CorrectionAnalysis(**prior_analysis))
+            else:
+                analysis = validate_analysis(self.analyzer.analyze(protected_context={
+                    "row": context, "prior_reviewer_feedback": comments[:-1],
+                    "current_reviewer_feedback": comments[-1] if comments else {},
+                }))
             # Local model provides intent, never field evidence. Replay validates original source.
             state = {"phase":"preparing", "generation":generation, "input_digest":digest,
                      "feedback":comments, "row_before":context, "analysis":asdict(analysis),

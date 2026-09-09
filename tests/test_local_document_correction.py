@@ -648,13 +648,12 @@ def test_filename_blocked_upgrade_retains_audit_and_reprepares_once():
 
 
 def test_retained_plan_upgrade_respects_approvals_and_failure_scope():
-    for guard in (APPROVE_AI_CORRECTION, APPROVE_AI_RESOLUTION, "other_failure", "attachment"):
+    for guard in (APPROVE_AI_CORRECTION, APPROVE_AI_RESOLUTION, "other_failure"):
         h=Harness(); h.cycle(); old=h.store.load("case","synthetic-case")
         old.update(phase="blocked", preparation_contract_version=2,
                    preparation_failure_category="correction_requested_filename_unresolved")
         if guard in (APPROVE_AI_CORRECTION, APPROVE_AI_RESOLUTION): h.values[guard]=True
         if guard=="other_failure": old["preparation_failure_category"]="correction_type_validation_failed"
-        if guard=="attachment": old["plan"]["attachment"]={"name":"synthetic.pdf"}
         h.store.save("case","synthetic-case",old)
         h.cycle(); assert h.prepares==1 and h.applies==0
 
@@ -689,6 +688,23 @@ def test_requested_filename_components_must_resolve_before_proposal_approval():
     assert "Correct the document filename" in verified_proposal(
         {"updates":{},"attachment":{"name":"SYNTHETIC_PLAN_SERVICE_AUTH [SUBTYPE].PDF"}},
         ("Filename",),("Payer When Applicable","Service When Applicable"))
+
+
+def test_program_policy_upgrade_reuses_intent_not_incomplete_attachment_plan():
+    h=Harness(); h.cycle(); old=h.store.load("case","synthetic-case")
+    old.update(phase="blocked", preparation_contract_version=3,
+               preparation_failure_category="correction_requested_filename_unresolved")
+    old["plan"]["attachment"]={"name":"SYNTHETIC_[SERVICE].PDF"}
+    h.store.save("case","synthetic-case",old)
+    def no_reanalysis(**kwargs): raise AssertionError("unchanged intent was reanalyzed")
+    h.workflow.analyzer=N(analyze=no_reanalysis)
+    result=h.cycle(); h.cycle()
+    current=h.store.load("case","synthetic-case")
+    assert result.analysis_ready_count==1
+    assert current["generation"]==old["generation"]+1
+    assert "attachment" not in current["plan"]
+    assert h.prepares==2 and h.applies==0
+    assert any(kind=="audit" and value==old for (kind,key),value in h.store.data.items())
 
 
 if __name__=="__main__":

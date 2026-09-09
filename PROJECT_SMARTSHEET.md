@@ -5,11 +5,11 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Implemented explicit program-independent service filename lookup.
-Result: Naming uses accepted code/modifier only and rejects competing tokens across program rows. Program evidence and generic lookup remain preserved.
-Tests: 132 synthetic/mock checks and Python compilation passed. Safe read-only cache aggregate: 22 unique pairs, 3 ambiguous.
-PHI: Synthetic data and reference counts only; no model replay, mailbox, training or production document operation.
-Status: Same-case proposal regeneration and human-approved correction/learning acceptance remain pending. No guessing of ambiguous reference tokens.
+Work: Prepared one audited same-case regeneration for the approved naming policy.
+Result: Unchanged validated intent is reused; old partial plan retained in audit. Evidence replay and fresh human approval still required.
+Tests: 110 synthetic/mock correction, training and ownership checks passed; modified Python compiled.
+PHI: Synthetic-only verification; no live document or row operation in this checkpoint.
+Status: Controlled same-case proposal verification follows; no complete correction/learning acceptance claimed.
 Next: Program has been explicitly excluded from current filename naming. Prepare an audited same-case proposal regeneration using the program-independent code/modifier lookup and existing payer/date fixes; preserve the old blocked plan and human controls. Verify each service token resolves uniquely, then obtain human Approve AI Correction for the complete existing-row/document correction, verify readback, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Do not guess competing service tokens or resend the document. Training remains stopped; no further inference ran during the program-policy update.
 
 ## Safety Contract

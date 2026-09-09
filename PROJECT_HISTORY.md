@@ -13881,3 +13881,32 @@ complete the checkpoint. Full correction/resolution/reuse acceptance is pending.
   "exact_next_start": "Program has been explicitly excluded from current filename naming. Prepare an audited same-case proposal regeneration using the program-independent code/modifier lookup and existing payer/date fixes; preserve the old blocked plan and human controls. Verify each service token resolves uniquely, then obtain human Approve AI Correction for the complete existing-row/document correction, verify readback, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Do not guess competing service tokens or resend the document. Training remains stopped; no further inference ran during the program-policy update."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Same-Case Program-Policy Regeneration - 2026-09-09
+
+Preparation contract 4 allows one upgrade of the specifically blocked incomplete
+filename plan, including a partial but unapplied attachment-name change. Phase,
+version and unchecked human controls remain mandatory; applying/uncertain states
+still reconcile rather than regenerate. Old plan and case identity remain audited.
+Unchanged feedback/context reuse the validated stored intent analysis, avoiding
+another model analysis call. Only original-source replay supplies new values.
+Changed context still requires analysis. Reservation precedes either path; failed
+or interrupted preparation is not hot-retried.
+
+Files: local_document_correction_workflow.py, test_local_document_correction.py,
+continuity layers. Modified Python compiled. 46 correction, 54 training and 10
+human-ownership synthetic/mock tests passed (110). No live operation yet; scoped
+controlled verification follows registration. PHI-safe tracker and continuity
+checks precede commit. Saved approvals and document row are unchanged.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Prepared one audited same-case regeneration for the approved naming policy.",
+  "key_result": "Unchanged validated intent is reused; old partial plan retained in audit. Evidence replay and fresh human approval still required.",
+  "tests": "110 synthetic/mock correction, training and ownership checks passed; modified Python compiled.",
+  "phi_handling": "Synthetic-only verification; no live document or row operation in this checkpoint.",
+  "limitation_acceptance": "Controlled same-case proposal verification follows; no complete correction/learning acceptance claimed.",
+  "exact_next_start": "Program has been explicitly excluded from current filename naming. Prepare an audited same-case proposal regeneration using the program-independent code/modifier lookup and existing payer/date fixes; preserve the old blocked plan and human controls. Verify each service token resolves uniquely, then obtain human Approve AI Correction for the complete existing-row/document correction, verify readback, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Do not guess competing service tokens or resend the document. Training remains stopped; no further inference ran during the program-policy update."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

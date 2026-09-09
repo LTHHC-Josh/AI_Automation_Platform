@@ -171,8 +171,8 @@ Operator-facing review reasons use `<Business/Smartsheet Field>: <Problem>` and
 date evidence normalization accepts the same two-digit-year calendar interpretation
 already used by filename policy. Date evidence still belongs to its own service
 line; invalid dates or evidence from another line remain unsupported. The current
-document cache contains short-year dates, but the complete live warning cause has
-not yet been proven by a post-fix replay.
+document cache contains short-year dates. Controlled post-fix replay accepted both
+service lines' dates and removed the disputed date warning from the proposed update.
 Review reasons
 derive from final validated state. Filename placeholders or reference-token
 lookup failure do not automatically create extraction-review reasons.
@@ -249,7 +249,7 @@ acceptance. Startup uses the existing fingerprint/owned restart contract.
 Current versions:
 - `business_context_version`: 3
 - `analysis_contract_version`: 4
-- local preparation contract: 3
+- local preparation contract: 4
 - legacy protected correction-case schema: 3
 - local sealed correction/source/lesson/audit schema: 1
 - resolution code-update authorization contract: 1
@@ -280,17 +280,20 @@ coverage means a requested filename correction cannot be Analysis Ready
 when the saved plan contains no attachment-name change. Existing incomplete plans
 also remain blocked when explicitly requested payer/service components still
 contain placeholders, even if another filename component has improved.
-are retained for audit and blocked before approval can apply them. Proposal text
+Incomplete plans are retained for audit and blocked before approval can apply them. Proposal text
 describes verified actions, and stale workflow-owned resolution text is cleared.
 Preparation errors retain
 only fixed allowlisted categories. Blocked cases fail the cycle and expose
 blocked_case_count/preparation_failure_categories, rather than reporting success.
-An older blocked, unapplied case may reanalyze once under preparation contract 3
+An older blocked, unapplied case may regenerate once under preparation contract 4
 with both approval boxes unchecked. It keeps the same identity, archives the old
 generation, and reserves the new generation before inference. Unchanged polling,
 interrupted inference and uncertain applied transactions never blindly replay.
-Contract 3 also permits the specifically blocked incomplete filename plan with
-no attachment action to regenerate once; both approvals must remain unchecked.
+Contract 4 permits the specifically blocked incomplete filename plan to
+regenerate once, including an unapplied partial attachment-name plan after a
+tested business-policy change; both approvals must remain unchecked. Unchanged
+feedback/context reuse the validated intent analysis instead of another model
+analysis request. Original-document evidence replay still validates the new plan.
 Other retained blocked plans are not rearmed. Value-free final field/naming
 diagnostics are sealed locally before mapping so preparation failures remain
 inspectable without printing document values or rerunning inference blindly.
@@ -381,8 +384,9 @@ Operator commands remain:
   identities with accepted code/modifier/program inputs: each code/modifier pair
   exists in the authoritative table, but neither full program-qualified key
   resolves. Both lookup outcomes are not_resolved, not ambiguous. This is a
-  reference/program-contract boundary, not evidence to omit or guess program.
-  No further inference should run until that authoritative relationship is clear.
+  reference/program-contract boundary. The operator subsequently clarified that
+  program is excluded from current naming; the tested naming-only lookup now
+  follows that rule. Same-case regeneration remains pending verification.
 
 - Controlled local_correction cycle on 2026-09-09 processed three flagged cases;
   all became blocked, with zero corrections and zero Codex dispatches. The newest
