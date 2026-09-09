@@ -434,9 +434,11 @@ Operator commands remain:
   new diagnostics. No real model replay or row/document correction occurred in
   this checkpoint. Contract 5 remains consumed; human state is untouched.
   DP was stopped through its proven-owned wrapper for source maintenance;
-  Training remains stopped. Registered executable source still needs refresh
-  after this source checkpoint. Continued DP polling remains authorized but
-  must resume only after current-source/control-plane verification.
+  Training remains stopped. Manual/live/Training registrations were refreshed to
+  executable source db4509d0a33897044530f30d2b507a9e4b940836: each is unique,
+  parameterless, unscheduled and concurrency one/CANCEL_NEW. Control-plane readback
+  shows no active manual/live/Training conflict or fresh worker. Continued DP
+  polling remains authorized after exclusive diagnostic maintenance completes.
 
 - Post-fix live revalidation under contract 5 reused the same case and validated
   feedback intent (zero feedback model calls), with one cached-source pipeline
@@ -612,4 +614,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Refresh affected source registrations, then use one explicitly bounded diagnostic-only cached-source replay of the existing blocked case to capture raw/adapter shapes and exact mapped-field differences. Preserve the consumed generation, review snapshot, comments, approvals and row/document; do not blindly re-arm contract 5 or resend the document. Reproduce the proven cause synthetically before changing validation or correction scope. Training stays stopped; resume authorized DP polling after exclusive maintenance and current-source verification.
+Use one explicitly bounded diagnostic-only cached-source replay of the existing blocked case to capture raw/adapter shapes and exact mapped-field differences. Preserve the consumed generation, review snapshot, comments, approvals and row/document; do not blindly re-arm contract 5 or resend the document. Reproduce the proven cause synthetically before changing validation or correction scope. Training stays stopped; resume authorized DP polling after exclusive maintenance. Registered executable source is db4509d0a33897044530f30d2b507a9e4b940836.

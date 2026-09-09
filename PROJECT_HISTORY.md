@@ -14391,3 +14391,39 @@ explicit refresh; DP and Training are stopped at this source checkpoint.
   "exact_next_start": "Refresh affected source registrations, then use one explicitly bounded diagnostic-only cached-source replay of the existing blocked case to capture raw/adapter shapes and exact mapped-field differences. Preserve the consumed generation, review snapshot, comments, approvals and row/document; do not blindly re-arm contract 5 or resend the document. Reproduce the proven cause synthetically before changing validation or correction scope. Training stays stopped; resume authorized DP polling after exclusive maintenance and current-source verification."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## 2026-09-09 — Diagnostic source registration verified
+
+Committed and pushed the tested diagnostic source as
+db4509d0a33897044530f30d2b507a9e4b940836; local/remote divergence zero and clean
+tree verified. Refreshed the manual, live and Training deployment registrations
+using the installed Prefect profile/deploy mechanism. Exact JSON readback proves
+each deployment unique, current at that executable commit, zero schedules, zero
+parameters and concurrency one/CANCEL_NEW. Old-name deployment count is zero.
+The first PowerShell readback wrapped the response array incorrectly; its derived
+counts were discarded, and typed JSON verification established the actual result.
+Control-room/PostgreSQL readiness is true, no active manual/live/Training run
+conflict exists and each worker count is zero. No worker or deployment invocation
+was started. DP and Training remain stopped for exclusive diagnostic maintenance.
+No document, model, mailbox, comment or correction operation occurred.
+
+The current case remains blocked and consumed under contract 5. Source refresh
+does not grant another production attempt or change human approval. Next is a
+bounded diagnostic-only replay with writes disabled, not a production retry.
+This checkpoint updates continuity only; the 367 source checks remain applicable.
+The first continuity test caught a stale generated summary before any tracker
+write. Regenerated it, then all 11 migration and 3 tracker checks passed.
+Tracker: Updated 1, Unchanged 37, Not Found 0, Failed 0. Summary length 1,195
+characters. Full continuity diff and git diff --check passed.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Committed diagnostic source and refreshed manual, live and Training registrations.",
+  "key_result": "Unique current deployments, no schedules/parameters, concurrency one/CANCEL_NEW. No active run conflict or fresh worker. DP and Training remain stopped.",
+  "tests": "367 source checks passed; exact typed registration and PHI-safe control-plane readback verified.",
+  "phi_handling": "Control-plane operations only. No model replay, document write/upload, mailbox, comments or approval changes.",
+  "limitation_acceptance": "Current correction remains blocked; contract 5 is consumed. Diagnostic instrumentation is registered but has not been exercised on that document.",
+  "exact_next_start": "Use one explicitly bounded diagnostic-only cached-source replay of the existing blocked case to capture raw/adapter shapes and exact mapped-field differences. Preserve the consumed generation, review snapshot, comments, approvals and row/document; do not blindly re-arm contract 5 or resend the document. Reproduce the proven cause synthetically before changing validation or correction scope. Training stays stopped; resume authorized DP polling after exclusive maintenance. Registered executable source is db4509d0a33897044530f30d2b507a9e4b940836."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
