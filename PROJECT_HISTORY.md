@@ -13655,3 +13655,41 @@ claimed. No mailbox mutation, human-control write or cloud model dispatch.
   "exact_next_start": "Resolve the authoritative filename naming-rule/reference ambiguity locally before another full correction replay; code-only service matches are ambiguous and payer composite readiness remains unproven. Preserve the existing blocked case and unchecked approvals. Refresh source registration for the short-year date-validation fix, then verify exact service-line evidence and naming diagnostics on the same document after supported reference clarification. Do not guess mappings, resend the document, or approve a plan that does not resolve the requested correction. Training is stopped; full acceptance remains incomplete."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Comma-Separated Authoritative Services - 2026-09-09
+
+Operator clarified that two service names are separated by a comma. Shared
+production filename assembly previously required every resolved lookup to return
+one identical token, incorrectly forcing a placeholder for distinct valid services.
+It now joins sorted distinct authoritative tokens with a comma. Each individual
+lookup must still resolve; no modifier/program or payer mapping is inferred.
+Existing supported identity selection and filename safety checks remain unchanged.
+Manual, unattended and correction replay share this assembly. Persisted mailbox
+attachment names are not recomputed; correction remains a separate approved path.
+The payer reference list is pending and no document-specific mapping was added.
+
+Files: production_filename_assembly_service.py,
+test_production_filename_assembly_service.py and the three continuity layers.
+Modified Python compiled. Synthetic/mock checks: assembly 30, policy 12,
+builder 4, reference architecture 10, intake 20, correction 41, human feedback 10,
+recovery 21 = 148 passed. Recovery functions ran with isolated temporary-path
+fixtures (the file has no direct runner). Coverage includes order independence,
+deduplication, unresolved individual lookups, temporary copy/source preservation,
+persisted-name recovery, human ownership and correction safeguards.
+Continuity/tracker gates run before commit. No live document, model, mailbox,
+training, attachment or correction operation occurred; only approved PHI-safe
+management tracker synchronization. No protected reference contents were read.
+Full same-document and end-to-end acceptance remain pending; this change does not
+prove the current document's individual reference matches have resolved.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Implemented approved comma-separated multi-service filename naming.",
+  "key_result": "Distinct authoritative service tokens now join deterministically instead of forcing a placeholder. Individual ambiguous lookups remain unresolved; persisted names and approval protections are unchanged.",
+  "tests": "148 synthetic/mock filename, reference, correction, feedback and recovery checks passed; modified Python compiled.",
+  "phi_handling": "Synthetic data only. No live document, model, mailbox, correction or attachment operation. Management tracker only.",
+  "limitation_acceptance": "Payer list and individual service reference resolution remain pending. No full live acceptance claimed.",
+  "exact_next_start": "Obtain the operator's authoritative payer full-name/filename-token list through the approved local reference mechanism, and resolve any remaining service composite lookup ambiguity without guessing. Then refresh source registration and perform a controlled same-document correction verification for short-year date support and comma-separated service naming. Preserve the blocked case, existing job identity and human approvals; do not resend the document or approve an incomplete correction. Training remains stopped and full acceptance remains pending."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

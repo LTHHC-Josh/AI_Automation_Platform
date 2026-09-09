@@ -162,9 +162,14 @@ class ProductionFilenameAssemblyService:
             }
             if (
                 all(lookup.resolved for lookup in candidate_lookups)
-                and len(resolved_values) == 1
+                and resolved_values
             ):
-                service_lookup = candidate_lookups[0]
+                # Intake uses a comma between independently resolved services.
+                # Stable ordering and deduplication keep replay deterministic;
+                # one ambiguous lookup must not become a guessed service list.
+                service_lookup = LookupResult(
+                    True, ",".join(sorted(resolved_values)), "resolved"
+                )
 
         document_type = IntakeDocumentNamingVocabulary.resolve(document)
         category = str(document.document_category or "").strip().lower()

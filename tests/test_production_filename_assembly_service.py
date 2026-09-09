@@ -67,6 +67,21 @@ def test_complete_independently_supported_inputs_use_existing_policy_format():
     )
     assert repeated.policy_result.filename == result.policy_result.filename
 
+    with tempfile.TemporaryDirectory() as directory:
+        source = Path(directory) / "synthetic.pdf"
+        source.write_bytes(b"SYNTHETIC")
+        naming = DocumentAttachmentNamingService()
+        prepared = naming.prepare(
+            source_path=source, filename_policy_result=result.policy_result
+        )
+        try:
+            assert prepared.success
+            assert prepared.temporary_path.name == result.policy_result.filename
+            assert source.name == "synthetic.pdf"
+            assert source.read_bytes() == b"SYNTHETIC"
+        finally:
+            naming.cleanup(prepared.temporary_path)
+
 
 def test_combined_name_and_context_cannot_replace_independent_components():
     subject = document()
@@ -256,7 +271,7 @@ def test_multiple_service_lines_use_one_shared_authoritative_naming_token_only()
     assert "service" not in result.policy_result.placeholder_categories
 
 
-def test_multiple_service_lines_with_distinct_tokens_use_service_placeholder():
+def test_multiple_service_lines_with_distinct_tokens_use_comma_separator():
     distinct_tables = lambda: ReferenceTables(
         PayorReferenceTable({("SYNTHETIC PLAN", ""): "PLAN"}),
         ServiceReferenceTable({
@@ -275,8 +290,46 @@ def test_multiple_service_lines_with_distinct_tokens_use_service_placeholder():
     result = ProductionFilenameAssemblyService(
         tables_provider=distinct_tables
     ).resolve(document=subject, source_extension=".pdf")
+    assert result.diagnostic.service_component_status == "Ready"
+    assert "service" not in result.policy_result.placeholder_categories
+    assert "_SERVICE A,SERVICE B_" in result.policy_result.filename
+    subject.service_lines.reverse()
+    repeated = ProductionFilenameAssemblyService(
+        tables_provider=distinct_tables
+    ).resolve(document=subject, source_extension=".pdf")
+    assert repeated.policy_result.filename == result.policy_result.filename
+
+
+def test_multiple_service_tokens_do_not_hide_ambiguous_reference():
+    subject = document()
+    subject.service_lines.append(AuthorizationServiceLine(
+        service_code="T0001", confidence=0.95,
+    ))
+    ambiguous_tables = ReferenceTables(
+        tables().payors,
+        ServiceReferenceTable({
+            ("T0000", "U1", ""): {"SERVICE A"},
+            ("T0001", "", ""): {"SERVICE B", "SERVICE C"},
+        }),
+    )
+    result = ProductionFilenameAssemblyService(
+        tables_provider=lambda: ambiguous_tables
+    ).resolve(document=subject, source_extension=".pdf")
     assert result.diagnostic.service_component_status == "Placeholder"
-    assert "service" in result.policy_result.placeholder_categories
+    assert "_[SERVICE]_" in result.policy_result.filename
+    assert "SERVICE A" not in result.policy_result.filename
+    assert subject.service_lines[0].service_code == "T0000"
+    assert subject.service_lines[1].service_code == "T0001"
+
+
+def test_repeated_service_identity_is_not_duplicated_in_filename():
+    subject = document()
+    subject.service_lines.append(subject.service_lines[0])
+    result = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
+        document=subject, source_extension=".pdf"
+    )
+    assert "_SERVICE_" in result.policy_result.filename
+    assert "SERVICE,SERVICE" not in result.policy_result.filename
 
 
 def test_single_supported_service_date_is_ready_and_policy_supported():

@@ -186,6 +186,11 @@ Filename outcomes are `complete_business`, `partial_business`, and
 `[DOCUMENT TYPE]`, `[SUBTYPE]`, and `[DATE]`.
 
 - Optional absent components are omitted.
+- Multiple independently resolved service naming tokens are comma-separated,
+  sorted deterministically and deduplicated. Different valid service tokens no
+  longer force [SERVICE]; ambiguous individual reference matches still do.
+  Payer reference-list clarification remains pending. No one-document alias or
+  sender-based payer inference has been added.
 - Meaningful unresolved components use the approved placeholder when core
   identity remains safe.
 - A date range is used only when both applicable dates are explicitly and
@@ -444,4 +449,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Resolve the authoritative filename naming-rule/reference ambiguity locally before another full correction replay; code-only service matches are ambiguous and payer composite readiness remains unproven. Preserve the existing blocked case and unchecked approvals. Refresh source registration for the short-year date-validation fix, then verify exact service-line evidence and naming diagnostics on the same document after supported reference clarification. Do not guess mappings, resend the document, or approve a plan that does not resolve the requested correction. Training is stopped; full acceptance remains incomplete.
+Obtain the operator's authoritative payer full-name/filename-token list through the approved local reference mechanism, and resolve any remaining service composite lookup ambiguity without guessing. Then refresh source registration and perform a controlled same-document correction verification for short-year date support and comma-separated service naming. Preserve the blocked case, existing job identity and human approvals; do not resend the document or approve an incomplete correction. Training remains stopped and full acceptance remains pending.
