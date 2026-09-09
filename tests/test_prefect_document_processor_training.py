@@ -153,6 +153,26 @@ def test_implementation_failure_fails_flow_after_retaining_safe_summary():
     assert not captured[0].retryable
 
 
+def test_blocked_preparation_fails_flow_without_claiming_implementation():
+    from unittest.mock import patch
+    class BlockedApplication:
+        def run_cycle(self, *, stage_observer):
+            return TrainingCycleSummary(
+                blocked_case_count=1,
+                preparation_failure_categories="correction_field_not_mapped",
+                polling_result="completed_with_failures",
+                failure_category="local_correction_unresolved",
+            )
+    captured=[]
+    with patch.object(training.DocumentProcessorTrainingApplicationService, "from_environment", return_value=BlockedApplication()), patch.object(training, "_write_safe_summary", side_effect=captured.append):
+        with prefect_test_harness():
+            state=training.document_processor_training_flow(return_state=True)
+    assert state.is_failed() and len(captured)==1
+    assert captured[0].blocked_case_count==1
+    assert captured[0].implementation_started_count==0
+    assert captured[0].preparation_failure_categories=="correction_field_not_mapped"
+
+
 if __name__ == "__main__":
     tests = [value for name, value in tuple(globals().items()) if name.startswith("test_")]
     for test in tests:

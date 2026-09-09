@@ -228,7 +228,8 @@ acceptance. Startup uses the existing fingerprint/owned restart contract.
 
 Current versions:
 - `business_context_version`: 3
-- `analysis_contract_version`: 3
+- `analysis_contract_version`: 4
+- local preparation contract: 2
 - legacy protected correction-case schema: 3
 - local sealed correction/source/lesson/audit schema: 1
 - resolution code-update authorization contract: 1
@@ -250,6 +251,17 @@ version. Original source bytes and original mailbox recovery names remain unchan
 Each external boundary has a sealed durable intent. Uncertain updates reconcile;
 an unproven attachment-version response is blocked rather than blindly repeated.
 External/user changes are preserved.
+
+Filename intent normalization now aligns the primary symptom, fixed behavior code
+and Filename execution scope. Service Line correction revalidates only its review
+projection; it never flattens line dates/quantity/status into top-level columns.
+Unrelated replay changes still block aggregate correction. Preparation errors retain
+only fixed allowlisted categories. Blocked cases fail the cycle and expose
+blocked_case_count/preparation_failure_categories, rather than reporting success.
+An older blocked, unapplied case may reanalyze once under preparation contract 2
+with both approval boxes unchecked. It keeps the same identity, archives the old
+generation, and reserves the new generation before inference. Unchanged polling,
+interrupted inference and uncertain applied transactions never blindly replay.
 
 Verified correction results move to Awaiting Resolution Approval. Fresh approval
 retains only fixed PHI-free guidance, directly indexed by canonical document family:
@@ -421,4 +433,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Diagnose the existing blocked local correction generation: reviewer intent was sufficient, but analysis selected add_required_review_reason for filename/date-warning feedback and preparation produced no safe plan. Retain fixed PHI-safe preparation failure categories, correct proven intent/scope defects, test and preserve the same case and human approvals, then perform one controlled proposal verification. Do not resend the document or approve the blocked proposal. Full correction/resolution/later-document learning acceptance remains pending.
+Refresh affected source registration, then run one controlled DP Training cycle on the existing flagged cases with both approval boxes unchecked. Verify the same-case contract upgrade produces a filename/service-line-review proposal or a specific safe preparation blocker, without resubmission or production correction. Stop training after that cycle. Request human approval only for a verified proposal; full correction/resolution/later-document learning acceptance remains pending.

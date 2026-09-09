@@ -659,6 +659,15 @@ class OllamaProvider(LLMProvider):
                 "dates are deterministically supported, otherwise a supported single date, "
                 "and use existing placeholder policy when an applicable date is unresolved. "
                 "Neither AUTH nor an AUTH subtype inherently requires a date range."
+                " Keep primary symptom, behavior_code and affected_fields consistent. "
+                "Filename complaints require Filename in affected_fields and a filename "
+                "behavior code. Multiple complaints retain all applicable affected fields. "
+                "A reviewer disputing an existing warning is not requesting an additional "
+                "warning: use remove_false_review_reason for that primary review symptom, "
+                "subject to evidence verification. Service-line date complaints use Service "
+                "Line and Review Reason; do not equate line dates with overall dates. "
+                "A filename complaint can coexist with a disputed review warning. "
+                "Never remove a genuine warning merely because the reviewer disputes it."
             ),
             user_prompt="PROTECTED CORRECTION CONTEXT\n" + prompt_text,
             schema=deepcopy(schema),

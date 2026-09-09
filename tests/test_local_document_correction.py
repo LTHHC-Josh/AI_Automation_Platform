@@ -481,6 +481,113 @@ def test_resolved_checked_cases_cannot_starve_later_feedback():
     assert h.store.load("audit","local-poll-cursor")=={"offset":3}
 
 
+def test_filename_intent_canonicalizes_behavior_and_execution_scope():
+    from dataclasses import replace
+    a=replace(fixture["correction_analysis"](), primary_correction_type="Filename",
+        observed_failure_type="Filename Missing Component",
+        affected_fields=("Payer", "Service Line"), behavior_code="add_required_review_reason",
+        required_filename_components=("Payer When Applicable", "Service When Applicable"))
+    v=validate_analysis(a)
+    assert v.behavior_code=="correct_filename"
+    assert set(v.affected_fields)=={"Payer", "Service Line", "Filename"}
+    assert validate_analysis(v)==v
+    assert "add_required_review_reason" not in build_proposal(v)
+
+
+def test_filename_and_service_line_scope_reaches_evidence_replay_without_writes():
+    from dataclasses import replace
+    class ReplayReached(Exception): pass
+    h=AdapterHarness(); reached=[]
+    def processor(): reached.append(True); raise ReplayReached()
+    h.executor.processor_factory=processor
+    a=validate_analysis(replace(fixture["correction_analysis"](),
+        primary_correction_type="Filename", observed_failure_type="Filename Missing Component",
+        affected_fields=("Payer","Service Line"), behavior_code="add_required_review_reason",
+        required_filename_components=("Payer When Applicable","Service When Applicable")))
+    try: h.executor.prepare(1,h.context,a)
+    except ReplayReached: pass
+    else: raise AssertionError("evidence replay was not reached")
+    assert reached==[True] and h.calls==0
+
+
+def test_service_line_scope_revalidates_review_not_top_level_values():
+    from dataclasses import replace
+    h=AdapterHarness()
+    # No production field changes: only an incorrect prior review explanation.
+    h.context["End Date"]=None; h.context["End Date Conf."]=None
+    h.values[h.ids["End Date"]]=None; h.values[h.ids["End Date Conf."]]=None
+    h.context["AI Review Reasons"]="Synthetic prior warning"
+    h.values[h.ids["AI Review Reasons"]]="Synthetic prior warning"
+    a=replace(fixture["correction_analysis"](), affected_fields=("Service Line",))
+    plan=h.executor.prepare(1,h.context,a)
+    assert set(plan["updates"]) <= {"AI Review Reasons","AI Review Status","AI Review Required","AI Minimum Field Confidence"}
+    assert "AI Review Reasons" in plan["updates"] and h.calls==0
+    assert not {"Start Date","End Date","Authorized Units","Service Codes"} & set(plan["updates"])
+
+
+def test_preparation_failure_is_fixed_safe_and_not_success():
+    from src.services.local_document_correction_workflow import PREPARATION_FAILURE_CATEGORIES
+    for error,category in [(ValueError("correction_field_not_mapped"),"correction_field_not_mapped"),
+                           (RuntimeError("synthetic-private-marker"),"correction_preparation_unavailable"),
+                           (ValueError("correction_field_not_mapped synthetic-private-marker"),"correction_preparation_unavailable")]:
+        h=Harness()
+        def fail(*args): h.prepares+=1; raise error
+        h.workflow.executor=N(prepare=fail)
+        result=h.cycle()
+        assert result.polling_result=="completed_with_failures" and result.blocked_case_count==1
+        assert result.preparation_failure_categories==category and category in PREPARATION_FAILURE_CATEGORIES
+        assert "synthetic-private-marker" not in repr(h.store.data)+repr(h.writes)+repr(result)
+        h.cycle(); assert h.prepares==1
+        assert h.applies==0 and h.values[APPROVE_AI_CORRECTION] is False
+
+
+def test_blocked_contract_upgrade_same_identity_once_without_new_comment():
+    h=Harness(); h.cycle()
+    state=h.store.load("case","synthetic-case")
+    state.update(phase="blocked",plan=None,status="Cannot Resolve Yet")
+    state.pop("preparation_contract_version")
+    h.store.save("case","synthetic-case",state)
+    comments=list(h.comments); before=h.prepares
+    result=h.cycle()
+    current=h.store.load("case","synthetic-case")
+    assert current["generation"]==state["generation"]+1 and current["phase"]=="proposed"
+    assert h.prepares==before+1 and result.updated_case_count==1
+    h.cycle(); assert h.prepares==before+1 and h.applies==0 and h.comments==comments
+    assert any(kind=="audit" and value==state for (kind,key),value in h.store.data.items())
+
+
+def test_contract_upgrade_never_consumes_checked_approvals_or_rearms_applied_state():
+    for approval in (APPROVE_AI_CORRECTION, APPROVE_AI_RESOLUTION):
+        h=Harness(); h.cycle(); state=h.store.load("case","synthetic-case")
+        state.update(phase="blocked",plan=None); state.pop("preparation_contract_version")
+        h.store.save("case","synthetic-case",state); h.values[approval]=True
+        h.cycle(); assert h.prepares==1 and h.applies==0
+    h=Harness(); h.proposal(); h.fail_after_apply=True; h.approve(); h.verified=False
+    state=h.store.load("case","synthetic-case"); state.pop("preparation_contract_version")
+    h.store.save("case","synthetic-case",state)
+    h.cycle(); assert h.prepares==1 and h.applies==1
+
+
+def test_analysis_is_reserved_before_inference_and_interruption_never_repeats():
+    h=Harness(); calls=[]
+    def interrupted(**kwargs):
+        calls.append(1)
+        state=h.store.load("case","synthetic-case")
+        assert state["phase"]=="preparing" and state["preparation_contract_version"]==2
+        raise RuntimeError("synthetic-private-marker")
+    h.workflow.analyzer=N(analyze=interrupted)
+    h.cycle(); second=h.cycle()
+    assert len(calls)==1 and h.prepares==0 and h.applies==0
+    assert second.preparation_failure_categories=="correction_preparation_interrupted"
+    assert "synthetic-private-marker" not in repr(h.store.data)+repr(second)
+
+
+def test_newly_prepared_case_is_counted_ready_immediately():
+    h=Harness(); result=h.cycle()
+    assert result.analysis_ready_count==1 and result.blocked_case_count==0
+    assert result.preparation_failure_categories=="none" and h.applies==0
+
+
 if __name__=="__main__":
     tests=[v for k,v in list(globals().items()) if k.startswith("test_")]
     for test in tests: test()

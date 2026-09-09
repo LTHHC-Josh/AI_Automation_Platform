@@ -75,7 +75,8 @@ def test_project_state_is_current_focused_with_one_next_start():
     assert "PROJECT_HISTORY.md" in state
     assert "PROJECT_SMARTSHEET.md" in state
     assert f"business_context_version`: {BUSINESS_CONTEXT_VERSION}" in state
-    assert "analysis_contract_version`: 3" in state
+    from src.services.document_processor_training_contracts import ANALYSIS_CONTRACT_VERSION
+    assert f"analysis_contract_version`: {ANALYSIS_CONTRACT_VERSION}" in state
 
 
 def test_project_smartsheet_is_derived_bounded_and_next_start_exact():

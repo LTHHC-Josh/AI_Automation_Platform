@@ -11,6 +11,26 @@ from src.services.smartsheet_feedback_case_storage_service import stable_digest
 from src.services.local_correction_memory_service import LocalCorrectionStore, ApprovedDocumentLessons
 from src.services.local_code_update_authorization import LocalCodeUpdateAuthorization
 
+# Fixed categories only: exception messages may contain protected SDK/model data.
+PREPARATION_CONTRACT_VERSION = 2
+PREPARATION_FAILURE_CATEGORIES = frozenset({
+    "correction_field_not_mapped", "correction_source_outside_scope",
+    "correction_source_identity_unproven", "correction_row_identity_unproven",
+    "correction_source_binding_conflict", "correction_source_changed",
+    "correction_legacy_state_unprovable", "correction_legacy_identity_unproven",
+    "correction_legacy_source_unproven", "correction_schema_unavailable",
+    "correction_mapping_unavailable", "correction_unrelated_field_change",
+    "correction_filename_unavailable", "correction_attachment_identity_unproven",
+    "correction_no_verified_change", "correction_write_scope_invalid",
+    "correction_clear_type_invalid", "correction_type_validation_failed",
+    "correction_attachment_response_invalid", "correction_preparation_unavailable",
+    "correction_intent_insufficient", "correction_preparation_interrupted",
+})
+
+def preparation_failure_category(error):
+    value = error.args[0] if isinstance(error, ValueError) and len(error.args) == 1 else None
+    return value if isinstance(value, str) and value in PREPARATION_FAILURE_CATEGORIES else "correction_preparation_unavailable"
+
 class LocalDocumentCorrectionWorkflow:
     MAX_CASES = 5
     def __init__(self, *, schema_service, reader, writer, repository, analyzer,
@@ -26,11 +46,13 @@ class LocalDocumentCorrectionWorkflow:
 
     def run_cycle(self, *, stage_observer=None):
         self.observer = stage_observer
+        self._preparation_failures = set()
         counts = dict(flagged_case_count=0, new_case_count=0, updated_case_count=0,
                       analysis_ready_count=0, implementation_started_count=0,
                       implementation_completed_count=0, implementation_failed_count=0,
                       resolved_count=0, correction_applied_count=0,
-                      awaiting_resolution_count=0, approved_lesson_count=0)
+                      awaiting_resolution_count=0, approved_lesson_count=0,
+                      blocked_case_count=0)
         try:
             with self.repository.exclusive_operation():
                 self._observe("training_poll", "started")
@@ -64,9 +86,10 @@ class LocalDocumentCorrectionWorkflow:
             self._observe("training_poll", "failed")
             return TrainingCycleSummary(effective_mode=self.mode, polling_result="failed",
                                         failure_category="local_correction_unavailable")
-        failed = counts["implementation_failed_count"] > 0
+        failed = counts["implementation_failed_count"] > 0 or counts["blocked_case_count"] > 0
         return TrainingCycleSummary(
             effective_mode=self.mode, **counts,
+            preparation_failure_categories=",".join(sorted(self._preparation_failures)) or "none",
             polling_result="completed_with_failures" if failed else "completed",
             failure_category="local_correction_unresolved" if failed else "none",
         )
@@ -134,10 +157,23 @@ class LocalDocumentCorrectionWorkflow:
                 if state["phase"] == "awaiting_resolution":
                     counts["awaiting_resolution_count"] += 1
                 return
-        if not state or digest != state["input_digest"] or state["phase"] == "superseded":
+        # One reanalysis after a tested contract upgrade, on the SAME identity.
+        # Only unapplied blocked plans with unchecked human approvals are eligible.
+        # Reservation precedes inference, so interruption cannot cause a hot retry.
+        upgrade_blocked = bool(
+            state and state["phase"] == "blocked" and state.get("plan") is None
+            and state.get("preparation_contract_version", 1) < PREPARATION_CONTRACT_VERSION
+            and row.values.get(APPROVE_AI_CORRECTION) is not True
+            and row.values.get(APPROVE_AI_RESOLUTION) is not True
+        )
+        if not state or digest != state["input_digest"] or state["phase"] == "superseded" or upgrade_blocked:
             if state:
                 self.store.save("audit", stable_digest(state), state)
             generation = (state or {}).get("generation", 0) + 1
+            self.store.save("case", key, {
+                "phase":"preparing", "generation":generation, "input_digest":digest,
+                "preparation_contract_version":PREPARATION_CONTRACT_VERSION,
+            })
             self._observe("local_analysis", "started")
             analysis = validate_analysis(self.analyzer.analyze(protected_context={
                 "row": context, "prior_reviewer_feedback": comments[:-1],
@@ -150,7 +186,9 @@ class LocalDocumentCorrectionWorkflow:
                      "type":analysis.correction_type, "status":"Needs More Information",
                      "code":analysis.behavior_code, "family":analysis.affected_document_category,
                      "approval_seen_false":row.values.get(APPROVE_AI_CORRECTION) is not True,
-                     "resolution_seen_false":False, "plan":None}
+                     "resolution_seen_false":False, "plan":None,
+                     "preparation_contract_version":PREPARATION_CONTRACT_VERSION,
+                     "preparation_failure_category":"none"}
             self.store.save("case", key, state)
             if analysis.desired_behavior_sufficient and comments:
                 try:
@@ -158,13 +196,19 @@ class LocalDocumentCorrectionWorkflow:
                     state["status"] = "Analysis Ready"
                     state["phase"] = "proposed"
                     state["proposal"] = "Correct this existing record using verified document evidence. " + state["proposal"]
-                except Exception:
+                except Exception as error:
+                    state["preparation_failure_category"] = preparation_failure_category(error)
                     state["phase"] = "blocked"
                     state["status"] = "Cannot Resolve Yet"
-                    state["result"] = "No safe correction could be verified. Technical review or additional evidence is needed."
+                    state["result"] = "No safe correction could be verified. Technical verification is needed; your feedback has been retained."
             else:
                 state["phase"] = "blocked"
-            self._observe("local_analysis", "completed")
+                state["preparation_failure_category"] = "correction_intent_insufficient"
+            self._observe("local_analysis", "failed" if state["phase"] == "blocked" else "completed")
+            if state["phase"] == "blocked":
+                self._record_blocked(state, counts)
+            else:
+                counts["analysis_ready_count"] += 1
             self.store.save("case", key, state)
             counts["updated_case_count" if generation > 1 else "new_case_count"] += 1
             self._publish(row_id, schema, state, row)
@@ -172,7 +216,10 @@ class LocalDocumentCorrectionWorkflow:
         if state["phase"] == "preparing":
             # Interrupted inference is not silently repeated.
             counts["implementation_failed_count"] += 1
+            self._preparation_failures.add("correction_preparation_interrupted")
             return
+        if state["phase"] == "blocked":
+            self._record_blocked(state, counts)
         if not self._publish(row_id, schema, state, row) or state["phase"] != "proposed":
             return
         counts["analysis_ready_count"] += 1
@@ -212,6 +259,12 @@ class LocalDocumentCorrectionWorkflow:
         if not self.executor.verify(row_id, state["plan"]):
             raise ValueError("correction_outcome_unresolved")
         self._applied(key, state, row_id, schema, counts)
+
+    def _record_blocked(self, state, counts):
+        counts["blocked_case_count"] += 1
+        category = state.get("preparation_failure_category")
+        self._preparation_failures.add(category if category in PREPARATION_FAILURE_CATEGORIES
+                                       else "correction_preparation_unavailable")
 
     def _applied(self, key, state, row_id, schema, counts):
         row, comments, _, digest = self._read(row_id, schema)

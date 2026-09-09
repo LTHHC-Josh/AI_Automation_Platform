@@ -13491,3 +13491,63 @@ checks run before committing. Full end-to-end acceptance remains unproven.
   "exact_next_start": "Diagnose the existing blocked local correction generation: reviewer intent was sufficient, but analysis selected add_required_review_reason for filename/date-warning feedback and preparation produced no safe plan. Retain fixed PHI-safe preparation failure categories, correct proven intent/scope defects, test and preserve the same case and human approvals, then perform one controlled proposal verification. Do not resend the document or approve the blocked proposal. Full correction/resolution/later-document learning acceptance remains pending."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Correction Intent and Preparation Recovery Fix - 2026-09-09
+
+Read-only allowlisted inspection of the exact latest durable case proved primary
+Filename / Filename Missing Component, incompatible add_required_review_reason,
+affected fields Payer and Service Line, and no Filename execution field. The old
+adapter necessarily raises correction_field_not_mapped before source access for
+that combination. This narrows the previously swallowed failure from committed
+branch ordering and retained controlled enums, without replaying protected data.
+The earlier aggregate checkpoint cannot prove every older case reached replay;
+the latest case failed before replay. No raw feedback/values were emitted.
+
+Analysis contract 4 canonicalizes filename behavior and ensures Filename enters
+the execution scope. Prompt guidance explicitly distinguishes disputed existing
+warnings from requests for additional warnings and retains multi-symptom fields.
+Service Line is an evidence/review projection only: no new production column and
+no top-level quantity/date/status guessing. Full deterministic validation,
+unrelated-field guards, typed updates and human ownership remain unchanged.
+
+Preparation contract 2 persists fixed safe error categories and reports blocked
+cases as completed_with_failures; Prefect therefore fails while retaining the
+safe summary. New summary fields are blocked_case_count and
+preparation_failure_categories. Previously blocked unapplied cases may reanalyze
+once with unchecked approvals, under their same stable identity and new audited
+generation. Reservation precedes inference; crashes do not create endless model
+retries. Applying/resolved/awaiting-resolution cases are not rearmed by this rule.
+Comments/checkboxes are not modified. No blind external replay or autoapproval.
+
+Files: training contracts, local workflow, evidence-only executor, local Ollama
+provider instructions, local-correction/training/Prefect tests, three continuity
+layers. Modified Python compiled. Focused local correction 37; training 54;
+configuration 5; readiness 5; runtime recovery 8; AI Correction 10; code pipeline
+13; code authorization 5; activation gate 5; PS5.1 commands 7; row mapping 25;
+destination typing 18; intake filename 20; filename assembly 28; business context
+5; isolated Prefect 6: 251 unique checks passed. Continuity 11 and tracker
+reconciliation 3 follow before commit. One summary schema regression initially
+required its explicit safe-field expectation updated; rerun passed. Isolated
+Prefect tests passed with the previously observed temporary SQLite cleanup warning.
+No production server/deployment used by those tests.
+
+PHI handling: protected local enum/field-name inspection only; all regression
+fixtures synthetic/mock, plus real Windows process-lock and isolated Prefect
+checks. No live mailbox/OCR/Ollama/document row/attachment/comment operations,
+worker startup, code promotion or protected-state mutation in this fix task.
+Project tracker is the only external write. Protected ignores/diff review and
+tracker gates required before commit. Live proposal acceptance remains pending;
+this fix does not assert that payer/service/date evidence or reference data can
+resolve, and genuine uncertainty will still block an unsafe correction.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Fixed filename correction intent/scope and blocked-preparation reporting; added same-case contract recovery.",
+  "key_result": "Retained safe enums prove the prior pre-replay field-scope rejection. Filename routing now aligns; service-line review remains evidence-bound. One audited retry is allowed with unchecked approvals.",
+  "tests": "251 focused/affected synthetic/mock/isolated checks passed. Modified Python compiled; continuity/tracker checks follow.",
+  "phi_handling": "Safe local enums only; no live document/model/feedback operations or protected-state mutation. Project tracker only.",
+  "limitation_acceptance": "Live proposal verification remains pending. Genuine evidence/reference uncertainty and unrelated-field changes still fail closed.",
+  "exact_next_start": "Refresh affected source registration, then run one controlled DP Training cycle on the existing flagged cases with both approval boxes unchecked. Verify the same-case contract upgrade produces a filename/service-line-review proposal or a specific safe preparation blocker, without resubmission or production correction. Stop training after that cycle. Request human approval only for a verified proposal; full correction/resolution/later-document learning acceptance remains pending."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

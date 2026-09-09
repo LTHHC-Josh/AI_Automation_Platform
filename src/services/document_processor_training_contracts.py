@@ -32,7 +32,7 @@ WORKFLOW_OWNED_COLUMNS = frozenset({
 })
 REQUIRED_COLUMNS = HUMAN_OWNED_COLUMNS | WORKFLOW_OWNED_COLUMNS
 
-ANALYSIS_CONTRACT_VERSION = 3
+ANALYSIS_CONTRACT_VERSION = 4
 CORRECTION_TYPES = DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.correction_types
 TECHNICAL_DISPOSITIONS = (
     DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.technical_dispositions
@@ -266,6 +266,8 @@ class TrainingCycleSummary:
     correction_applied_count: int = 0
     awaiting_resolution_count: int = 0
     approved_lesson_count: int = 0
+    blocked_case_count: int = 0
+    preparation_failure_categories: str = "none"
     codex_dispatch_count: int = 0
     needs_more_information_count: int = 0
     requires_external_system_count: int = 0
@@ -339,6 +341,18 @@ def validate_analysis(value: Any) -> CorrectionAnalysis:
     ):
         related = (*related, "Document Subtype")
     related = tuple(item for item in related if item != correction_type)
+    # A normalized filename symptom must also reach the filename executor.
+    # Model fields/behavior can contradict its otherwise valid primary symptom.
+    # Resolve only this structural contradiction, never infer document values.
+    if sufficient and correction_type == "Filename":
+        fields = tuple(dict.fromkeys((*fields, "Filename")))
+        if value.technical_disposition != "External Dependency":
+            behavior_code = (
+                "correct_authorization_filename_subtype"
+                if value.affected_document_category == "authorization"
+                and value.desired_intake_subtype not in {"unknown", "not_applicable", "init"}
+                else "correct_filename"
+            )
     if not sufficient:
         behavior = "More reviewer information is required before a correction can be proposed."
         behavior_code = "needs_investigation"

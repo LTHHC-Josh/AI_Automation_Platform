@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Controlled local correction proposal acceptance reached a safe blocker.
-Result: Three flagged cases blocked; zero corrections and Codex dispatches. New feedback was sufficient but selected an inconsistent review behavior; no safe plan resulted. Training stopped.
-Tests: Real local training cycle and PHI-safe durable/status inspection. Prior 353 checks remain baseline; continuity and tracker checks rerun.
-PHI: Approved local feedback/evidence processing and workflow-field writes only. No protected values emitted; no human controls or mailbox mutation.
-Status: Proposal acceptance failed. Exact preparation cause is not retained; completed cycle status does not prove a ready proposal.
-Next: Diagnose the existing blocked local correction generation: reviewer intent was sufficient, but analysis selected add_required_review_reason for filename/date-warning feedback and preparation produced no safe plan. Retain fixed PHI-safe preparation failure categories, correct proven intent/scope defects, test and preserve the same case and human approvals, then perform one controlled proposal verification. Do not resend the document or approve the blocked proposal. Full correction/resolution/later-document learning acceptance remains pending.
+Work: Fixed filename correction intent/scope and blocked-preparation reporting; added same-case contract recovery.
+Result: Retained safe enums prove the prior pre-replay field-scope rejection. Filename routing now aligns; service-line review remains evidence-bound. One audited retry is allowed with unchecked approvals.
+Tests: 251 focused/affected synthetic/mock/isolated checks passed. Modified Python compiled; continuity/tracker checks follow.
+PHI: Safe local enums only; no live document/model/feedback operations or protected-state mutation. Project tracker only.
+Status: Live proposal verification remains pending. Genuine evidence/reference uncertainty and unrelated-field changes still fail closed.
+Next: Refresh affected source registration, then run one controlled DP Training cycle on the existing flagged cases with both approval boxes unchecked. Verify the same-case contract upgrade produces a filename/service-line-review proposal or a specific safe preparation blocker, without resubmission or production correction. Stop training after that cycle. Request human approval only for a verified proposal; full correction/resolution/later-document learning acceptance remains pending.
 
 ## Safety Contract
 

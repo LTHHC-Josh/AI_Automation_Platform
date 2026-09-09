@@ -99,6 +99,10 @@ class EvidenceOnlyCorrectionExecutor:
         "Document Subtype":("AI Document Subtype",),
         "Review Status":("AI Review Status", "AI Review Required"),
         "Review Reason":("AI Review Reasons",),
+        # Service lines have no editable row-shaped production column. Revalidate
+        # their evidence and review projection; never flatten their child values
+        # into top-level quantity/date/status fields.
+        "Service Line":("AI Review Reasons", "AI Review Status", "AI Review Required"),
         "Filename":(),
     }
     NAMING_ONLY_FIELDS = frozenset({
