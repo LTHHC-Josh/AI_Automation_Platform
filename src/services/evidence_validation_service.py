@@ -1128,8 +1128,17 @@ class EvidenceValidationService:
                     "end_date": deepcopy(service_line.end_date),
                     "status": deepcopy(service_line.status),
                     "confidence": self._normalize_confidence(service_line.confidence),
-                    "source_text": str(service_line.source_text or ""),
+                    "source_text": deepcopy(service_line.source_text),
                 }
+
+            from src.services.extraction_shape_diagnostic_service import ExtractionShapeDiagnosticService
+            invalid_fields = ExtractionShapeDiagnosticService.invalid_line_fields({
+                name: getattr(service_line, name)
+                for name in (*ExtractionShapeDiagnosticService.LINE_FIELDS, "source_text")
+            })
+            for name in invalid_fields:
+                actions.append(f"Service line {line_number} {name.replace('_', ' ')} has invalid structure")
+                setattr(service_line, name, "" if name == "source_text" else None)
 
             source_text = str(
                 service_line.source_text

@@ -148,19 +148,35 @@ class EvidenceOnlyCorrectionExecutor:
         from src.models.document import Document
         from src.services.field_validation_diagnostic_service import FieldValidationDiagnosticService
         from src.services.production_filename_assembly_service import FilenameReadinessDiagnostic
+        from src.services.extraction_shape_diagnostic_service import ExtractionShapeDiagnosticService
         if isinstance(document, Document):
             diagnostics = FieldValidationDiagnosticService()
             naming = getattr(getattr(document, "filename_assembly_result", None), "diagnostic", None)
             safe = {
                 "fields": [asdict(diagnostics.build(document, name))
-                           for name in ("payer", "start_date", "end_date")],
+                           for name in ("intake_document_subtype", "payer", "start_date", "end_date")],
                 "service_lines": [
                     asdict(diagnostics.build_service_line(document, index, component))
                     for index in range(len(document.service_lines or []))
                     for component in ("service_code", "modifier", "start_date", "end_date", "status")
                 ],
                 "filename": asdict(naming) if isinstance(naming, FilenameReadinessDiagnostic) else None,
+                "extraction_shapes": [],
+                "selected_attempt": (document.processing_metrics.get("extraction_selected_attempt")
+                                     if type(document.processing_metrics.get("extraction_selected_attempt")) is int
+                                     and document.processing_metrics.get("extraction_selected_attempt") in (1, 2) else None),
             }
+            attempts = document.processing_metrics.get("extraction_attempts", [])
+            for attempt in (attempts[:2] if isinstance(attempts, list) else []):
+                if not isinstance(attempt, dict) or type(attempt.get("attempt")) is not int or attempt["attempt"] not in (1, 2):
+                    continue
+                metrics = attempt.get("ollama")
+                metrics = metrics if isinstance(metrics, dict) else {}
+                safe["extraction_shapes"].append({
+                    "attempt": attempt["attempt"],
+                    "model": ExtractionShapeDiagnosticService.sanitize(metrics.get("extraction_shapes")),
+                    "adapter": ExtractionShapeDiagnosticService.sanitize(attempt.get("adapter_shapes")),
+                })
             self.source.store.save("audit", "preparation-diagnostics:" + binding["fingerprint"], safe)
         config = self.configuration.resolve(document_type=document.document_type)
         if not config.success:
@@ -173,6 +189,16 @@ class EvidenceOnlyCorrectionExecutor:
         # Shared final review/minimum must agree with recomputed selected production
         # values. Do not recompute aggregate metadata over a mixed old/new row.
         dependent = {"AI Minimum Field Confidence", "AI Review Reasons", "AI Review Status", "AI Review Required"}
+        from src.services.correction_difference_diagnostic_service import CorrectionDifferenceDiagnosticService
+        difference = CorrectionDifferenceDiagnosticService.build(
+            context, mapping.values,
+            production_columns=set(mapping.values.keys()) | set(mapping.omitted_columns),
+            selected=selected, dependent=dependent)
+        # Persist before the guard throws; preserve each distinct value-free
+        # diagnostic, plus a latest pointer. Neither is an approval or replay gate.
+        difference_key = "preparation-differences:" + binding["fingerprint"]
+        self.source.store.save("audit", difference_key + ":" + stable_digest(difference), difference)
+        self.source.store.save("audit", difference_key, difference)
         if selected:
             all_production = set(mapping.values) | set(mapping.omitted_columns)
             unchanged = all_production - selected - dependent - {"AI Correction", "Run Type"}

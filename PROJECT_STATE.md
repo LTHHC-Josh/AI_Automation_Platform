@@ -327,6 +327,18 @@ analysis request. Original-document evidence replay still validates the new plan
 Other retained blocked plans are not rearmed. Value-free final field/naming
 diagnostics are sealed locally before mapping so preparation failures remain
 inspectable without printing document values or rerunning inference blindly.
+Extraction shape diagnostics now capture the raw model and normalized adapter
+boundaries separately for each of the two independent attempts. Only fixed type,
+presence and deterministic subtype-support categories are retained, bounded to
+64 service-line shape records per attempt with an explicit omitted count. This
+is a diagnostic retention bound, not an extraction limit. Nested service-line
+objects/arrays are preserved as candidates rather than stringified, then rejected
+locally with field-specific Invalid review reasons. No nested value is unwrapped
+or inferred. Exact mapped-field difference diagnostics are sealed before the
+unrelated-change guard throws; only code-approved column names, type/presence and
+scope/change booleans are emitted. Confidence-only drift is distinguishable from
+governing-value change but is not exempted from the guard. Diagnostics neither
+refresh human review snapshots nor authorize correction or replay.
 Contract 5 additionally permits one reserved replay of a version-4 blocked
 authorization filename case with no verified change or unresolved requested
 filename, scoped to subtype/service fields. Other version-4 failure scopes remain
@@ -411,6 +423,20 @@ Operator commands remain:
 - `startdptraining`, `statusdptraining`, `stopdptraining`
 
 ## Current Verified Baseline
+
+- Value-free extraction/correction diagnostics and invalid service-line shape
+  rejection passed 367 synthetic/mock checks, including isolated Prefect
+  lifecycle, local update/rollback, approval/restart and durable recovery tests.
+  Valid flat labeled candidates reach validation/mapping; malformed containers
+  remain internal candidates and cannot become accepted strings. This proves an
+  adapter defect, not the historical live candidate shape. The prior exact
+  subtype/service failure remains unproven because that run did not retain the
+  new diagnostics. No real model replay or row/document correction occurred in
+  this checkpoint. Contract 5 remains consumed; human state is untouched.
+  DP was stopped through its proven-owned wrapper for source maintenance;
+  Training remains stopped. Registered executable source still needs refresh
+  after this source checkpoint. Continued DP polling remains authorized but
+  must resume only after current-source/control-plane verification.
 
 - Post-fix live revalidation under contract 5 reused the same case and validated
   feedback intent (zero feedback model calls), with one cached-source pipeline
@@ -586,4 +612,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Resolve the current blocked correction without another blind extraction: add value-free candidate-shape and exact mapped-field-difference diagnostics at the normalization/validation and unrelated-change boundaries, reproduce the service-line/explicit-subtype failure with synthetic cross-layer tests, and fix only the proven defect. Preserve current human controls, review snapshot and same-case recovery; contract 5 is already consumed. Do not request approval or resend a document until an evidence-supported saved correction is verified. DP polling remains authorized; pause only for exclusive source/replay maintenance. Training stays stopped.
+Refresh affected source registrations, then use one explicitly bounded diagnostic-only cached-source replay of the existing blocked case to capture raw/adapter shapes and exact mapped-field differences. Preserve the consumed generation, review snapshot, comments, approvals and row/document; do not blindly re-arm contract 5 or resend the document. Reproduce the proven cause synthetically before changing validation or correction scope. Training stays stopped; resume authorized DP polling after exclusive maintenance and current-source verification.

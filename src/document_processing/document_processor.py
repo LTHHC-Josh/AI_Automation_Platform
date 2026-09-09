@@ -317,6 +317,7 @@ class DocumentProcessor:
                     )
                 ),
                 "ollama": first_metrics,
+                "adapter_shapes": first_candidate.processing_metrics.get("adapter_shapes"),
             },
         ]
 
@@ -381,6 +382,7 @@ class DocumentProcessor:
                         )
                     ),
                     "ollama": second_metrics,
+                    "adapter_shapes": second_candidate.processing_metrics.get("adapter_shapes"),
                 }
             )
 
@@ -1040,6 +1042,9 @@ class DocumentProcessor:
             extraction_result
         )
 
+        from src.services.extraction_shape_diagnostic_service import ExtractionShapeDiagnosticService
+        candidate.processing_metrics["adapter_shapes"] = ExtractionShapeDiagnosticService.describe(extraction_result)
+
         self._synchronize_flat_fields(
             candidate
         )
@@ -1394,13 +1399,11 @@ class DocumentProcessor:
                 )
             )
 
-            source_text = str(
-                raw_service_line.get(
-                    "source_text",
-                    "",
-                )
-                or ""
-            ).strip()
+            # Keep invalid candidate shapes intact for deterministic validation;
+            # a container must never become apparently supported string evidence.
+            source_text = self._normalize_optional_value(
+                raw_service_line.get("source_text", "")
+            )
 
             service_lines.append(
                 AuthorizationServiceLine(

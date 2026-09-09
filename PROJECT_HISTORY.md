@@ -14301,3 +14301,93 @@ registered executable source remains d3114dc. No further model replay was made.
   "exact_next_start": "Resolve the current blocked correction without another blind extraction: add value-free candidate-shape and exact mapped-field-difference diagnostics at the normalization/validation and unrelated-change boundaries, reproduce the service-line/explicit-subtype failure with synthetic cross-layer tests, and fix only the proven defect. Preserve current human controls, review snapshot and same-case recovery; contract 5 is already consumed. Do not request approval or resend a document until an evidence-supported saved correction is verified. DP polling remains authorized; pause only for exclusive source/replay maintenance. Training stays stopped."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## 2026-09-09 — Extraction shape and correction difference checkpoint
+
+Continued from clean synchronized main at 7e8fb113cbc1565b8202eb1655d4d9b803074342,
+without resetting the existing correction or replaying the document. Read current
+instructions/state/history and inspected the provider, candidate validation,
+subtype, mapping, correction guard and their callers/tests. Stopped only the
+proven-owned waiting DP for source maintenance; Training was already stopped.
+No active bounded run was interrupted. Control room and PostgreSQL were not stopped.
+
+Proven source defect: service-line code/modifier/date/status and evidence
+containers could be stringified by the provider/processor adapter before
+deterministic validation, hiding their original invalid structure. They now
+remain raw internal candidates, and deterministic type checks reject invalid
+containers, booleans or inappropriate numbers before production mapping. No
+nested candidate is unwrapped and no evidence, modifier or subtype is guessed.
+Unsupported service-line production fields stay blank. Fixed field-specific
+Invalid review reasons replace generic interpretation of these new shape actions.
+Valid flat supported code/modifier evidence still passes the same validation.
+
+Added ExtractionShapeDiagnosticService version 1. Raw model structure is recorded
+before normalization; normalized adapter structure is recorded before validation.
+Both extraction attempts retain independent diagnostics and the selected attempt
+is recorded separately. Output is restricted to fixed field names, logical types,
+presence/multiline flags, counts and deterministic subtype-evidence categories.
+Only 64 line shapes per attempt are retained, with an omitted count; processing
+itself is not limited to 64 lines. Projection is repeated before sealed audit
+storage and discards unknown keys/values. Diagnostics do not stringify unknown
+objects or add model calls, prompts or token consumption. The existing complete
+explicit-label subtype rule is unchanged; ambiguous/competing evidence still
+fails closed independently from category confidence.
+
+Added CorrectionDifferenceDiagnosticService version 1. Immediately before the
+unrelated-field guard, it records exact differences using the same comparison
+semantics as the guard. Emitted names come only from static approved mappings.
+Unknown columns are counted without exposing their names. Records distinguish
+value/confidence/metadata, current/replay type and presence, requested/dependent/
+ignored/blocked scope and whether a confidence change also changes its governing
+value. Distinct safe diagnostics are retained by digest plus a latest pointer.
+No field values, IDs or hashes are exposed. Confidence-only changes still block
+when outside scope; this checkpoint does not weaken whole-candidate consistency,
+replace human controls, mix extraction attempts or refresh review snapshots.
+
+Synthetic tests reproduce valid labeled service/subtype candidates and invalid
+container cases through adapter, validation and mapping. They verify value-free
+projection, bounded retention, subtype confidence/support separation, exact
+confidence-only versus governing-value changes, unknown-column suppression,
+guard-before-write behavior, independently retained attempts, AI Correction
+ownership and unchanged correction/recovery behavior. The historical live model
+shape and full changed-column set remain unavailable: do not infer that nested
+containers were the actual live cause. No live replay was performed to fill that
+gap. Existing contract 5 is still consumed; no case, approval or retry re-arm was
+changed. The current row is not claimed corrected or ready for approval.
+
+Files: ollama_provider.py; document_processor.py; evidence_validation_service.py;
+evidence_only_correction_executor.py; review_reason_summary_service.py; new
+extraction_shape_diagnostic_service.py and correction_difference_diagnostic_service.py;
+new test_extraction_correction_diagnostics.py; test_local_document_correction.py;
+PROJECT_STATE.md; PROJECT_HISTORY.md; derived PROJECT_SMARTSHEET.md; and
+update_project_tracker.py. No PowerShell was modified.
+
+Validation: modified Python compilation passed before tests. Final unique test
+counts: diagnostics 15, local correction 51, explicit labels 12, Ollama adapter 21,
+DocumentProcessor 19, evidence validation 29, review reason 14, label recovery 5,
+review snapshot 13, AI Correction 10, quantity rule 8, intake naming 20, production
+filename assembly 32, business context 5, scalar confidence 6, missing-confidence
+mapping 6, service quantity reconciliation 10, validated filename inputs 10,
+reference architecture 13, project migration 11, tracker reconciliation 3, durable
+mailbox recovery 21, bounded local code pipeline 13, code approval 5, Training
+restart recovery 8 and isolated Prefect lifecycle 7: total 367 passed, zero failed.
+Classification: synthetic deterministic/mock, with isolated local Prefect only.
+No live Ollama, OCR, Graph/mailbox content, document write/upload, comments or
+approval mutation occurred. Full source/test/continuity diff and git diff --check
+passed; all six protected-path ignore checks passed and sensitive-pattern review
+found no matches. Management tracker: Updated 3, Unchanged 35, Not Found 0,
+Failed 0. Continuity migration/tracker checks were rerun after the update and
+passed. Registration remains at the prior executable source until
+explicit refresh; DP and Training are stopped at this source checkpoint.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Added safe extraction-shape and exact correction-difference diagnostics; rejected malformed service-line containers before production mapping.",
+  "key_result": "Independent attempts remain separate. Invalid candidates are preserved internally. Confidence drift is visible but cannot bypass correction scope or human ownership.",
+  "tests": "367 synthetic/mock checks passed, including isolated Prefect, rollback, restart, mapping and recovery. Modified Python compiled.",
+  "phi_handling": "Only fixed labels, types, counts and flags retained. No live model, document replay, correction, comments or approval changes.",
+  "limitation_acceptance": "Current live case remains blocked; historical raw shapes were not retained. Contract 5 is consumed. DP paused for maintenance; Training stopped.",
+  "exact_next_start": "Refresh affected source registrations, then use one explicitly bounded diagnostic-only cached-source replay of the existing blocked case to capture raw/adapter shapes and exact mapped-field differences. Preserve the consumed generation, review snapshot, comments, approvals and row/document; do not blindly re-arm contract 5 or resend the document. Reproduce the proven cause synthetically before changing validation or correction scope. Training stays stopped; resume authorized DP polling after exclusive maintenance and current-source verification."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

@@ -566,6 +566,9 @@ class OllamaProvider(LLMProvider):
 
         self._attach_context_metrics("extraction")
 
+        from src.services.extraction_shape_diagnostic_service import ExtractionShapeDiagnosticService
+        self._last_request_metrics["extraction_shapes"] = ExtractionShapeDiagnosticService.describe(result)
+
         return {
             "fields": self._normalize_fields(
                 result.get(
@@ -1448,12 +1451,12 @@ Return only JSON matching the required schema.
                 continue
 
             normalized_line = {
-                "service_code": self._normalize_optional_string(
+                "service_code": self._normalize_optional_value(
                     service_line.get(
                         "service_code"
                     )
                 ),
-                "modifier": self._normalize_optional_string(
+                "modifier": self._normalize_optional_value(
                     service_line.get(
                         "modifier"
                     )
@@ -1463,17 +1466,17 @@ Return only JSON matching the required schema.
                         "quantity"
                     )
                 ),
-                "start_date": self._normalize_optional_string(
+                "start_date": self._normalize_optional_value(
                     service_line.get(
                         "start_date"
                     )
                 ),
-                "end_date": self._normalize_optional_string(
+                "end_date": self._normalize_optional_value(
                     service_line.get(
                         "end_date"
                     )
                 ),
-                "status": self._normalize_optional_string(
+                "status": self._normalize_optional_value(
                     service_line.get(
                         "status"
                     )
@@ -1483,13 +1486,12 @@ Return only JSON matching the required schema.
                         "confidence"
                     )
                 ),
-                "source_text": str(
+                "source_text": self._normalize_optional_value(
                     service_line.get(
                         "source_text",
                         "",
                     )
-                    or ""
-                ).strip(),
+                ),
             }
 
             has_row_value = any(

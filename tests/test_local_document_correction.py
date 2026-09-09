@@ -672,7 +672,7 @@ def test_preparation_diagnostics_exclude_document_values_before_mapping_failure(
     else: raise AssertionError("expected schema failure")
     records=list(h.executor.source.store.data.values())
     assert len(records)==1
-    assert records[0]["fields"][0]["field_category"]=="payer"
+    assert any(field["field_category"]=="payer" for field in records[0]["fields"])
     assert "PRIVATE_SYNTHETIC" not in repr(records)
     assert "PRIVATE_SOURCE" not in repr(records)
     assert "synthetic.pdf" not in repr(records)

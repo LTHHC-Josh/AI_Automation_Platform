@@ -95,6 +95,12 @@ class ReviewReasonSummaryService:
     }
 
     SERVICE_LINE_RULES = (
+        (r"service line \d+ service code has invalid structure", "service_line_service_code_invalid"),
+        (r"service line \d+ modifier has invalid structure", "service_line_modifier_invalid"),
+        (r"service line \d+ quantity has invalid structure", "service_line_quantity_invalid"),
+        (r"service line \d+ (start|end) date has invalid structure", "service_line_date_invalid"),
+        (r"service line \d+ status has invalid structure", "service_line_status_invalid"),
+        (r"service line \d+ source text has invalid structure", "service_line_source_unavailable"),
         (r"service line \d+ modifier .*source evidence", "service_line_modifier_unclear_source_support"),
         (r"service line \d+ quantity .*source evidence", "service_line_quantity_unclear_source_support"),
         (r"service line \d+ (start|end) date .*source evidence", "service_line_date_unclear_source_support"),
@@ -142,6 +148,10 @@ class ReviewReasonSummaryService:
         "service_line_quantity_unclear_source_support": "Service-line Quantity: Could not be verified",
         "service_line_date_unclear_source_support": "Service-line Date: Could not be verified",
         "service_line_date_invalid": "Service-line Date: Invalid",
+        "service_line_service_code_invalid": "Service-line Service Code: Invalid",
+        "service_line_modifier_invalid": "Service-line Modifier: Invalid",
+        "service_line_quantity_invalid": "Service-line Quantity: Invalid",
+        "service_line_status_invalid": "Service-line Status: Invalid",
         "service_line_status_unclear_source_support": "Service-line Status: Could not be verified",
         "service_line_service_code_unclear_source_support": "Service-line Service Code: Could not be verified",
         "service_line_low_confidence": "Service-line: Below confidence threshold",

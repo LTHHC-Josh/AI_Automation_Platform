@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Verified the committed label fix through one guarded same-case replay; correction remains blocked.
-Result: Intent reused, two extraction attempts validated, no correction applied. Unchanged follow-up was idempotent with zero inference. DP resumed; Training stopped.
-Tests: Prior 271 source/continuity checks passed; real scoped replay, readback and restart-idempotency checks completed. Recognition acceptance failed safely.
-PHI: Safe diagnostics only; approvals/comments unchanged. Cache-only Training replay, local Ollama, no cloud model or document correction/upload.
-Status: Service/subtype remain unresolved; unrelated-field change blocks the plan. Exact changed columns/candidate shapes were not retained. Do not approve or blindly replay.
-Next: Resolve the current blocked correction without another blind extraction: add value-free candidate-shape and exact mapped-field-difference diagnostics at the normalization/validation and unrelated-change boundaries, reproduce the service-line/explicit-subtype failure with synthetic cross-layer tests, and fix only the proven defect. Preserve current human controls, review snapshot and same-case recovery; contract 5 is already consumed. Do not request approval or resend a document until an evidence-supported saved correction is verified. DP polling remains authorized; pause only for exclusive source/replay maintenance. Training stays stopped.
+Work: Added safe extraction-shape and exact correction-difference diagnostics; rejected malformed service-line containers before production mapping.
+Result: Independent attempts remain separate. Invalid candidates are preserved internally. Confidence drift is visible but cannot bypass correction scope or human ownership.
+Tests: 367 synthetic/mock checks passed, including isolated Prefect, rollback, restart, mapping and recovery. Modified Python compiled.
+PHI: Only fixed labels, types, counts and flags retained. No live model, document replay, correction, comments or approval changes.
+Status: Current live case remains blocked; historical raw shapes were not retained. Contract 5 is consumed. DP paused for maintenance; Training stopped.
+Next: Refresh affected source registrations, then use one explicitly bounded diagnostic-only cached-source replay of the existing blocked case to capture raw/adapter shapes and exact mapped-field differences. Preserve the consumed generation, review snapshot, comments, approvals and row/document; do not blindly re-arm contract 5 or resend the document. Reproduce the proven cause synthetically before changing validation or correction scope. Training stays stopped; resume authorized DP polling after exclusive maintenance and current-source verification.
 
 ## Safety Contract
 

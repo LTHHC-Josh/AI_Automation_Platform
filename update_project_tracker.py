@@ -356,7 +356,10 @@ PROJECT_SMARTSHEET_TASKS = [
             "structure while unsupported values remained cleared. Dedicated Posted "
             "Date and renewal-qualifier evidence fields now use the same preserved "
             "value/confidence/source_text contract with strict no-inference prompt "
-            "guidance."
+            "guidance. Bounded value-free raw-model and adapter-shape diagnostics "
+            "now distinguish malformed service-line containers and deterministic "
+            "subtype support independently for each extraction attempt. No extra "
+            "model request or attempt merging is introduced."
         ),
     ),
     (
@@ -373,7 +376,12 @@ PROJECT_SMARTSHEET_TASKS = [
             "unsupported claims without changing existing authorization validation. "
             "Final-state review ownership now excludes filename-placeholder and "
             "internal request-selection noise, while successful supported quantity "
-            "reconciliation supersedes its earlier top-level candidate failure."
+            "reconciliation supersedes its earlier top-level candidate failure. "
+            "Nested service-line objects are preserved internally and rejected "
+            "before production mapping rather than coerced to strings. Correction "
+            "scope failures now retain exact approved-field difference diagnostics "
+            "without values; confidence drift does not bypass the existing guard. "
+            "The current live correction remains blocked pending instrumented evidence."
         ),
     ),
     (
