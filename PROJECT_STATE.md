@@ -367,6 +367,17 @@ Operator commands remain:
 
 ## Current Verified Baseline
 
+- Latest same-document controlled correction replay proves payer naming ready
+  and both service lines' dates accepted; the disputed date warning is absent
+  from the proposed review update. The incomplete proposal is now blocked and
+  retained because [SERVICE] remains. Training stopped cleanly; no correction
+  was applied. One subsequent cached/local diagnostic replay found two service
+  identities with accepted code/modifier/program inputs: each code/modifier pair
+  exists in the authoritative table, but neither full program-qualified key
+  resolves. Both lookup outcomes are not_resolved, not ambiguous. This is a
+  reference/program-contract boundary, not evidence to omit or guess program.
+  No further inference should run until that authoritative relationship is clear.
+
 - Controlled local_correction cycle on 2026-09-09 processed three flagged cases;
   all became blocked, with zero corrections and zero Codex dispatches. The newest
   case recorded sufficient feedback but selected add_required_review_reason and
@@ -459,4 +470,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Publish the tested requested-component coverage guard to the saved same-case proposal without repeating inference. Payer naming and both service-line dates passed controlled replay; service naming remains unresolved despite accepted code/modifier evidence. Diagnose exact individual service reference outcomes with value-free lookup diagnostics before any further correction replay. Preserve verified work, case/job identity, audit and human controls; do not approve the partial filename correction, guess mappings or resend the document. Full acceptance remains pending.
+Obtain authoritative clarification in the SERVICES LISTING reference for the document's explicitly validated program with each supported service code/modifier pair. Both pairs exist, but neither program-qualified lookup resolves. Do not omit the program, guess another mapping or rerun inference before this reference/business relationship is settled. Then regenerate the same-case verified proposal, require human Approve AI Correction, verify existing-row/attachment correction, require human Approve AI Resolution and prove bounded same-type learning reuse. Payer/date fixes are live-evidenced; the incomplete proposal is blocked, Training is stopped and full acceptance remains pending.

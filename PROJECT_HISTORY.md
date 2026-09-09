@@ -13802,3 +13802,46 @@ checkbox change, cloud dispatch, source-code promotion or mailbox mutation.
   "exact_next_start": "Publish the tested requested-component coverage guard to the saved same-case proposal without repeating inference. Payer naming and both service-line dates passed controlled replay; service naming remains unresolved despite accepted code/modifier evidence. Diagnose exact individual service reference outcomes with value-free lookup diagnostics before any further correction replay. Preserve verified work, case/job identity, audit and human controls; do not approve the partial filename correction, guess mappings or resend the document. Full acceptance remains pending."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Exact Service Reference Blocker and Stopped Runtime - 2026-09-09
+
+Committed 738f827 was registered for training. One saved-proposal guard cycle
+blocked the current incomplete filename correction, retaining its plan and audit.
+StopDPTraining returned dp_training_stopped. No correction was applied.
+
+One narrowly scoped local Ollama/cached-OCR diagnostic replay then completed one
+extraction attempt and deterministic validation, without a row/attachment writer.
+It used the same protected source binding/fingerprint and retained safe lookup
+facts in sealed audit storage. Two accepted service identities had explicit
+modifier and program inputs. Each code exists in the authoritative reference;
+each code/modifier pair exists; neither exact program-qualified key exists and
+both production lookup calls returned not_resolved, not ambiguous. No values,
+tokens, source text, identifiers or protected paths were printed. The source
+document and reference workbook were not changed. No mailbox or cloud call.
+
+This narrows the remaining blocker to the authoritative relationship between
+the validated document program and SERVICES LISTING program-qualified entries.
+It does not authorize treating a payer/product program as a service program,
+omitting a conflicting discriminator, or inventing a compatible mapping. Business
+reference clarification is required before another model replay. Payer naming
+and both service-line dates already passed the preceding controlled replay.
+Unsupported service-line status remains safely reviewed. No human approval was
+checked, consumed for correction, or replaced by developer approval.
+
+Temporary diagnostic helpers removed after completion. Application code remains
+at the tested requested-component guard; only final continuity truth changes.
+Prior 99 correction/training checks and 10 human-ownership checks apply; 14
+continuity checks and tracker/Git safety gates rerun at this coherent checkpoint.
+No full correction/resolution/later-document learning acceptance is claimed.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Verified payer/date fixes and isolated the exact remaining service reference blocker.",
+  "key_result": "Both code/modifier pairs exist; neither program-qualified lookup resolves. Incomplete proposal blocked and retained. Training stopped; no correction applied.",
+  "tests": "Prior 99 correction/training plus 10 ownership checks; one bounded cached/local diagnostic replay with one extraction attempt. Continuity gates rerun.",
+  "phi_handling": "Safe booleans/categories retained locally; no values emitted. No correction write/upload, mailbox mutation or cloud model dispatch.",
+  "limitation_acceptance": "Authoritative program-to-service reference clarification required. No more inference before that boundary is resolved; approvals remain human-owned.",
+  "exact_next_start": "Obtain authoritative clarification in the SERVICES LISTING reference for the document's explicitly validated program with each supported service code/modifier pair. Both pairs exist, but neither program-qualified lookup resolves. Do not omit the program, guess another mapping or rerun inference before this reference/business relationship is settled. Then regenerate the same-case verified proposal, require human Approve AI Correction, verify existing-row/attachment correction, require human Approve AI Resolution and prove bounded same-type learning reuse. Payer/date fixes are live-evidenced; the incomplete proposal is blocked, Training is stopped and full acceptance remains pending."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
