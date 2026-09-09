@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Fixed explicit Initial evidence handling and service-label instructions; reserved narrow same-case recovery.
-Result: Shared context v4 accepts validated labeled Initial without history inference. Preparation v5 permits one guarded replay, preserving approvals and snapshot.
-Tests: 257 synthetic/mock checks passed; Python compiled. Prompt size, evidence, naming, recovery, snapshot and human ownership covered.
-PHI: Safe categories only. Scoped prior analysis blocked without correction; no cloud model or human-control/comment write.
-Status: Current row remains blocked; real post-fix replay pending. No reference/modifier guessing. DP paused for exclusive maintenance; Training stopped.
-Next: Refresh affected source registrations, then perform one scoped same-case cached-source revalidation under preparation contract 5. Reuse validated feedback intent, preserve the existing review snapshot on unchanged comments, and require both approvals unchecked. Verify a saved evidence-supported subtype/service/filename correction before requesting approval; do not claim success if still blocked. No resubmission or blind replay. Resume authorized DP polling after exclusive maintenance; keep Training stopped outside scoped acceptance.
+Work: Verified the committed label fix through one guarded same-case replay; correction remains blocked.
+Result: Intent reused, two extraction attempts validated, no correction applied. Unchanged follow-up was idempotent with zero inference. DP resumed; Training stopped.
+Tests: Prior 271 source/continuity checks passed; real scoped replay, readback and restart-idempotency checks completed. Recognition acceptance failed safely.
+PHI: Safe diagnostics only; approvals/comments unchanged. Cache-only Training replay, local Ollama, no cloud model or document correction/upload.
+Status: Service/subtype remain unresolved; unrelated-field change blocks the plan. Exact changed columns/candidate shapes were not retained. Do not approve or blindly replay.
+Next: Resolve the current blocked correction without another blind extraction: add value-free candidate-shape and exact mapped-field-difference diagnostics at the normalization/validation and unrelated-change boundaries, reproduce the service-line/explicit-subtype failure with synthetic cross-layer tests, and fix only the proven defect. Preserve current human controls, review snapshot and same-case recovery; contract 5 is already consumed. Do not request approval or resend a document until an evidence-supported saved correction is verified. DP polling remains authorized; pause only for exclusive source/replay maintenance. Training stays stopped.
 
 ## Safety Contract
 

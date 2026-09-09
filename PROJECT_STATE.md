@@ -412,6 +412,26 @@ Operator commands remain:
 
 ## Current Verified Baseline
 
+- Post-fix live revalidation under contract 5 reused the same case and validated
+  feedback intent (zero feedback model calls), with one cached-source pipeline
+  replay and two independent extraction attempts. It remained blocked with
+  correction_unrelated_field_change; no plan, correction or attachment change was
+  saved/applied. Snapshot, comments and human approvals stayed unchanged. Retained
+  final diagnostics still show supported payer/dates, unresolved service/subtype,
+  two unsupported service-line codes and invalid modifiers. A read-only comparison
+  additionally proves both start/end-date confidences differ from current mapped
+  confidences, outside the requested correction scope. The complete changed-column
+  set, value differences and raw candidate shapes were not retained; confidence
+  drift alone cannot be assumed to explain every difference. Prompt changes alone
+  did not resolve this document. Fresh-app
+  unchanged-cycle verification made zero model/replay/correction calls and kept
+  the same generation. Manual/live/Training registration is current at d3114dc,
+  with no schedules, no parameters and concurrency one/CANCEL_NEW. DP restarted
+  after exclusive maintenance under continued operator authorization; Training
+  remains stopped. DP status is waiting, ownership proven, one fresh worker, no
+  active run, zero consecutive failures and not degraded. No additional replay is
+  authorized by the consumed contract.
+
 - The operator flagged the later row and supplied feedback. One scoped production
   analysis completed with correction_no_verified_change, no saved plan and zero
   corrections. Human controls/comments and review snapshot remained unchanged.
@@ -566,4 +586,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Refresh affected source registrations, then perform one scoped same-case cached-source revalidation under preparation contract 5. Reuse validated feedback intent, preserve the existing review snapshot on unchanged comments, and require both approvals unchecked. Verify a saved evidence-supported subtype/service/filename correction before requesting approval; do not claim success if still blocked. No resubmission or blind replay. Resume authorized DP polling after exclusive maintenance; keep Training stopped outside scoped acceptance.
+Resolve the current blocked correction without another blind extraction: add value-free candidate-shape and exact mapped-field-difference diagnostics at the normalization/validation and unrelated-change boundaries, reproduce the service-line/explicit-subtype failure with synthetic cross-layer tests, and fix only the proven defect. Preserve current human controls, review snapshot and same-case recovery; contract 5 is already consumed. Do not request approval or resend a document until an evidence-supported saved correction is verified. DP polling remains authorized; pause only for exclusive source/replay maintenance. Training stays stopped.

@@ -14232,3 +14232,72 @@ Real post-fix revalidation remains pending; no success claim is made for the row
   "exact_next_start": "Refresh affected source registrations, then perform one scoped same-case cached-source revalidation under preparation contract 5. Reuse validated feedback intent, preserve the existing review snapshot on unchanged comments, and require both approvals unchecked. Verify a saved evidence-supported subtype/service/filename correction before requesting approval; do not claim success if still blocked. No resubmission or blind replay. Resume authorized DP polling after exclusive maintenance; keep Training stopped outside scoped acceptance."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Label-Fix Live Replay Remains Safely Blocked - 2026-09-09
+
+Implementation d3114dc was committed, pushed and synchronized before revalidation.
+Manual, live and Training registrations were refreshed to that source. Read-only
+verification proved unique registrations, no schedules, parameterless invocation,
+concurrency one and CANCEL_NEW. Control-room readiness was true with no active
+manual/live/Training conflict and zero fresh workers before the scoped replay.
+
+One scoped production cycle used the new tested contract-5 reservation on the
+existing blocked case, with both human approvals unchecked and unchanged input.
+The validated intent was reused: zero feedback model calls. One cached-source
+DocumentProcessor replay completed classification and two independently validated
+extraction attempts, followed by deterministic candidate selection. No fresh OCR
+or mailbox document acquisition was needed. The result remained blocked with
+correction_unrelated_field_change, no saved plan, no applied correction, no
+attachment change and no review-snapshot refresh. Blocked proposal/status readback
+matched; human controls and comments remained unchanged.
+
+Retained value-free diagnostics prove supported payer/start/end-date state at
+candidate confidence 0.90, while both service-line codes remain unsupported and
+modifiers invalid. Service and document-subtype placeholders remain; payer/date
+readiness is true and the final naming result is partial_business. These are
+diagnostics of the replay, not production field updates. Exact out-of-scope
+column differences and candidate shapes were not retained by the existing
+diagnostic contract. A further read-only comparison proves both start/end-date
+confidences differ from their current mapped cells, outside the requested scope.
+The full difference set and whether actual date values also changed cannot be
+proven from retained diagnostics; no confidence-only explanation is assumed.
+The tested explicit-label policy correction is real, but prompt
+changes did not resolve the current document; no successful proposal is claimed.
+
+A fresh-app unchanged follow-up preserved the same case generation and made zero
+feedback model, document replay, correction or attachment calls. The consumed
+reservation cannot hot-retry. It did not start a full Training sweep or modify
+other cases. No code generation, resolution approval, human-checkbox write,
+comment write or cloud model occurred. Production DP was restarted through the
+existing owned wrapper after the exclusive replay, under the operator's explicit
+continuous-polling authorization. Training remains stopped. The restarted DP may
+perform normal authorized bounded mailbox scans; this is distinct from Training's
+cache-only replay. No claim is made that the current row is ready for approval.
+Final runtime readback proved DP ownership, waiting state, one fresh worker, no
+active bounded run, zero consecutive failures and no degradation. Training has
+zero fresh workers and is stopped. Temporary scoped diagnostic helpers were
+removed after use; no protected data was removed.
+
+Classification: real approved local Ollama/cached evidence and mapped workflow
+publication/readback, plus read-only protected state/control-plane checks and
+normal owned-DP startup/authentication. Only fixed safe categories/counts/booleans
+emitted. The sandboxed process inventory was denied; its zero count was discarded
+and an approved read-only inventory confirmed the active replay. No underlying
+provider errors, values, filenames, IDs, comments or secrets were printed.
+
+Post-acceptance continuity checks passed: 11 migration and 3 tracker regressions.
+Management tracker: Updated 1, Unchanged 37, Not Found 0, Failed 0. Full continuity
+diff and git diff --check passed. This checkpoint changes documentation only;
+registered executable source remains d3114dc. No further model replay was made.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Verified the committed label fix through one guarded same-case replay; correction remains blocked.",
+  "key_result": "Intent reused, two extraction attempts validated, no correction applied. Unchanged follow-up was idempotent with zero inference. DP resumed; Training stopped.",
+  "tests": "Prior 271 source/continuity checks passed; real scoped replay, readback and restart-idempotency checks completed. Recognition acceptance failed safely.",
+  "phi_handling": "Safe diagnostics only; approvals/comments unchanged. Cache-only Training replay, local Ollama, no cloud model or document correction/upload.",
+  "limitation_acceptance": "Service/subtype remain unresolved; unrelated-field change blocks the plan. Exact changed columns/candidate shapes were not retained. Do not approve or blindly replay.",
+  "exact_next_start": "Resolve the current blocked correction without another blind extraction: add value-free candidate-shape and exact mapped-field-difference diagnostics at the normalization/validation and unrelated-change boundaries, reproduce the service-line/explicit-subtype failure with synthetic cross-layer tests, and fix only the proven defect. Preserve current human controls, review snapshot and same-case recovery; contract 5 is already consumed. Do not request approval or resend a document until an evidence-supported saved correction is verified. DP polling remains authorized; pause only for exclusive source/replay maintenance. Training stays stopped."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
