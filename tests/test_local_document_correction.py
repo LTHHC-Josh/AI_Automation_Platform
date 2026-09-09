@@ -707,6 +707,34 @@ def test_program_policy_upgrade_reuses_intent_not_incomplete_attachment_plan():
     assert any(kind=="audit" and value==old for (kind,key),value in h.store.data.items())
 
 
+def test_real_writer_publishes_new_proposal_with_cleared_result_without_replay():
+    from src.services.smartsheet_document_processor_training_service import SmartsheetCorrectionWriter
+    from smartsheet.models import ExplicitNull
+    h=Harness(); h.values[AI_RESOLUTION_RESULT]="Synthetic old failure"
+    calls=[]
+    def update(row_id, updates):
+        calls.append(updates)
+        reverse={v:k for k,v in h.schema.column_ids.items()}
+        h.values.update({reverse[k]:None if isinstance(v,ExplicitNull) else v for k,v in updates.items()})
+    reader=N(read_row=lambda **kw:h.read_context_row())
+    h.workflow.writer=SmartsheetCorrectionWriter(client=N(update_row=update),reader=reader)
+    result=h.cycle(); h.cycle()
+    assert result.analysis_ready_count==1 and result.implementation_failed_count==0
+    assert h.values[AI_CORRECTION_STATUS]=="Analysis Ready"
+    assert h.values[AI_RESOLUTION_RESULT] is None
+    assert len(calls)==1 and h.prepares==1 and h.applies==0
+
+
+def test_publication_failure_cannot_report_ready_or_repeat_inference():
+    h=Harness()
+    h.workflow.writer=N(write=lambda **kw:N(success=False,outcome_proven=True))
+    for _ in range(2):
+        result=h.cycle()
+        assert result.analysis_ready_count==0 and result.implementation_failed_count==1
+    assert h.store.load("case","synthetic-case")["phase"]=="proposed"
+    assert h.prepares==1 and h.applies==0
+
+
 if __name__=="__main__":
     tests=[v for k,v in list(globals().items()) if k.startswith("test_")]
     for test in tests: test()

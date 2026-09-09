@@ -13910,3 +13910,50 @@ checks precede commit. Saved approvals and document row are unchanged.
   "exact_next_start": "Program has been explicitly excluded from current filename naming. Prepare an audited same-case proposal regeneration using the program-independent code/modifier lookup and existing payer/date fixes; preserve the old blocked plan and human controls. Verify each service token resolves uniquely, then obtain human Approve AI Correction for the complete existing-row/document correction, verify readback, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Do not guess competing service tokens or resend the document. Training remains stopped; no further inference ran during the program-policy update."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Verified Naming Plan and Explicit Resolution Clear - 2026-09-09
+
+One scoped production-workflow cycle reused unchanged intent and ran real local
+Ollama against existing cached evidence. No mailbox discovery, OCR acquisition,
+new document row, attachment upload, cloud model or human-control write occurred.
+Two pre-inference harness checks failed at the protected runtime handshake;
+neither reserved a generation nor ran inference. The corrected scoped harness
+uses the same configured capability fingerprint, production lock and adapters,
+filtering discovery to the current case only. Training deployment was refreshed
+to 9a6b989 with no schedule, concurrency 1/CANCEL_NEW; no worker was started.
+
+Result: exactly one generation; verified attachment-name plan and one review-field
+update; payer/service/date readiness true, comma-separated services, no disputed
+service-line date warning. Only unknown-subtype placeholder remains. Human
+approvals unchanged/unchecked. Full polling and other flagged cases untouched.
+Actual correction/resolution/learning acceptance remains pending.
+
+Readback exposed a separate local publication defect: _publish requested an
+empty AI Resolution Result to clear stale failure text, but the writer rejected
+all empty strings. No external publication occurred for that request. The writer
+now permits only that exact empty workflow-result clear, converts it to SDK
+ExplicitNull and reconciles null/blank readback. Other empty fields, whitespace,
+None, containers and human-field writes remain rejected. Exact human preconditions
+are unchanged. Failed publication no longer increments analysis_ready_count; the
+saved plan retries publication without repeating inference.
+
+Files: local_document_correction_workflow.py,
+smartsheet_document_processor_training_service.py,
+test_document_processor_training.py, test_local_document_correction.py and
+continuity layers. Modified Python compiled. 57 training/writer + 48 correction
++ 10 human-ownership synthetic/mock tests passed (115), including actual installed
+SDK null serialization, lost-response reconciliation and no second write.
+Live evidence was processed only in approved local/Smartsheet adapters; diagnostics
+contain booleans/categories only. Publication-only verification follows this fix.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Verified same-case naming and fixed stale-resolution clear publication.",
+  "key_result": "Payer, comma-separated services and dates resolve; date warning removed. Only unknown subtype remains. Saved plan awaits publication-only verification.",
+  "tests": "115 synthetic/mock checks and Python compilation passed; one real cached/local same-case replay, zero corrections applied.",
+  "phi_handling": "Protected evidence stayed local; only safe diagnostic categories exposed. Human approvals unchanged; no mailbox, cloud model, row correction or attachment upload.",
+  "limitation_acceptance": "Human correction/resolution approval and learning reuse remain pending. No further model replay is needed for publication.",
+  "exact_next_start": "Publish and read back the existing verified same-case proposal without reanalysis or evidence replay. Payer, comma-separated service tokens and dates now resolve; only unknown subtype remains. Then obtain human Approve AI Correction, verify the existing-row/document correction, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Preserve human controls and other flagged cases. Do not resend the document. Training remains stopped."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

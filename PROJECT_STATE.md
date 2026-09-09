@@ -282,6 +282,11 @@ also remain blocked when explicitly requested payer/service components still
 contain placeholders, even if another filename component has improved.
 Incomplete plans are retained for audit and blocked before approval can apply them. Proposal text
 describes verified actions, and stale workflow-owned resolution text is cleared.
+Only AI Resolution Result accepts an explicit empty clear; its SDK value is
+ExplicitNull, and null/blank readback reconciles without another write. Other
+workflow fields still require nonempty valid text. Exact human preconditions are
+unchanged. A failed proposal publication cannot report analysis ready; the saved
+verified plan remains available for publication without repeating inference.
 Preparation errors retain
 only fixed allowlisted categories. Blocked cases fail the cycle and expose
 blocked_case_count/preparation_failure_categories, rather than reporting success.
@@ -376,17 +381,16 @@ Operator commands remain:
 
 ## Current Verified Baseline
 
-- Latest same-document controlled correction replay proves payer naming ready
-  and both service lines' dates accepted; the disputed date warning is absent
-  from the proposed review update. The incomplete proposal is now blocked and
-  retained because [SERVICE] remains. Training stopped cleanly; no correction
-  was applied. One subsequent cached/local diagnostic replay found two service
-  identities with accepted code/modifier/program inputs: each code/modifier pair
-  exists in the authoritative table, but neither full program-qualified key
-  resolves. Both lookup outcomes are not_resolved, not ambiguous. This is a
-  reference/program-contract boundary. The operator subsequently clarified that
-  program is excluded from current naming; the tested naming-only lookup now
-  follows that rule. Same-case regeneration remains pending verification.
+- One scoped same-case local/cached evidence cycle under preparation contract 4
+  created exactly one new generation. Payer, service and dates resolve; multiple
+  service tokens are comma-separated. Only the legitimate unknown-subtype
+  placeholder remains. The disputed service-line date warning is absent from
+  the planned review update. No correction was applied and both approvals remain
+  unchecked. The full polling sweep was not started, so other flagged cases were
+  untouched. The verified plan was saved but initial publication failed locally:
+  the writer rejected the requested blank stale-resolution clear. That narrow
+  contract mismatch is now synthetic-tested; publication-only readback is next,
+  with no additional model replay. Training remains stopped.
 
 - Controlled local_correction cycle on 2026-09-09 processed three flagged cases;
   all became blocked, with zero corrections and zero Codex dispatches. The newest
@@ -480,4 +484,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Program has been explicitly excluded from current filename naming. Prepare an audited same-case proposal regeneration using the program-independent code/modifier lookup and existing payer/date fixes; preserve the old blocked plan and human controls. Verify each service token resolves uniquely, then obtain human Approve AI Correction for the complete existing-row/document correction, verify readback, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Do not guess competing service tokens or resend the document. Training remains stopped; no further inference ran during the program-policy update.
+Publish and read back the existing verified same-case proposal without reanalysis or evidence replay. Payer, comma-separated service tokens and dates now resolve; only unknown subtype remains. Then obtain human Approve AI Correction, verify the existing-row/document correction, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Preserve human controls and other flagged cases. Do not resend the document. Training remains stopped.

@@ -247,11 +247,12 @@ class LocalDocumentCorrectionWorkflow:
             self._observe("local_analysis", "failed" if state["phase"] == "blocked" else "completed")
             if state["phase"] == "blocked":
                 self._record_blocked(state, counts)
-            else:
-                counts["analysis_ready_count"] += 1
             self.store.save("case", key, state)
             counts["updated_case_count" if generation > 1 else "new_case_count"] += 1
-            self._publish(row_id, schema, state, row)
+            if not self._publish(row_id, schema, state, row):
+                counts["implementation_failed_count"] += 1
+            elif state["phase"] == "proposed":
+                counts["analysis_ready_count"] += 1
             return
         if state["phase"] == "preparing":
             # Interrupted inference is not silently repeated.
@@ -284,7 +285,10 @@ class LocalDocumentCorrectionWorkflow:
                 state["proposal"] = presentation
                 state["approval_seen_false"] = True
                 self.store.save("case", key, state)
-        if not self._publish(row_id, schema, state, row) or state["phase"] != "proposed":
+        if not self._publish(row_id, schema, state, row):
+            counts["implementation_failed_count"] += 1
+            return
+        if state["phase"] != "proposed":
             return
         counts["analysis_ready_count"] += 1
         if self.mode not in {"local_correction", "approval_dispatch"}:

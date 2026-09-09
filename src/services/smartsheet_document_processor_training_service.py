@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+from smartsheet.models import ExplicitNull
 from typing import Any
 
 from src.clients.smartsheet_client import SmartsheetClient
@@ -300,7 +301,11 @@ class SmartsheetCorrectionWriter:
             return CorrectionWriteResult(False, "human_owned_write_blocked", 0, False, True)
         if any(value is None for value in updates.values()):
             return CorrectionWriteResult(False, "workflow_write_value_missing", 0, False, True)
-        if any(not isinstance(value, str) or not value.strip() for value in updates.values()):
+        if any(
+            not isinstance(value, str)
+            or (not value.strip() and not (title == AI_RESOLUTION_RESULT and value == ""))
+            for title, value in updates.items()
+        ):
             return CorrectionWriteResult(False, "workflow_write_value_invalid", 0, False, True)
         if (
             AI_CORRECTION_TYPE in updates
@@ -335,12 +340,14 @@ class SmartsheetCorrectionWriter:
             return CorrectionWriteResult(False, "workflow_write_precondition_invalid", 0, False, True)
         if any(before.values.get(title) != value for title, value in expected.items()):
             return CorrectionWriteResult(False, "workflow_write_stale", 0, False, True)
-        if all(before.values.get(title) == value for title, value in updates.items()):
+        if self._matches(before.values, updates):
             return CorrectionWriteResult(
                 True, "workflow_write_already_reconciled", len(updates), False, True
             )
         payload = {
-            validation.column_ids[title]: value
+            validation.column_ids[title]: (
+                ExplicitNull() if title == AI_RESOLUTION_RESULT and value == "" else value
+            )
             for title, value in updates.items()
         }
         try:
@@ -363,8 +370,19 @@ class SmartsheetCorrectionWriter:
             return CorrectionWriteResult(
                 False, "workflow_write_outcome_unresolved", 0, attempted, False
             )
-        if all(after.values.get(title) == value for title, value in updates.items()):
+        if self._matches(after.values, updates):
             return CorrectionWriteResult(
                 True, "workflow_write_reconciled", len(updates), attempted, True
             )
         return CorrectionWriteResult(False, "workflow_write_rejected", 0, attempted, True)
+
+    @staticmethod
+    def _matches(values, updates):
+        # A cleared workflow-owned result reads back as null/absent, not text.
+        # This equivalence never relaxes exact human-control preconditions.
+        return all(
+            (values.get(title) is None or values.get(title) == "")
+            if title == AI_RESOLUTION_RESULT and value == ""
+            else values.get(title) == value
+            for title, value in updates.items()
+        )

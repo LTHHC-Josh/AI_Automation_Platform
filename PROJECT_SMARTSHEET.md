@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Prepared one audited same-case regeneration for the approved naming policy.
-Result: Unchanged validated intent is reused; old partial plan retained in audit. Evidence replay and fresh human approval still required.
-Tests: 110 synthetic/mock correction, training and ownership checks passed; modified Python compiled.
-PHI: Synthetic-only verification; no live document or row operation in this checkpoint.
-Status: Controlled same-case proposal verification follows; no complete correction/learning acceptance claimed.
-Next: Program has been explicitly excluded from current filename naming. Prepare an audited same-case proposal regeneration using the program-independent code/modifier lookup and existing payer/date fixes; preserve the old blocked plan and human controls. Verify each service token resolves uniquely, then obtain human Approve AI Correction for the complete existing-row/document correction, verify readback, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Do not guess competing service tokens or resend the document. Training remains stopped; no further inference ran during the program-policy update.
+Work: Verified same-case naming and fixed stale-resolution clear publication.
+Result: Payer, comma-separated services and dates resolve; date warning removed. Only unknown subtype remains. Saved plan awaits publication-only verification.
+Tests: 115 synthetic/mock checks and Python compilation passed; one real cached/local same-case replay, zero corrections applied.
+PHI: Protected evidence stayed local; only safe diagnostic categories exposed. Human approvals unchanged; no mailbox, cloud model, row correction or attachment upload.
+Status: Human correction/resolution approval and learning reuse remain pending. No further model replay is needed for publication.
+Next: Publish and read back the existing verified same-case proposal without reanalysis or evidence replay. Payer, comma-separated service tokens and dates now resolve; only unknown subtype remains. Then obtain human Approve AI Correction, verify the existing-row/document correction, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Preserve human controls and other flagged cases. Do not resend the document. Training remains stopped.
 
 ## Safety Contract
 

@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
 import yaml
+from smartsheet.models import ExplicitNull
 
 import src.services.document_processor_training_codex_service as codex_module
 
@@ -309,7 +310,8 @@ class WriterClient:
         self.calls.append((row_id, updates))
         values = dict(self.reader.row.values)
         reverse = {column_id: title for title, column_id in self.schema.column_ids.items()}
-        values.update({reverse[column_id]: value for column_id, value in updates.items()})
+        values.update({reverse[column_id]: None if isinstance(value, ExplicitNull) else value
+                       for column_id, value in updates.items()})
         self.reader.row = CorrectionRow(row_id, values, 2)
 
 
@@ -403,6 +405,59 @@ def test_writer_uses_exact_preconditions_and_skips_reconciled_values():
     )
     assert not stale.success and stale.status == "workflow_write_stale"
     assert client.calls == []
+
+
+def test_writer_explicitly_clears_stale_resolution_and_reconciles_blank():
+    schema = schema_result()
+    values = {AI_CORRECTION: True, APPROVE_AI_CORRECTION: False,
+              APPROVE_AI_RESOLUTION: False, AI_RESOLUTION_RESULT: "Synthetic stale result"}
+    reader = WriterReader(CorrectionRow(10, values, 1))
+    client = WriterClient(reader, schema)
+    writer = SmartsheetCorrectionWriter(client=client, reader=reader)
+    updates = {AI_PROPOSED_CORRECTION:"Correct the document filename.",
+               AI_CORRECTION_STATUS:"Analysis Ready", AI_RESOLUTION_RESULT:""}
+    result = writer.write(row_id=10, updates=updates, schema=schema,
+                          expected_proposal_hash_values=dict(values))
+    assert result.success and result.request_attempted and result.outcome_proven
+    assert isinstance(client.calls[0][1][schema.column_ids[AI_RESOLUTION_RESULT]], ExplicitNull)
+    from smartsheet.models import Cell
+    cell=Cell(); cell.column_id=schema.column_ids[AI_RESOLUTION_RESULT]
+    cell.value=client.calls[0][1][schema.column_ids[AI_RESOLUTION_RESULT]]
+    assert 'value' in cell.to_dict() and cell.to_dict()['value'] is None
+    assert reader.row.values[AI_RESOLUTION_RESULT] is None
+    assert all(reader.row.values[k] == values[k] for k in (AI_CORRECTION,APPROVE_AI_CORRECTION,APPROVE_AI_RESOLUTION))
+    again = writer.write(row_id=10, updates=updates, schema=schema)
+    assert again.success and not again.request_attempted and len(client.calls)==1
+
+
+def test_writer_blank_permission_is_resolution_only_and_preconditions_remain_exact():
+    schema=schema_result()
+    reader=WriterReader(CorrectionRow(10,{AI_RESOLUTION_RESULT:None,APPROVE_AI_CORRECTION:True},1))
+    client=WriterClient(reader,schema)
+    writer=SmartsheetCorrectionWriter(client=client,reader=reader)
+    for title in WORKFLOW_OWNED_COLUMNS:
+        for value in (None," ", []):
+            assert not writer.write(row_id=10,updates={title:value},schema=schema).success
+        if title!=AI_RESOLUTION_RESULT:
+            assert not writer.write(row_id=10,updates={title:""},schema=schema).success
+    stale=writer.write(row_id=10,updates={AI_RESOLUTION_RESULT:""},schema=schema,
+                       expected_proposal_hash_values={APPROVE_AI_CORRECTION:False})
+    assert stale.status=="workflow_write_stale" and client.calls==[]
+
+
+def test_resolution_clear_lost_response_reconciles_without_second_write():
+    schema=schema_result()
+    reader=WriterReader(CorrectionRow(10,{AI_RESOLUTION_RESULT:"Synthetic stale result"},1))
+    class LostClearResponse(WriterClient):
+        def update_row(self, row_id, updates):
+            super().update_row(row_id,updates)
+            raise RuntimeError("synthetic-private-marker")
+    client=LostClearResponse(reader,schema)
+    writer=SmartsheetCorrectionWriter(client=client,reader=reader)
+    result=writer.write(row_id=10,updates={AI_RESOLUTION_RESULT:""},schema=schema)
+    assert result.success and result.outcome_proven and result.request_attempted
+    again=writer.write(row_id=10,updates={AI_RESOLUTION_RESULT:""},schema=schema)
+    assert again.success and not again.request_attempted and len(client.calls)==1
 
 
 def test_protected_case_repository_is_encrypted_and_restart_idempotent():
