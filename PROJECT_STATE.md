@@ -49,8 +49,11 @@ have passed live readback. One bounded approved lesson is retained and included
 by the production future-prompt renderer. Fresh-app restart preserves the same
 case, generation, lesson and code job without repeating correction or resolution.
 The optional local code update ended update_failed: no code was installed and no
-activation quarantine remains. Later-document learning reuse and production
-generated-code promotion remain pending acceptance.
+activation quarantine remains. A later same-type document has now completed the
+production extraction path; its approved guidance is available and included by
+the same production prompt renderer. No request body was retained, and this does
+not prove the lesson caused an improvement. Reviewer acceptance of the new output
+and production generated-code promotion remain pending.
 
 The automated document processor is the current Phase 1 priority. It processes
 healthcare intake documents for LT Home Healthcare. MCO, payer, sender, and
@@ -398,6 +401,22 @@ Operator commands remain:
 
 ## Current Verified Baseline
 
+- A different authorization document completed unattended processing on 2026-09-09:
+  one new row, one attachment, one create/upload attempt each, zero failures,
+  mailbox finalization and Workflow Summary completed. OCR/classification and two
+  independently validated extraction attempts ran; attempt 1 was selected.
+  Exact row identity, one matching attachment and protected correction-source
+  binding were verified. AI Correction is unchecked. Displayed mapped fields have
+  their confidence cells; absent mapped fields do not have stray confidence cells.
+  Partial business naming resolved payer/date, with service and document-subtype
+  placeholders remaining. Nine review reasons remain for human assessment; no
+  claim is made that they are all correct. Approved same-type guidance was verified
+  in the production renderer without exposing prompts or document values.
+  DP returned to waiting, one owned worker, zero consecutive failures, not degraded.
+  The operator explicitly authorized continued unattended polling; DP is left
+  running. Training remains stopped. No correction/approval/comment was performed
+  on this new row, and the new comment-driven snapshot rule remains unaccepted live.
+
 - One scoped same-case local/cached evidence cycle under preparation contract 4
   created exactly one new generation. Payer, service and dates resolve; multiple
   service tokens are comma-separated. Only the legitimate unknown-subtype
@@ -480,9 +499,10 @@ Operator commands remain:
 ## Current Limitations and Pending Acceptance
 
 - Same-row correction and resolution approval have passed scoped live acceptance.
-  Later-document learning reuse, the new comment-driven snapshot rule and actual
-  generated-code promotion remain pending. Do not equate prompt inclusion or
-  synthetic/isolated checks with those live acceptances.
+  A subsequent same-type processing run and guidance-renderer inclusion passed;
+  reviewer-confirmed improvement, new comment-driven snapshot acceptance and actual
+  generated-code promotion remain pending. Prompt inclusion alone does not prove
+  model adherence or correction generalization.
 - Automatic code updates cover only the allowlisted pure-function scopes described
   above. Other failures stay safe and visible; no generic autonomous repository
   rewrite is enabled.
@@ -522,4 +542,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Perform controlled acceptance with a different document of the same type to verify approved guidance reuse. For new flagged feedback, verify a new comment-driven analysis refreshes the review snapshot once; correction and resolution preserve it while AI Resolution Result describes confirmed changes. Verify restart/idempotency, preserve human controls and other cases, then stop Training cleanly. Do not resend the resolved document or retry the failed optional code-generation job blindly.
+Have the operator review the new completed row and attachment, especially the service/subtype placeholders and remaining review warnings. If a correction is needed, flag that existing row and add ordinary feedback. Then perform scoped comment-driven Training acceptance: refresh the review snapshot once, obtain correction approval, apply/read back the saved existing-row/document plan, obtain resolution approval, and verify idempotency while preserving human controls and other cases. DP remains running by explicit operator authorization; Training is stopped. Do not resend either processed document or blindly retry the prior failed code-generation job.

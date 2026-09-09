@@ -14098,3 +14098,65 @@ only; no new live comment-driven analysis or correction was performed for it.
   "exact_next_start": "Perform controlled acceptance with a different document of the same type to verify approved guidance reuse. For new flagged feedback, verify a new comment-driven analysis refreshes the review snapshot once; correction and resolution preserve it while AI Resolution Result describes confirmed changes. Verify restart/idempotency, preserve human controls and other cases, then stop Training cleanly. Do not resend the resolved document or retry the failed optional code-generation job blindly."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Later Same-Type Document Completed; Continuous DP Authorized - 2026-09-09
+
+The operator supplied a different test document and explicitly authorized DP to
+continue polling rather than stopping after every test. The first narrow-start
+request was rejected by execution review before any startup; after the operator
+clarified continuous polling authorization, the existing StartDP wrapper completed
+all five stages. Live registration reflects source 7cbaf16. No new schedule or
+silent reboot startup was added; Training was not started.
+
+One new authorization document completed the full unattended path: OCR,
+classification, two independent extraction/validation attempts, candidate selection
+(attempt 1), business actions, new row creation, new attachment upload, mailbox
+finalization and Workflow Summary. Document/written/completed counts are one;
+failure count zero; row/attachment attempts one each; row outcome proven. This was
+not reconciliation-only processing. The second extraction was the built-in bounded
+retry, not a second flow or manual resubmission. Long OCR/model stages were
+observed without interrupting or repeating them.
+
+Read-only approved-adapter verification selected exactly one newly completed
+durable job. Row identity, exactly one matching attachment, original correction
+source binding and unchecked AI Correction were proven. Mapped value/confidence
+presence mismatches are zero in both directions. This is a presence consistency
+check, not independent proof of every extracted value or review warning.
+Partial business filename has service and document-subtype placeholders; payer
+and naming dates resolved. Nine review reasons remain. The operator must judge
+the actual output in the approved sheet; no document values were exposed here.
+
+The new document family matches the approved lesson. Direct-indexed bounded
+guidance is present and included by the production extraction prompt renderer;
+source wiring uses that renderer for extraction. No request body was captured or
+printed, and no claim is made that the lesson caused improvement or that every
+model instruction was followed. The prior optional code-update failure was not
+retried. Correction workflow/comments/approvals for the new row were untouched.
+
+Post-run status: DP running, ownership proven, polling waiting, no active bounded
+run, one fresh owned worker, zero consecutive failures and not degraded. DP remains
+running under explicit operator authorization. Training remains stopped pending
+reviewer feedback. New comment-driven snapshot behavior still requires live
+acceptance. The read-only watcher and readback helpers were removed after use.
+
+Classification: real approved Graph/mailbox intake, local OCR/Ollama, explicitly
+mapped Smartsheet row/attachment and mailbox finalization, plus read-only local
+state/control-plane/Smartsheet verification. Safe booleans/counts/categories only;
+no PHI, payload values, source text, identifying names, IDs or secrets emitted.
+No cloud model, comment access/write or human-checkbox write. Tracked changes are
+continuity layers only; current tested implementation is unchanged. Continuity
+checks passed: 11 migration and 3 tracker tests, zero failures. Management tracker:
+Updated 1, Unchanged 37, Not Found 0, Failed 0. Protected-path checks and full diff
+review passed; no application code changed.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Completed the later same-type unattended document test; continuous polling authorized.",
+  "key_result": "One new row/attachment, zero failures; two extraction attempts, first selected. Exact readback and unchecked AI Correction verified. DP returned to waiting.",
+  "tests": "Real approved end-to-end processing and readback passed; mapped value/confidence presence checks passed. Existing source unchanged.",
+  "phi_handling": "Approved local and mapped production adapters only; safe counters/categories emitted. No cloud model, human-control write or comment access.",
+  "limitation_acceptance": "Service/subtype placeholders and nine review reasons await assessment. Guidance inclusion is verified, not causal improvement. Training stopped; DP running.",
+  "exact_next_start": "Have the operator review the new completed row and attachment, especially the service/subtype placeholders and remaining review warnings. If a correction is needed, flag that existing row and add ordinary feedback. Then perform scoped comment-driven Training acceptance: refresh the review snapshot once, obtain correction approval, apply/read back the saved existing-row/document plan, obtain resolution approval, and verify idempotency while preserving human controls and other cases. DP remains running by explicit operator authorization; Training is stopped. Do not resend either processed document or blindly retry the prior failed code-generation job."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
