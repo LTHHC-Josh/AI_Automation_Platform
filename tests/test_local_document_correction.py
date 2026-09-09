@@ -521,7 +521,8 @@ def test_service_line_scope_revalidates_review_not_top_level_values():
     a=replace(fixture["correction_analysis"](), affected_fields=("Service Line",))
     plan=h.executor.prepare(1,h.context,a)
     assert set(plan["updates"]) <= {"AI Review Reasons","AI Review Status","AI Review Required","AI Minimum Field Confidence"}
-    assert "AI Review Reasons" in plan["updates"] and h.calls==0
+    assert "AI Review Reasons" not in plan["updates"] and h.calls==0
+    assert plan["review_snapshot"]["before"]["AI Review Reasons"] != plan["review_snapshot"]["after"]["AI Review Reasons"]
     assert not {"Start Date","End Date","Authorized Units","Service Codes"} & set(plan["updates"])
 
 

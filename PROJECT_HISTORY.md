@@ -14030,3 +14030,71 @@ approved learning reuse and production generated-code promotion remain pending.
   "exact_next_start": "Have the operator inspect the corrected existing row and attachment, then check Approve AI Resolution if correct. The approved same-plan correction has passed readback: payer and comma-separated services are in the filename and the incorrect service-line date warning is removed. Consume only that fresh resolution approval, verify bounded approved learning and any permitted local update outcome, then prove later same-type reuse with controlled acceptance. Preserve human controls and other flagged cases; do not resend the corrected document. Training remains stopped pending resolution approval."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Resolution Accepted and Comment-Driven Review Snapshot - 2026-09-09
+
+The operator approved the verified resolution. One scoped production-workflow
+cycle consumed that fresh approval on the existing case, without document replay
+or repeated correction. Case resolved_count=1, approved_lesson_count=1; the bounded
+guidance is included by the production future-prompt renderer. Same plan and
+generation, exact workflow-result readback and unchanged human controls were
+verified. The optional local code update reached update_failed; no generated code
+was installed, no activation quarantine remains, and no second generation was
+attempted. Its exact failure cause is not retained; do not invent one. Fresh-app
+restart verified the same case, lesson and code job with zero new resolution or
+correction. Training and workers were not started. Later-document reuse is not yet
+proven merely by prompt inclusion.
+
+An additional approved business clarification makes AI Review Reason, Status and
+Required an analysis-generation snapshot. Only new comments driving new analysis
+may refresh it. Applying a saved correction, resolution approval, guidance
+retention, unchanged polling and reconciliation preserve it. Preparation separates
+candidate review before/after from correction updates. The workflow reserves a
+review_refresh generation before a typed, sealed-intent, exact-readback write.
+Lost responses reconcile; an unproven intent never repeats the update. Changed
+comments/context cannot bypass an unresolved prior boundary. Own snapshot changes
+advance the input digest without generating another analysis. Older unapplied
+review-write plans fail closed rather than silently changing approved scope;
+confirmed older transactions remain reconcilable. Minimum field confidence stays
+with the current validated production fields.
+
+AI Resolution Result uses fixed field/action labels from confirmed before/after
+changes, with exact row readback before completion. It does not claim unchanged
+review values were updated. The historical approved correction removed one
+service-line date warning; read-only exact plan/current comparison proved it is
+absent and five reasons remain. This happened under the prior approved behavior
+and was not undone. No raw reasons or values were exposed. A raw boolean-only
+review-required probe was not semantically reliable for text destinations and is
+not used to claim review-required state.
+
+Files: evidence_only_correction_executor.py, local_document_correction_workflow.py,
+test_local_document_correction.py, new test_review_snapshot_lifecycle.py and the
+three continuity layers. Modified Python compiled. Synthetic/mock tests passed:
+snapshot 13, correction 51, training/writer 57, human ownership 10, reason summary
+14, review decision 21, Smartsheet mapping 25, local-code authorization 5,
+local-code pipeline 13, activation gate 5 = 214. Rollback tests are synthetic/mock,
+not a real installed-code rollback. After regenerating the derived summary,
+continuity checks passed 11 migration + 3 tracker tests (228 total checks).
+Management tracker: Updated 1, Unchanged 37, Not Found 0, Failed 0. The initial
+continuity check correctly rejected the still-old generated snapshot; no tracker
+call ran until it was regenerated and checks passed. Protected-path and full diff
+review passed. Temporary scoped helpers are removed after use.
+
+Live classification: approved resolution workflow and protected guidance retention,
+local-only optional code-update attempt, fresh-app restart and approved Smartsheet
+readback. Only categories/counts/booleans emitted. No new mailbox/document access,
+OCR, document extraction, attachment upload, cloud model, human-control write or
+comment write. The new snapshot implementation itself has synthetic/mock coverage
+only; no new live comment-driven analysis or correction was performed for it.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Accepted resolution and separated comment-driven review snapshots from correction results.",
+  "key_result": "One approved lesson retained and included in future prompts; restart idempotent. Review refresh now has a separate typed/readback boundary.",
+  "tests": "214 affected synthetic/mock checks and Python compilation passed. Scoped live resolution, guidance inclusion and restart verified.",
+  "phi_handling": "Safe categories only; human controls unchanged. No mailbox, OCR, document replay, cloud model or comment write.",
+  "limitation_acceptance": "Optional local code update failed safely; no installation. Later-document reuse and new snapshot live acceptance remain pending; Training stopped.",
+  "exact_next_start": "Perform controlled acceptance with a different document of the same type to verify approved guidance reuse. For new flagged feedback, verify a new comment-driven analysis refreshes the review snapshot once; correction and resolution preserve it while AI Resolution Result describes confirmed changes. Verify restart/idempotency, preserve human controls and other cases, then stop Training cleanly. Do not resend the resolved document or retry the failed optional code-generation job blindly."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

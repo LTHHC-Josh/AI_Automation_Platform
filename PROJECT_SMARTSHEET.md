@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Applied the approved same-row/document correction and clarified proposal wording.
-Result: Readback passed; same plan/generation, zero model calls, human controls unchanged. Proposal explicitly names filename and date-warning corrections.
-Tests: 118 focused synthetic/mock tests and Python compilation passed. One approved live correction and wording readback passed with zero failures.
-PHI: Approved existing-row/attachment adapters only; no values emitted, mailbox access, OCR, cloud model, human-control or comment write.
-Status: Awaiting human resolution approval. Learning reuse and production code promotion remain unproven; Training stopped.
-Next: Have the operator inspect the corrected existing row and attachment, then check Approve AI Resolution if correct. The approved same-plan correction has passed readback: payer and comma-separated services are in the filename and the incorrect service-line date warning is removed. Consume only that fresh resolution approval, verify bounded approved learning and any permitted local update outcome, then prove later same-type reuse with controlled acceptance. Preserve human controls and other flagged cases; do not resend the corrected document. Training remains stopped pending resolution approval.
+Work: Accepted resolution and separated comment-driven review snapshots from correction results.
+Result: One approved lesson retained and included in future prompts; restart idempotent. Review refresh now has a separate typed/readback boundary.
+Tests: 214 affected synthetic/mock checks and Python compilation passed. Scoped live resolution, guidance inclusion and restart verified.
+PHI: Safe categories only; human controls unchanged. No mailbox, OCR, document replay, cloud model or comment write.
+Status: Optional local code update failed safely; no installation. Later-document reuse and new snapshot live acceptance remain pending; Training stopped.
+Next: Perform controlled acceptance with a different document of the same type to verify approved guidance reuse. For new flagged feedback, verify a new comment-driven analysis refreshes the review snapshot once; correction and resolution preserve it while AI Resolution Result describes confirmed changes. Verify restart/idempotency, preserve human controls and other cases, then stop Training cleanly. Do not resend the resolved document or retry the failed optional code-generation job blindly.
 
 ## Safety Contract
 

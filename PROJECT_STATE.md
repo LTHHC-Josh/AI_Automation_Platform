@@ -44,9 +44,13 @@ Windows Sandbox is enabled and the post-restart isolation probe passed. The
 production repository, credentials and documents are not shared with sandbox
 tests. Networking/clipboard redirection are disabled. Local code-generation
 positive and rejection probes passed their respective acceptance/safety checks.
-One human-approved existing-row/document correction has now passed live readback.
-Resolution approval, later-document learning reuse and production generated-code
-promotion remain pending acceptance.
+One human-approved existing-row/document correction and its resolution approval
+have passed live readback. One bounded approved lesson is retained and included
+by the production future-prompt renderer. Fresh-app restart preserves the same
+case, generation, lesson and code job without repeating correction or resolution.
+The optional local code update ended update_failed: no code was installed and no
+activation quarantine remains. Later-document learning reuse and production
+generated-code promotion remain pending acceptance.
 
 The automated document processor is the current Phase 1 priority. It processes
 healthcare intake documents for LT Home Healthcare. MCO, payer, sender, and
@@ -174,8 +178,12 @@ already used by filename policy. Date evidence still belongs to its own service
 line; invalid dates or evidence from another line remain unsupported. The current
 document cache contains short-year dates. Controlled post-fix replay accepted both
 service lines' dates and removed the disputed date warning from the proposed update.
-Review reasons
-derive from final validated state. Filename placeholders or reference-token
+Initial and comment-driven analysis review reasons derive from final validated
+state. The review reason/status/required trio is an analysis-generation snapshot:
+only new reviewer comments driving new analysis may refresh it. Applying an
+approved correction, resolution approval, retaining learning, unchanged polling
+and reconciliation preserve that snapshot. AI Resolution Result separately reports
+confirmed changes. Filename placeholders or reference-token
 lookup failure do not automatically create extraction-review reasons.
 
 The intake filename convention is:
@@ -244,8 +252,9 @@ exception text, tokens, and sensitive response fields are never retained.
 DP Training is the separate operator-owned correction service. Local modes are
 schema_only, read_only, proposal_write and local_correction. The historical
 approval_dispatch mode is a compatibility alias for local correction, not Codex.
-Configured mode is local_correction; the service remains stopped pending controlled
-acceptance. Startup uses the existing fingerprint/owned restart contract.
+Configured mode is local_correction; the service remains stopped after scoped
+correction/resolution acceptance. Startup uses the existing fingerprint/owned
+restart contract.
 
 Current versions:
 - `business_context_version`: 3
@@ -402,9 +411,23 @@ Operator commands remain:
   cycle applied the exact existing-row review update and attachment-name version,
   then verified readback with zero failures and zero model calls. Case identity,
   generation and plan were unchanged. Concise proposal wording was refreshed with
-  original wording audited, without changing scope. Current phase is Awaiting
-  Resolution Approval; that approval remains unchecked. Other cases and human
-  controls/comments were not modified. Training remains stopped.
+  original wording audited, without changing scope. The operator subsequently
+  approved resolution. One scoped production cycle resolved the case, retained one
+  bounded lesson and proved future-prompt inclusion. Fresh-app restart did not
+  repeat correction/resolution or code generation. The optional local code job
+  failed safely without installation; its exact internal failure cause was not
+  retained. Other cases and human controls/comments were not modified. Training
+  remains stopped.
+
+- The new comment-driven review-snapshot boundary has 13 focused synthetic/mock
+  checks: typed sealed intent, exact readback, lost-response reconciliation,
+  restart without new inference, no blind uncertain-write retry, human ownership
+  and application/resolution preservation. Older unapplied plans containing review
+  writes fail closed; confirmed historical transactions can reconcile. Minimum
+  field confidence still follows current validated production fields. Results name
+  only confirmed changes, never unchanged review fields. This new rule has not yet
+  received live comment-driven acceptance. The prior approved date-warning removal
+  is verified and is not undone.
 
 - Controlled local_correction cycle on 2026-09-09 processed three flagged cases;
   all became blocked, with zero corrections and zero Codex dispatches. The newest
@@ -456,9 +479,10 @@ Operator commands remain:
 
 ## Current Limitations and Pending Acceptance
 
-- Full live acceptance of the redesigned same-row correction/resolution workflow
-  remains pending. Do not equate synthetic or isolated code checks with a real
-  patient-document acceptance.
+- Same-row correction and resolution approval have passed scoped live acceptance.
+  Later-document learning reuse, the new comment-driven snapshot rule and actual
+  generated-code promotion remain pending. Do not equate prompt inclusion or
+  synthetic/isolated checks with those live acceptances.
 - Automatic code updates cover only the allowlisted pure-function scopes described
   above. Other failures stay safe and visible; no generic autonomous repository
   rewrite is enabled.
@@ -498,4 +522,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Have the operator inspect the corrected existing row and attachment, then check Approve AI Resolution if correct. The approved same-plan correction has passed readback: payer and comma-separated services are in the filename and the incorrect service-line date warning is removed. Consume only that fresh resolution approval, verify bounded approved learning and any permitted local update outcome, then prove later same-type reuse with controlled acceptance. Preserve human controls and other flagged cases; do not resend the corrected document. Training remains stopped pending resolution approval.
+Perform controlled acceptance with a different document of the same type to verify approved guidance reuse. For new flagged feedback, verify a new comment-driven analysis refreshes the review snapshot once; correction and resolution preserve it while AI Resolution Result describes confirmed changes. Verify restart/idempotency, preserve human controls and other cases, then stop Training cleanly. Do not resend the resolved document or retry the failed optional code-generation job blindly.

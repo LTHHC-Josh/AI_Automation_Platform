@@ -27,6 +27,7 @@ PREPARATION_FAILURE_CATEGORIES = frozenset({
     "correction_intent_insufficient", "correction_preparation_interrupted",
     "correction_proposal_refresh_requires_unchecked_approval",
     "correction_requested_filename_unresolved",
+    "correction_review_snapshot_unresolved", "correction_review_snapshot_write_forbidden",
 })
 
 def preparation_failure_category(error):
@@ -103,6 +104,8 @@ def verified_proposal(plan, affected_fields, required_filename_components=()):
             raise ValueError("correction_requested_filename_unresolved")
     elif "Filename" in affected_fields:
         raise ValueError("correction_requested_filename_unresolved")
+    if not updates and not plan.get("attachment") and plan.get("review_snapshot_confirmed") is True:
+        return "Review the refreshed analysis."
     if not updates and not plan.get("attachment"):
         raise ValueError("correction_no_verified_change")
     return describe_verified_changes(plan)
@@ -204,6 +207,10 @@ class LocalDocumentCorrectionWorkflow:
         legacy = self.repository.load_or_create(source_scope="ai-destination", row_id=row_id)
         key = legacy.case_id
         state = self.store.load("case", key)
+        if state and state["phase"] == "review_refresh":
+            # An uncertain snapshot write is reconciled before any new analysis.
+            self._finish_review_refresh(key, state, row_id, schema, counts)
+            return
         if state and state["phase"] == "resolved" and digest == state["input_digest"]:
             self._continue_code_update(key, state, row_id, schema, counts)
             fresh, _, _, _ = self._read(row_id, schema)
@@ -246,6 +253,8 @@ class LocalDocumentCorrectionWorkflow:
             and row.values.get(APPROVE_AI_RESOLUTION) is not True
         )
         if not state or digest != state["input_digest"] or state["phase"] == "superseded" or upgrade_blocked:
+            comment_driven = bool(comments) and (
+                not state or stable_digest(comments) != state.get("comment_digest"))
             prior_analysis = (state.get("analysis") if upgrade_blocked
                               and digest == state["input_digest"] else None)
             if state:
@@ -280,6 +289,12 @@ class LocalDocumentCorrectionWorkflow:
             if analysis.desired_behavior_sufficient and comments:
                 try:
                     state["plan"] = self.executor.prepare(row_id, context, analysis)
+                    if state["plan"].get("review_snapshot") and comment_driven:
+                        state["phase"] = "review_refresh"
+                        self.store.save("case", key, state)
+                        self._finish_review_refresh(key, state, row_id, schema, counts)
+                        counts["updated_case_count" if generation > 1 else "new_case_count"] += 1
+                        return
                     state["status"] = "Analysis Ready"
                     state["phase"] = "proposed"
                     state["proposal"] = verified_proposal(state["plan"], analysis.affected_fields, analysis.required_filename_components)
@@ -375,6 +390,41 @@ class LocalDocumentCorrectionWorkflow:
             raise ValueError("correction_outcome_unresolved")
         self._applied(key, state, row_id, schema, counts)
 
+    def _finish_review_refresh(self, key, state, row_id, schema, counts):
+        snapshot = state["plan"]["review_snapshot"]
+        try:
+            row, comments, _, digest = self._read(row_id, schema)
+            expected_after = dict(state["row_before"], **snapshot["after"])
+            after_digest = stable_digest({"row":expected_after, "comments":state["feedback"]})
+            if (digest not in {state["input_digest"], after_digest}
+                    or stable_digest(comments) != state["comment_digest"]
+                    or row.values.get(AI_CORRECTION) is not True):
+                raise ValueError("correction_review_snapshot_unresolved")
+            receipt = stable_digest({"case":key,"generation":state["generation"],
+                                     "comments":state["comment_digest"]})
+            if not self.executor.refresh_review_snapshot(row_id, snapshot, generation_receipt=receipt):
+                raise ValueError("correction_review_snapshot_unresolved")
+            row, comments, _, digest = self._read(row_id, schema)
+            if digest != after_digest:
+                raise ValueError("correction_review_snapshot_unresolved")
+            state["input_digest"] = digest
+            state["plan"]["review_snapshot_confirmed"] = True
+            state["proposal"] = verified_proposal(state["plan"], state["analysis"]["affected_fields"],
+                                                   state["analysis"].get("required_filename_components", ()))
+            state["phase"] = "proposed"
+            state["status"] = "Analysis Ready"
+            state["preparation_failure_category"] = "none"
+            self.store.save("case", key, state)
+            if not self._publish(row_id, schema, state, row):
+                raise ValueError("correction_review_snapshot_unresolved")
+            counts["analysis_ready_count"] += 1
+            self._observe("local_analysis", "completed")
+        except Exception:
+            # Keep the reserved generation and its outcome for exact reconciliation.
+            counts["implementation_failed_count"] += 1
+            self._preparation_failures.add("correction_review_snapshot_unresolved")
+            self._observe("local_analysis", "failed")
+
     def _record_blocked(self, state, counts):
         counts["blocked_case_count"] += 1
         category = state.get("preparation_failure_category")
@@ -383,15 +433,24 @@ class LocalDocumentCorrectionWorkflow:
 
     def _applied(self, key, state, row_id, schema, counts):
         row, comments, _, digest = self._read(row_id, schema)
+        expected = dict(state["plan"].get("before", {}), **state["plan"]["updates"])
+        if any(row.values.get(name) != value for name,value in expected.items()):
+            raise ValueError("correction_outcome_unresolved")
         # Binding the corrected row must NOT treat it as new reviewer feedback.
         state["phase"] = "awaiting_resolution"
         state["status"] = "Awaiting Resolution Approval"
-        changed_fields = ", ".join(sorted(state["plan"]["updates"]))
-        actions = ("Updated row fields: " + changed_fields + ". ") if changed_fields else ""
-        if state["plan"].get("attachment"):
-            actions += "Updated the document filename as a new attachment version. "
+        confirmed_plan = dict(state["plan"], updates={
+            n:v for n,v in state["plan"]["updates"].items()
+            if n not in state["plan"].get("before", {}) or state["plan"]["before"][n] != v})
+        actions = describe_verified_changes(confirmed_plan)
+        for present,past in (("Add the ","Added the "),("Remove the ","Removed the "),
+                             ("Correct the ","Corrected the "),("Clear the ","Cleared the "),
+                             ("Update the ","Updated the ")):
+            actions = actions.replace(present,past)
+        if not actions:
+            actions = "The saved correction already matches the row/document; no further change was needed."
         state["result"] = actions + (
-            "Original document evidence was revalidated and changes were read back. "
+            " Readback verified. The review reason remains the analysis snapshot. "
             "Review the result, then check Approve AI Resolution."
         )
         state["input_digest"] = digest

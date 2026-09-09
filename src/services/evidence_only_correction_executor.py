@@ -15,6 +15,8 @@ from src.services.smartsheet_destination_validation_service import SmartsheetDes
 from src.models.smartsheet_mapping import SmartsheetRowMappingResult
 from src.services.smartsheet_feedback_case_storage_service import stable_digest
 
+REVIEW_SNAPSHOT_COLUMNS = frozenset({"AI Review Reasons", "AI Review Status", "AI Review Required"})
+
 class LocalCorrectionSource:
     ROOT = Path(__file__).resolve().parents[2]
     def __init__(self, store=None):
@@ -179,10 +181,20 @@ class EvidenceOnlyCorrectionExecutor:
             selected |= dependent
         desired = {name:mapping.values.get(name) for name in selected}
         before = self._values(row_id, {n:config.available_columns[n] for n in selected})
+        # Review status/reasons belong to the analysis generation, not application.
+        # Keep a separate candidate snapshot; only the comment-driven workflow
+        # may publish it. Applying a saved correction never writes these columns.
+        snapshot_before = self._values(row_id, {n:config.available_columns[n] for n in REVIEW_SNAPSHOT_COLUMNS})
+        snapshot_after = {n:mapping.values.get(n) for n in REVIEW_SNAPSHOT_COLUMNS}
+        review_snapshot = ({"before":snapshot_before, "after":snapshot_after}
+                           if snapshot_before != snapshot_after else None)
+        selected -= REVIEW_SNAPSHOT_COLUMNS
+        desired = {n:v for n,v in desired.items() if n in selected}
+        before = {n:v for n,v in before.items() if n in selected}
         updates = {name:value for name,value in desired.items() if before.get(name) != value}
         self._validate(updates, config)
         plan = {"updates":updates, "before":before, "attachment":None,
-                "source_fingerprint":binding["fingerprint"]}
+                "source_fingerprint":binding["fingerprint"], "review_snapshot":review_snapshot}
         if "Filename" in analysis.affected_fields:
             prepared = self.naming.prepare(source_path=binding["path"],
                                           filename_policy_result=document.filename_assembly_result.policy_result)
@@ -201,9 +213,44 @@ class EvidenceOnlyCorrectionExecutor:
                 raise ValueError("correction_attachment_identity_unproven")
             if name != matches[0]["name"]:
                 plan["attachment"] = {"id":matches[0]["id"], "before_name":matches[0]["name"], "name":name}
-        if not updates and plan["attachment"] is None:
+        if not updates and plan["attachment"] is None and review_snapshot is None:
             raise ValueError("correction_no_verified_change")
         return plan
+
+    def refresh_review_snapshot(self, row_id, snapshot, *, generation_receipt):
+        """One typed, reconciled analysis-generation write, never an apply side effect."""
+        if (not isinstance(snapshot, dict) or set(snapshot) != {"before", "after"}
+                or any(not isinstance(snapshot[k], dict) or set(snapshot[k]) != REVIEW_SNAPSHOT_COLUMNS
+                       for k in ("before", "after"))
+                or not isinstance(generation_receipt, str) or len(generation_receipt) != 64
+                or any(c not in "0123456789abcdef" for c in generation_receipt)):
+            raise ValueError("correction_review_snapshot_unresolved")
+        config = self.configuration.resolve()
+        if not config.success:
+            raise ValueError("correction_schema_unavailable")
+        self._validate(snapshot["after"], config)
+        columns = {n:config.available_columns[n] for n in REVIEW_SNAPSHOT_COLUMNS}
+        identity = "review-snapshot:" + generation_receipt
+        transaction = self.source.store.load("audit", identity)
+        intent_digest = stable_digest({"row":row_id, "snapshot":snapshot})
+        if transaction and transaction.get("intent_digest") != intent_digest:
+            raise ValueError("correction_review_snapshot_unresolved")
+        current = self._values(row_id, columns)
+        if current == snapshot["after"]:
+            self.source.store.save("audit", identity, {"intent_digest":intent_digest, "confirmed":True})
+            return True
+        if transaction or current != snapshot["before"]:
+            raise ValueError("correction_review_snapshot_unresolved")
+        self.source.store.save("audit", identity, {"intent_digest":intent_digest, "confirmed":False})
+        try:
+            self.client.update_row(row_id, {columns[n]: (smartsheet.models.ExplicitNull() if v is None else v)
+                                           for n,v in snapshot["after"].items()})
+        except Exception:
+            pass  # Reconcile exact values; never repeat an uncertain update.
+        if self._values(row_id, columns) != snapshot["after"]:
+            raise ValueError("correction_review_snapshot_unresolved")
+        self.source.store.save("audit", identity, {"intent_digest":intent_digest, "confirmed":True})
+        return True
 
     def _validate(self, updates, config):
         if not updates:
@@ -266,6 +313,10 @@ class EvidenceOnlyCorrectionExecutor:
         elif transaction["row_intent"]:
             raise ValueError("correction_row_outcome_unresolved")
         if plan["updates"] and not transaction["row_confirmed"]:
+            if REVIEW_SNAPSHOT_COLUMNS.intersection(plan["updates"]):
+                # Older unapplied plans require a new comment-driven analysis.
+                # Existing proven/uncertain transactions may reconcile, not rewrite.
+                raise ValueError("correction_review_snapshot_write_forbidden")
             transaction["row_intent"] = True
             self.source.store.save("audit", transaction_key, transaction)
             self.client.update_row(row_id, {
