@@ -168,6 +168,12 @@ ambiguous, or conflicting explicit units require review. Unit handling never
 implies approval or visit/session meaning.
 
 Operator-facing review reasons use `<Business/Smartsheet Field>: <Problem>` and
+date evidence normalization accepts the same two-digit-year calendar interpretation
+already used by filename policy. Date evidence still belongs to its own service
+line; invalid dates or evidence from another line remain unsupported. The current
+document cache contains short-year dates, but the complete live warning cause has
+not yet been proven by a post-fix replay.
+Review reasons
 derive from final validated state. Filename placeholders or reference-token
 lookup failure do not automatically create extraction-review reasons.
 
@@ -438,4 +444,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Publish the verified-action coverage guard to the existing proposal without re-extraction or approval. Preserve the same case and human controls. Investigate unresolved payer/service naming evidence and service-line date support; both displayed service codes have ambiguous code-only authoritative naming matches, so do not guess modifier/program or naming tokens. A review-text-only change that retains the disputed date warning is not the requested fix. Obtain authoritative business reference clarification if needed before another evidence replay; no resubmission or automatic approval.
+Resolve the authoritative filename naming-rule/reference ambiguity locally before another full correction replay; code-only service matches are ambiguous and payer composite readiness remains unproven. Preserve the existing blocked case and unchecked approvals. Refresh source registration for the short-year date-validation fix, then verify exact service-line evidence and naming diagnostics on the same document after supported reference clarification. Do not guess mappings, resend the document, or approve a plan that does not resolve the requested correction. Training is stopped; full acceptance remains incomplete.

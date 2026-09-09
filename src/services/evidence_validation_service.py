@@ -116,7 +116,7 @@ class EvidenceValidationService:
     )
 
     DATE_PATTERN = re.compile(
-        r"\b\d{1,2}[/-]\d{1,2}[/-]\d{4}\b"
+        r"\b\d{1,2}[/-]\d{1,2}[/-](?:\d{4}|\d{2})\b"
         r"|\b\d{4}-\d{2}-\d{2}\b"
     )
 
@@ -124,6 +124,10 @@ class EvidenceValidationService:
         "%Y-%m-%d",
         "%m/%d/%Y",
         "%m-%d-%Y",
+        # Same deterministic two-digit-year interpretation already supported by
+        # FilenamePolicyService; normalization never substitutes for line evidence.
+        "%m/%d/%y",
+        "%m-%d-%y",
     )
 
     TOP_LEVEL_MAX_MODEL_CONFIDENCE = (

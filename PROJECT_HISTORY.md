@@ -13605,3 +13605,53 @@ dispatch. The tracker is approved management-only. Full acceptance remains block
   "exact_next_start": "Publish the verified-action coverage guard to the existing proposal without re-extraction or approval. Preserve the same case and human controls. Investigate unresolved payer/service naming evidence and service-line date support; both displayed service codes have ambiguous code-only authoritative naming matches, so do not guess modifier/program or naming tokens. A review-text-only change that retains the disputed date warning is not the requested fix. Obtain authoritative business reference clarification if needed before another evidence replay; no resubmission or automatic approval."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Short-Year Evidence Validation and Safe Proposal Block - 2026-09-09
+
+Committed 26b94ea coverage guard was registered for training and one saved-plan
+cycle published the safe blocked state. Exact durable inspection proves
+correction_requested_filename_unresolved and the old plan retained. Training
+stopped. No automatic correction or approval occurred; no re-extraction was
+needed for that existing-plan guard.
+
+Source inspection found DATE_PATTERN/DATE_FORMATS accepted only four-digit years,
+while FilenamePolicyService already accepted slash-separated two-digit years.
+A count-only read of the exact fingerprint-associated existing flat OCR cache
+found four two-digit-year and eight four-digit-year date tokens. No OCR, model or
+document-value output occurred in that probe. This proves format mismatch exists
+in relevant evidence, not that it alone explains every latest service-line warning.
+
+Validator now accepts two-digit-year slash/hyphen date tokens with datetime's
+same century interpretation already used by filename policy. Four-digit dates
+are not truncated. Invalid dates, missing evidence and another line's date remain
+rejected; no source borrowing, confidence inflation or quantity/approval inference.
+No reference mapping or business naming token was guessed or modified.
+
+Files: evidence_validation_service.py, test_short_year_date_evidence.py and three
+continuity layers. Modified Python compiled. Permanent short-year tests 5,
+evidence validation 29, quantity reconciliation 10, intake filename 20,
+document processor 19, field diagnostics 12, row mapping 25, filename assembly 28,
+local correction 41 = 189 unique synthetic/mock checks passed. Continuity and
+tracker gates rerun. Prior coverage guard checks remain valid. Temporary probe
+scripts are removed after use; protected paths remain ignored.
+
+Remaining boundary: both displayed service codes have ambiguous code-only naming
+matches. Their exact composite modifier/program evidence and payer readiness were
+not retained by the replay plan. A safe filename cannot be forced from these
+facts. Obtain authoritative local naming/reference clarification, and retain safe
+component diagnostics on the next same-document evidence replay rather than
+performing repeated blind model runs. Date fix is not yet live accepted. Neither
+reported document correction has been applied, and full-chain readiness is not
+claimed. No mailbox mutation, human-control write or cloud model dispatch.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Blocked the incomplete live proposal and fixed short-year date evidence validation.",
+  "key_result": "Saved plan cannot be approved as a filename fix when no rename exists. Validator now agrees with filename date parsing while preserving service-line ownership. Training stopped.",
+  "tests": "189 focused/affected synthetic checks passed; modified Python compiled. Prior live guard publication verified; date replay remains pending.",
+  "phi_handling": "Exact cache date-format counts only; no text or values emitted. No document correction, human-control write or mailbox mutation.",
+  "limitation_acceptance": "Filename references remain unresolved; code-only service matches are ambiguous. Do not guess mappings or claim end-to-end readiness.",
+  "exact_next_start": "Resolve the authoritative filename naming-rule/reference ambiguity locally before another full correction replay; code-only service matches are ambiguous and payer composite readiness remains unproven. Preserve the existing blocked case and unchecked approvals. Refresh source registration for the short-year date-validation fix, then verify exact service-line evidence and naming diagnostics on the same document after supported reference clarification. Do not guess mappings, resend the document, or approve a plan that does not resolve the requested correction. Training is stopped; full acceptance remains incomplete."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

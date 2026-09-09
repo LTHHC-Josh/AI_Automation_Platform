@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Same-case live retry exposed an incomplete proposal; added verified-action coverage guard.
-Result: Routing fixed, but only review text changed; filename and disputed date warning did not resolve. Guard prevents misleading approval. Authoritative service code-only matches are ambiguous.
-Tests: 118 focused/affected checks passed; prior 265-check baseline. Real controlled proposal cycle/readback; zero corrections or dispatches.
-PHI: Approved local evidence/feedback and proposal operations; safe categories only. No human controls, mailbox mutation or document correction.
-Status: Not end-to-end ready. Do not guess missing reference distinctions or call a partial unrelated update the requested fix.
-Next: Publish the verified-action coverage guard to the existing proposal without re-extraction or approval. Preserve the same case and human controls. Investigate unresolved payer/service naming evidence and service-line date support; both displayed service codes have ambiguous code-only authoritative naming matches, so do not guess modifier/program or naming tokens. A review-text-only change that retains the disputed date warning is not the requested fix. Obtain authoritative business reference clarification if needed before another evidence replay; no resubmission or automatic approval.
+Work: Blocked the incomplete live proposal and fixed short-year date evidence validation.
+Result: Saved plan cannot be approved as a filename fix when no rename exists. Validator now agrees with filename date parsing while preserving service-line ownership. Training stopped.
+Tests: 189 focused/affected synthetic checks passed; modified Python compiled. Prior live guard publication verified; date replay remains pending.
+PHI: Exact cache date-format counts only; no text or values emitted. No document correction, human-control write or mailbox mutation.
+Status: Filename references remain unresolved; code-only service matches are ambiguous. Do not guess mappings or claim end-to-end readiness.
+Next: Resolve the authoritative filename naming-rule/reference ambiguity locally before another full correction replay; code-only service matches are ambiguous and payer composite readiness remains unproven. Preserve the existing blocked case and unchecked approvals. Refresh source registration for the short-year date-validation fix, then verify exact service-line evidence and naming diagnostics on the same document after supported reference clarification. Do not guess mappings, resend the document, or approve a plan that does not resolve the requested correction. Training is stopped; full acceptance remains incomplete.
 
 ## Safety Contract
 
