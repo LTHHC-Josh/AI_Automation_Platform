@@ -44,8 +44,9 @@ Windows Sandbox is enabled and the post-restart isolation probe passed. The
 production repository, credentials and documents are not shared with sandbox
 tests. Networking/clipboard redirection are disabled. Local code-generation
 positive and rejection probes passed their respective acceptance/safety checks.
-No production document correction or generated-code promotion has been live-tested
-in this checkpoint.
+One human-approved existing-row/document correction has now passed live readback.
+Resolution approval, later-document learning reuse and production generated-code
+promotion remain pending acceptance.
 
 The automated document processor is the current Phase 1 priority. It processes
 healthcare intake documents for LT Home Healthcare. MCO, payer, sender, and
@@ -282,6 +283,13 @@ also remain blocked when explicitly requested payer/service components still
 contain placeholders, even if another filename component has improved.
 Incomplete plans are retained for audit and blocked before approval can apply them. Proposal text
 describes verified actions, and stale workflow-owned resolution text is cleared.
+Proposal presentation names saved changes: resolved filename placeholders,
+specific removed/added known review-warning categories and changed/cleared fields.
+It distinguishes a date-warning correction from changing a date value. Only fixed
+labels are rendered; unknown text is never echoed. Existing pre-application
+presentation changes still require unchecked approval. The completed current
+case's wording was refreshed only after its unchanged approved plan was applied
+and verified; the original wording remains in sealed audit.
 Only AI Resolution Result accepts an explicit empty clear; its SDK value is
 ExplicitNull, and null/blank readback reconciles without another write. Other
 workflow fields still require nonempty valid text. Exact human preconditions are
@@ -385,14 +393,18 @@ Operator commands remain:
   created exactly one new generation. Payer, service and dates resolve; multiple
   service tokens are comma-separated. Only the legitimate unknown-subtype
   placeholder remains. The disputed service-line date warning is absent from
-  the planned review update. No correction was applied and both approvals remain
-  unchecked. The full polling sweep was not started, so other flagged cases were
+  the planned review update. The full polling sweep was not started, so other flagged cases were
   untouched. The verified plan was saved but initial publication failed locally:
   the writer rejected the requested blank stale-resolution clear. That narrow
   contract mismatch is fixed and publication-only live readback succeeded. The
-  existing case is Analysis Ready, its proposal matches the saved verified plan,
-  stale resolution text is blank and human controls are unchanged. Publication
-  used zero model calls and applied zero corrections. Training remains stopped.
+  proposal matched the saved verified plan and human controls were unchanged.
+  Subsequently the operator checked Approve AI Correction. One scoped saved-plan
+  cycle applied the exact existing-row review update and attachment-name version,
+  then verified readback with zero failures and zero model calls. Case identity,
+  generation and plan were unchanged. Concise proposal wording was refreshed with
+  original wording audited, without changing scope. Current phase is Awaiting
+  Resolution Approval; that approval remains unchecked. Other cases and human
+  controls/comments were not modified. Training remains stopped.
 
 - Controlled local_correction cycle on 2026-09-09 processed three flagged cases;
   all became blocked, with zero corrections and zero Codex dispatches. The newest
@@ -486,4 +498,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Obtain human Approve AI Correction for the existing Analysis Ready proposal. Payer, comma-separated service tokens and dates are verified; only unknown subtype remains. Apply the saved same-row/document plan without reanalysis, verify row and attachment readback, then obtain human Approve AI Resolution and prove bounded same-type learning reuse. Preserve human controls and other flagged cases. Do not resend the document. Training remains stopped pending the human approval.
+Have the operator inspect the corrected existing row and attachment, then check Approve AI Resolution if correct. The approved same-plan correction has passed readback: payer and comma-separated services are in the filename and the incorrect service-line date warning is removed. Consume only that fresh resolution approval, verify bounded approved learning and any permitted local update outcome, then prove later same-type reuse with controlled acceptance. Preserve human controls and other flagged cases; do not resend the corrected document. Training remains stopped pending resolution approval.

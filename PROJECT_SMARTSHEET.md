@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Published and verified the existing complete requested correction proposal.
-Result: Analysis Ready readback matches saved plan; stale result cleared and human controls unchanged. Payer/services/dates resolved; only unknown subtype remains.
-Tests: 115 focused plus 14 continuity synthetic/mock checks passed. Live publication-only readback passed with zero model calls or applied corrections.
-PHI: Approved workflow-owned fields only; safe booleans emitted. No mailbox, cloud model, document correction, attachment upload or human-control write.
-Status: Awaiting human correction approval. Actual correction, resolution approval and learning reuse remain pending; Training stopped.
-Next: Obtain human Approve AI Correction for the existing Analysis Ready proposal. Payer, comma-separated service tokens and dates are verified; only unknown subtype remains. Apply the saved same-row/document plan without reanalysis, verify row and attachment readback, then obtain human Approve AI Resolution and prove bounded same-type learning reuse. Preserve human controls and other flagged cases. Do not resend the document. Training remains stopped pending the human approval.
+Work: Applied the approved same-row/document correction and clarified proposal wording.
+Result: Readback passed; same plan/generation, zero model calls, human controls unchanged. Proposal explicitly names filename and date-warning corrections.
+Tests: 118 focused synthetic/mock tests and Python compilation passed. One approved live correction and wording readback passed with zero failures.
+PHI: Approved existing-row/attachment adapters only; no values emitted, mailbox access, OCR, cloud model, human-control or comment write.
+Status: Awaiting human resolution approval. Learning reuse and production code promotion remain unproven; Training stopped.
+Next: Have the operator inspect the corrected existing row and attachment, then check Approve AI Resolution if correct. The approved same-plan correction has passed readback: payer and comma-separated services are in the filename and the incorrect service-line date warning is removed. Consume only that fresh resolution approval, verify bounded approved learning and any permitted local update outcome, then prove later same-type reuse with controlled acceptance. Preserve human controls and other flagged cases; do not resend the corrected document. Training remains stopped pending resolution approval.
 
 ## Safety Contract
 

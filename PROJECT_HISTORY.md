@@ -13988,3 +13988,45 @@ resolution approval, actual correction and later learning reuse remain unproven.
   "exact_next_start": "Obtain human Approve AI Correction for the existing Analysis Ready proposal. Payer, comma-separated service tokens and dates are verified; only unknown subtype remains. Apply the saved same-row/document plan without reanalysis, verify row and attachment readback, then obtain human Approve AI Resolution and prove bounded same-type learning reuse. Preserve human controls and other flagged cases. Do not resend the document. Training remains stopped pending the human approval."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Approved Same-Plan Correction and Concrete Proposal Wording - 2026-09-09
+
+Operator approved the saved correction and requested concise wording describing
+what changes, explicitly including the date issue. Before changing presentation,
+one scoped cycle consumed the actual checked Approve AI Correction through the
+existing production state machine. Exact existing plan, generation and identity
+were preserved. Original source/attachment identity and durable update intents
+remained authoritative. The approved review-field update and attachment version
+completed and passed readback; correction_applied_count=1, failures=0, model
+calls=0. Human controls unchanged; Approve AI Resolution remains unchecked.
+No mailbox, new document row, OCR, cloud inference or comments write occurred.
+
+The proposal renderer now derives concrete text from saved before/after state:
+resolved filename placeholders, named known review warnings removed/added, and
+specific changed/cleared fields. No protected values or unknown reason text are
+echoed. A date-warning removal is not described as changing accepted dates.
+Existing pending-approval presentation safeguards remain unchanged. After the
+approved plan completed, current proposal wording alone was refreshed under the
+case lock with unchanged context/plan and original wording sealed in audit.
+Readback proved it names payer/services and the service-line date warning;
+there is no generic unclassified warning clause. No second correction/model call.
+
+Files: local_document_correction_workflow.py, test_local_document_correction.py
+and continuity layers. Modified Python compiled. Synthetic/mock tests: correction
+51, training/writer 57, human ownership 10 = 118 passed. Live test classification:
+approved Smartsheet existing-row/document update and readback; protected local
+source used only by approved adapter, safe booleans emitted. Temporary helpers
+removed after use. Tracker and continuity checks precede commit. Full resolution,
+approved learning reuse and production generated-code promotion remain pending.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Applied the approved same-row/document correction and clarified proposal wording.",
+  "key_result": "Readback passed; same plan/generation, zero model calls, human controls unchanged. Proposal explicitly names filename and date-warning corrections.",
+  "tests": "118 focused synthetic/mock tests and Python compilation passed. One approved live correction and wording readback passed with zero failures.",
+  "phi_handling": "Approved existing-row/attachment adapters only; no values emitted, mailbox access, OCR, cloud model, human-control or comment write.",
+  "limitation_acceptance": "Awaiting human resolution approval. Learning reuse and production code promotion remain unproven; Training stopped.",
+  "exact_next_start": "Have the operator inspect the corrected existing row and attachment, then check Approve AI Resolution if correct. The approved same-plan correction has passed readback: payer and comma-separated services are in the filename and the incorrect service-line date warning is removed. Consume only that fresh resolution approval, verify bounded approved learning and any permitted local update outcome, then prove later same-type reuse with controlled acceptance. Preserve human controls and other flagged cases; do not resend the corrected document. Training remains stopped pending resolution approval."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

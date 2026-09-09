@@ -735,6 +735,34 @@ def test_publication_failure_cannot_report_ready_or_repeat_inference():
     assert h.prepares==1 and h.applies==0
 
 
+def test_verified_proposal_names_filename_and_date_warning_changes_without_values():
+    from src.services.local_document_correction_workflow import verified_proposal
+    plan={"attachment":{"before_name":"SYNTHETIC_[PAYER]_[SERVICE]_AUTH.PDF",
+                         "name":"SYNTHETIC_PRIVATE_PAYER_PRIVATE_SERVICE_AUTH.PDF"},
+          "before":{"AI Review Reasons":"AI Document Subtype: Unknown; Service-line Date: Could not be verified; Service-line Status: Could not be verified"},
+          "updates":{"AI Review Reasons":"AI Document Subtype: Unknown; Service-line Status: Could not be verified"}}
+    text=verified_proposal(plan,("Filename","Service Line"))
+    assert text=="Add the payer and service names to the filename. Remove the incorrect service-line date warning."
+    assert "PRIVATE" not in text and "Correct the start date" not in text
+    assert "status warning" not in text and "subtype warning" not in text
+
+
+def test_verified_proposal_distinguishes_date_value_change_from_warning_change():
+    from src.services.local_document_correction_workflow import verified_proposal
+    text=verified_proposal({"before":{"End Date":"synthetic-old"},
+                            "updates":{"End Date":None,"Start Date":"synthetic-new"}},("End Date","Start Date"))
+    assert text=="Correct the start date. Clear the end date."
+    assert "synthetic" not in text
+
+
+def test_verified_proposal_never_echoes_unknown_review_text_or_unrequested_intent():
+    from src.services.local_document_correction_workflow import verified_proposal
+    text=verified_proposal({"before":{"AI Review Reasons":"Service-line Date: synthetic-private-marker"},
+                            "updates":{"AI Review Reasons":"untrusted-private-marker"}},("Service Line","End Date"))
+    assert text=="Update the review warnings."
+    assert "private" not in text and "end date" not in text
+
+
 if __name__=="__main__":
     tests=[v for k,v in list(globals().items()) if k.startswith("test_")]
     for test in tests: test()

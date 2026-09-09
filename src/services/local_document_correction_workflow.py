@@ -33,17 +33,65 @@ def preparation_failure_category(error):
     value = error.args[0] if isinstance(error, ValueError) and len(error.args) == 1 else None
     return value if isinstance(value, str) and value in PREPARATION_FAILURE_CATEGORIES else "correction_preparation_unavailable"
 
+def describe_verified_changes(plan):
+    """Describe saved changes using fixed labels, never values or model prose."""
+    from src.services.review_reason_summary_service import ReviewReasonSummaryService
+    parts = []
+    attachment = plan.get("attachment") or {}
+    if attachment:
+        before_name = str(attachment.get("before_name", ""))
+        after_name = str(attachment.get("name", ""))
+        resolved = [label for marker, label in (
+            ("[PAYER]", "payer"), ("[SERVICE]", "service names"),
+            ("[DATE]", "supported dates"), ("[SUBTYPE]", "document subtype"),
+            ("[DOCUMENT TYPE]", "document type"),
+        ) if marker in before_name and marker not in after_name]
+        parts.append("Add the " + ReviewReasonSummaryService._join(resolved) + " to the filename."
+                     if resolved else "Correct the document filename.")
+    updates = plan.get("updates", {})
+    before = plan.get("before", {})
+    # Only complete known operator reasons may identify a warning category.
+    # Unknown text remains private and produces a generic warning-change label.
+    known = {value: value.split(":", 1)[0].lower()
+             for value in ReviewReasonSummaryService.OPERATOR_REASONS.values() if ":" in value}
+    if "AI Review Reasons" in updates:
+        old = before.get("AI Review Reasons")
+        new = updates.get("AI Review Reasons")
+        old_reasons = set(old.split("; ")) if isinstance(old, str) else set()
+        new_reasons = set(new.split("; ")) if isinstance(new, str) else set()
+        removed, added = old_reasons-new_reasons, new_reasons-old_reasons
+        for reasons, action in ((removed, "Remove the incorrect "), (added, "Add the ")):
+            labels = sorted({known[reason] for reason in reasons if reason in known})
+            if labels:
+                parts.append(action + ReviewReasonSummaryService._join(labels)
+                             + (" warning." if len(labels)==1 else " warnings."))
+        if (not removed and not added) or (removed | added) - known.keys():
+            parts.append("Update the review warnings.")
+    field_labels = {
+        "Authorization Number":"authorization number", "Member ID":"member ID",
+        "Service Code":"service code", "Start Date":"start date", "End Date":"end date",
+        "Authorized Units":"authorized quantity", "Hours":"hours", "Days Per Week":"days per week",
+        "AI Document Category":"document category", "AI Document Subtype":"document subtype",
+        "AI Review Status":"review status", "AI Review Required":"review requirement",
+        "AI Minimum Field Confidence":"minimum field confidence",
+    }
+    for field, label in field_labels.items():
+        if field in updates:
+            parts.append(("Clear the " if updates[field] is None else "Correct the ") + label + ".")
+    handled = set(field_labels) | {"AI Review Reasons"}
+    confidence_fields = {field for field in updates if field.endswith(" Conf.")}
+    if confidence_fields:
+        parts.append("Update the corresponding field confidence.")
+    if set(updates) - handled - confidence_fields:
+        parts.append("Correct the affected row fields.")
+    return " ".join(parts)
+
+
 def verified_proposal(plan, affected_fields, required_filename_components=()):
     """Describe verified actions, not an unfulfilled model-requested outcome."""
     updates = plan.get("updates", {})
     if not isinstance(updates, dict):
         raise ValueError("correction_preparation_unavailable")
-    parts = []
-    review_columns = {"AI Review Reasons", "AI Review Status", "AI Review Required", "AI Minimum Field Confidence"}
-    if updates:
-        parts.append("Update review information from verified document evidence."
-                     if set(updates) <= review_columns
-                     else f"Update {len(updates)} row fields from verified document evidence.")
     if plan.get("attachment"):
         name = str(plan["attachment"].get("name", ""))
         placeholders = {
@@ -53,12 +101,11 @@ def verified_proposal(plan, affected_fields, required_filename_components=()):
         if any(placeholders.get(component, "\0") in name
                for component in required_filename_components):
             raise ValueError("correction_requested_filename_unresolved")
-        parts.append("Correct the document filename.")
     elif "Filename" in affected_fields:
         raise ValueError("correction_requested_filename_unresolved")
     if not updates and not plan.get("attachment"):
         raise ValueError("correction_no_verified_change")
-    return " ".join(parts)
+    return describe_verified_changes(plan)
 
 class LocalDocumentCorrectionWorkflow:
     MAX_CASES = 5
