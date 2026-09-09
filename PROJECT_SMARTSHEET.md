@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Fixed filename correction intent/scope and blocked-preparation reporting; added same-case contract recovery.
-Result: Retained safe enums prove the prior pre-replay field-scope rejection. Filename routing now aligns; service-line review remains evidence-bound. One audited retry is allowed with unchecked approvals.
-Tests: 251 focused/affected synthetic/mock/isolated checks passed. Modified Python compiled; continuity/tracker checks follow.
-PHI: Safe local enums only; no live document/model/feedback operations or protected-state mutation. Project tracker only.
-Status: Live proposal verification remains pending. Genuine evidence/reference uncertainty and unrelated-field changes still fail closed.
-Next: Refresh affected source registration, then run one controlled DP Training cycle on the existing flagged cases with both approval boxes unchecked. Verify the same-case contract upgrade produces a filename/service-line-review proposal or a specific safe preparation blocker, without resubmission or production correction. Stop training after that cycle. Request human approval only for a verified proposal; full correction/resolution/later-document learning acceptance remains pending.
+Work: Same-case live retry exposed an incomplete proposal; added verified-action coverage guard.
+Result: Routing fixed, but only review text changed; filename and disputed date warning did not resolve. Guard prevents misleading approval. Authoritative service code-only matches are ambiguous.
+Tests: 118 focused/affected checks passed; prior 265-check baseline. Real controlled proposal cycle/readback; zero corrections or dispatches.
+PHI: Approved local evidence/feedback and proposal operations; safe categories only. No human controls, mailbox mutation or document correction.
+Status: Not end-to-end ready. Do not guess missing reference distinctions or call a partial unrelated update the requested fix.
+Next: Publish the verified-action coverage guard to the existing proposal without re-extraction or approval. Preserve the same case and human controls. Investigate unresolved payer/service naming evidence and service-line date support; both displayed service codes have ambiguous code-only authoritative naming matches, so do not guess modifier/program or naming tokens. A review-text-only change that retains the disputed date warning is not the requested fix. Obtain authoritative business reference clarification if needed before another evidence replay; no resubmission or automatic approval.
 
 ## Safety Contract
 

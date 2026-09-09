@@ -13551,3 +13551,57 @@ resolve, and genuine uncertainty will still block an unsafe correction.
   "exact_next_start": "Refresh affected source registration, then run one controlled DP Training cycle on the existing flagged cases with both approval boxes unchecked. Verify the same-case contract upgrade produces a filename/service-line-review proposal or a specific safe preparation blocker, without resubmission or production correction. Stop training after that cycle. Request human approval only for a verified proposal; full correction/resolution/later-document learning acceptance remains pending."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Controlled Same-Case Retry and Proposal Coverage Guard - 2026-09-09
+
+User directed continuation. Refreshed all four existing registrations to clean
+67c7bc8 source. Prefect deploy --all ignored the version option; readback proved
+correct working-directory source, zero schedules/parameters, then a version-only
+DeploymentUpdate set and verified all four commit labels. No new deployment.
+One owned local_correction cycle ran and graceful stop was requested. Same-case
+upgrade reused existing identities; three flagged cases, two updated generations,
+one proposed and two blocked; zero corrections, implementation attempts or Codex
+dispatches. Training stopped; the immediate fresh heartbeat was settling only.
+
+Exact protected association and selected workflow-cell readback proved the latest
+row had a published matching Analysis Ready proposal, both approvals unchecked.
+Its plan changed only AI Review Reasons, with no attachment change. The disputed
+service-line date warning remained, overall dates were unchanged and unknown
+subtype review remained. Thus neither reported issue was resolved; the valid
+review-text update must not be represented as completed filename/date correction.
+
+Authoritative cache loaded validly (12 payer mappings, 28 service mappings).
+Approved row service-code-only lookup reported two codes, both ambiguous, no
+unique naming match. Modifier/program were not inferred. This is not proof of the
+replay's exact composite lookup or payer evidence, which the old plan did not
+retain. No reference values or mappings were exposed or changed. The committed
+multi-service naming rule also intentionally requires one shared resolved token.
+No new business naming rule or delimiter was invented.
+
+Added verified-action proposal rendering and a coverage gate: requested Filename
+with no attachment change blocks as correction_requested_filename_unresolved,
+including a previously proposed plan before approval execution. Old plan/audit
+remain intact; no replay or human checkbox write. Presentation-only refresh cannot
+consume an already checked approval. Stale workflow-owned resolution text is
+cleared on a new proposal. This prevents misleading readiness, not a claim that
+the unresolved source/reference facts have been repaired.
+
+Files: local correction workflow, synthetic tests, continuity layers. Python
+compilation passed. Local correction 41, training 54, AI Correction 10, code update
+pipeline 13 = 118 checks passed. Prior 265-check baseline retained; continuity and
+tracker gates rerun. Real controlled cached-evidence/local-model/feedback/proposal
+operations occurred before this additional guard; no mailbox access, document
+row correction, attachment update, checkbox mutation, code promotion or cloud
+dispatch. The tracker is approved management-only. Full acceptance remains blocked.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Same-case live retry exposed an incomplete proposal; added verified-action coverage guard.",
+  "key_result": "Routing fixed, but only review text changed; filename and disputed date warning did not resolve. Guard prevents misleading approval. Authoritative service code-only matches are ambiguous.",
+  "tests": "118 focused/affected checks passed; prior 265-check baseline. Real controlled proposal cycle/readback; zero corrections or dispatches.",
+  "phi_handling": "Approved local evidence/feedback and proposal operations; safe categories only. No human controls, mailbox mutation or document correction.",
+  "limitation_acceptance": "Not end-to-end ready. Do not guess missing reference distinctions or call a partial unrelated update the requested fix.",
+  "exact_next_start": "Publish the verified-action coverage guard to the existing proposal without re-extraction or approval. Preserve the same case and human controls. Investigate unresolved payer/service naming evidence and service-line date support; both displayed service codes have ambiguous code-only authoritative naming matches, so do not guess modifier/program or naming tokens. A review-text-only change that retains the disputed date warning is not the requested fix. Obtain authoritative business reference clarification if needed before another evidence replay; no resubmission or automatic approval."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

@@ -255,7 +255,12 @@ External/user changes are preserved.
 Filename intent normalization now aligns the primary symptom, fixed behavior code
 and Filename execution scope. Service Line correction revalidates only its review
 projection; it never flattens line dates/quantity/status into top-level columns.
-Unrelated replay changes still block aggregate correction. Preparation errors retain
+Unrelated replay changes still block aggregate correction. Verified-action
+coverage means a requested filename correction cannot be Analysis Ready
+when the saved plan contains no attachment-name change. Existing incomplete plans
+are retained for audit and blocked before approval can apply them. Proposal text
+describes verified actions, and stale workflow-owned resolution text is cleared.
+Preparation errors retain
 only fixed allowlisted categories. Blocked cases fail the cycle and expose
 blocked_case_count/preparation_failure_categories, rather than reporting success.
 An older blocked, unapplied case may reanalyze once under preparation contract 2
@@ -433,4 +438,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Refresh affected source registration, then run one controlled DP Training cycle on the existing flagged cases with both approval boxes unchecked. Verify the same-case contract upgrade produces a filename/service-line-review proposal or a specific safe preparation blocker, without resubmission or production correction. Stop training after that cycle. Request human approval only for a verified proposal; full correction/resolution/later-document learning acceptance remains pending.
+Publish the verified-action coverage guard to the existing proposal without re-extraction or approval. Preserve the same case and human controls. Investigate unresolved payer/service naming evidence and service-line date support; both displayed service codes have ambiguous code-only authoritative naming matches, so do not guess modifier/program or naming tokens. A review-text-only change that retains the disputed date warning is not the requested fix. Obtain authoritative business reference clarification if needed before another evidence replay; no resubmission or automatic approval.

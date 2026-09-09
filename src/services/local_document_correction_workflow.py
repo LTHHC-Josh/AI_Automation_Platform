@@ -25,11 +25,32 @@ PREPARATION_FAILURE_CATEGORIES = frozenset({
     "correction_clear_type_invalid", "correction_type_validation_failed",
     "correction_attachment_response_invalid", "correction_preparation_unavailable",
     "correction_intent_insufficient", "correction_preparation_interrupted",
+    "correction_proposal_refresh_requires_unchecked_approval",
+    "correction_requested_filename_unresolved",
 })
 
 def preparation_failure_category(error):
     value = error.args[0] if isinstance(error, ValueError) and len(error.args) == 1 else None
     return value if isinstance(value, str) and value in PREPARATION_FAILURE_CATEGORIES else "correction_preparation_unavailable"
+
+def verified_proposal(plan, affected_fields):
+    """Describe verified actions, not an unfulfilled model-requested outcome."""
+    updates = plan.get("updates", {})
+    if not isinstance(updates, dict):
+        raise ValueError("correction_preparation_unavailable")
+    parts = []
+    review_columns = {"AI Review Reasons", "AI Review Status", "AI Review Required", "AI Minimum Field Confidence"}
+    if updates:
+        parts.append("Update review information from verified document evidence."
+                     if set(updates) <= review_columns
+                     else f"Update {len(updates)} row fields from verified document evidence.")
+    if plan.get("attachment"):
+        parts.append("Correct the document filename.")
+    elif "Filename" in affected_fields:
+        raise ValueError("correction_requested_filename_unresolved")
+    if not updates and not plan.get("attachment"):
+        raise ValueError("correction_no_verified_change")
+    return " ".join(parts)
 
 class LocalDocumentCorrectionWorkflow:
     MAX_CASES = 5
@@ -110,9 +131,8 @@ class LocalDocumentCorrectionWorkflow:
     def _publish(self, row_id, schema, state, row):
         updates = {AI_PROPOSED_CORRECTION: state["proposal"],
                    AI_CORRECTION_TYPE: state["type"],
-                   AI_CORRECTION_STATUS: state["status"]}
-        if state.get("result"):
-            updates[AI_RESOLUTION_RESULT] = state["result"]
+                   AI_CORRECTION_STATUS: state["status"],
+                   AI_RESOLUTION_RESULT: state.get("result", "")}
         if all(row.values.get(k) == v for k,v in updates.items()):
             return True
         result = self.writer.write(
@@ -195,7 +215,7 @@ class LocalDocumentCorrectionWorkflow:
                     state["plan"] = self.executor.prepare(row_id, context, analysis)
                     state["status"] = "Analysis Ready"
                     state["phase"] = "proposed"
-                    state["proposal"] = "Correct this existing record using verified document evidence. " + state["proposal"]
+                    state["proposal"] = verified_proposal(state["plan"], analysis.affected_fields)
                 except Exception as error:
                     state["preparation_failure_category"] = preparation_failure_category(error)
                     state["phase"] = "blocked"
@@ -220,6 +240,30 @@ class LocalDocumentCorrectionWorkflow:
             return
         if state["phase"] == "blocked":
             self._record_blocked(state, counts)
+        if state["phase"] == "proposed":
+            try:
+                presentation = verified_proposal(state["plan"], state["analysis"]["affected_fields"])
+            except ValueError as error:
+                self.store.save("audit", stable_digest(state), state)
+                state["phase"] = "blocked"
+                state["status"] = "Cannot Resolve Yet"
+                state["preparation_failure_category"] = preparation_failure_category(error)
+                state["proposal"] = "The requested correction could not be verified. No correction will be applied."
+                state["result"] = "The filename remains unresolved. The proposed review-only change does not resolve the requested filename correction."
+                self.store.save("case", key, state)
+                self._record_blocked(state, counts)
+                self._publish(row_id, schema, state, row)
+                return
+            if presentation != state["proposal"]:
+                # Never turn approval of old wording into approval of a new scope.
+                if row.values.get(APPROVE_AI_CORRECTION) is True:
+                    counts["blocked_case_count"] += 1
+                    self._preparation_failures.add("correction_proposal_refresh_requires_unchecked_approval")
+                    return
+                self.store.save("audit", stable_digest(state), state)
+                state["proposal"] = presentation
+                state["approval_seen_false"] = True
+                self.store.save("case", key, state)
         if not self._publish(row_id, schema, state, row) or state["phase"] != "proposed":
             return
         counts["analysis_ready_count"] += 1

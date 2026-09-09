@@ -588,6 +588,51 @@ def test_newly_prepared_case_is_counted_ready_immediately():
     assert result.preparation_failure_categories=="none" and h.applies==0
 
 
+def test_verified_proposal_does_not_claim_unperformed_filename_change():
+    from src.services.local_document_correction_workflow import verified_proposal
+    try: verified_proposal({"updates":{"AI Review Reasons":"synthetic-private-marker"},"attachment":None},("Filename","Service Line"))
+    except ValueError as error: assert str(error)=="correction_requested_filename_unresolved"
+    else: raise AssertionError("unresolved requested filename was called ready")
+    text=verified_proposal({"updates":{},"attachment":{"name":"synthetic-private-marker"}},("Filename",))
+    assert text=="Correct the document filename." and "synthetic-private-marker" not in text
+
+
+def test_existing_proposal_presentation_refresh_never_replays_or_autoapproves():
+    h=Harness(); h.cycle(); state=h.store.load("case","synthetic-case")
+    state["proposal"]="Old intent-only wording"; h.store.save("case","synthetic-case",state)
+    h.values[AI_PROPOSED_CORRECTION]=state["proposal"]
+    h.values[APPROVE_AI_CORRECTION]=True
+    result=h.cycle()
+    assert h.applies==0 and h.prepares==1
+    assert result.preparation_failure_categories=="correction_proposal_refresh_requires_unchecked_approval"
+    h.values[APPROVE_AI_CORRECTION]=False; h.cycle()
+    assert h.prepares==1 and h.applies==0
+    assert h.values[AI_PROPOSED_CORRECTION]!="Old intent-only wording"
+    assert h.store.load("case","synthetic-case")["generation"]==state["generation"]
+
+
+def test_new_proposal_clears_stale_workflow_resolution_text_only():
+    h=Harness(); h.values[AI_RESOLUTION_RESULT]="Old blocked result"
+    h.cycle()
+    assert h.values[AI_RESOLUTION_RESULT]==""
+    assert h.values[AI_CORRECTION] is True
+    assert h.values[APPROVE_AI_CORRECTION] is False
+    assert h.values[APPROVE_AI_RESOLUTION] is False
+
+
+def test_existing_incomplete_plan_is_blocked_before_approval_can_apply():
+    h=Harness(); h.cycle(); state=h.store.load("case","synthetic-case")
+    state["analysis"]["affected_fields"]=["Filename","Service Line"]
+    h.store.save("case","synthetic-case",state)
+    h.values[APPROVE_AI_CORRECTION]=True
+    result=h.cycle()
+    assert h.applies==0 and h.prepares==1
+    assert result.preparation_failure_categories=="correction_requested_filename_unresolved"
+    assert h.values[AI_CORRECTION_STATUS]=="Cannot Resolve Yet"
+    assert h.values[APPROVE_AI_CORRECTION] is True
+    h.cycle(); assert h.prepares==1 and h.applies==0
+
+
 if __name__=="__main__":
     tests=[v for k,v in list(globals().items()) if k.startswith("test_")]
     for test in tests: test()
