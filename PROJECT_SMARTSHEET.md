@@ -4,13 +4,13 @@
 
 ## Current Smartsheet Summary
 
-Date: 2026-09-08
-Work: First new-document live acceptance completed under the local-only correction implementation.
-Result: One row created and one attachment uploaded; one extraction attempt, zero failures. AI Correction unchecked, correction source bound, DP returned to waiting and stopped.
-Tests: Real production pipeline and narrow checkbox/durable-state readback passed. Prior 353 regression checks remain baseline.
-PHI: Authorized Graph/local OCR/Ollama/Smartsheet document processing; only safe counts/statuses exposed. No comment or correction operation.
-Status: Partial business filename and human review required. Reviewer assessment, correction/resolution approvals and later-document learning acceptance remain pending.
-Next: Review the newly created acceptance row. If a real correction is needed, the reviewer flags AI Correction and adds a comment, leaving both approval boxes unchecked. Run controlled local_correction training, review and approve the proposal, verify the same-row/document correction, then approve resolution and verify bounded learning on a later same-type document. Preserve human controls, restart/idempotency and rollback protections. Do not declare full-chain acceptance complete yet; do not resend the original document.
+Date: 2026-09-09
+Work: Controlled local correction proposal acceptance reached a safe blocker.
+Result: Three flagged cases blocked; zero corrections and Codex dispatches. New feedback was sufficient but selected an inconsistent review behavior; no safe plan resulted. Training stopped.
+Tests: Real local training cycle and PHI-safe durable/status inspection. Prior 353 checks remain baseline; continuity and tracker checks rerun.
+PHI: Approved local feedback/evidence processing and workflow-field writes only. No protected values emitted; no human controls or mailbox mutation.
+Status: Proposal acceptance failed. Exact preparation cause is not retained; completed cycle status does not prove a ready proposal.
+Next: Diagnose the existing blocked local correction generation: reviewer intent was sufficient, but analysis selected add_required_review_reason for filename/date-warning feedback and preparation produced no safe plan. Retain fixed PHI-safe preparation failure categories, correct proven intent/scope defects, test and preserve the same case and human approvals, then perform one controlled proposal verification. Do not resend the document or approve the blocked proposal. Full correction/resolution/later-document learning acceptance remains pending.
 
 ## Safety Contract
 

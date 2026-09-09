@@ -13448,3 +13448,46 @@ checks and Git gates follow before committing this milestone.
   "exact_next_start": "Review the newly created acceptance row. If a real correction is needed, the reviewer flags AI Correction and adds a comment, leaving both approval boxes unchecked. Run controlled local_correction training, review and approve the proposal, verify the same-row/document correction, then approve resolution and verify bounded learning on a later same-type document. Preserve human controls, restart/idempotency and rollback protections. Do not declare full-chain acceptance complete yet; do not resend the original document."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Controlled Local Correction Proposal Blocked - 2026-09-09
+
+Reviewer flagged the new acceptance row and supplied an ordinary filename/date
+warning comment. No further reviewer detail was needed: protected analysis
+recorded desired_behavior_sufficient=true. Exact durable job/case association
+proved the new generation blocked, plan absent, approval observed unchecked,
+and behavior_code=add_required_review_reason. That selected behavior does not
+represent the reported filename/date-warning intent. The exact preparation
+exception is swallowed by the current workflow and was not reconstructed or
+guessed. No replay retry was performed by diagnostics.
+
+Control room was initially unavailable. Initial StartUI failed because Windows
+service permissions denied PostgreSQL startup; operator started it. Existing
+PowerShell process-scoped execution convention was used without changing system
+policy. One owned training worker and one bounded local_correction cycle ran.
+A graceful stop request was placed during the active cycle. Three flagged cases
+were analyzed sequentially; all became blocked. Summary nevertheless reported
+completed, failure_category=none, implementation_failed_count=0. This summary
+must not be mistaken for successful correction acceptance.
+
+Real local analysis/cached-evidence replay and workflow-field proposal writes
+occurred through the approved application path. Read-only diagnostics emitted
+only fixed categories, counts and booleans. No protected values, comments,
+filenames, identities or source text were emitted. correction_applied_count=0,
+codex_dispatch_count=0; no human checkbox writes, resolution approval, generated
+code promotion, mailbox acquisition/mutation or new document submission occurred.
+Final status: training stopped, no active bounded run, no fresh workers,
+degraded=false. Application source unchanged and prior regression baseline
+retained. Only continuity layers changed for this checkpoint; continuity/tracker
+checks run before committing. Full end-to-end acceptance remains unproven.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Controlled local correction proposal acceptance reached a safe blocker.",
+  "key_result": "Three flagged cases blocked; zero corrections and Codex dispatches. New feedback was sufficient but selected an inconsistent review behavior; no safe plan resulted. Training stopped.",
+  "tests": "Real local training cycle and PHI-safe durable/status inspection. Prior 353 checks remain baseline; continuity and tracker checks rerun.",
+  "phi_handling": "Approved local feedback/evidence processing and workflow-field writes only. No protected values emitted; no human controls or mailbox mutation.",
+  "limitation_acceptance": "Proposal acceptance failed. Exact preparation cause is not retained; completed cycle status does not prove a ready proposal.",
+  "exact_next_start": "Diagnose the existing blocked local correction generation: reviewer intent was sufficient, but analysis selected add_required_review_reason for filename/date-warning feedback and preparation produced no safe plan. Retain fixed PHI-safe preparation failure categories, correct proven intent/scope defects, test and preserve the same case and human approvals, then perform one controlled proposal verification. Do not resend the document or approve the blocked proposal. Full correction/resolution/later-document learning acceptance remains pending."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
