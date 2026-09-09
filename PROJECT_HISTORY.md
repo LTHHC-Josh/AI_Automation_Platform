@@ -13845,3 +13845,39 @@ No full correction/resolution/later-document learning acceptance is claimed.
   "exact_next_start": "Obtain authoritative clarification in the SERVICES LISTING reference for the document's explicitly validated program with each supported service code/modifier pair. Both pairs exist, but neither program-qualified lookup resolves. Do not omit the program, guess another mapping or rerun inference before this reference/business relationship is settled. Then regenerate the same-case verified proposal, require human Approve AI Correction, verify existing-row/attachment correction, require human Approve AI Resolution and prove bounded same-type learning reuse. Payer/date fixes are live-evidenced; the incomplete proposal is blocked, Training is stopped and full acceptance remains pending."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Explicit Program-Independent Filename Policy - 2026-09-09
+
+Operator clarified program is currently unimportant for filename/column output
+and may be used later. Added ServiceReferenceTable.lookup_for_filename(code,
+modifier), which considers compatible rows across programs and requires one
+distinct authoritative naming token. A blank-program entry cannot conceal a
+conflicting program-specific token. Production assembly uses this naming-only
+lookup; generic program-qualified lookup and extracted program evidence remain
+unchanged for future consumers. No guessing, reference edits or unrelated PHI
+mapping changes. Shared manual/unattended/correction naming remains identical.
+Persisted attachment names and human approvals are unchanged.
+
+Files: reference_table_service.py, production_filename_assembly_service.py,
+test_reference_table_architecture.py, test_production_filename_assembly_service.py
+and continuity layers. Python compilation passed. Synthetic/mock tests: reference
+13, assembly 32, correction 45, human ownership 10, intake 20, filename policy 12
+= 132 passed. Read-only real cache aggregate: 25 code/modifier pairs, 22 unique
+filename resolutions, 3 ambiguous. No values exposed. This does not identify
+which aggregate pair belongs to the current document; no exact same-case lookup
+success is claimed without retained inputs or controlled verification.
+No inference, OCR, mailbox, training startup, document write/upload or comment
+operation occurred. Approved management tracker sync and continuity/Git checks
+complete the checkpoint. Full correction/resolution/reuse acceptance is pending.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Implemented explicit program-independent service filename lookup.",
+  "key_result": "Naming uses accepted code/modifier only and rejects competing tokens across program rows. Program evidence and generic lookup remain preserved.",
+  "tests": "132 synthetic/mock checks and Python compilation passed. Safe read-only cache aggregate: 22 unique pairs, 3 ambiguous.",
+  "phi_handling": "Synthetic data and reference counts only; no model replay, mailbox, training or production document operation.",
+  "limitation_acceptance": "Same-case proposal regeneration and human-approved correction/learning acceptance remain pending. No guessing of ambiguous reference tokens.",
+  "exact_next_start": "Program has been explicitly excluded from current filename naming. Prepare an audited same-case proposal regeneration using the program-independent code/modifier lookup and existing payer/date fixes; preserve the old blocked plan and human controls. Verify each service token resolves uniquely, then obtain human Approve AI Correction for the complete existing-row/document correction, verify readback, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Do not guess competing service tokens or resend the document. Training remains stopped; no further inference ran during the program-policy update."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

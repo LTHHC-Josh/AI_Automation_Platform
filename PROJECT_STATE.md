@@ -189,6 +189,12 @@ Filename outcomes are `complete_business`, `partial_business`, and
 - Multiple independently resolved service naming tokens are comma-separated,
   sorted deterministically and deduplicated. Different valid service tokens no
   longer force [SERVICE]; ambiguous individual reference matches still do.
+  Current explicit business policy excludes program from filename lookup.
+  Naming resolves by accepted code/modifier across all reference program rows,
+  requiring one distinct naming token per identity. Conflicting tokens remain
+  ambiguous even when a blank-program reference entry exists. Extracted program
+  evidence and the generic program-qualified lookup remain available for future
+  use; no unrelated validation or production mappings changed.
   The existing payer reference cache is available; no replacement list is needed.
   Payer naming accepts a whitespace-only name variant when the authoritative
   result is unique. Exact lookup retains precedence; explicit unsupported keys,
@@ -470,4 +476,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Obtain authoritative clarification in the SERVICES LISTING reference for the document's explicitly validated program with each supported service code/modifier pair. Both pairs exist, but neither program-qualified lookup resolves. Do not omit the program, guess another mapping or rerun inference before this reference/business relationship is settled. Then regenerate the same-case verified proposal, require human Approve AI Correction, verify existing-row/attachment correction, require human Approve AI Resolution and prove bounded same-type learning reuse. Payer/date fixes are live-evidenced; the incomplete proposal is blocked, Training is stopped and full acceptance remains pending.
+Program has been explicitly excluded from current filename naming. Prepare an audited same-case proposal regeneration using the program-independent code/modifier lookup and existing payer/date fixes; preserve the old blocked plan and human controls. Verify each service token resolves uniquely, then obtain human Approve AI Correction for the complete existing-row/document correction, verify readback, obtain human Approve AI Resolution, and prove bounded same-type learning reuse. Do not guess competing service tokens or resend the document. Training remains stopped; no further inference ran during the program-policy update.

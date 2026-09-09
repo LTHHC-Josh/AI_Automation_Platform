@@ -152,8 +152,8 @@ class ProductionFilenameAssemblyService:
         service_expected = self._service_expected(document)
         if service_identities and tables_ready:
             candidate_lookups = [
-                tables.services.lookup(code, modifier, program)
-                for code, modifier, program in service_identities
+                tables.services.lookup_for_filename(code, modifier)
+                for code, modifier, _ in service_identities
             ]
             resolved_values = {
                 lookup.value

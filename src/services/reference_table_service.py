@@ -61,6 +61,26 @@ class ServiceReferenceTable:
             for key, results in values.items()
         }
 
+    def lookup_for_filename(self, code: Any, modifier: Any) -> LookupResult:
+        """Current intake policy excludes program from filename resolution.
+
+        Consider all program rows, including blank ones; conflicting naming
+        tokens must not be hidden by an exact blank-program entry.
+        """
+        lookup_key = _key(code, modifier)
+        values = {
+            value
+            for (row_code, row_modifier, _), results in self._values.items()
+            if lookup_key[0] and row_code == lookup_key[0]
+            and (not lookup_key[1] or row_modifier == lookup_key[1])
+            for value in results
+        }
+        if not values:
+            return LookupResult(False, None, "not_resolved")
+        if len(values) != 1:
+            return LookupResult(False, None, "ambiguous")
+        return LookupResult(True, next(iter(values)), "resolved")
+
     def lookup(self, code: Any, modifier: Any, program: Any) -> LookupResult:
         lookup_key = _key(code, modifier, program)
         values = self._values.get(lookup_key)

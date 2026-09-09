@@ -690,6 +690,18 @@ def test_validated_payer_spacing_reaches_naming_without_changing_evidence():
     assert "[PAYER]" in blocked.policy_result.filename
 
 
+def test_program_does_not_gate_filename_or_change_preserved_evidence():
+    subject = document()
+    service = ProductionFilenameAssemblyService(tables_provider=tables)
+    baseline = service.resolve(document=subject, source_extension=".pdf")
+    for program in ("UNMAPPED PROGRAM", "OTHER PROGRAM"):
+        subject.field_evidence["program"] = evidence(program)
+        result = service.resolve(document=subject, source_extension=".pdf")
+        assert result.policy_result.filename == baseline.policy_result.filename
+        assert result.diagnostic.service_lookup_ready
+        assert subject.field_evidence["program"]["value"] == program
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

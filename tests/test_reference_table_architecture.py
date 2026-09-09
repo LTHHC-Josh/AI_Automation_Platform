@@ -266,6 +266,23 @@ def test_payer_spacing_collision_and_conditional_results_fail_closed():
     assert not collision.lookup("", "").resolved
 
 
+def test_filename_service_lookup_ignores_program_but_not_token_conflicts():
+    from src.services.reference_table_service import ServiceReferenceTable
+    table = ServiceReferenceTable({
+        ("T0000", "U1", "PROGRAM A"): {"SERVICE"},
+        ("T0000", "U1", "PROGRAM B"): {"SERVICE"},
+    })
+    assert table.lookup_for_filename("T0000", "U1").value == "SERVICE"
+    assert not table.lookup("T0000", "U1", "OTHER").resolved
+    assert not table.lookup_for_filename("T0000", "U9").resolved
+    assert not table.lookup_for_filename("", "U1").resolved
+    conflicting = ServiceReferenceTable({
+        ("T0000", "U1", ""): {"ONE"},
+        ("T0000", "U1", "PROGRAM"): {"TWO"},
+    })
+    assert conflicting.lookup_for_filename("T0000", "U1").status == "ambiguous"
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:
