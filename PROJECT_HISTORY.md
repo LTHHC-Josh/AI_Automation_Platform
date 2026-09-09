@@ -13733,3 +13733,34 @@ approvals, reference workbook and existing correction state were not modified.
   "exact_next_start": "Refresh source registration and prepare one controlled same-document correction verification of whitespace-tolerant authoritative payer lookup, short-year date support and comma-separated service naming. Preserve the blocked case and audit history, retain human approval controls, and resolve any remaining individual service lookup ambiguity without guessing. Capture safe final naming diagnostics before presenting a new verified proposal; do not resend the document or approve an incomplete correction. The existing reference sheet is authoritative and no replacement payer list is needed. Training remains stopped; full acceptance is pending."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Audited Same-Case Preparation Upgrade - 2026-09-09
+
+Training read-only status proves stopped, no active run and zero fresh workers.
+Contract 3 permits one audited preparation upgrade of a blocked incomplete
+filename plan without an attachment action and with both human approvals unchecked.
+Other retained failures, applying/uncertain outcomes and checked approvals do not
+rearm. Existing audit and reservation-before-inference remain intact. No new
+feedback or document resubmission is needed. Executor retains value-free field
+and naming diagnostics in sealed local audit storage before mapping failures.
+
+Files: local_document_correction_workflow.py, evidence_only_correction_executor.py,
+test_local_document_correction.py and continuity layers. Modified Python compiled;
+44 correction, 54 training and 10 feedback synthetic/mock tests passed (108).
+Tests prove one upgrade, audit preservation, approval/failure-scope exclusion,
+no interrupted hot retry, and no values/source text/paths in retained diagnostics.
+Tracker/continuity and Git safety gates precede commit. No live preparation or
+row correction occurred in this checkpoint. Controlled same-case replay follows;
+no complete workflow acceptance is claimed.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Enabled one audited same-case preparation upgrade after verified naming fixes.",
+  "key_result": "Incomplete filename plan may regenerate once with unchecked approvals; uncertain writes remain excluded. Value-free diagnostics persist before mapping failure.",
+  "tests": "108 synthetic/mock correction, training and feedback checks passed; modified Python compiled.",
+  "phi_handling": "Safe status only; no document processing or correction in this checkpoint. Diagnostics leakage regression passed.",
+  "limitation_acceptance": "Controlled live same-case preparation remains pending. No approval or complete correction acceptance claimed.",
+  "exact_next_start": "Refresh source registration and prepare one controlled same-document correction verification of whitespace-tolerant authoritative payer lookup, short-year date support and comma-separated service naming. Preserve the blocked case and audit history, retain human approval controls, and resolve any remaining individual service lookup ambiguity without guessing. Capture safe final naming diagnostics before presenting a new verified proposal; do not resend the document or approve an incomplete correction. The existing reference sheet is authoritative and no replacement payer list is needed. Training remains stopped; full acceptance is pending."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

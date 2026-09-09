@@ -12,7 +12,7 @@ from src.services.local_correction_memory_service import LocalCorrectionStore, A
 from src.services.local_code_update_authorization import LocalCodeUpdateAuthorization
 
 # Fixed categories only: exception messages may contain protected SDK/model data.
-PREPARATION_CONTRACT_VERSION = 2
+PREPARATION_CONTRACT_VERSION = 3
 PREPARATION_FAILURE_CATEGORIES = frozenset({
     "correction_field_not_mapped", "correction_source_outside_scope",
     "correction_source_identity_unproven", "correction_row_identity_unproven",
@@ -181,7 +181,12 @@ class LocalDocumentCorrectionWorkflow:
         # Only unapplied blocked plans with unchecked human approvals are eligible.
         # Reservation precedes inference, so interruption cannot cause a hot retry.
         upgrade_blocked = bool(
-            state and state["phase"] == "blocked" and state.get("plan") is None
+            state and state["phase"] == "blocked"
+            and (state.get("plan") is None or (
+                state.get("preparation_failure_category") == "correction_requested_filename_unresolved"
+                and isinstance(state.get("plan"), dict)
+                and not state["plan"].get("attachment")
+            ))
             and state.get("preparation_contract_version", 1) < PREPARATION_CONTRACT_VERSION
             and row.values.get(APPROVE_AI_CORRECTION) is not True
             and row.values.get(APPROVE_AI_RESOLUTION) is not True

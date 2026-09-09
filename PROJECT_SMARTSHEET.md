@@ -5,11 +5,11 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Fixed whitespace-only payer naming lookup using the existing authoritative cache.
-Result: Cache is available; joined/spaced forms resolve to the same unique result. No replacement list, guessed alias or sender inference. Accepted field evidence remains mandatory.
-Tests: 126 synthetic/mock checks and modified Python compilation passed; real read-only cache verification returned safe booleans only.
-PHI: Existing protected cache inspection emitted booleans/counts only. No model, OCR, mailbox, comments or production row/attachment operation.
-Status: Old extracted payer was not retained; live correction remains unverified. Existing case and human approvals unchanged.
+Work: Enabled one audited same-case preparation upgrade after verified naming fixes.
+Result: Incomplete filename plan may regenerate once with unchecked approvals; uncertain writes remain excluded. Value-free diagnostics persist before mapping failure.
+Tests: 108 synthetic/mock correction, training and feedback checks passed; modified Python compiled.
+PHI: Safe status only; no document processing or correction in this checkpoint. Diagnostics leakage regression passed.
+Status: Controlled live same-case preparation remains pending. No approval or complete correction acceptance claimed.
 Next: Refresh source registration and prepare one controlled same-document correction verification of whitespace-tolerant authoritative payer lookup, short-year date support and comma-separated service naming. Preserve the blocked case and audit history, retain human approval controls, and resolve any remaining individual service lookup ambiguity without guessing. Capture safe final naming diagnostics before presenting a new verified proposal; do not resend the document or approve an incomplete correction. The existing reference sheet is authoritative and no replacement payer list is needed. Training remains stopped; full acceptance is pending.
 
 ## Safety Contract

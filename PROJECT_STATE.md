@@ -243,7 +243,7 @@ acceptance. Startup uses the existing fingerprint/owned restart contract.
 Current versions:
 - `business_context_version`: 3
 - `analysis_contract_version`: 4
-- local preparation contract: 2
+- local preparation contract: 3
 - legacy protected correction-case schema: 3
 - local sealed correction/source/lesson/audit schema: 1
 - resolution code-update authorization contract: 1
@@ -277,10 +277,15 @@ describes verified actions, and stale workflow-owned resolution text is cleared.
 Preparation errors retain
 only fixed allowlisted categories. Blocked cases fail the cycle and expose
 blocked_case_count/preparation_failure_categories, rather than reporting success.
-An older blocked, unapplied case may reanalyze once under preparation contract 2
+An older blocked, unapplied case may reanalyze once under preparation contract 3
 with both approval boxes unchecked. It keeps the same identity, archives the old
 generation, and reserves the new generation before inference. Unchanged polling,
 interrupted inference and uncertain applied transactions never blindly replay.
+Contract 3 also permits the specifically blocked incomplete filename plan with
+no attachment action to regenerate once; both approvals must remain unchecked.
+Other retained blocked plans are not rearmed. Value-free final field/naming
+diagnostics are sealed locally before mapping so preparation failures remain
+inspectable without printing document values or rerunning inference blindly.
 
 Verified correction results move to Awaiting Resolution Approval. Fresh approval
 retains only fixed PHI-free guidance, directly indexed by canonical document family:

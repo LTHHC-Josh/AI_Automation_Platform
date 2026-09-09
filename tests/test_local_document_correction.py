@@ -573,7 +573,8 @@ def test_analysis_is_reserved_before_inference_and_interruption_never_repeats():
     def interrupted(**kwargs):
         calls.append(1)
         state=h.store.load("case","synthetic-case")
-        assert state["phase"]=="preparing" and state["preparation_contract_version"]==2
+        from src.services.local_document_correction_workflow import PREPARATION_CONTRACT_VERSION
+        assert state["phase"]=="preparing" and state["preparation_contract_version"]==PREPARATION_CONTRACT_VERSION
         raise RuntimeError("synthetic-private-marker")
     h.workflow.analyzer=N(analyze=interrupted)
     h.cycle(); second=h.cycle()
@@ -631,6 +632,50 @@ def test_existing_incomplete_plan_is_blocked_before_approval_can_apply():
     assert h.values[AI_CORRECTION_STATUS]=="Cannot Resolve Yet"
     assert h.values[APPROVE_AI_CORRECTION] is True
     h.cycle(); assert h.prepares==1 and h.applies==0
+
+
+def test_filename_blocked_upgrade_retains_audit_and_reprepares_once():
+    h=Harness(); h.cycle()
+    old=h.store.load("case","synthetic-case")
+    old.update(phase="blocked", preparation_contract_version=2,
+               preparation_failure_category="correction_requested_filename_unresolved")
+    h.store.save("case","synthetic-case",old)
+    h.cycle(); h.cycle()
+    new=h.store.load("case","synthetic-case")
+    assert new["generation"]==old["generation"]+1
+    assert h.prepares==2 and h.applies==0
+    assert any(kind=="audit" and value==old for (kind,key),value in h.store.data.items())
+
+
+def test_retained_plan_upgrade_respects_approvals_and_failure_scope():
+    for guard in (APPROVE_AI_CORRECTION, APPROVE_AI_RESOLUTION, "other_failure", "attachment"):
+        h=Harness(); h.cycle(); old=h.store.load("case","synthetic-case")
+        old.update(phase="blocked", preparation_contract_version=2,
+                   preparation_failure_category="correction_requested_filename_unresolved")
+        if guard in (APPROVE_AI_CORRECTION, APPROVE_AI_RESOLUTION): h.values[guard]=True
+        if guard=="other_failure": old["preparation_failure_category"]="correction_type_validation_failed"
+        if guard=="attachment": old["plan"]["attachment"]={"name":"synthetic.pdf"}
+        h.store.save("case","synthetic-case",old)
+        h.cycle(); assert h.prepares==1 and h.applies==0
+
+
+def test_preparation_diagnostics_exclude_document_values_before_mapping_failure():
+    from src.models.document import Document
+    h=AdapterHarness()
+    doc=Document(file_path=Path("synthetic.pdf"))
+    doc.field_evidence={"payer":{"value":"PRIVATE_SYNTHETIC", "confidence":0.95,
+                                 "source_text":"PRIVATE_SOURCE"}}
+    h.executor.processor_factory=lambda:N(process=lambda *a,**kw:doc)
+    h.executor.configuration=N(resolve=lambda **kw:N(success=False))
+    try: h.plan()
+    except ValueError as error: assert str(error)=="correction_schema_unavailable"
+    else: raise AssertionError("expected schema failure")
+    records=list(h.executor.source.store.data.values())
+    assert len(records)==1
+    assert records[0]["fields"][0]["field_category"]=="payer"
+    assert "PRIVATE_SYNTHETIC" not in repr(records)
+    assert "PRIVATE_SOURCE" not in repr(records)
+    assert "synthetic.pdf" not in repr(records)
 
 
 if __name__=="__main__":

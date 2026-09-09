@@ -4,6 +4,7 @@ This adapter never creates rows, writes comments, executes code, or trusts model
 proposals as source evidence. Uncertain external updates are readback-only.
 """
 from pathlib import Path
+from dataclasses import asdict
 import smartsheet
 from src.services.local_correction_memory_service import LocalCorrectionStore
 from src.services.document_fingerprint_service import DocumentFingerprintService
@@ -140,6 +141,25 @@ class EvidenceOnlyCorrectionExecutor:
         if provider is not None:
             provider.correction_guidance_code = analysis.behavior_code
         document = processor.process(Path(binding["path"]), ocr_cache_only=True)
+        # Retain value-free diagnostics even when unrelated-field protection
+        # blocks the proposal below. Never persist a raw document in diagnostics.
+        from src.models.document import Document
+        from src.services.field_validation_diagnostic_service import FieldValidationDiagnosticService
+        from src.services.production_filename_assembly_service import FilenameReadinessDiagnostic
+        if isinstance(document, Document):
+            diagnostics = FieldValidationDiagnosticService()
+            naming = getattr(getattr(document, "filename_assembly_result", None), "diagnostic", None)
+            safe = {
+                "fields": [asdict(diagnostics.build(document, name))
+                           for name in ("payer", "start_date", "end_date")],
+                "service_lines": [
+                    asdict(diagnostics.build_service_line(document, index, component))
+                    for index in range(len(document.service_lines or []))
+                    for component in ("service_code", "modifier", "start_date", "end_date", "status")
+                ],
+                "filename": asdict(naming) if isinstance(naming, FilenameReadinessDiagnostic) else None,
+            }
+            self.source.store.save("audit", "preparation-diagnostics:" + binding["fingerprint"], safe)
         config = self.configuration.resolve(document_type=document.document_type)
         if not config.success:
             raise ValueError("correction_schema_unavailable")
