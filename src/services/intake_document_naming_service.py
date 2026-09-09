@@ -22,6 +22,7 @@ class AuthorizationNamingSubtypeDefinition:
     token: str
     aliases: tuple[str, ...]
     requires_external_context: bool = False
+    explicit_statement_labels: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -50,7 +51,8 @@ class IntakeDocumentNamingVocabulary:
 
     AUTHORIZATION_SUBTYPES = tuple(
         AuthorizationNamingSubtypeDefinition(
-            item.key, item.token, item.aliases, item.requires_external_context
+            item.key, item.token, item.aliases, item.requires_external_context,
+            item.explicit_statement_labels,
         )
         for item in DOCUMENT_PROCESSOR_BUSINESS_CONTEXT.intake_subtype_taxonomy
     )
@@ -130,7 +132,10 @@ class IntakeDocumentNamingVocabulary:
             evidence,
             minimum_confidence=minimum_confidence,
         )
-        if definition is not None and not definition.requires_external_context:
+        if definition is not None and (
+            not definition.requires_external_context
+            or cls._explicit_statement_proven(evidence, definition)
+        ):
             return cls._authorization_resolution(definition, "explicit_document_evidence")
 
         return IntakeDocumentTypeResolution(
@@ -197,9 +202,31 @@ class IntakeDocumentNamingVocabulary:
         )
         if definition is None:
             return None, "unsupported"
-        if definition.requires_external_context:
+        if definition.requires_external_context and not cls._explicit_statement_proven(
+            evidence, definition
+        ):
             return definition, "external_context_required"
         return definition, "resolved"
+
+    @classmethod
+    def _explicit_statement_proven(
+        cls, evidence: Any, definition: AuthorizationNamingSubtypeDefinition
+    ) -> bool:
+        """Accept only a complete labeled statement, not options/history inference.
+
+        Candidate/confidence/alias support is checked by the caller first. Do not
+        search a whole document or restore a missing candidate from source text.
+        Full matching rejects negation, competing labels and unselected options.
+        """
+        if not isinstance(evidence, dict) or not isinstance(evidence.get("source_text"), str):
+            return False
+        source = cls._token(evidence["source_text"])
+        return any(
+            re.fullmatch(rf"{re.escape(cls._token(label))}\s*:\s*{re.escape(cls._token(alias))}", source)
+            is not None
+            for label in definition.explicit_statement_labels
+            for alias in definition.aliases
+        )
 
     @classmethod
     def _stored_resolution(

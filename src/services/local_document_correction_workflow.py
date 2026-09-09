@@ -12,7 +12,34 @@ from src.services.local_correction_memory_service import LocalCorrectionStore, A
 from src.services.local_code_update_authorization import LocalCodeUpdateAuthorization
 
 # Fixed categories only: exception messages may contain protected SDK/model data.
-PREPARATION_CONTRACT_VERSION = 4
+PREPARATION_CONTRACT_VERSION = 5
+
+
+def preparation_upgrade_applies(state):
+    """One reserved replay for the explicit-label fix; never replay applied work.
+
+    Pre-v4 migration eligibility remains unchanged. Version 4 cases qualify only
+    for the blocked authorization filename symptom addressed by context v4.
+    Human approval, phase, saved-plan and reservation guards stay with the caller.
+    """
+    version = state.get("preparation_contract_version", 1)
+    if version >= PREPARATION_CONTRACT_VERSION:
+        return False
+    if version < 4:
+        return True
+    analysis = state.get("analysis") or {}
+    return bool(
+        state.get("preparation_failure_category") in {
+            "correction_no_verified_change", "correction_requested_filename_unresolved"
+        }
+        and analysis.get("affected_document_category") == "authorization"
+        and analysis.get("behavior_code") == "correct_filename"
+        and set(analysis.get("affected_fields") or ()) & {
+            "Document Subtype", "Service Code", "Service Line"
+        }
+    )
+
+
 PREPARATION_FAILURE_CATEGORIES = frozenset({
     "correction_field_not_mapped", "correction_source_outside_scope",
     "correction_source_identity_unproven", "correction_row_identity_unproven",
@@ -248,7 +275,7 @@ class LocalDocumentCorrectionWorkflow:
                 state.get("preparation_failure_category") == "correction_requested_filename_unresolved"
                 and isinstance(state.get("plan"), dict)
             ))
-            and state.get("preparation_contract_version", 1) < PREPARATION_CONTRACT_VERSION
+            and preparation_upgrade_applies(state)
             and row.values.get(APPROVE_AI_CORRECTION) is not True
             and row.values.get(APPROVE_AI_RESOLUTION) is not True
         )

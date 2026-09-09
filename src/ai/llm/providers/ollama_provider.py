@@ -1042,20 +1042,12 @@ The shared external-context and forbidden-inference rules are mandatory.
 
 SERVICE CODES AND MODIFIERS
 
-Extract service codes such as S9110 as service codes.
+HCPC Code / HCPCS labels identify service codes. Modifier(s) identifies
+modifier codes, not descriptions. Associate separately labeled values only
+within the same service section; never guess from another section/reference.
 
-Do not treat ordinary words or service-description text as modifiers.
-
-A modifier must be a clear code associated with a service line, such as
-U1.
-
-Return service_code as a single string when one unique service code is
-present.
-
-Return service_codes as a deduplicated list of service codes.
-
-Do not duplicate the same service code merely because it appears on
-multiple service lines.
+service_code: string for one unique code. service_codes: deduplicated list,
+including codes repeated across service lines only once.
 
 SERVICE DESCRIPTION
 
@@ -1086,9 +1078,7 @@ Extract only what the document supports.
 
 SERVICE LINES
 
-Return service_lines as an array.
-
-Each service-line item must contain:
+Return service_lines as an array with these fields per item:
 
 - service_code
 - modifier
@@ -1099,8 +1089,9 @@ Each service-line item must contain:
 - confidence
 - source_text
 
-Create one service-line item for each distinct row that can be reliably
-supported by the OCR text.
+Create one item per supported service row/section, even across OCR lines.
+Child values are plain scalars/null, not nested evidence objects. Copy the
+supporting code/modifier labels and values into that item's source_text.
 
 Preserve relationships within each row. Do not combine a quantity from
 one row with a modifier, date, status, or service code from another row.

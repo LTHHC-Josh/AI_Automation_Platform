@@ -24,7 +24,7 @@ from src.services.review_decision_service import ReviewDecisionService
 
 def test_shared_context_is_valid_deterministic_and_phi_free():
     service = DocumentProcessorBusinessContextService()
-    assert service.context.business_context_version == BUSINESS_CONTEXT_VERSION == 3
+    assert service.context.business_context_version == BUSINESS_CONTEXT_VERSION == 4
     assert service.digest(service.context) == BUSINESS_CONTEXT_SEMANTIC_DIGESTS[BUSINESS_CONTEXT_VERSION]
     serialized = json.dumps(asdict(service.context), sort_keys=True).lower()
     for prohibited in (

@@ -14160,3 +14160,75 @@ review passed; no application code changed.
   "exact_next_start": "Have the operator review the new completed row and attachment, especially the service/subtype placeholders and remaining review warnings. If a correction is needed, flag that existing row and add ordinary feedback. Then perform scoped comment-driven Training acceptance: refresh the review snapshot once, obtain correction approval, apply/read back the saved existing-row/document plan, obtain resolution approval, and verify idempotency while preserving human controls and other cases. DP remains running by explicit operator authorization; Training is stopped. Do not resend either processed document or blindly retry the prior failed code-generation job."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Explicit Authorization Labels and Reserved Same-Case Recovery - 2026-09-09
+
+The operator supplied comments on the new flagged row. One scoped production
+Training analysis used local Ollama and the original protected cached source.
+It completed blocked with correction_no_verified_change: zero corrections, no
+saved plan, no attachment change, no review-snapshot refresh. Human controls and
+comments were unchanged; blocked proposal/status readback matched. One feedback
+analysis and one cached-source pipeline replay ran, not a full flagged-case sweep.
+DP was stopped using only its proven-owned wrapper to release the shared source
+lease. Training remained stopped. No Graph/mailbox access or fresh OCR was needed.
+
+Read-only value-free diagnostics confirmed two service-code labels, two modifier
+labels and an explicit Initial authorization statement in the cached source.
+No same-OCR-block code/modifier pairing was proven. Code-only authoritative
+reference lookup was ambiguous for both codes. Retained replay diagnostics showed
+source-unsupported service-line codes and invalid modifiers, not accepted pairs
+being rejected by the reference lookup. Exact malformed candidate shapes were not
+retained, so no speculative parser repair or reference widening was performed.
+
+The user-approved labeled Initial clarification exposed a deterministic blanket
+external-context veto. Shared context v4 and the naming validator now accept a
+complete, confidence-qualified Type of Authorization: Initial candidate statement.
+Generic Initial wording, competing options, negation, missing candidate, wrong
+category and low confidence still fail closed. Inferring new-client/service
+history still requires authoritative external evidence. Category confidence and
+intake subtype remain separate; internal subtype key remains init, filename token
+AUTH INIT. Extraction instructions now recognize HCPC Code/HCPCS and Modifier(s)
+labels within one supported service section, require scalar child values and owned
+supporting evidence, and prohibit cross-section/reference-based guessing. Existing
+prompt size bounds remain enforced; redundant wording was condensed, not expanded
+without limit. Live service recognition improvement is not yet proven.
+
+Preparation contract 5 narrowly rearms a version-4 blocked authorization filename
+case only for the addressed no-verified-change/unresolved-filename failure and
+subtype/service scope. Existing pre-v4 migration guards remain. The reservation
+precedes inference, keeps the same identity/audit, reuses unchanged validated
+intent, preserves approvals and excludes other version-4 failures. No unchanged
+comment review-snapshot refresh or automatic correction is authorized by upgrade.
+
+Files: shared business-context model/renderer, intake naming vocabulary, Ollama
+extraction prompt, local correction workflow, context regression, two new synthetic
+label/recovery regression files, and continuity layers. Modified Python compiled.
+257 focused/affected synthetic/mock checks passed: labels 12, context 5, intake 20,
+Ollama schema/prompt 21, evidence 29, production naming 32, validated naming 10,
+reference builder 4, quantities 10, review reasons 14, snapshot 13, correction 51,
+AI Correction ownership 10, mailbox recovery 21, label-upgrade recovery 5. The
+mailbox test module has no runner; all 21 functions were explicitly invoked with
+isolated synthetic temporary state. Initial prompt-bound failure was corrected
+and the affected suites rerun. No synthetic test contacted an external adapter.
+Continuity checks also passed (11 migration + 3 tracker), 271 total checks.
+Management tracker: Updated 1, Unchanged 37, Not Found 0, Failed 0. Protected paths
+remain ignored, and git diff --check passed. No PowerShell source changed.
+
+PHI handling: fixed categories/counts/booleans only; no values, identifiers,
+filenames, source, comments or secrets emitted. Live activity before the fix was
+the authorized scoped local analysis, protected cached evidence, approved row
+readback and workflow-only blocked-state publication. No correction write,
+attachment upload, mailbox mutation, human-checkbox/comment write or cloud model.
+Real post-fix revalidation remains pending; no success claim is made for the row.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Fixed explicit Initial evidence handling and service-label instructions; reserved narrow same-case recovery.",
+  "key_result": "Shared context v4 accepts validated labeled Initial without history inference. Preparation v5 permits one guarded replay, preserving approvals and snapshot.",
+  "tests": "257 synthetic/mock checks passed; Python compiled. Prompt size, evidence, naming, recovery, snapshot and human ownership covered.",
+  "phi_handling": "Safe categories only. Scoped prior analysis blocked without correction; no cloud model or human-control/comment write.",
+  "limitation_acceptance": "Current row remains blocked; real post-fix replay pending. No reference/modifier guessing. DP paused for exclusive maintenance; Training stopped.",
+  "exact_next_start": "Refresh affected source registrations, then perform one scoped same-case cached-source revalidation under preparation contract 5. Reuse validated feedback intent, preserve the existing review snapshot on unchanged comments, and require both approvals unchecked. Verify a saved evidence-supported subtype/service/filename correction before requesting approval; do not claim success if still blocked. No resubmission or blind replay. Resume authorized DP polling after exclusive maintenance; keep Training stopped outside scoped acceptance."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

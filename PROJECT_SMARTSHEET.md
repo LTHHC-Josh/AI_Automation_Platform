@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Completed the later same-type unattended document test; continuous polling authorized.
-Result: One new row/attachment, zero failures; two extraction attempts, first selected. Exact readback and unchecked AI Correction verified. DP returned to waiting.
-Tests: Real approved end-to-end processing and readback passed; mapped value/confidence presence checks passed. Existing source unchanged.
-PHI: Approved local and mapped production adapters only; safe counters/categories emitted. No cloud model, human-control write or comment access.
-Status: Service/subtype placeholders and nine review reasons await assessment. Guidance inclusion is verified, not causal improvement. Training stopped; DP running.
-Next: Have the operator review the new completed row and attachment, especially the service/subtype placeholders and remaining review warnings. If a correction is needed, flag that existing row and add ordinary feedback. Then perform scoped comment-driven Training acceptance: refresh the review snapshot once, obtain correction approval, apply/read back the saved existing-row/document plan, obtain resolution approval, and verify idempotency while preserving human controls and other cases. DP remains running by explicit operator authorization; Training is stopped. Do not resend either processed document or blindly retry the prior failed code-generation job.
+Work: Fixed explicit Initial evidence handling and service-label instructions; reserved narrow same-case recovery.
+Result: Shared context v4 accepts validated labeled Initial without history inference. Preparation v5 permits one guarded replay, preserving approvals and snapshot.
+Tests: 257 synthetic/mock checks passed; Python compiled. Prompt size, evidence, naming, recovery, snapshot and human ownership covered.
+PHI: Safe categories only. Scoped prior analysis blocked without correction; no cloud model or human-control/comment write.
+Status: Current row remains blocked; real post-fix replay pending. No reference/modifier guessing. DP paused for exclusive maintenance; Training stopped.
+Next: Refresh affected source registrations, then perform one scoped same-case cached-source revalidation under preparation contract 5. Reuse validated feedback intent, preserve the existing review snapshot on unchanged comments, and require both approvals unchecked. Verify a saved evidence-supported subtype/service/filename correction before requesting approval; do not claim success if still blocked. No resubmission or blind replay. Resume authorized DP polling after exclusive maintenance; keep Training stopped outside scoped acceptance.
 
 ## Safety Contract
 

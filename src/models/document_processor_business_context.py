@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-BUSINESS_CONTEXT_VERSION = 3
+BUSINESS_CONTEXT_VERSION = 4
 
 
 @dataclass(frozen=True)
@@ -22,6 +22,7 @@ class IntakeSubtypeContext:
     token: str
     aliases: tuple[str, ...]
     requires_external_context: bool = False
+    explicit_statement_labels: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -117,7 +118,9 @@ TOP_LEVEL_NAMING_TOKENS = (
 
 
 INTAKE_SUBTYPES = (
-    IntakeSubtypeContext("init", "INIT", ("INIT", "INITIAL"), True),
+    IntakeSubtypeContext(
+        "init", "INIT", ("INIT", "INITIAL"), True, ("Type of Authorization",)
+    ),
     IntakeSubtypeContext("no_change", "NO CHANGE", ("NO CHANGE",)),
     IntakeSubtypeContext("increase", "INCREASE", ("INCREASE",)),
     IntakeSubtypeContext("decrease", "DECREASE", ("DECREASE",)),
@@ -165,7 +168,7 @@ DOCUMENT_PROCESSOR_BUSINESS_CONTEXT = DocumentProcessorBusinessContext(
     top_level_naming_tokens=TOP_LEVEL_NAMING_TOKENS,
     intake_subtype_taxonomy=INTAKE_SUBTYPES,
     external_context_dependencies=(
-        "AUTH INIT requires authoritative external client/service context and cannot be inferred from document evidence alone.",
+        "AUTH INIT accepts a validated explicit Type of Authorization: Initial statement. Inferring INIT from client/service history still requires authoritative external context.",
         "Other supported AUTH intake subtypes may resolve from explicit validated document evidence.",
         "Unknown applicable subtype is valid and may require review without changing category confidence.",
     ),

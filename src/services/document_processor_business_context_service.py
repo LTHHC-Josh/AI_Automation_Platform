@@ -25,6 +25,7 @@ CONTEXT_ROLES = (
 )
 
 BUSINESS_CONTEXT_SEMANTIC_DIGESTS = {
+    4: "51f52a119a19a70ac9b84bb05deb086070b36a55060be47e07e54110fd75ff01",
     3: "918bc06241e73b8b93ea13f9950fe2f6ec56d4eac16ae76401f032804074ef92",
     2: "62cad3e31e8583bfff400407da1ff1996bd41b6e7a579700da43fd3db9a17b3f",
     1: "68f3c29bb03a892b6ecf7dc807f382150053f71f49c7595e0732402b3199a0f7",
@@ -183,8 +184,8 @@ class DocumentProcessorBusinessContextService:
                 "low_confidence|unsupported|conflicting|ambiguous|invalid=blank/review"
             ),
             "external_context_dependencies": (
-                "AUTH INIT needs authoritative external context; other approved AUTH subtypes may use explicit "
-                "validated evidence; unknown is valid"
+                "AUTH INIT accepts validated Type of Authorization: Initial; history-based INIT needs external "
+                "context; other subtypes need evidence; unknown valid"
             ),
         }
         if name == "document_taxonomy" and role == "structural_learning":
@@ -205,8 +206,8 @@ class DocumentProcessorBusinessContextService:
             "pipeline_semantics": ">".join(context.pipeline_semantics),
             "document_taxonomy": ",".join(item.family for item in context.document_taxonomy),
             "external_context_dependencies": (
-                "AUTH INIT needs authoritative external context; other AUTH subtypes need validated evidence; "
-                "unknown valid; subtype independent of category confidence"
+                "AUTH INIT: explicit Type of Authorization: Initial or external context; never infer history; "
+                "other subtypes need evidence; unknown valid; category independent"
             ),
             "filename_policy": (
                 f"{context.filename_policy[0]}; optional=omit; unresolved=placeholder; "
@@ -258,7 +259,7 @@ class DocumentProcessorBusinessContextService:
                 suffix = f";routes={routes}" if routes else ""
                 return f"{item.family}[{','.join(item.subtypes)}]{suffix}"
             if isinstance(item, IntakeSubtypeContext):
-                external = ";external" if item.requires_external_context else ""
+                external = ";external-or-explicit-label" if item.requires_external_context else ""
                 return (
                     f"{item.key}=AUTH {item.token};aliases={','.join(item.aliases)}"
                     f"{external}"

@@ -112,7 +112,7 @@ validated production row write.
 ## Shared Business Context and Taxonomy
 
 The repo-owned, PHI-free `DocumentProcessorBusinessContext` is the shared model
-context source. Current `business_context_version` is 3. Role-specific views are
+context source. Current `business_context_version` is 4. Role-specific views are
 rendered for live classification, extraction, structural learning, intake
 naming, and DP Training. Prompt context explains constraints; deterministic code
 remains authoritative.
@@ -157,10 +157,15 @@ Approved AUTH intake naming tokens are:
 `INBOUND AUTH` normalizes to `AUTH INBOUND`. Labels are not merged unless their
 business meaning is proven identical.
 
-AUTH INIT may depend on authoritative external client/service context and cannot
-be inferred from document text alone. Unknown applicable subtype is valid and
-may require review. Other supported subtypes, including AUTH DECREASE, may be
-resolved from explicit validated document evidence.
+AUTH INIT accepts an independently validated candidate supported by a complete
+explicit Type of Authorization: Initial statement. Competing/unselected options,
+negation, generic Initial wording and client/service-history inference do not
+qualify. History-based INIT still requires authoritative external context.
+Unknown applicable subtype remains valid with specific review, independent of
+category confidence. Other supported subtypes may use validated document evidence.
+Service extraction recognizes HCPC Code/HCPCS and Modifier(s) labels across OCR
+lines in the same supported service section; it never borrows another section's
+modifier or fills one from a reference lookup. Each line retains its own evidence.
 
 ## Field, Quantity, Review, and Filename Semantics
 
@@ -260,9 +265,9 @@ correction/resolution acceptance. Startup uses the existing fingerprint/owned
 restart contract.
 
 Current versions:
-- `business_context_version`: 3
+- `business_context_version`: 4
 - `analysis_contract_version`: 4
-- local preparation contract: 4
+- local preparation contract: 5
 - legacy protected correction-case schema: 3
 - local sealed correction/source/lesson/audit schema: 1
 - resolution code-update authorization contract: 1
@@ -322,6 +327,12 @@ analysis request. Original-document evidence replay still validates the new plan
 Other retained blocked plans are not rearmed. Value-free final field/naming
 diagnostics are sealed locally before mapping so preparation failures remain
 inspectable without printing document values or rerunning inference blindly.
+Contract 5 additionally permits one reserved replay of a version-4 blocked
+authorization filename case with no verified change or unresolved requested
+filename, scoped to subtype/service fields. Other version-4 failure scopes remain
+blocked. Both approvals must be unchecked; same identity/audit and prior validated
+intent are retained. Unchanged comments do not refresh the review snapshot, and
+the new reservation prevents another automatic replay even if inference fails.
 
 Verified correction results move to Awaiting Resolution Approval. Fresh approval
 retains only fixed PHI-free guidance, directly indexed by canonical document family:
@@ -400,6 +411,18 @@ Operator commands remain:
 - `startdptraining`, `statusdptraining`, `stopdptraining`
 
 ## Current Verified Baseline
+
+- The operator flagged the later row and supplied feedback. One scoped production
+  analysis completed with correction_no_verified_change, no saved plan and zero
+  corrections. Human controls/comments and review snapshot remained unchanged.
+  Safe cached-source inspection confirmed service labels and an explicit Initial
+  statement. Retained replay diagnostics showed two source-unsupported service
+  codes and structurally invalid modifiers; code-only reference matches are
+  ambiguous. No reference mapping or modifier was guessed. The blanket INIT veto
+  is fixed and service-label prompt coverage improved, with 257 synthetic/mock
+  checks passing. Real post-fix replay is not yet proven. DP was temporarily stopped
+  through its owned wrapper for the exclusive replay/source-maintenance lease;
+  continued polling remains authorized. Training is stopped.
 
 - A different authorization document completed unattended processing on 2026-09-09:
   one new row, one attachment, one create/upload attempt each, zero failures,
@@ -516,7 +539,8 @@ Operator commands remain:
   missing evidence or recover lost page/block structure from text-only caches.
 - Human approval does not prove a correction generalizes across all documents.
   Broader taxonomy, OCR, extraction and unattended reliability coverage remains
-  incomplete. AUTH INIT still requires authoritative external context.
+  incomplete. INIT inferred from external client/service history still requires
+  authoritative external context; only validated explicit statements qualify locally.
 - No silent Windows reboot startup is enabled. Start the control room/Ollama and
   explicitly start the required DP or DP Training service.
 - Use Windows PowerShell 5.1 for operator wrappers. The older PowerShell 7
@@ -542,4 +566,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Have the operator review the new completed row and attachment, especially the service/subtype placeholders and remaining review warnings. If a correction is needed, flag that existing row and add ordinary feedback. Then perform scoped comment-driven Training acceptance: refresh the review snapshot once, obtain correction approval, apply/read back the saved existing-row/document plan, obtain resolution approval, and verify idempotency while preserving human controls and other cases. DP remains running by explicit operator authorization; Training is stopped. Do not resend either processed document or blindly retry the prior failed code-generation job.
+Refresh affected source registrations, then perform one scoped same-case cached-source revalidation under preparation contract 5. Reuse validated feedback intent, preserve the existing review snapshot on unchanged comments, and require both approvals unchecked. Verify a saved evidence-supported subtype/service/filename correction before requesting approval; do not claim success if still blocked. No resubmission or blind replay. Resume authorized DP polling after exclusive maintenance; keep Training stopped outside scoped acceptance.
