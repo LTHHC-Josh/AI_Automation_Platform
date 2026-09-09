@@ -673,6 +673,23 @@ def test_safe_composition_failure_is_scoped_and_counted():
     assert result.required_component_failure_count == 1
 
 
+def test_validated_payer_spacing_reaches_naming_without_changing_evidence():
+    subject = document()
+    subject.field_evidence["payer"] = evidence("SYNTHETICPLAN")
+    result = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
+        document=subject, source_extension=".pdf"
+    )
+    assert result.diagnostic.payer_lookup_ready
+    assert "_PLAN_" in result.policy_result.filename
+    assert subject.field_evidence["payer"]["value"] == "SYNTHETICPLAN"
+    subject.field_evidence["payer"]["confidence"] = 0.50
+    blocked = ProductionFilenameAssemblyService(tables_provider=tables).resolve(
+        document=subject, source_extension=".pdf"
+    )
+    assert not blocked.diagnostic.payer_lookup_ready
+    assert "[PAYER]" in blocked.policy_result.filename
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:

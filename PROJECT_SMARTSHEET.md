@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-09
-Work: Implemented approved comma-separated multi-service filename naming.
-Result: Distinct authoritative service tokens now join deterministically instead of forcing a placeholder. Individual ambiguous lookups remain unresolved; persisted names and approval protections are unchanged.
-Tests: 148 synthetic/mock filename, reference, correction, feedback and recovery checks passed; modified Python compiled.
-PHI: Synthetic data only. No live document, model, mailbox, correction or attachment operation. Management tracker only.
-Status: Payer list and individual service reference resolution remain pending. No full live acceptance claimed.
-Next: Obtain the operator's authoritative payer full-name/filename-token list through the approved local reference mechanism, and resolve any remaining service composite lookup ambiguity without guessing. Then refresh source registration and perform a controlled same-document correction verification for short-year date support and comma-separated service naming. Preserve the blocked case, existing job identity and human approvals; do not resend the document or approve an incomplete correction. Training remains stopped and full acceptance remains pending.
+Work: Fixed whitespace-only payer naming lookup using the existing authoritative cache.
+Result: Cache is available; joined/spaced forms resolve to the same unique result. No replacement list, guessed alias or sender inference. Accepted field evidence remains mandatory.
+Tests: 126 synthetic/mock checks and modified Python compilation passed; real read-only cache verification returned safe booleans only.
+PHI: Existing protected cache inspection emitted booleans/counts only. No model, OCR, mailbox, comments or production row/attachment operation.
+Status: Old extracted payer was not retained; live correction remains unverified. Existing case and human approvals unchanged.
+Next: Refresh source registration and prepare one controlled same-document correction verification of whitespace-tolerant authoritative payer lookup, short-year date support and comma-separated service naming. Preserve the blocked case and audit history, retain human approval controls, and resolve any remaining individual service lookup ambiguity without guessing. Capture safe final naming diagnostics before presenting a new verified proposal; do not resend the document or approve an incomplete correction. The existing reference sheet is authoritative and no replacement payer list is needed. Training remains stopped; full acceptance is pending.
 
 ## Safety Contract
 

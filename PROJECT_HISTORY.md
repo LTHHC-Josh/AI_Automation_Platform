@@ -13693,3 +13693,43 @@ prove the current document's individual reference matches have resolved.
   "exact_next_start": "Obtain the operator's authoritative payer full-name/filename-token list through the approved local reference mechanism, and resolve any remaining service composite lookup ambiguity without guessing. Then refresh source registration and perform a controlled same-document correction verification for short-year date support and comma-separated service naming. Preserve the blocked case, existing job identity and human approvals; do not resend the document or approve an incomplete correction. Training remains stopped and full acceptance remains pending."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## Existing Payer Reference Word-Spacing Compatibility - 2026-09-09
+
+Operator confirmed the already-linked payer reference sheet is authoritative.
+Read-only cache load succeeded with 12 payer rows and the supplied full-name
+lookup resolved. Count/boolean-only inspection of the existing fingerprint-bound
+OCR cache found the joined-word spelling, not the reference's spaced spelling.
+No OCR engine, model, mailbox, comments or production row operation was run.
+The prior plan did not retain the extracted payer, so this proves a relevant
+lookup incompatibility, not the complete prior extraction/replay root cause.
+
+PayorReferenceTable now permits whitespace-only compatibility after exact name
+lookup fails, only for an omitted key and a unique authoritative result. Explicit
+unsupported keys, competing results, abbreviations, punctuation variants and
+substring matches remain unresolved. No hard-coded payer, alias list, fuzzy
+matching or whole-document inference was added. Production assembly still
+requires accepted field evidence. Read-only real cache verification proves both
+word-spacing forms resolve to the same authoritative result. No values printed.
+
+Files: reference_table_service.py, test_reference_table_architecture.py,
+test_production_filename_assembly_service.py and three continuity layers.
+Modified Python compilation passed. Synthetic/mock tests: reference 12,
+assembly 31, local correction 41, AI Correction ownership 10, policy 12,
+intake 20 = 126 passed. Tests cover collisions, unsupported explicit keys,
+no abbreviation/punctuation inference, accepted evidence reaching naming and
+low-confidence evidence remaining a placeholder. Continuity/tracker gates run
+before commit. Same-document live acceptance remains pending; persisted names,
+approvals, reference workbook and existing correction state were not modified.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Fixed whitespace-only payer naming lookup using the existing authoritative cache.",
+  "key_result": "Cache is available; joined/spaced forms resolve to the same unique result. No replacement list, guessed alias or sender inference. Accepted field evidence remains mandatory.",
+  "tests": "126 synthetic/mock checks and modified Python compilation passed; real read-only cache verification returned safe booleans only.",
+  "phi_handling": "Existing protected cache inspection emitted booleans/counts only. No model, OCR, mailbox, comments or production row/attachment operation.",
+  "limitation_acceptance": "Old extracted payer was not retained; live correction remains unverified. Existing case and human approvals unchanged.",
+  "exact_next_start": "Refresh source registration and prepare one controlled same-document correction verification of whitespace-tolerant authoritative payer lookup, short-year date support and comma-separated service naming. Preserve the blocked case and audit history, retain human approval controls, and resolve any remaining individual service lookup ambiguity without guessing. Capture safe final naming diagnostics before presenting a new verified proposal; do not resend the document or approve an incomplete correction. The existing reference sheet is authoritative and no replacement payer list is needed. Training remains stopped; full acceptance is pending."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

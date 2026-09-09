@@ -189,8 +189,11 @@ Filename outcomes are `complete_business`, `partial_business`, and
 - Multiple independently resolved service naming tokens are comma-separated,
   sorted deterministically and deduplicated. Different valid service tokens no
   longer force [SERVICE]; ambiguous individual reference matches still do.
-  Payer reference-list clarification remains pending. No one-document alias or
-  sender-based payer inference has been added.
+  The existing payer reference cache is available; no replacement list is needed.
+  Payer naming accepts a whitespace-only name variant when the authoritative
+  result is unique. Exact lookup retains precedence; explicit unsupported keys,
+  ambiguous results, abbreviations and punctuation variants are not guessed.
+  This consumes accepted payer evidence only, never sender or whole-document text.
 - Meaningful unresolved components use the approved placeholder when core
   identity remains safe.
 - A date range is used only when both applicable dates are explicitly and
@@ -449,4 +452,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Obtain the operator's authoritative payer full-name/filename-token list through the approved local reference mechanism, and resolve any remaining service composite lookup ambiguity without guessing. Then refresh source registration and perform a controlled same-document correction verification for short-year date support and comma-separated service naming. Preserve the blocked case, existing job identity and human approvals; do not resend the document or approve an incomplete correction. Training remains stopped and full acceptance remains pending.
+Refresh source registration and prepare one controlled same-document correction verification of whitespace-tolerant authoritative payer lookup, short-year date support and comma-separated service naming. Preserve the blocked case and audit history, retain human approval controls, and resolve any remaining individual service lookup ambiguity without guessing. Capture safe final naming diagnostics before presenting a new verified proposal; do not resend the document or approve an incomplete correction. The existing reference sheet is authoritative and no replacement payer list is needed. Training remains stopped; full acceptance is pending.

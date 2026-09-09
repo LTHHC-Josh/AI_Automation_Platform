@@ -39,6 +39,17 @@ class PayorReferenceTable:
         }
         if len(values) == 1:
             return LookupResult(True, next(iter(values)), "resolved")
+        if not values and lookup_key[0]:
+            # Document branding may join words that the reference separates.
+            # Only whitespace differs: no fuzzy, substring, abbreviation or
+            # punctuation matching. Multiple compatible results fail closed.
+            compact_name = "".join(lookup_key[0].split())
+            values = {
+                result for (name, _), result in self._values.items()
+                if "".join(name.split()) == compact_name
+            }
+            if len(values) == 1:
+                return LookupResult(True, next(iter(values)), "resolved")
         return LookupResult(
             False, None, "ambiguous" if len(values) > 1 else "not_resolved")
 

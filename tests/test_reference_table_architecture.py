@@ -242,6 +242,30 @@ def test_description_is_not_a_hidden_service_lookup_discriminator():
     assert lookup.value == "SAME TOKEN"
 
 
+def test_payer_word_spacing_resolves_only_unique_authoritative_token():
+    from src.services.reference_table_service import PayorReferenceTable
+    table = PayorReferenceTable({("SYNTHETIC HEALTH PLAN", ""): "SHP"})
+    assert table.lookup("SyntheticHealthPlan", "").value == "SHP"
+    assert table.lookup("Synthetic Health Plan", "").value == "SHP"
+    assert not table.lookup("Synthetic Health", "").resolved
+    assert not table.lookup("SHP", "").resolved
+    assert not table.lookup("Synthetic-Health-Plan", "").resolved
+    assert not table.lookup("SyntheticHealthPlan", "UNSUPPORTED KEY").resolved
+
+
+def test_payer_spacing_collision_and_conditional_results_fail_closed():
+    from src.services.reference_table_service import PayorReferenceTable
+    table = PayorReferenceTable({
+        ("SYNTHETIC PLAN", "FIRST"): "ONE",
+        ("SYNTHETIC PLAN", "SECOND"): "TWO",
+    })
+    assert table.lookup("SyntheticPlan", "").status == "ambiguous"
+    assert table.lookup("Synthetic Plan", "FIRST").value == "ONE"
+    collision = PayorReferenceTable({("AB C", ""): "ONE", ("A BC", ""): "TWO"})
+    assert collision.lookup("ABC", "").status == "ambiguous"
+    assert not collision.lookup("", "").resolved
+
+
 if __name__ == "__main__":
     tests = [value for name, value in list(globals().items()) if name.startswith("test_")]
     for test in tests:
