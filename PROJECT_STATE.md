@@ -696,6 +696,7 @@ Human-owned Implementation Status is separate from Review Status. Agency-reporte
 notes and completion evidence bind to the Reviewed Revision and retained source/profile
 support. Compatible Met reports suppress repeat work; changed/removed duties or relevant
 context require reassessment without modifying human cells or erasing historical reports.
+Human applicability decisions also remain in the revision-bound prior context. An acknowledged applicability decision without an implementation report retains internal Not Assessed and never populates the human Implementation Status cell.
 Stable collapsed new topic parents group requirements, questions, health/coverage and controls;
 later user expansion and same-row human fields are preserved. Real readback, zero unchanged
 model calls/writes, and a fresh-process backup/restore and same-sheet reconciliation passed.

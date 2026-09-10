@@ -15016,3 +15016,26 @@ Full original requirements and all later reset, topic and feedback amendments re
   "exact_next_start": "Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+
+## 2026-09-10 — Program Compliance Monitor / prior applicability memory completion
+
+Human applicability decisions also remain in the revision-bound prior context. An acknowledged applicability decision without an implementation report retains internal Not Assessed and never populates the human Implementation Status cell.
+
+Final review extended src/program_compliance/determinations.py and existing feedback tests so current and historical applicable human decisions accompany implementation evidence in relevant local analysis. No baseline reset, source retrieval or inference was repeated. All 62 Compliance synthetic/mock tests passed; real same-sheet sync returned 70 unchanged, zero creates/updates/blocked. Earlier 100 affected/shared/continuity/tracker tests remain passed; final continuity/tracker gates are repeated for these documentation changes. No patient data, DP/Training records or human sheet cells were changed.
+
+The initial delivery was pushed as ce51f56 after original user commit/push authorization and GitHub owner/admin/push access were reverified following an automatic approval rejection. The guarded retry passed; no force push or alternate write channel was used. The exact prior schedule was restored; its actual hidden pythonw task run exited 0 and the post-restoration cycle performed zero source fetches and zero inference. The owner-context runtime/backup readback passed after an auxiliary sandbox read-only database-open error.
+
+Remaining work is the same bounded source-health/coverage and agency-confirmation queue in the plan. DP continuity and pending work remain verbatim; the single root service route is unchanged. Policy inventory, comparison and drafting remain out of scope. Full accepted baseline and memory requirements remain authoritative in docs/program_compliance_plan.md.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-10",
+  "work_summary": "Program Compliance baseline and implementation feedback delivered; prior human applicability decisions retained explicitly.",
+  "key_result": "50 requirements/changes, 11 topic groups; human revision-bound feedback, unchanged 70-row readback, backup/restore and hidden schedule verified.",
+  "tests": "62 Compliance, 4 continuity, 12 queue, 13 context and 57 Training synthetic/mock tests passed; real retrieval/Ollama/sheet and restart checks verified.",
+  "phi_handling": "Public-source evidence and Compliance-owned protected state only; no patient data, DP recovery/learning records or external tracker writes.",
+  "limitation_acceptance": "Bounded 148-source discovery, 11 retrieval/parser failures and explicit analysis/context gaps; agency service scope unconfirmed; no certification or policy comparison.",
+  "exact_next_start": "Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

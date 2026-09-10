@@ -85,12 +85,13 @@ class BaselineFeedbackTests(unittest.TestCase):
     def test_changed_requirement_uses_prior_report_and_requires_reassessment(self):
         key,row=self.baseline();self.sync.sync()
         human={'Implementation Status':'Met','Reviewed Revision':row['Current Revision'],'Review Status':'Complete',
-               'Completion Evidence':'Synthetic evidence','Decision Notes':'Reported completed','Owner':'Synthetic owner'}
+               'Completion Evidence':'Synthetic evidence','Decision Notes':'Reported completed','Owner':'Synthetic owner','Applicability Decision':'Applies'}
         self.api.edit(key,human);self.sync.sync()
         self.fixture.fetch.text+=' Review this process annually.'
         self.monitor.check_source(self.source);self.monitor.analyze_source(self.source,20)
         context=self.model.packages[-1]['prior_agency_determinations']
         self.assertTrue(context);self.assertFalse(next(iter(context.values()))['compatible_with_current_evidence'])
+        self.assertEqual(next(iter(context.values()))['applicability_decision'],'Applies')
         self.sync.sync()
         new=self.store.get('finding',key);self.assertNotEqual(new['Current Revision'],row['Current Revision'])
         actual=next(r for r in self.sync.read() if r['values'].get('Finding Key')==key)['values']
@@ -107,6 +108,11 @@ class BaselineFeedbackTests(unittest.TestCase):
         actual=next(r for r in self.sync.read() if r['values'].get('Finding Key')==key)['values']
         self.assertTrue(actual['Implementation Assessment'].startswith('Not Assessed'))
         self.assertIsNone(self.store.get('determination',key))
+        self.api.edit(key,{'Applicability Decision':'Applies'});self.sync.sync()
+        report=self.store.get('determination',key)
+        self.assertEqual(report['implementation_status'],'Not Assessed')
+        self.assertEqual(report['applicability_decision'],'Applies')
+        self.assertIsNone(self.store.get('human',key).get('Implementation Status'))
         self.assertIn('Implementation Status',HUMAN)
         self.assertEqual(next(c for c in columns() if c['title']=='Implementation Status')['options'],['Not Assessed','Met','Partially Met','Not Met','Not Applicable'])
 

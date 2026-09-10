@@ -8,7 +8,9 @@ def observe(store, key, fields):
     finding = store.get('finding', key, {})
     revision = fields.get('Reviewed Revision')
     status = fields.get('Implementation Status')
-    if not revision or status not in STATUSES:
+    applicability = fields.get('Applicability Decision')
+    approved_applicability = applicability in ('Applies','Does Not Apply','Other Party')
+    if not revision or (status not in STATUSES and not approved_applicability):
         return
     support = store.get('requirement_revision', key + ':' + revision)
     if support is None and revision == finding.get('Current Revision'):
@@ -16,7 +18,8 @@ def observe(store, key, fields):
     if not support:
         return
     store.put('requirement_revision', key + ':' + revision, support)
-    value = {'reviewed_revision': revision, 'implementation_status': status,
+    value = {'reviewed_revision': revision, 'implementation_status': status if status in STATUSES else 'Not Assessed',
+             'applicability_decision': applicability if approved_applicability else None,
              'completion_evidence': fields.get('Completion Evidence'),
              'notes': fields.get('Decision Notes'), 'support': support,
              'authority': 'Agency-reported; not independently certified'}

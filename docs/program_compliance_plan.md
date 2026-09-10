@@ -84,6 +84,8 @@ test invocation lacked repository fixture configuration; the actual-repository r
 
 ## Verified rebuilt baseline and feedback acceptance
 
+Human applicability decisions also remain in the revision-bound prior context. An acknowledged applicability decision without an implementation report retains internal Not Assessed and never populates the human Implementation Status cell.
+
 The authorized rebuild finished without repeating the reset or creating resources.
 Existing source/history and the original completed pilot remain preserved. Full original
 sheet/state backup verified an isolated restore before the 44-row authorized deletion.
