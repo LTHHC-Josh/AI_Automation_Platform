@@ -5,11 +5,11 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-10
-Work: Program Compliance baseline and implementation feedback delivered; prior human applicability decisions retained explicitly.
-Result: 50 requirements/changes, 11 topic groups; human revision-bound feedback, unchanged 70-row readback, backup/restore and hidden schedule verified.
-Tests: 62 Compliance, 4 continuity, 12 queue, 13 context and 57 Training synthetic/mock tests passed; real retrieval/Ollama/sheet and restart checks verified.
+Work: Program Compliance Provider/DSA-only amendment published and verified in the existing sheet.
+Result: 51 agency duties; 78 total rows. Original identities and human evidence preserved; source-specific actor questions and zero-repeat acceptance verified.
+Tests: 73 unique Compliance, 4 continuity, 12 queue, 13 context and 57 Training synthetic/mock checks passed; live same-sheet/restore/unchanged checks passed.
 PHI: Public-source evidence and Compliance-owned protected state only; no patient data, DP recovery/learning records or external tracker writes.
-Status: Bounded 148-source discovery, 11 retrieval/parser failures and explicit analysis/context gaps; agency service scope unconfirmed; no certification or policy comparison.
+Status: Bounded source coverage and explicit actor/context gaps; agency service scope unconfirmed. Approved hidden schedule restored; no DP/Training or external tracker changes.
 Next: Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly.
 
 ## Safety Contract

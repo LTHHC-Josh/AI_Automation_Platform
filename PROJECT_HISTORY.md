@@ -15039,3 +15039,119 @@ Remaining work is the same bounded source-health/coverage and agency-confirmatio
   "exact_next_start": "Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+
+## 2026-09-10 — Program Compliance Monitor / Provider-DSA actor amendment in progress
+
+The user explicitly requires updating the actual existing LT Automation Platform >
+Program Compliance sheet, not only code or documentation. Preserve all completed baseline
+work, checkpoints and resources; do not reset the baseline or repeat completed retrieval.
+Our agency is the Provider or Direct Service Agency (DSA). Operational requirement rows
+must contain only source-supported Provider/DSA duties. CMA, HHSC, program manager,
+client/member and other parties' standalone duties are not our requirements. In shared
+processes, retain our explicit coordination, notification, verification, assistance,
+response or other duty; another actor being mentioned does not exclude our part.
+Keep other actors' source evidence and dependencies in runtime knowledge and clearly
+separate supporting context from the agency-duty summary.
+
+Resolve generic Provider and actor aliases from each source's definitions/context.
+Do not infer every Provider is our DSA, or equate Program Manager universally with HHSC.
+Ambiguous actor assignments require targeted source-context confirmation, not confident
+agency attribution. This responsibility filter is separate from service applicability
+and implementation reporting: unknown contracted/active services remain explicit and
+missing implementation evidence is not noncompliance.
+
+Apply the filter to current retained findings, future analysis and every synchronization.
+Preserve row identities, human-owned fields, completion evidence and historical revisions
+when safely reclassifying other-party/ambiguous records. Never delete parents containing
+retained children. Keep LT Project Tracking unchanged and DP/Training independent.
+
+Acceptance: DSA-only, other-party-only, explicit shared duty, ambiguous Provider and
+source-defined Provider cases; only our deadline in a mixed process; source-backed alias
+resolution without global party assumptions; same-row human/history preservation;
+unchanged reuse; actual sheet publication/readback and restored approved schedule.
+
+Current actor checkpoint: code is installed and 9 new actor tests plus all 62 existing
+Compliance tests pass (71 unique cases). Only Compliance scheduling is temporarily paused
+for the authorized reconciliation. Retained source evidence is being reused; no baseline
+reset, duplicate sheet, DP/Training operation or repeated retrieval is authorized here.
+A regression initially exposed an extra determination version because prior actor evidence
+was overwritten during revision advancement. Evidence bindings now remain immutable;
+human observations are captured before reconciliation and determinations after enrichment.
+The original two meaningful determination versions are preserved, and all tests pass.
+
+Files: responsibility.py, analysis.py, baseline.py, sheet.py, determinations.py, store.py and test_compliance_responsibility.py, with guarded service/shared continuity. Public-source/Compliance-only state; no patient data, DP/Training records or external tracker mutations. Next action is the service plan’s actor-filter reconciliation checkpoint.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-10",
+  "work_summary": "Program Compliance Provider/DSA-only responsibility amendment implemented; live same-sheet reconciliation in progress.",
+  "key_result": "Preserved completed baseline and human evidence. Source-defined actors, shared-duty projection and targeted ambiguity routing tested.",
+  "tests": "71 unique Compliance synthetic/mock tests passed (62 existing + 9 new); live reconciliation/activation acceptance pending.",
+  "phi_handling": "Public-source evidence and Compliance-owned protected state only; no patient data, DP recovery/learning records or external tracker writes.",
+  "limitation_acceptance": "Only Compliance scheduling paused; no reset or duplicate resources. Actor ambiguity remains separate from service applicability and implementation reporting.",
+  "exact_next_start": "Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+
+## 2026-09-10 — Program Compliance Monitor / Provider-DSA amendment verified
+
+The Provider/DSA amendment is verified in the same existing Program Compliance sheet.
+Live readback has 51 source-supported agency requirement/change rows and 78 total
+rows. Record counts: {'Actionable Change': 2, 'Control': 1, 'Coverage': 4, 'Group': 11, 'Question': 8, 'Reference': 1, 'Requirement': 49, 'Source Health': 2}. All original 70 row identities, human fields,
+completion evidence and parent expansion choices were preserved. Four former requirement
+records now ask for actor confirmation on the same rows. Three consolidated source-family
+questions retain source-specific ambiguities without assuming a common Provider definition.
+Shared duties display our part; other actors remain labeled supporting evidence/dependencies.
+No sheet/row deletion, baseline reset, repeated retrieval or duplicate resource occurred.
+
+Only newly pending actor analysis used 13 additional real local Ollama requests
+through the existing shared queue. Final source states: {'assessed': 25, 'blocked': 11, 'gap': 112}.
+Section states: {'assessed': 12, 'context_only': 511, 'gap': 374}. Ambiguous/inherited actors, validation/context limits
+and 11 retrieval/parser failures remain visible coverage gaps, not proof of no duty or of
+noncompliance. Generic Provider aliases require source-specific definitions; a definition
+from a different dependency does not automatically govern the current source. Program Manager
+is not universally equated with HHSC. Contracted and active service scope remains unconfirmed.
+
+Publication: {'blocked': 0, 'created': 8, 'unchanged': 48, 'updated': 22}. Repeated sync: {'blocked': 0, 'created': 0, 'unchanged': 78, 'updated': 0}.
+Fresh-process sync and isolated restored-state sync performed zero writes. All retained
+sources reanalyzed from cache with zero model calls; no source retrieval was repeated.
+Verified backup/restore preserved source versions, decisions, evidence, requirement revisions,
+actor context, human fields and stable hierarchy. Prior determinations remain historical
+when responsibility changes; Implementation Status is human-owned and never auto-rewritten.
+
+73 unique Compliance synthetic/mock cases passed (62 existing plus 11 actor cases).
+The 30-case actor runner includes 19 imported feedback cases. Four continuity, 12 queue,
+13 complete-input and 57 Training checks passed; project/tracker delivery checks are
+recorded in the final checkpoint. Source-specific aliases, other-only withdrawal, mixed
+deadlines, shared duties, ambiguity, unchanged reuse and human/revision preservation are covered.
+The guarded installer checks shared-file hashes before any write; DP continuity/pending
+generation 3 and append-only history are preserved. Public-source/Compliance-owned data only;
+no patient data, DP learning/recovery operations or external project-tracker writes.
+
+Approved hidden scheduling is restored: daily 01:00 Central, Sunday broader discovery,
+and 15-minute sync triggers with shared actual-inference coordination. The owned pythonw
+task completed with exit 0; no DP/Training process was interrupted.
+These are trigger times, not exclusive operating windows. Existing login/access limits remain.
+Policy inventory, document comparison, drafting and independent certification remain outside scope.
+
+Files: analysis.py, baseline.py, responsibility.py, sheet.py, store.py, determinations.py, test_compliance_responsibility.py, service plan/reviewer guide and shared continuity/presentation.
+
+Validation notes: package-form actor invocation imported no tests; corrected discovery passed. Function-based project checks required their script runners; the intermediate project snapshot was stale after the in-progress checkpoint and is refreshed by the read-only tracker before final delivery. Final tracker/Git gates remain mandatory.
+
+Next service action: use the existing sheet for agency service/actor confirmations and revision-bound implementation reports; normal monitoring continues. Do not restart completed implementation.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-10",
+  "work_summary": "Program Compliance Provider/DSA-only amendment published and verified in the existing sheet.",
+  "key_result": "51 agency duties; 78 total rows. Original identities and human evidence preserved; source-specific actor questions and zero-repeat acceptance verified.",
+  "tests": "73 unique Compliance, 4 continuity, 12 queue, 13 context and 57 Training synthetic/mock checks passed; live same-sheet/restore/unchanged checks passed.",
+  "phi_handling": "Public-source evidence and Compliance-owned protected state only; no patient data, DP recovery/learning records or external tracker writes.",
+  "limitation_acceptance": "Bounded source coverage and explicit actor/context gaps; agency service scope unconfirmed. Approved hidden schedule restored; no DP/Training or external tracker changes.",
+  "exact_next_start": "Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+Delivery validation: read-only tracker Writes 0, Not Found 0 and Failed 0; 11 project-layer, 3 tracker and 4 service-continuity checks passed after refreshing the bounded local presentation. DP state prefix, one service router and append-only history preserved. Reviewed safe files only are eligible for the guarded non-force Git delivery.

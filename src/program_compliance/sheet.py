@@ -168,7 +168,12 @@ class Synchronizer:
         with self.store.transaction():
             for key,matches in bykey.items():
                 if len(matches)==1:
-                    self.store.observe_human(key,{name:matches[0]['values'].get(name) for name in HUMAN})
+                    self.store.observe_human(key,{name:matches[0]['values'].get(name) for name in HUMAN},capture_determination=False)
+        from .responsibility import reconcile
+        reconcile(self.store)
+        with self.store.transaction():
+            for key,matches in bykey.items():
+                if len(matches)==1:self.store.observe_human(key,self.store.get('human',key,{}))
         counts={'created':0,'updated':0,'unchanged':0,'blocked':0}
         # Always reconcile known findings, including restored backups and human acknowledgments.
         findings=self.store.items('finding')

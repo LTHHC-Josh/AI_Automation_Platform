@@ -7,6 +7,7 @@ import jsonschema
 from src.ai.llm.local_ollama_transport import LocalOllamaTransport
 from .store import digest
 from src.ai.llm.inference_queue import service_class
+from .responsibility import assess
 
 PROMPT_VERSION='pcm-1'
 SYSTEM='''You analyze official public program requirements for the agency role and program supplied in the profile. The pilot profile is CLASS DSA.
@@ -31,8 +32,8 @@ in each selected paragraph remain part of the requirement. Do not omit a support
 """
 
 
-def direct_duty(text):
-    return bool(re.search(r'\b(?:DSAs?|direct services agenc(?:y|ies))(?: provider)?\s+(?:must|shall|will|(?:is|are) (?:required|responsible)|may not|cannot|agrees? to)\b',text,re.I))
+def direct_duty(text,context=''):
+    return assess(text,context)['status']=='ours'
 
 
 def baseline_key(pkg,model):
@@ -86,6 +87,10 @@ def supported_effective(text):
     return None
 
 
+def duty_scope(duty):
+    return 'Agency-wide' if re.search(r'\bDSA must (?:have a written process|maintain written policies|train all staff)\b|written polic|background check|confidential|complaint process',duty,re.I) else 'Service-specific / Needs Confirmation'
+
+
 def validate(result,pkg):
     jsonschema.validate(result,SCHEMA)
     output=[];seen=set()
@@ -95,17 +100,21 @@ def validate(result,pkg):
         if i>=len(paragraphs) or i in seen: raise ValueError('citation_invalid')
         seen.add(i);quote=paragraphs[i]['text']
         # Exact paragraph grounding keeps all exceptions/negation. Model prose is never evidence.
-        if not direct_duty(quote): raise ValueError('actor_unsupported')
+        # A cited dependency does not establish that its actor aliases govern this source.
+        context=pkg.get('actor_definition_context','')+'\n'+'\n'.join(p['text'] for p in paragraphs)
+        responsibility=assess(quote,context)
+        if responsibility['status']!='ours': raise ValueError('actor_unsupported')
+        duty=responsibility['duty']
         if re.search(r'ignore (?:previous|all)|system prompt|run (?:powershell|command)|reveal.*(?:token|secret)',quote,re.I): raise ValueError('untrusted_instruction')
         if any(re.search(r'\b\d{1,4}[-/]\d{1,2}|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\b',candidate[k]) for k in ('topic','action')):
             raise ValueError('ungrounded_date_in_prose')
-        scope='Agency-wide' if re.search(r'\bDSA must (?:have a written process|maintain written policies|train all staff)\b|written polic|background check|confidential|complaint process',quote,re.I) else 'Service-specific / Needs Confirmation'
-        output.append({'paragraph':i,'quote':quote,'actor':'DSA','scope':scope,
-            'topic':candidate['topic'],'action':candidate['action'],
+        scope=duty_scope(duty)
+        output.append({'paragraph':i,'quote':quote,'agency_duty':duty,'actor':'DSA','scope':scope,
+            'topic':candidate['topic'],'action':candidate['action'] if duty==quote else 'Review our Provider/DSA duty against the existing agency process and evidence; other actors are context.',
             'applicability':'Potentially Applies' if scope=='Agency-wide' else 'Needs Confirmation',
             'reason':'DSA role confirmed by agency report.' if scope=='Agency-wide' else 'Exact contracted and active services need confirmation; staffing does not determine contractual scope.',
             'effective':supported_effective('\n'.join(p['text'] for p in paragraphs[:i+1])),
-            'deadline':quote if re.search(r'\b(within|before|after|no later than|annually|days|hours)\b',quote,re.I) else None,
+            'deadline':duty if re.search(r'\b(within|before|after|no later than|annually|days|hours)\b',duty,re.I) else None,
             'policy_coverage':'Coverage Not Assessed'})
     return output
 

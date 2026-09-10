@@ -82,6 +82,77 @@ one common insertion index fixed it without duplicate columns. All 56 current Co
 synthetic/mock tests pass, including 13 new feedback/baseline/hierarchy cases. A staging
 test invocation lacked repository fixture configuration; the actual-repository rerun passed.
 
+## Approved Provider/DSA responsibility amendment
+
+The user explicitly requires updating the actual existing LT Automation Platform >
+Program Compliance sheet, not only code or documentation. Preserve all completed baseline
+work, checkpoints and resources; do not reset the baseline or repeat completed retrieval.
+Our agency is the Provider or Direct Service Agency (DSA). Operational requirement rows
+must contain only source-supported Provider/DSA duties. CMA, HHSC, program manager,
+client/member and other parties' standalone duties are not our requirements. In shared
+processes, retain our explicit coordination, notification, verification, assistance,
+response or other duty; another actor being mentioned does not exclude our part.
+Keep other actors' source evidence and dependencies in runtime knowledge and clearly
+separate supporting context from the agency-duty summary.
+
+Resolve generic Provider and actor aliases from each source's definitions/context.
+Do not infer every Provider is our DSA, or equate Program Manager universally with HHSC.
+Ambiguous actor assignments require targeted source-context confirmation, not confident
+agency attribution. This responsibility filter is separate from service applicability
+and implementation reporting: unknown contracted/active services remain explicit and
+missing implementation evidence is not noncompliance.
+
+Apply the filter to current retained findings, future analysis and every synchronization.
+Preserve row identities, human-owned fields, completion evidence and historical revisions
+when safely reclassifying other-party/ambiguous records. Never delete parents containing
+retained children. Keep LT Project Tracking unchanged and DP/Training independent.
+
+Acceptance: DSA-only, other-party-only, explicit shared duty, ambiguous Provider and
+source-defined Provider cases; only our deadline in a mixed process; source-backed alias
+resolution without global party assumptions; same-row human/history preservation;
+unchanged reuse; actual sheet publication/readback and restored approved schedule.
+
+### Verified actor-filter acceptance
+
+The Provider/DSA amendment is verified in the same existing Program Compliance sheet.
+Live readback has 51 source-supported agency requirement/change rows and 78 total
+rows. Record counts: {'Actionable Change': 2, 'Control': 1, 'Coverage': 4, 'Group': 11, 'Question': 8, 'Reference': 1, 'Requirement': 49, 'Source Health': 2}. All original 70 row identities, human fields,
+completion evidence and parent expansion choices were preserved. Four former requirement
+records now ask for actor confirmation on the same rows. Three consolidated source-family
+questions retain source-specific ambiguities without assuming a common Provider definition.
+Shared duties display our part; other actors remain labeled supporting evidence/dependencies.
+No sheet/row deletion, baseline reset, repeated retrieval or duplicate resource occurred.
+
+Only newly pending actor analysis used 13 additional real local Ollama requests
+through the existing shared queue. Final source states: {'assessed': 25, 'blocked': 11, 'gap': 112}.
+Section states: {'assessed': 12, 'context_only': 511, 'gap': 374}. Ambiguous/inherited actors, validation/context limits
+and 11 retrieval/parser failures remain visible coverage gaps, not proof of no duty or of
+noncompliance. Generic Provider aliases require source-specific definitions; a definition
+from a different dependency does not automatically govern the current source. Program Manager
+is not universally equated with HHSC. Contracted and active service scope remains unconfirmed.
+
+Publication: {'blocked': 0, 'created': 8, 'unchanged': 48, 'updated': 22}. Repeated sync: {'blocked': 0, 'created': 0, 'unchanged': 78, 'updated': 0}.
+Fresh-process sync and isolated restored-state sync performed zero writes. All retained
+sources reanalyzed from cache with zero model calls; no source retrieval was repeated.
+Verified backup/restore preserved source versions, decisions, evidence, requirement revisions,
+actor context, human fields and stable hierarchy. Prior determinations remain historical
+when responsibility changes; Implementation Status is human-owned and never auto-rewritten.
+
+73 unique Compliance synthetic/mock cases passed (62 existing plus 11 actor cases).
+The 30-case actor runner includes 19 imported feedback cases. Four continuity, 12 queue,
+13 complete-input and 57 Training checks passed; project/tracker delivery checks are
+recorded in the final checkpoint. Source-specific aliases, other-only withdrawal, mixed
+deadlines, shared duties, ambiguity, unchanged reuse and human/revision preservation are covered.
+The guarded installer checks shared-file hashes before any write; DP continuity/pending
+generation 3 and append-only history are preserved. Public-source/Compliance-owned data only;
+no patient data, DP learning/recovery operations or external project-tracker writes.
+
+Approved hidden scheduling is restored: daily 01:00 Central, Sunday broader discovery,
+and 15-minute sync triggers with shared actual-inference coordination. The owned pythonw
+task completed with exit 0; no DP/Training process was interrupted.
+These are trigger times, not exclusive operating windows. Existing login/access limits remain.
+Policy inventory, document comparison, drafting and independent certification remain outside scope.
+
 ## Verified rebuilt baseline and feedback acceptance
 
 Human applicability decisions also remain in the revision-bound prior context. An acknowledged applicability decision without an implementation report retains internal Not Assessed and never populates the human Implementation Status cell.
@@ -344,13 +415,14 @@ Do not claim comprehensive regulatory coverage or agency compliance.
 
 ## Next Service Action
 
-Use the existing grouped Program Compliance sheet to confirm unknown contracted/active
-service facts and report implementation against the revision reviewed. Continue only
-approved incremental source-health/coverage work through retained checkpoints; unresolved
-references, complete-context limits and rejected citations remain visible gaps. Preserve
-historical decisions and compatible cache results; do not reset or recreate the sheet.
-Keep the restored approved hidden schedule and shared queue. DP follows its separate
-unchanged pending action in PROJECT_STATE.md.
+The original pilot, baseline/implementation-feedback extension and Provider/DSA amendment
+are complete. Continue normal monitoring from the retained state; do not reset, rebuild,
+recreate resources or repeat completed inference. The next human service action is to
+confirm contracted/active services and source-specific actor questions in Program Compliance,
+then record revision-bound agency implementation determinations with supporting evidence.
+Coverage gaps remain explicit; diagnose a specific failed source/context before retrying it.
+Resume with shared rules, concise platform state, this plan and the latest Compliance
+checkpoint. Preserve DP's separate pending work. No further implementation action is pending.
 
 ## Shared platform continuity, separate service memory — full additional requirements
 

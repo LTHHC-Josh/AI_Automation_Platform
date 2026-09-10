@@ -92,13 +92,13 @@ class Store:
         self.db.execute('INSERT INTO outbox(key,revision,payload,state) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET revision=excluded.revision,payload=excluded.payload,state=CASE WHEN outbox.state="uncertain" THEN "uncertain" ELSE "pending" END', (key,revision,canonical(payload),'pending'))
         return True
 
-    def observe_human(self,key,fields):
+    def observe_human(self,key,fields,*,capture_determination=True):
         old=self.get('human',key,{})
         if old!=fields:
             self.event('human_observation',key,{'previous':old,'current':fields})
             self.put('human',key,fields)
         from .determinations import observe
-        observe(self,key,fields)
+        if capture_determination:observe(self,key,fields)
 
     def backup(self, destination):
         destination=Path(destination)

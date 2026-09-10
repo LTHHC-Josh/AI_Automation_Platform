@@ -32,7 +32,7 @@ def observe(store, key, fields):
 
 def presentation(store, key, payload):
     value = dict(payload)
-    if not store.get('requirement_evidence', key):
+    if not store.get('requirement_evidence', key) or payload.get('Record Type') not in ('Requirement','Actionable Change','TEST Requirement','TEST Change'):
         value['Implementation Assessment'] = ''
         return value
     human = store.get('human', key, {})

@@ -10,6 +10,12 @@ requirements. Agency Questions, Source Health and Coverage, and Monitoring Contr
 their own parents. Parent groups are not requirements or assessments. Expand a topic to
 review its children; later synchronization preserves your expansion choice.
 
+Requirement rows represent source-supported Provider/DSA duties. In a shared process,
+the summary states our part; other actors are supporting context. Actor-confirmation
+questions are separate from service applicability and implementation reporting. Resolve
+generic Provider wording from that source's definitions; one source's alias does not
+automatically govern another. Reclassified rows retain their prior human notes/history.
+
 Open Source Section/Link and read Evidence / Before and After. Enter Applicability
 Decision, Owner, Review Status, Implementation Status, Decision Notes, Internal Target Date and Completion
 Evidence as appropriate. Copy the displayed Current Revision value into Reviewed

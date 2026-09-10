@@ -683,34 +683,35 @@ Use the retained encrypted full-context candidates and final diagnostics to fix 
 
 ## Program Compliance Monitor — Current State
 
-Original CLASS DSA pilot acceptance and shared-inference activation remain completed.
-The authorized fresh baseline and feedback extension are verified in the same Program
-Compliance sheet in LT Automation Platform. Full sheet/state backup and isolated restore
-preceded the one authorized 44-row reset; previous human/source/review history is retained.
-The bounded 148-source registry/discovery was checked, with 11 retrieval/parser failures.
-Rebuilt output: 50 requirement/change rows, 11 organizational Topic parents,
-70 total rows; zero TEST output or duplicate keys. Source states: {'assessed': 91, 'blocked': 11, 'gap': 46}.
-Section states: {'assessed': 23, 'context_only': 772, 'gap': 102}. Gaps remain explicit, not no-change or legal coverage claims.
+The original CLASS pilot, authorized baseline/implementation-feedback extension and
+Provider/DSA responsibility amendment are verified in the existing Program Compliance
+sheet in LT Automation Platform. No new reset or duplicate resources were used for the
+actor amendment. Live output: 51 agency requirement/change records, 11 Topic parents,
+78 total rows; original 70 row identities and all human fields/history preserved.
+Four former duties now require actor confirmation; three consolidated source-definition
+questions preserve individual source context. Other-party duties are excluded from agency
+requirements, while our explicit shared-process duties and relevant dependencies remain.
 
-Human-owned Implementation Status is separate from Review Status. Agency-reported status,
-notes and completion evidence bind to the Reviewed Revision and retained source/profile
-support. Compatible Met reports suppress repeat work; changed/removed duties or relevant
-context require reassessment without modifying human cells or erasing historical reports.
-Human applicability decisions also remain in the revision-bound prior context. An acknowledged applicability decision without an implementation report retains internal Not Assessed and never populates the human Implementation Status cell.
-Stable collapsed new topic parents group requirements, questions, health/coverage and controls;
-later user expansion and same-row human fields are preserved. Real readback, zero unchanged
-model calls/writes, and a fresh-process backup/restore and same-sheet reconciliation passed.
+Implementation Status remains separate from Review Status. Agency-reported determinations,
+evidence and notes bind to Reviewed Revision and supporting source/profile versions.
+Compatible results reuse cache and suppress repeated completed work; changed evidence
+requires reassessment without modifying human cells or erasing historical reports.
+Fresh-process/isolated-restore readback and unchanged analysis used zero writes/inference.
+73 unique Compliance synthetic/mock tests and affected shared/Training regressions passed.
 
-62 Compliance tests (43 retained plus 19 new feedback/baseline/hierarchy cases), 4 continuity,
-12 shared-queue, 13 context-contract and 57 Training regressions passed, synthetic/mock.
-Live source retrieval, local Ollama and dedicated-sheet publication are separate real checks.
-Only Compliance was paused during maintenance. The prior approved hidden schedule is restored:
-daily 01:00 Central, Sunday discovery and 15-minute sync, with one actual inference and bounded
-DP priority through the existing shared queue. DP/Training processes and learning/recovery
-records remain untouched. LT Project Tracking remains unchanged (read-only reconciliation).
-No policy inventory, comparison, drafting or independently certified compliance is included.
+The 148-source bounded registry and source history remain intact; 11 retrieval/parser
+failures and explicit actor/context/validation gaps remain. Source states: {'assessed': 25, 'blocked': 11, 'gap': 112}.
+Contracted/active services and source-specific actor ambiguities need human confirmation;
+unknown implementation is not noncompliance. Full acceptance and gaps are in the plan.
 
-Authoritative full requirements, evidence and Next Service Action:
+Approved hidden scheduling is restored: daily 01:00 Central, Sunday discovery, 15-minute
+sync triggers. One actual inference uses the existing shared queue with bounded DP priority;
+idle workers do not block Compliance. Owned task exit 0 verified. DP/Training processes,
+learning/recovery state and pending work remain untouched. LT Project Tracking remains
+unchanged through read-only delivery checks. No policy inventory/comparison/drafting or
+independently certified compliance is included.
+
+Authoritative full requirements, acceptance and Next Service Action:
 docs/program_compliance_plan.md. Reviewer guide: docs/program_compliance_operations.md.
 
 ## CURRENT NEXT START

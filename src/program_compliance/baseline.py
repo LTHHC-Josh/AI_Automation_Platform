@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from .analysis import package, validate, direct_duty, baseline_key
 from .determinations import prior_context
 from .store import digest, now
+from .responsibility import assess, definition_context, prior_compatible
 
 FAILURE_CODES = frozenset(('citation_invalid','actor_unsupported','untrusted_instruction',
     'ungrounded_date_in_prose','outside_requested_paragraphs','context_incomplete',
@@ -66,10 +67,15 @@ def analyze_source(monitor, source, budget):
         live_sections.add(key)
         texts = paragraphs(section['text'])
         blocks = align(store.get('section', key, {'paragraphs':[]})['paragraphs'], texts)
-        targets = [i for i, text in enumerate(texts) if direct_duty(text)]
+        actor_context=definition_context(document)
+        actor_results=[assess(text,section['text']+'\n'+actor_context) for text in texts]
+        targets = [i for i,result in enumerate(actor_results) if result['status']=='ours']
         report = {'source':source['id'],'source_version':source['version'],'heading':section['heading'],
                   'text_version':digest(section['text']),'targets':len(targets),'found':0,'gaps':[],'state':'assessed'}
         with store.transaction(): store.put('section', key, {'heading':section['heading'],'paragraphs':blocks,'version':digest(section['text'])})
+        if any(r['ambiguous_context'] for r in actor_results):
+            report['gaps'].append('actor_assignment_requires_confirmation')
+        with store.transaction():store.put('source_actor_context',key,{'definition_context':actor_context,'paragraphs':actor_results})
         if not targets:
             # Do not silently certify an ambiguous inherited/generic actor duty as irrelevant.
             if re.search(r'\bDSAs?\b|direct services agenc', section['text']+' '+section['heading'], re.I) and re.search(r'\bmust\b|\bshall\b|\brequired\b', section['text'], re.I):
@@ -85,6 +91,7 @@ def analyze_source(monitor, source, budget):
                 pkg = package(source, section, profile, resolved)
                 pkg['paragraphs'] = [{'paragraph':i,'text':text} for i,text in enumerate(texts)]
                 pkg['source_version'] = digest(section['text'])
+                if actor_context and any(re.search(r'\bprovider',texts[i],re.I) for i in targets):pkg['actor_definition_context']=actor_context
                 for start in range(0, len(targets), 3):
                     chunk = {**pkg,'target_paragraphs':targets[start:start+3],'baseline_contract':'all-targets-v1'}
                     context = {}
@@ -94,6 +101,7 @@ def analyze_source(monitor, source, budget):
                         prior = prior_context(store, finding_key, old.get('meaning_version'))
                         if prior:
                             prior['compatible_with_current_evidence'] = (prior['support'].get('quote') == texts[i]
+                                and prior_compatible(prior['support'],actor_results[i])
                                 and prior['support'].get('section_version') == digest(section['text'])
                                 and prior['support'].get('profile') == {k:profile[k] for k in prior['support'].get('profile',{})}
                                 and prior['support'].get('dependencies') == resolved)
@@ -181,7 +189,7 @@ def publish(monitor, source, section, resolved, profile, obligation, key, reques
         return
     proposed = 'proposed' in source['url'].lower() or source.get('type') == 'Proposed rule'
     row = monitor.record('Reference' if proposed else ('Actionable Change' if previous else 'Requirement'),
-        obligation['topic'], obligation['quote'], 'Review proposal; it is not an effective requirement.' if proposed else obligation['action'],
+        obligation['topic'], obligation.get('agency_duty',obligation['quote']), 'Review proposal; it is not an effective requirement.' if proposed else obligation['action'],
         **{'Responsible Party/Duty Scope':'DSA / '+obligation['scope'],
            'Source Section/Link':section['heading']+' | '+source['url'],
            'Suggested Applicability/Reason':('Proposed rule; not effective.' if proposed else obligation['applicability']+' — '+obligation['reason'])+' Implementation is not assessed.',
@@ -194,7 +202,8 @@ def publish(monitor, source, section, resolved, profile, obligation, key, reques
         row['Evidence / Before and After']='Current evidence: '+obligation['quote']+'\nPrevious evidence remains in revision history.'
     with store.transaction():
         if previous and store.get('finding',key):
-            store.put('requirement_revision',key+':'+store.get('finding',key)['Current Revision'],previous)
+            old_revision_key=key+':'+store.get('finding',key)['Current Revision']
+            if store.get('requirement_revision',old_revision_key) is None:store.put('requirement_revision',old_revision_key,previous)
         store.put('requirement_evidence',key,{'quote':obligation['quote'],'meaning_version':meaning,'source_version':source['version'],
             'section_version':digest(section['text']),'profile':supporting,'dependencies':resolved,'request_key':request_key})
         store.publish(key,row,evidence_version=meaning)
@@ -206,7 +215,7 @@ def reassess(store, key, item, version):
     if store.get('reassessment',key,{}).get('context_version') == version: return
     with store.transaction():
         support=store.get('requirement_evidence',key)
-        if support: store.put('requirement_revision',key+':'+item['Current Revision'],support)
+        if support and store.get('requirement_revision',key+':'+item['Current Revision']) is None:store.put('requirement_revision',key+':'+item['Current Revision'],support)
         store.publish(key,{**item,'Record Type':'Actionable Change','Review Needed':True,
             'Proposed Action':'Source duty or supporting context changed or was removed. Reassess against retained prior evidence; current interpretation is pending.'},evidence_version=version)
         if support:
