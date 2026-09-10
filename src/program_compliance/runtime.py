@@ -41,8 +41,12 @@ def schedule_due(schedule,previous,instant=None):
     daily=local.strftime('%H:%M')>=schedule['daily_time'] and previous.get('daily')!=local.date().isoformat()
     week=local.strftime('%G-%V')
     weekly=local.weekday()==schedule['weekly_day'] and local.strftime('%H:%M')>=schedule['daily_time'] and previous.get('weekly')!=week
-    last=datetime.fromisoformat(previous['sync']) if previous.get('sync') else None
-    sync=not last or (instant-last).total_seconds()>=schedule['sync_minutes']*60
+    last_trigger=previous.get('sync_trigger') or previous.get('sync')
+    last=datetime.fromisoformat(last_trigger) if last_trigger else None
+    period=schedule['sync_minutes']*60
+    # Compare trigger slots, not completion elapsed time: API latency must not
+    # cause the next quarter-hour trigger to be skipped. UTC slots survive DST.
+    sync=not last or int(instant.timestamp()//period)>int(last.timestamp()//period)
     return {'sync':sync,'daily':daily,'weekly':weekly,'model':model,'date':local.date().isoformat(),'week':week}
 
 
@@ -54,14 +58,16 @@ def pending_check(store):
 
 def run_tick(store,monitor,sync,instant=None):
     schedule=store.get('config','schedule',monitor.config['schedule'])
-    previous=store.get('runtime','schedule',{})
-    due=schedule_due(schedule,previous,instant)
     if not schedule['enabled']: return {'state':'activation_pending'}
     with OwnedLock(store.directory):
+        instant=instant or datetime.now(timezone.utc)
+        previous=store.get('runtime','schedule',{})
+        due=schedule_due(schedule,previous,instant)
         result={}
         if due['sync']:
             monitor.health_rows()
             result['sync']=sync.sync();monitor.ingest_answers();previous['sync']=now()
+            previous['sync_trigger']=instant.isoformat()
         request=pending_check(store)
         check=due['daily'] or due['weekly'] or request is not None
         if request:

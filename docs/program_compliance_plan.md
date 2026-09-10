@@ -9,6 +9,51 @@ service checkpoint to resume. Full DP history is not required for compliance wor
 Shared platform rules remain authoritative for safety; new explicit user direction
 governs scope. Development notes are not production memory or the operational sheet.
 
+## Recovered original-goal acceptance audit — September 10, 2026
+
+The original implementation objective is restored through the goal-management capability,
+not replaced with the later status question or this recovery instruction. Its original scope
+and all destination, continuity, shared-inference and hidden-launch amendments remain binding.
+The verbatim original implementation objective and full checklist remain below.
+
+| Original acceptance criterion | Retained evidence and final audit |
+| --- | --- |
+| 1. Official CLASS evidence retrieved/attributed | Verified: official_baseline and local_overflow pinned-retrieval acceptance records. |
+| 2. Useful incremental source-backed DSA baseline | Verified: official_baseline/current_prompt each retain three official findings. |
+| 3. One TEST substantive review generation | Verified: live_test_revision records one added generation and one TEST row. |
+| 4. Unchanged/cosmetic checks do not duplicate/reopen | Verified: cosmetic/unchanged tests, live TEST zero calls/writes, fresh restart zero duplicates. |
+| 5. Explicit uncertainty and consolidated questions | Verified: one service-scope question; profile-confirmation and question tests. Agency facts remain unknown. |
+| 6. Citation/date/actor/exception/untrusted-content tests | Verified: corresponding tests in test_program_compliance.py pass. |
+| 7. Dedicated sheet finding and readback | Verified: live sheet acceptance; later readback 41 unchanged, zero creates/updates/blocked. |
+| 8. Human edits survive synchronization/revision | Verified: live_test_revision human_fields_preserved plus ownership/acknowledgment tests. |
+| 9. Lost-response/restart/duplicate/restore | Verified: recovery tests and restart_backup (real restore, zero duplicate rows/writes/model calls). |
+| 10. Local Ollama and complete-input behavior | Verified: current_prompt_complete, real overflow rejected without candidate, shared context tests. |
+| 11. Compliance controls isolated; shared regressions | Verified: owned-lock/stop/import tests, affected DP/Training regressions, shared_queue_v1 real concurrent providers. |
+| 12. Visible source failure distinct from no change | Verified: retained initial two retrieval failures, health rows and failed-fetch/empty-parse tests. |
+| 13. Scheduling ready with decisions explicit | Verified after cadence correction: actual enabled hidden task exit 0; trigger-slot tests prevent skipped quarter-hours caused by completion latency. |
+
+Continuity additions: dedicated resume contract/plan and one root routing entry are tested;
+DP pending action and full prior history are preserved; runtime imports/state remain separate;
+source/profile revision tests reopen affected decisions while retaining historical human fields;
+compatible unchanged work reuses results; guarded shared writes preserve competing changes;
+continuity and read-only tracker gates pass. Destination remains Program Compliance in
+LT Automation Platform, with LT Project Tracking unchanged. Shared capacity is one actual
+request, bounded DP priority and FIFO background order, independent of idle workers. Three
+concurrent real provider processes verified that boundary; no production DP replay is claimed.
+
+Audit correction: elapsed time from sync completion could skip the following quarter-hour
+trigger. Runtime now compares UTC trigger slots, retaining sync_trigger separately from completion
+and falling back to the old sync timestamp for existing state. It reads prior schedule state
+under the service-owned lock. Three new synthetic tests prove completion-latency tolerance,
+cross-boundary completion and persisted same-slot deduplication. Current Compliance suite:
+43 passed. The previous 279-test acceptance remains retained; these add three new cases.
+No prompts, inference behavior, source identities, sheet bindings or human decisions changed.
+
+Remaining operational work: bounded incremental coverage/source-health gaps, human confirmation
+of contracted/active services, and DP's separate unresolved correction. These were explicitly
+allowed pilot limitations; no missing implementation acceptance criterion remains after the
+cadence fix and delivery gates. Monitoring requires the user to remain logged in.
+
 ## Approved shared-inference amendment — September 10, 2026
 
 This newer instruction supersedes the fixed/idle operating-window and worker-marker

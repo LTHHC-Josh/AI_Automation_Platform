@@ -249,6 +249,34 @@ class ComplianceTests(unittest.TestCase):
         later=schedule_due(schedule,previous,datetime(2026,9,13,6,15,tzinfo=timezone.utc))
         self.assertTrue(later['sync']);self.assertFalse(later['daily']);self.assertFalse(later['weekly'])
 
+    def test_sync_completion_latency_does_not_skip_next_trigger(self):
+        schedule=copy.deepcopy(self.config['schedule']);schedule['enabled']=True
+        previous={'sync':'2026-09-10T18:00:08+00:00'}
+        self.assertTrue(schedule_due(schedule,previous,datetime(2026,9,10,18,15,tzinfo=timezone.utc))['sync'])
+        self.assertFalse(schedule_due(schedule,previous,datetime(2026,9,10,18,14,59,tzinfo=timezone.utc))['sync'])
+
+    def test_long_sync_uses_trigger_slot_and_not_later_completion_slot(self):
+        schedule=copy.deepcopy(self.config['schedule']);schedule['enabled']=True
+        previous={'sync':'2026-09-10T18:16:08+00:00','sync_trigger':'2026-09-10T18:00:00+00:00'}
+        self.assertTrue(schedule_due(schedule,previous,datetime(2026,9,10,18,17,tzinfo=timezone.utc))['sync'])
+
+    def test_tick_persists_trigger_and_reuses_it_without_same_slot_work(self):
+        from unittest.mock import Mock,patch
+        from src.program_compliance.runtime import run_tick
+        schedule=copy.deepcopy(self.config['schedule']);schedule['enabled']=True
+        with self.store.transaction(): self.store.put('config','schedule',schedule)
+        monitor=Mock();monitor.config=self.config;monitor.cycle.return_value={'model_calls':0}
+        sync=Mock();sync.sync.return_value={'unchanged':1}
+        with patch('src.program_compliance.runtime.now',return_value='2026-09-10T18:00:08+00:00'):
+            run_tick(self.store,monitor,sync,datetime(2026,9,10,18,0,tzinfo=timezone.utc))
+        saved=self.store.get('runtime','schedule')
+        self.assertEqual(saved['sync_trigger'],'2026-09-10T18:00:00+00:00')
+        calls=sync.sync.call_count
+        run_tick(self.store,monitor,sync,datetime(2026,9,10,18,0,20,tzinfo=timezone.utc))
+        self.assertEqual(sync.sync.call_count,calls)
+        run_tick(self.store,monitor,sync,datetime(2026,9,10,18,15,tzinfo=timezone.utc))
+        self.assertGreater(sync.sync.call_count,calls)
+
     def test_confirmed_service_profile_does_not_reopen_agency_wide(self):
         key,before=self.baseline()
         question=self.store.get('finding','question:agency-services')

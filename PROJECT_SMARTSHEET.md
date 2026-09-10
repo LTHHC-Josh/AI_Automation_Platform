@@ -5,11 +5,11 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-10
-Work: Program Compliance shared inference and recurring activation; DP pending work preserved.
-Result: Single-request queue verified across three local providers; DP priority with bounded background fairness. First scheduled tick exited 0.
-Tests: 279 synthetic/mock tests passed; real concurrent Ollama acceptance passed. First scheduled cycle: 8 checks, 0 failures, 2 model calls.
-PHI: Synthetic/public input only; no production DP learning/recovery, approvals or tracker writes.
-Status: Bounded source coverage; user must be logged in. Uncertain inference blocks admission until reconciled. LT Project Tracking unchanged.
+Work: Program Compliance original implementation goal restored and acceptance audited; sync cadence corrected.
+Result: Preserved existing resources and DP work. UTC trigger slots prevent skipped quarter-hour sync after completion latency.
+Tests: 43 Compliance tests passed, including 3 new cadence cases; prior 279-test and real integration acceptance retained.
+PHI: Synthetic/read-only acceptance metadata only; no DP learning/recovery records, patient data or tracker writes.
+Status: Incremental coverage and agency-service confirmation remain operational work. Active hidden schedule requires logged-in user.
 Next: Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly.
 
 ## Safety Contract

@@ -14866,3 +14866,55 @@ successfully. Full shared continuity is preserved; latest read-only tracker gate
 Writes 0, Not Found 0, Failed 0. Fresh sheet reconciliation found 41 unchanged, zero creates,
 updates or blocked records. Exact service action remains the active incremental CLASS/gap
 queue in docs/program_compliance_plan.md; DP's separate pending action is unchanged.
+
+
+## 2026-09-10 — Program Compliance Monitor original-goal recovery / cadence correction
+
+The user identified that the saved goal had been replaced with their status question.
+Recovered the original /goal attachment and all later service-memory, destination,
+concurrent-operation and hidden-launch amendments. Displayed the original objective and
+13-item acceptance/evidence comparison before restoring the implementation objective
+through create_goal (get_goal returned no saved goal). No duplicate implementation,
+sheet, scheduler or runtime store was created. The restored goal remains the implementation
+objective, not this recovery instruction; full approved requirements remain in the plan.
+
+Read-only retained-evidence audit confirmed official_baseline/current_prompt (three official
+findings), live_test_revision (one generation, preserved human fields, zero unchanged calls/
+writes), local_overflow (no candidate), restart_backup (real restore, zero duplicate/writes/
+model calls), shared_queue_v1 (three actual concurrent providers, peak inference one), and
+active hidden task LastTaskResult 0. No production DP/Training records or model prompts were read.
+
+Found one real scheduling gap: completion timestamp elapsed-time comparison could skip the
+next quarter-hour trigger after normal API latency. Changed only Compliance runtime scheduling
+to compare UTC interval slots, store sync_trigger separately, and read prior state after
+acquiring the Compliance lock. Legacy sync timestamps remain usable; existing records and
+resources require no reset. Three new tests cover latency, cross-boundary completion, and
+persisted same-slot deduplication. Compilation and all 43 Compliance tests passed, synthetic/
+mock only, adding three cases to the retained 279-test acceptance. No real inference was repeated
+for this correction. Relevant continuity/tracker checks and safe Git delivery follow.
+
+Updated authoritative plan with the complete criterion mapping and allowed operational gaps.
+Preserved DP pending work verbatim, all earlier history append-only, and the single root routing
+entry. LT Project Tracking remains unchanged; only read-only reconciliation is authorized.
+Exact next service action remains approved incremental CLASS coverage and the human/source-health
+queue. Full regulatory coverage, agency compliance certification and DP correction completion
+are not claimed by this pilot's completion.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-10",
+  "work_summary": "Program Compliance original implementation goal restored and acceptance audited; sync cadence corrected.",
+  "key_result": "Preserved existing resources and DP work. UTC trigger slots prevent skipped quarter-hour sync after completion latency.",
+  "tests": "43 Compliance tests passed, including 3 new cadence cases; prior 279-test and real integration acceptance retained.",
+  "phi_handling": "Synthetic/read-only acceptance metadata only; no DP learning/recovery records, patient data or tracker writes.",
+  "limitation_acceptance": "Incremental coverage and agency-service confirmation remain operational work. Active hidden schedule requires logged-in user.",
+  "exact_next_start": "Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+Recovery delivery gates: four service-continuity tests passed. The first project-layer test
+correctly detected the stale generated summary after the new checkpoint; regeneration through
+read-only tracker reconciliation corrected it. Eleven project-layer and three tracker tests
+then passed. Read-only tracker: Writes 0, Not Found 0, Failed 0. No external tracker mutations.
+The cadence change is limited to Compliance runtime and three new synthetic tests; DP/Training
+shared inference and business behavior are unchanged from the retained verified commit.
