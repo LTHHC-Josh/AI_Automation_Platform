@@ -640,6 +640,35 @@ def synchronize_project_smartsheet() -> None:
     print("=" * 60)
 
 
+
+def inspect_project_smartsheet_read_only():
+    """Reconcile tracker identities without mutating the management workspace."""
+    presentation = load_project_smartsheet()
+    write_project_smartsheet_snapshot(presentation)
+    updates = project_smartsheet_updates(presentation)
+    not_found = 0
+    failed = 0
+    try:
+        tasks = ProjectStatusService().tasks.get_tasks()
+        for name, _, _ in updates:
+            matches = [task for task in tasks if task.name == name]
+            if not matches:
+                not_found += 1
+            elif len(matches) != 1:
+                failed += 1
+    except Exception:
+        failed += 1
+    print("Mode      : Read-only reconciliation; no external synchronization")
+    print("Writes    : 0")
+    print(f"Not Found : {not_found}")
+    print(f"Failed    : {failed}")
+    return {"not_found": not_found, "failed": failed, "writes": 0}
+
+
 if __name__ == "__main__":
     print_project_history_status()
+    import sys
+    if "--read-only" in sys.argv:
+        result = inspect_project_smartsheet_read_only()
+        raise SystemExit(1 if result["not_found"] or result["failed"] else 0)
     synchronize_project_smartsheet()

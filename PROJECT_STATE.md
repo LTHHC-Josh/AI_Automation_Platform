@@ -669,6 +669,35 @@ Operator commands remain:
 - `PROJECT_SMARTSHEET.md` is regenerated from the latest structured history
   checkpoint and is never an authoritative recovery source.
 
-## CURRENT NEXT START
+## Document Processor — Current Service Summary
+
+Existing DP facts, limitations and verified baseline above remain unchanged. Its
+same-case correction remains blocked at generation 3. No DP/Training runtime,
+registration, patient data, learning or recovery state was operated on for this pilot.
+The shared Ollama transport was mechanically extracted with focused regressions;
+DP prompts and business behavior remain unchanged. Existing registrations were not refreshed.
+
+## Document Processor — Pending Action
 
 Use the retained encrypted full-context candidates and final diagnostics to fix service-section evidence/subtype support and investigate out-of-scope Hours/Days Per Week value changes. Prove the correction synthetically before any further replay or rearm. Preserve blocked generation 3, review snapshot, comments, approvals, existing row/document and idempotency; do not resend the document or request approval of an unverified proposal. DP and Training remain stopped during exclusive maintenance.
+
+## Program Compliance Monitor — Current State
+
+Separate CLASS DSA pilot: approved public-source retrieval, incremental local-Ollama
+baseline, dedicated Program Compliance sheet in LT Automation Platform, immutable
+source versions, SQLite state, durable write intents, human revision acknowledgments,
+consolidated service-scope question, source-health queue and bounded owned scheduler.
+Three real section-3500 DSA findings and one clearly labeled TEST change are retained.
+Live same-row revision, human-field preservation, unchanged fresh-process readback,
+local overflow rejection and real backup/restore passed. Source coverage remains
+bounded: additional sections, current rules, inaccessible pages and references remain gaps.
+Recurring activation and reboot startup are disabled pending the model-window and
+resource-sharing decision. LT Project Tracking is unchanged; management reconciliation
+for this checkpoint uses the explicit read-only gate. No external management sync is claimed.
+
+Authoritative service scope, full requirements, acceptance and next action:
+docs/program_compliance_plan.md. Operator/reviewer guide: docs/program_compliance_operations.md.
+
+## CURRENT NEXT START
+
+Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly.

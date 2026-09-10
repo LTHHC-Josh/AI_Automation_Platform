@@ -14700,3 +14700,92 @@ records remain retained; completed temporary runners/inspectors are removed.
   "exact_next_start": "Use the retained encrypted full-context candidates and final diagnostics to fix service-section evidence/subtype support and investigate out-of-scope Hours/Days Per Week value changes. Prove the correction synthetically before any further replay or rearm. Preserve blocked generation 3, review snapshot, comments, approvals, existing row/document and idempotency; do not resend the document or request approval of an unverified proposal. DP and Training remain stopped during exclusive maintenance."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+
+## 2026-09-10 — Program Compliance Monitor: first operational CLASS pilot
+
+User approved scoped implementation, local Ollama and public-source acceptance, and
+the new operational sheet. Final destination: LT Automation Platform / Program Compliance.
+User explicitly required LT Project Tracking unchanged and separate service memory.
+The full original plan and implementation requirements, acceptance criteria and memory
+instructions are preserved in docs/program_compliance_plan.md. The root next start now
+routes by service; the previous DP pending action is preserved verbatim. All prior shared
+state content and historical checkpoints are preserved. Shared writes use reviewed hashes
+and fail closed on concurrent changes; no other task's changes are staged.
+
+Files: src/program_compliance/{__init__,__main__,store,sources,pdf_text,analysis,service,
+sheet,runtime,continuity}.py; config/program_compliance/class.json;
+src/ai/llm/local_ollama_transport.py; src/ai/llm/providers/ollama_provider.py;
+tests/test_program_compliance.py; tests/test_program_compliance_continuity.py;
+requirements-program-compliance.txt; docs/program_compliance_plan.md;
+docs/program_compliance_operations.md; shared state/history/presentation;
+update_project_tracker.py (explicit read-only reconciliation mode; default behavior preserved).
+
+Five existing local transport methods were mechanically extracted unchanged. Compliance
+does not import DP business context, prompts, document processing, correction or learning.
+Runtime SQLite/snapshots/locks are independent under the owner's local application data,
+outside Git. The sheet has typed system columns and explicit human ownership. An explicit
+Reviewed Revision token and formula bind acknowledgment to the displayed source/profile
+revision. TEST changes are unmistakably labeled and excluded from scheduled source scans.
+
+Real official/local acceptance: seven seed checks, two retrieval failures, three grounded
+section-3500 DSA obligations; local server 0.33.3, context 8192/output 1200, 490 input and
+176 output tokens, about 40.3 seconds, done=true/reason=stop, no truncation/context shift.
+Real synthetic overflow was rejected with no candidate. Production pinned-public-IP HTTPS
+retrieval verified the official section. The old handbook URL's redirect is not asserted.
+Source/index/linked coverage is incremental, not full legal or contractual coverage.
+
+Smartsheet creation initially returned a definite 400/1032 rejection because column
+locking is not accepted on creation. Corrected creation followed by column locks succeeded;
+delayed workspace-list readback was reconciled without another create. The initial publication
+created 31 verified rows and eight uncertain readbacks; all eight were exclusively blank/null
+equivalence mismatches. Normalized readback reconciled 39 rows with zero new writes or blockers.
+One separate TEST row then proved exactly one substantive review generation and preservation
+of simulated human notes, owner, completion status/evidence and old revision acknowledgment.
+Unchanged TEST follow-up had zero model calls/writes. Fresh-process acceptance retained all
+40 findings, made zero model calls/writes/duplicates, and verified real backup/restore.
+This TEST evidence is synthetic; only the official baseline is real regulatory-source evidence.
+
+Testing classifications: synthetic deterministic/mock for local logic and ownership;
+real external integration for official source and dedicated-sheet readback; real local Ollama
+for grounded analysis and synthetic overflow. Initial Windows byte-lock re-entry test exposed
+a permission error before lock acquisition; corrected handling closes the handle and fails
+with compliance_busy. A later test's default Windows text encoding failed on UTF-8 source;
+explicit UTF-8 fixed the test. Neither failure was reported as a pass. Final current compliance
+suite: 38 passed. Existing complete-input shared regression: 13 passed. Compilation passed.
+
+Operational boundaries: daily/weekly/sync scheduling and unique Check Now requests are
+implemented, with persisted bounded work/backoff and owned cooperative stop. No recurring
+activation, reboot startup, notification emails, regulatory submissions or policy actions.
+Shared Ollama worker-marker admission is conservative, not an atomic cross-service capacity
+lease; an agreed idle operating window is required before activation. Exact contracted/active
+services remain a consolidated human question. Missing policy coverage is Not Assessed.
+
+Tracker/Git delivery gates follow below. The newer instruction to keep LT Project Tracking
+unchanged supersedes external tracker mutations for this checkpoint. The local bounded
+PROJECT_SMARTSHEET presentation is regenerated, but external synchronization is not claimed.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-10",
+  "work_summary": "Program Compliance Monitor: implemented the separate CLASS pilot and retained DP continuity.",
+  "key_result": "Three official DSA findings, dedicated sheet, one TEST review revision; human fields preserved. Fresh restart made no writes or model calls; backup/restore passed.",
+  "tests": "97 synthetic/mock regressions passed. Real official retrieval, local model/overflow, sheet revision/restart and backup/restore passed; disabled scheduler XML accepted.",
+  "phi_handling": "Public evidence and dedicated compliance state only. No patient documents, mailbox, DP recovery/learning or tracker writes.",
+  "limitation_acceptance": "Bounded coverage; inaccessible/current-rule/reference gaps remain. Recurring activation awaits model window/sharing. LT Project Tracking unchanged; read-only reconciliation only.",
+  "exact_next_start": "Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+Final Program Compliance acceptance gates: 97 synthetic/mock tests passed (39 compliance,
+4 service-continuity, 13 shared context, 21 service-line schema/prompt, 6 context recovery,
+11 project-layer migration, 3 tracker reconciliation). The final prompt/schema digest is
+part of the analysis cache key; one bounded current-contract official-context run completed
+with 501 input/194 output tokens in 43.5 seconds. Native Task Scheduler XML parsing under
+Windows PowerShell 5.1 accepted the disabled definition; no task was registered or enabled.
+Schedule registration code is explicit and ownership-checked. Human agency-fact confirmation
+is two-stage: changed answer text produces a new question revision before acceptance, so
+the old acknowledgment cannot approve new facts. Deployment and requirements files are
+included in the reviewed scope. No DP operations or management-sheet writes occurred.
+Read-only tracker gate: Writes 0, Not Found 0, Failed 0. Protected ignore and diff checks
+passed; reviewed files only proceed to the user-authorized commit/push gate.

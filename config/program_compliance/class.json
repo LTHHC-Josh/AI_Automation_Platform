@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "profile": {"version": 1, "program": "CLASS", "role": "DSA", "role_evidence": "Agency report", "contracted_services": null, "active_services": null, "staffing": "Non-skilled; no nursing staff", "policy_coverage": "Coverage Not Assessed"},
+  "boundaries": [
+    {"host": "fhb.hhs.texas.gov", "paths": ["/handbooks/community-living-assistance-support-services-provider-manual", "/handbooks/community-living-assistance-support-services-class-provider-manual", "/handbooks/electronic-visit-verification-policy-handbook", "/forms"]},
+    {"host": "www.hhs.texas.gov", "paths": ["/providers/long-term-care-providers/community-living-assistance-support-services-class", "/laws-regulations/handbooks/classpm", "/sites/default/files/documents"]},
+    {"host": "www.tmhp.com", "paths": ["/news", "/resources/provider-manuals", "/sites/default/files/file-library/ltc"]},
+    {"host": "www.sos.texas.gov", "paths": ["/tac", "/texreg"]},
+    {"host": "texas-sos.appianportalsgov.com", "paths": ["/rules-and-meetings"]}
+  ],
+  "seeds": [
+    {"id": "class-3500", "url": "https://fhb.hhs.texas.gov/handbooks/community-living-assistance-support-services-class-provider-manual/3500-service-initiation", "publisher": "Texas HHSC", "type": "Handbook", "scope": "CLASS DSA service initiation", "analyze": true},
+    {"id": "class-manual", "url": "https://fhb.hhs.texas.gov/handbooks/community-living-assistance-support-services-provider-manual", "publisher": "Texas HHSC", "type": "Index", "scope": "CLASS manual discovery", "analyze": false},
+    {"id": "class-revisions", "url": "https://fhb.hhs.texas.gov/handbooks/community-living-assistance-support-services-class-provider-manual/class-revisions", "publisher": "Texas HHSC", "type": "Revision notices", "scope": "CLASS manual revisions", "analyze": false},
+    {"id": "class-letters", "url": "https://www.hhs.texas.gov/providers/long-term-care-providers/community-living-assistance-support-services-class/class-information-provider-letters?page=0", "publisher": "Texas HHSC", "type": "Provider communications", "scope": "CLASS provider letters", "analyze": true},
+    {"id": "tmhp-class-documentation", "url": "https://www.tmhp.com/news/2026-04-20-hhsc-has-published-il-2026-08-replaces-il-2024-07-evv-documentation-related-forms", "publisher": "TMHP", "type": "Provider communications", "scope": "CLASS documentation / EVV", "analyze": true},
+    {"id": "texas-current-rules", "url": "https://www.sos.texas.gov/tac/index.shtml", "publisher": "Texas Secretary of State", "type": "Rules gateway", "scope": "Resolve current 26 TAC Chapter 259", "analyze": false},
+    {"id": "texas-register", "url": "https://www.sos.texas.gov/texreg/sos/", "publisher": "Texas Secretary of State", "type": "Register index", "scope": "CLASS / Chapter 259 proposed and adopted notices", "analyze": false}
+  ],
+  "limits": {"sources_per_check": 8, "analyses_per_check": 2, "seconds_per_check": 900, "discovered_sources": 250},
+  "schedule": {"enabled": false, "timezone": "America/Chicago", "daily_time": "01:00", "weekly_day": 6, "sync_minutes": 15, "model_window": null, "resource_sharing_confirmed": false},
+  "routing": {},
+  "coverage_gaps": ["Exact contracts, active services and licensing scope need agency confirmation.", "Current Chapter 259 rule text and additional referenced authorities require successful retrieval and verification.", "Private contract amendments and policies are outside this public-source pilot.", "Coverage is bounded and incremental; no complete regulatory coverage or compliance certification."]
+}

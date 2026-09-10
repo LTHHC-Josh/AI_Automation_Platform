@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-10
-Work: Ran the explicitly approved full-context same-case recovery and verified unchanged-cycle idempotency.
-Result: Full retry input processed, but Hours/Days Per Week drift and unresolved service/subtype evidence still block correction. No plan applied.
-Tests: 85 synthetic/mock checks passed; one cached/local replay completed. Fresh-process unchanged cycle: zero model calls/writes, same generation.
-PHI: Evidence retained encrypted locally. Human controls/comments, row fields and attachment unchanged; no mailbox or fresh OCR access.
-Status: Blocked generation 3/contract 6 remains consumed. No verified proposal ready. DP/Training stopped; no blind retry.
-Next: Use the retained encrypted full-context candidates and final diagnostics to fix service-section evidence/subtype support and investigate out-of-scope Hours/Days Per Week value changes. Prove the correction synthetically before any further replay or rearm. Preserve blocked generation 3, review snapshot, comments, approvals, existing row/document and idempotency; do not resend the document or request approval of an unverified proposal. DP and Training remain stopped during exclusive maintenance.
+Work: Program Compliance Monitor: implemented the separate CLASS pilot and retained DP continuity.
+Result: Three official DSA findings, dedicated sheet, one TEST review revision; human fields preserved. Fresh restart made no writes or model calls; backup/restore passed.
+Tests: 97 synthetic/mock regressions passed. Real official retrieval, local model/overflow, sheet revision/restart and backup/restore passed; disabled scheduler XML accepted.
+PHI: Public evidence and dedicated compliance state only. No patient documents, mailbox, DP recovery/learning or tracker writes.
+Status: Bounded coverage; inaccessible/current-rule/reference gaps remain. Recurring activation awaits model window/sharing. LT Project Tracking unchanged; read-only reconciliation only.
+Next: Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly.
 
 ## Safety Contract
 

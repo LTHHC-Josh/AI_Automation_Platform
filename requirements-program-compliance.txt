@@ -1,0 +1,9 @@
+# Verified pilot environment; separate from DP package installation and runtime.
+requests==2.34.2
+urllib3==2.7.0
+certifi==2026.7.22
+python-dotenv==1.2.2
+pypdf==6.14.2
+jsonschema==4.26.0
+psutil==7.2.2
+tzdata==2026.3
