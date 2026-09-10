@@ -158,7 +158,9 @@ PROJECT_SMARTSHEET_TASKS = [
             "Smartsheet API rejection diagnostics now retain only a fixed safe "
             "category, valid numeric API code, and HTTP status class; response "
             "bodies, payloads, values, row IDs, exception text, and sensitive "
-            "provider fields are excluded."
+            "provider fields are excluded. Local Ollama now verifies its complete-input "
+            "API contract, explicit context/output budgets and completed response; "
+            "silent truncation, context shifting and blind retries are prohibited."
         ),
     ),
     (

@@ -4,13 +4,13 @@
 
 ## Current Smartsheet Summary
 
-Date: 2026-09-09
-Work: Diagnosed the blocked correction and fixed unrelated accepted-confidence drift in scoped row patches.
-Result: Retained replay proves five confidence-only blockers now project to zero. Values, human state and candidates remain unchanged; no case rearm or publication.
-Tests: 226 synthetic/mock checks passed; modified Python compiled. Retained-candidate projection passed without further inference or network.
-PHI: One reserved local-model/cached-source diagnostic; candidates encrypted locally. No production write, upload, comments, mailbox access or approval change.
-Status: Service-line evidence and subtype remain unresolved. Current row is not corrected; consumed case stays blocked. DP and Training stopped for maintenance.
-Next: Use the retained encrypted candidates and cached source structure to resolve incomplete service-section evidence and the noncanonical low-confidence subtype candidate, without another model replay or relaxed validation. Prove a supported filename recovery path synthetically before re-arming the consumed case. Preserve the same generation, review snapshot, comments, approvals and row/document. Refresh affected source registration before runtime use; Training stays stopped and authorized DP polling resumes after exclusive maintenance.
+Date: 2026-09-10
+Work: Proved silent Ollama input truncation and implemented a fail-closed complete-input contract.
+Result: Explicit context/output budgets and no truncation/context shift; one reserved same-case contract-6 recovery preserves human controls.
+Tests: 273 synthetic/mock checks passed; Python compiled. Local synthetic overflow rejection and 8192-context success probes passed.
+PHI: Fixed metadata only; no document replay, production write/upload, mailbox or approval change.
+Status: Actual correction still awaits complete-context recovery. DP and Training stopped for maintenance.
+Next: Refresh affected source registration, then run one reserved contract-6 recovery of the existing blocked correction case using cached OCR and complete local-model context. Preserve human controls, comments, review snapshot and row/document until fresh correction approval. Verify requested filename evidence and concise proposal, then prove unchanged-cycle idempotency. Do not blindly repeat a failed replay. Resume authorized DP polling after exclusive maintenance; Training remains stopped until needed.
 
 ## Safety Contract
 

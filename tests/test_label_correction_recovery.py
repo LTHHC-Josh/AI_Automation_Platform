@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace as N
 import runpy
 
-from src.services.local_document_correction_workflow import preparation_upgrade_applies
+from src.services.local_document_correction_workflow import preparation_upgrade_applies, PREPARATION_CONTRACT_VERSION
 from src.services.document_processor_training_contracts import APPROVE_AI_CORRECTION, APPROVE_AI_RESOLUTION
 
 fixtures=runpy.run_path(str(Path(__file__).with_name('test_local_document_correction.py')))
@@ -28,7 +28,7 @@ def test_label_upgrade_reserves_once_reuses_intent_and_does_not_apply():
     h.cycle(); h.cycle()
     state=h.store.load('case','synthetic-case')
     assert state['generation']==old['generation']+1
-    assert state['preparation_contract_version']==5
+    assert state['preparation_contract_version']==PREPARATION_CONTRACT_VERSION
     assert h.prepares==2 and h.applies==0
     assert any(kind=='audit' and value==old for (kind,key),value in h.store.data.items())
 
@@ -56,7 +56,7 @@ def test_interrupted_upgrade_never_repeats_inference():
     def interrupted(*args):
         h.prepares+=1
         state=h.store.load('case','synthetic-case')
-        assert state['phase']=='preparing' and state['preparation_contract_version']==5
+        assert state['phase']=='preparing' and state['preparation_contract_version']==PREPARATION_CONTRACT_VERSION
         raise RuntimeError('synthetic-private-marker')
     h.prepare=interrupted
     h.cycle(); h.cycle()
@@ -65,7 +65,7 @@ def test_interrupted_upgrade_never_repeats_inference():
 
 
 def test_same_version_never_rearms():
-    h,state=blocked(); state['preparation_contract_version']=5
+    h,state=blocked(); state['preparation_contract_version']=PREPARATION_CONTRACT_VERSION
     h.store.save('case','synthetic-case',state); h.cycle()
     assert h.prepares==1 and h.applies==0
 

@@ -12,11 +12,11 @@ from src.services.local_correction_memory_service import LocalCorrectionStore, A
 from src.services.local_code_update_authorization import LocalCodeUpdateAuthorization
 
 # Fixed categories only: exception messages may contain protected SDK/model data.
-PREPARATION_CONTRACT_VERSION = 5
+PREPARATION_CONTRACT_VERSION = 6
 
 
 def preparation_upgrade_applies(state):
-    """One reserved replay for the explicit-label fix; never replay applied work.
+    """One reserved replay after a tested input-context fix; never applied work.
 
     Pre-v4 migration eligibility remains unchanged. Version 4 cases qualify only
     for the blocked authorization filename symptom addressed by context v4.
@@ -28,6 +28,15 @@ def preparation_upgrade_applies(state):
     if version < 4:
         return True
     analysis = state.get("analysis") or {}
+    if version == 5:
+        return bool(
+            state.get("plan") is None
+            and state.get("preparation_failure_category") == "correction_unrelated_field_change"
+            and analysis.get("affected_document_category") == "authorization"
+            and analysis.get("behavior_code") == "correct_filename"
+            and "Filename" in (analysis.get("affected_fields") or ())
+            and set(analysis.get("affected_fields") or ()) & {"Document Subtype", "Service Code", "Service Line"}
+        )
     return bool(
         state.get("preparation_failure_category") in {
             "correction_no_verified_change", "correction_requested_filename_unresolved"
@@ -55,10 +64,13 @@ PREPARATION_FAILURE_CATEGORIES = frozenset({
     "correction_proposal_refresh_requires_unchecked_approval",
     "correction_requested_filename_unresolved",
     "correction_review_snapshot_unresolved", "correction_review_snapshot_write_forbidden",
+    "local_model_context_configuration_invalid", "local_model_context_contract_unproven",
+    "local_model_response_incomplete", "local_model_unavailable", "local_model_request_timeout",
+    "local_model_http_error", "local_model_request_failed",
 })
 
 def preparation_failure_category(error):
-    value = error.args[0] if isinstance(error, ValueError) and len(error.args) == 1 else None
+    value = error.args[0] if isinstance(error, (ValueError, RuntimeError)) and len(error.args) == 1 else None
     return value if isinstance(value, str) and value in PREPARATION_FAILURE_CATEGORIES else "correction_preparation_unavailable"
 
 def describe_verified_changes(plan):

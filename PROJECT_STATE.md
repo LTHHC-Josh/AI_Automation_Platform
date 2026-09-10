@@ -267,7 +267,8 @@ restart contract.
 Current versions:
 - `business_context_version`: 4
 - `analysis_contract_version`: 4
-- local preparation contract: 5
+- local preparation contract: 6
+- local Ollama complete-input contract: 1 (verified server 0.33.3)
 - legacy protected correction-case schema: 3
 - local sealed correction/source/lesson/audit schema: 1
 - resolution code-update authorization contract: 1
@@ -354,6 +355,16 @@ filename, scoped to subtype/service fields. Other version-4 failure scopes remai
 blocked. Both approvals must be unchecked; same identity/audit and prior validated
 intent are retained. Unchanged comments do not refresh the review snapshot, and
 the new reservation prevents another automatic replay even if inference fails.
+Contract 6 additionally permits one reserved re-entry for a version-5 blocked
+authorization filename case with no plan, unrelated-field failure and requested
+subtype/service scope. Human approvals must be unchecked. Source-only re-entry
+retains the review snapshot and existing intent; no automatic application occurs.
+All shared Ollama requests explicitly set num_ctx=8192 and num_predict=4096
+(positive operational environment overrides), truncate=false and shift=false.
+Local identity, verified API version and model capacity are checked before input.
+Only done=true/done_reason=stop responses become candidates. Overflow, unknown
+API contracts, incomplete responses and transport failure fail closed with fixed
+safe categories, without automatic budget escalation or additional retries.
 
 Verified correction results move to Awaiting Resolution Approval. Fresh approval
 retains only fixed PHI-free guidance, directly indexed by canonical document family:
@@ -432,6 +443,14 @@ Operator commands remain:
 - `startdptraining`, `statusdptraining`, `stopdptraining`
 
 ## Current Verified Baseline
+
+- The retained retry was correlated with an Ollama server truncation event:
+  4,426 input tokens became 2,050. This proves incomplete input, not absent source
+  evidence. Explicit 8K-context/no-truncate/no-shift protection passed 273 unique
+  synthetic/mock regressions and real local synthetic overflow/success probes.
+  The server rejected oversized input and reported 8192 runtime context for the
+  successful probe. No protected replay or production correction has yet run
+  under contract 6. The same blocked case remains the controlled acceptance target.
 
 - One reserved diagnostic-only cached-source replay completed with three local
   model requests (classification and two independent extraction attempts).
@@ -642,4 +661,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Use the retained encrypted candidates and cached source structure to resolve incomplete service-section evidence and the noncanonical low-confidence subtype candidate, without another model replay or relaxed validation. Prove a supported filename recovery path synthetically before re-arming the consumed case. Preserve the same generation, review snapshot, comments, approvals and row/document. Refresh affected source registration before runtime use; Training stays stopped and authorized DP polling resumes after exclusive maintenance.
+Refresh affected source registration, then run one reserved contract-6 recovery of the existing blocked correction case using cached OCR and complete local-model context. Preserve human controls, comments, review snapshot and row/document until fresh correction approval. Verify requested filename evidence and concise proposal, then prove unchanged-cycle idempotency. Do not blindly repeat a failed replay. Resume authorized DP polling after exclusive maintenance; Training remains stopped until needed.
