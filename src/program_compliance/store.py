@@ -97,6 +97,8 @@ class Store:
         if old!=fields:
             self.event('human_observation',key,{'previous':old,'current':fields})
             self.put('human',key,fields)
+        from .determinations import observe
+        observe(self,key,fields)
 
     def backup(self, destination):
         destination=Path(destination)

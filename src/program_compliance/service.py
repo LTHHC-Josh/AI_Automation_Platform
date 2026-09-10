@@ -43,11 +43,11 @@ class Monitor:
 
     def basic_rows(self):
         with self.store.transaction():
-            control=self.record('Control','Check Now','Enter a new request label in Check Now Request for one bounded source check. Requests are processed while the service is enabled.','Use a different label for each request. Recurring activation remains disabled until its operating window is confirmed.')
+            control=self.record('Control','Check Now','Enter a new request label in Check Now Request for one bounded source check. Requests are processed while the service is enabled.','Use a different label for each request. Approved triggers share actual inference capacity with DP and Training.')
             previous=self.store.get('finding','control:check-now',{})
             if previous.get('Check Now Result'): control['Check Now Result']=previous['Check Now Result']
             self.store.publish('control:check-now',control,substantive=False)
-            self.store.publish('reference:how-to-review',self.record('Reference','How to review a requirement','Read the source and evidence, enter your decision/status and copy Current Revision into Reviewed Revision when finished. An old acknowledgment never acknowledges a newer version.','Owners, notes, status, targets and completion evidence are never overwritten. Source deadline and internal target are separate. Policy coverage is not assessed.'))
+            self.store.publish('reference:how-to-review',self.record('Reference','How to review a requirement','Read the source and evidence. Review Status tracks review work; Implementation Status reports Not Assessed, Met, Partially Met, Not Met or Not Applicable. Record evidence/notes and copy the revision actually reviewed into Reviewed Revision.','Implementation reports are agency determinations, not independently certified compliance. Changed evidence requires reassessment without erasing the old report. Human fields are preserved. Source deadline and internal target are separate. Policy inventory, comparison and drafting are outside scope.'))
             for i,gap in enumerate(self.config['coverage_gaps']): self.store.publish('coverage:'+str(i),self.record('Coverage','Coverage boundary',gap,'Review if this missing coverage affects agency decisions.',**{'Source Health':'Coverage Gap'}))
 
     def question(self):
@@ -132,6 +132,9 @@ class Monitor:
             return False
 
     def health_rows(self):
+        if self.store.get('config','baseline_presentation',{}).get('group_health'):
+            from .baseline import health_rows
+            return health_rows(self)
         with self.store.transaction():
             for key,source in self.store.items('source'):
                 pending=self.store.get('source_analysis',key,{})
@@ -143,6 +146,9 @@ class Monitor:
                 self.store.publish('health:'+key,self.record('Source Health',source['scope'],summary,'Review persistent access failures or unresolved source coverage.' if health!='Healthy' else '',**{'Source Section/Link':source['url'],'Source Health':health,'Last Successful Check':source.get('last_success'),'Review Needed':health!='Healthy'}),substantive=False)
 
     def analyze_source(self,source,budget):
+        if self.store.get('config','baseline_engine'):
+            from .baseline import analyze_source
+            return analyze_source(self,source,budget)
         document=self.store.get('document',source['id'])
         if not document or not source.get('analyze'): return 0
         used=0;pending=False;reason='bounded backlog'

@@ -60,6 +60,10 @@ def run_tick(store,monitor,sync,instant=None):
     schedule=store.get('config','schedule',monitor.config['schedule'])
     if not schedule['enabled']: return {'state':'activation_pending'}
     with OwnedLock(store.directory):
+        schedule=store.get('config','schedule',monitor.config['schedule'])
+        if not schedule['enabled']: return {'state':'activation_pending'}
+        maintenance=store.get('maintenance','authorized_baseline',{})
+        if maintenance and maintenance.get('state')!='complete': return {'state':'authorized_maintenance'}
         instant=instant or datetime.now(timezone.utc)
         previous=store.get('runtime','schedule',{})
         due=schedule_due(schedule,previous,instant)

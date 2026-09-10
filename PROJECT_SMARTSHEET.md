@@ -5,11 +5,11 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-10
-Work: Program Compliance original implementation goal restored and acceptance audited; sync cadence corrected.
-Result: Preserved existing resources and DP work. UTC trigger slots prevent skipped quarter-hour sync after completion latency.
-Tests: 43 Compliance tests passed, including 3 new cadence cases; prior 279-test and real integration acceptance retained.
-PHI: Synthetic/read-only acceptance metadata only; no DP learning/recovery records, patient data or tracker writes.
-Status: Incremental coverage and agency-service confirmation remain operational work. Active hidden schedule requires logged-in user.
+Work: Program Compliance authorized baseline rebuild, human implementation feedback and stable Topic hierarchy verified.
+Result: 50 requirement/change rows in 11 groups; revision-bound agency reports, zero unchanged writes/inference, verified backup/restore; hidden schedule restored.
+Tests: 62 Compliance, 4 continuity, 12 queue, 13 context and 57 Training synthetic/mock tests passed; real retrieval/Ollama/sheet and restart checks verified.
+PHI: Public-source evidence and Compliance-owned protected state only; no patient data, DP recovery/learning records or external tracker writes.
+Status: Bounded 148-source discovery, 11 retrieval/parser failures and explicit analysis/context gaps; agency service scope unconfirmed; no certification or policy comparison.
 Next: Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly.
 
 ## Safety Contract

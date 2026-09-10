@@ -683,36 +683,34 @@ Use the retained encrypted full-context candidates and final diagnostics to fix 
 
 ## Program Compliance Monitor — Current State
 
-Separate CLASS DSA pilot: approved public-source retrieval, incremental local-Ollama
-baseline, dedicated Program Compliance sheet in LT Automation Platform, immutable
-source versions, SQLite state, durable write intents, human revision acknowledgments,
-consolidated service-scope question, source-health queue and bounded owned scheduler.
-Three real section-3500 DSA findings and one clearly labeled TEST change are retained.
-Live same-row revision, human-field preservation, unchanged fresh-process readback,
-local overflow rejection and real backup/restore passed. Source coverage remains
-bounded: additional sections, current rules, inaccessible pages and references remain gaps.
-Recurring Compliance monitoring is active under the user-approved shared inference queue:
-one actual Ollama request at a time, DP priority capped at three grants while background
-work waits, Training/Compliance in background arrival order. Idle workers do not reserve
-capacity. Daily checks trigger at 01:00 Central, Sunday discovery, sync every 15 minutes.
-279 synthetic/mock regressions and three concurrent real local-provider requests passed.
-The first task-launched tick exited 0: eight checks, zero retrieval failures, two model calls;
-queue empty afterward. No boot/logon startup. The task requires the user to remain logged in.
-Its console-free pythonw.exe action passed a task-launched run with exit 0; no repository
-terminal window remained. No DP/Training process or unrelated terminal was closed.
-DP's existing correction/approval state and pending action above are preserved. This shared
-transport update does not resume DP/Training or resolve their separate blockers.
-LT Project Tracking is unchanged; management reconciliation remains read-only.
+Original CLASS DSA pilot acceptance and shared-inference activation remain completed.
+The authorized fresh baseline and feedback extension are verified in the same Program
+Compliance sheet in LT Automation Platform. Full sheet/state backup and isolated restore
+preceded the one authorized 44-row reset; previous human/source/review history is retained.
+The bounded 148-source registry/discovery was checked, with 11 retrieval/parser failures.
+Rebuilt output: 50 requirement/change rows, 11 organizational Topic parents,
+70 total rows; zero TEST output or duplicate keys. Source states: {'assessed': 91, 'blocked': 11, 'gap': 46}.
+Section states: {'assessed': 23, 'context_only': 772, 'gap': 102}. Gaps remain explicit, not no-change or legal coverage claims.
 
-Original-goal recovery audit preserves the full implementation objective and amendments.
-The cadence gap found during audit is corrected: UTC trigger slots prevent synchronization
-completion latency from skipping a quarter-hour trigger. Compliance suite: 43 passed,
-including three new timing/persistence tests. Retained original and amended acceptance is
-mapped criterion-by-criterion in the authoritative plan; remaining coverage/agency facts
-are operational work, not a restart or duplicate implementation.
+Human-owned Implementation Status is separate from Review Status. Agency-reported status,
+notes and completion evidence bind to the Reviewed Revision and retained source/profile
+support. Compatible Met reports suppress repeat work; changed/removed duties or relevant
+context require reassessment without modifying human cells or erasing historical reports.
+Stable collapsed new topic parents group requirements, questions, health/coverage and controls;
+later user expansion and same-row human fields are preserved. Real readback, zero unchanged
+model calls/writes, and a fresh-process backup/restore and same-sheet reconciliation passed.
 
-Authoritative service scope, full requirements, acceptance and next action:
-docs/program_compliance_plan.md. Operator/reviewer guide: docs/program_compliance_operations.md.
+62 Compliance tests (43 retained plus 19 new feedback/baseline/hierarchy cases), 4 continuity,
+12 shared-queue, 13 context-contract and 57 Training regressions passed, synthetic/mock.
+Live source retrieval, local Ollama and dedicated-sheet publication are separate real checks.
+Only Compliance was paused during maintenance. The prior approved hidden schedule is restored:
+daily 01:00 Central, Sunday discovery and 15-minute sync, with one actual inference and bounded
+DP priority through the existing shared queue. DP/Training processes and learning/recovery
+records remain untouched. LT Project Tracking remains unchanged (read-only reconciliation).
+No policy inventory, comparison, drafting or independently certified compliance is included.
+
+Authoritative full requirements, evidence and Next Service Action:
+docs/program_compliance_plan.md. Reviewer guide: docs/program_compliance_operations.md.
 
 ## CURRENT NEXT START
 

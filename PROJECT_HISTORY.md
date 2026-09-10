@@ -14918,3 +14918,101 @@ read-only tracker reconciliation corrected it. Eleven project-layer and three tr
 then passed. Read-only tracker: Writes 0, Not Found 0, Failed 0. No external tracker mutations.
 The cadence change is limited to Compliance runtime and three new synthetic tests; DP/Training
 shared inference and business behavior are unchanged from the retained verified commit.
+
+
+## 2026-09-10 — Program Compliance Monitor / rebuild in progress and feedback verified
+
+
+Original CLASS DSA pilot and shared-inference acceptance are completed and retained.
+The user authorized a fresh operational baseline in the existing Program Compliance
+sheet in LT Automation Platform, followed by human implementation feedback and stable
+Topic groups. Full 44-row sheet/state backup and isolated restore passed before the
+single authorized row reset. Do not repeat deletion or create another sheet. All 148
+bounded sources were checked, with 11 retrieval/parser gaps; retained local-Ollama
+analysis is running in resumable batches with exact per-section gaps and cached results.
+The existing sheet has the new human-owned Implementation Status and system-owned
+Implementation Assessment columns. Publication/readback and restored scheduling remain
+pending; only Compliance scheduling is paused for authorized maintenance.
+
+Implementation Status has Not Assessed, Met, Partially Met, Not Met and Not Applicable.
+Review Status remains separate. Agency-reported determinations, evidence and notes bind
+to Reviewed Revision and retained source/profile support. Changed/removed duties and
+relevant context require reassessment without overwriting human fields. Compatible
+Met/Partially Met reports avoid repeat completed work. Stable topic parents are collapsed
+on creation; user expansion and child identities are preserved on subsequent syncs.
+
+61 Compliance synthetic/mock tests passed (43 retained plus 18 new cases), as did 4
+continuity, 12 queue, 13 context-contract and 57 Training regressions. Shared transport
+is unchanged from its real concurrent-provider acceptance. DP/Training processes,
+business behavior, learning/recovery records and pending work remain untouched.
+The prior approved hidden schedule will be restored after actual publication, restart,
+backup/restore and unchanged-cycle verification. LT Project Tracking stays unchanged;
+management reconciliation is read-only. No policy inventory, comparison or drafting.
+
+Full requirements, current service state and exact Next Service Action:
+docs/program_compliance_plan.md. Reviewer guide: docs/program_compliance_operations.md.
+
+The original goal completion history remains preserved. The active follow-on objective was restored through create_goal and read back after get_goal returned null. Full authorization/amendments are in the service plan. A definite column-index rejection was corrected; no duplicate columns or reset was attempted. Maintenance/schedule state is rechecked under the service lock.
+
+Files: src/program_compliance/{analysis,baseline,determinations,topics,service,sheet,store,runtime}.py; tests/test_compliance_baseline_feedback.py; service plan and reviewer guide. Shared continuity is guarded against competing edits; DP state and root service routing remain verbatim.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-10",
+  "work_summary": "Program Compliance authorized baseline rebuild continues from retained state; implementation feedback and Topic hierarchy tested.",
+  "key_result": "Recoverable 44-row reset completed once; 148 sources checked. Human revision-bound implementation feedback implemented; live baseline publication pending.",
+  "tests": "61 Compliance, 4 continuity, 12 queue, 13 context and 57 Training synthetic/mock tests passed. Real retrieval completed; local Ollama analysis ongoing.",
+  "phi_handling": "Public-source evidence and Compliance-owned runtime only; no DP/Training protected state or external tracker mutations.",
+  "limitation_acceptance": "Only Compliance scheduling paused. Live grouped publication, unchanged/restart acceptance, restoration and delivery still pending. Preserve original completed pilot.",
+  "exact_next_start": "Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+
+## 2026-09-10 — Program Compliance Monitor / authorized rebuild and agency feedback
+
+
+Original CLASS DSA pilot acceptance and shared-inference activation remain completed.
+The authorized fresh baseline and feedback extension are verified in the same Program
+Compliance sheet in LT Automation Platform. Full sheet/state backup and isolated restore
+preceded the one authorized 44-row reset; previous human/source/review history is retained.
+The bounded 148-source registry/discovery was checked, with 11 retrieval/parser failures.
+Rebuilt output: 50 requirement/change rows, 11 organizational Topic parents,
+70 total rows; zero TEST output or duplicate keys. Source states: {'assessed': 91, 'blocked': 11, 'gap': 46}.
+Section states: {'assessed': 23, 'context_only': 772, 'gap': 102}. Gaps remain explicit, not no-change or legal coverage claims.
+
+Human-owned Implementation Status is separate from Review Status. Agency-reported status,
+notes and completion evidence bind to the Reviewed Revision and retained source/profile
+support. Compatible Met reports suppress repeat work; changed/removed duties or relevant
+context require reassessment without modifying human cells or erasing historical reports.
+Stable collapsed new topic parents group requirements, questions, health/coverage and controls;
+later user expansion and same-row human fields are preserved. Real readback, zero unchanged
+model calls/writes, and a fresh-process backup/restore and same-sheet reconciliation passed.
+
+62 Compliance tests (43 retained plus 19 new feedback/baseline/hierarchy cases), 4 continuity,
+12 shared-queue, 13 context-contract and 57 Training regressions passed, synthetic/mock.
+Live source retrieval, local Ollama and dedicated-sheet publication are separate real checks.
+Only Compliance was paused during maintenance. The prior approved hidden schedule is restored:
+daily 01:00 Central, Sunday discovery and 15-minute sync, with one actual inference and bounded
+DP priority through the existing shared queue. DP/Training processes and learning/recovery
+records remain untouched. LT Project Tracking remains unchanged (read-only reconciliation).
+No policy inventory, comparison, drafting or independently certified compliance is included.
+
+Authoritative full requirements, evidence and Next Service Action:
+docs/program_compliance_plan.md. Reviewer guide: docs/program_compliance_operations.md.
+
+Changed files: src/program_compliance/{analysis,baseline,determinations,topics,service,sheet,store,runtime}.py; tests/test_compliance_baseline_feedback.py; service plan/operator guide and coordinated platform continuity.
+
+Full original requirements and all later reset, topic and feedback amendments remain authoritative in the service plan. The active follow-on goal was restored through goal management after get_goal returned null; original pilot completion history was preserved. Only remaining authorized follow-on work was performed.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-10",
+  "work_summary": "Program Compliance authorized baseline rebuild, human implementation feedback and stable Topic hierarchy verified.",
+  "key_result": "50 requirement/change rows in 11 groups; revision-bound agency reports, zero unchanged writes/inference, verified backup/restore; hidden schedule restored.",
+  "tests": "62 Compliance, 4 continuity, 12 queue, 13 context and 57 Training synthetic/mock tests passed; real retrieval/Ollama/sheet and restart checks verified.",
+  "phi_handling": "Public-source evidence and Compliance-owned protected state only; no patient data, DP recovery/learning records or external tracker writes.",
+  "limitation_acceptance": "Bounded 148-source discovery, 11 retrieval/parser failures and explicit analysis/context gaps; agency service scope unconfirmed; no certification or policy comparison.",
+  "exact_next_start": "Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

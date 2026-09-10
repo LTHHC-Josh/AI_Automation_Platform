@@ -9,6 +9,122 @@ service checkpoint to resume. Full DP history is not required for compliance wor
 Shared platform rules remain authoritative for safety; new explicit user direction
 governs scope. Development notes are not production memory or the operational sheet.
 
+## Approved baseline rebuild and feedback extension — September 10, 2026
+
+This substantive follow-on preserves the original completed pilot and all earlier
+requirements. Resume retained maintenance/source/analysis checkpoints; do not repeat
+the authorized sheet reset or create another sheet. The saved active goal references
+this plan and does not replace any requirements below.
+
+Approved fresh baseline: verify the existing Program Compliance binding in LT Automation
+Platform, back up the complete sheet and service state with recoverable human decisions,
+notes, owners, evidence and revision history, pause only Compliance scheduling, then
+perform the explicitly authorized row reset once. Reconcile bindings and durable write
+intents against verified empty-sheet readback. Preserve source snapshots and historical
+records. Exhaust the approved bounded CLASS registry and relevant within-boundary
+discovery in resumable batches. Every retrieved section must be processed or have an
+explicit gap. Publish all distinct supported potential DSA duties in that boundary;
+retain conditional scope as Needs Confirmation and implementation as Not Assessed.
+No synthetic TEST findings in the rebuilt production presentation. Missing policy is
+not noncompliance or an instruction to create a policy. Verify actual sheet publication,
+readback, counts, human restoration, zero unchanged-cycle duplicates and restored
+approved scheduling. This is bounded evidence coverage, not exhaustive legal certification.
+
+Human-owned Implementation Status has exactly these options: Not Assessed, Met,
+Partially Met, Not Met, Not Applicable. Review Status remains separate: completing a
+review does not mean meeting a requirement. Bind reported status, Completion Evidence
+and Decision Notes to the explicitly acknowledged Reviewed Revision and its supporting
+source/profile versions. Persist reports and previous revisions across scans/restarts.
+These are agency-reported determinations, never independently certified compliance.
+Do not automatically modify human-owned cells. The only reset exception is exact
+restoration of backed-up human values into their authorized recreated rows.
+
+For a relevant change, local Ollama receives only the relevant prior determination and
+supporting evidence, labeled compatible or historical, with relevant current evidence
+and agency facts. Do not repeatedly recommend implementation already reported Met when
+evidence remains compatible. Changed duties, relevant source context, dependencies or
+profile facts require reassessment; never erase the old report or silently carry Met
+forward as current. A separate system-owned Implementation Assessment explains current
+report compatibility. New human reports alone do not trigger repeat inference. Policy
+inventory, private-document comparison and drafting remain outside this scope.
+
+Approved topic presentation: retain the existing primary Topic column. Meaningful stable
+parent topics contain recognizable requirement children. Agency Questions, Source Health
+and Coverage, and Monitoring Controls remain distinct groups. Parent Record Type Group
+is organizational, not a requirement or implementation determination; exclude parents
+from requirement/review counts and Review Needed. New parents start collapsed. Preserve
+later user expansion choices, stable child identities and human values when moving a
+child. Reuse parents for new findings; never delete a parent with retained children.
+
+Additional acceptance:
+- Verified full sheet/state backup and one authorized reset; no duplicate resource.
+- Bounded registry/discovery and every source/section processed or explicitly gapped.
+- Actual production requirements and grouped health, no TEST output or certification.
+- Human status options and separate review/implementation semantics verified live.
+- Revision-bound reports/evidence/notes survive synchronization and restart.
+- Relevant prior reports reach analysis; unchanged cycles reuse results without inference.
+- Changed, removed and context-revised duties reassess without human-field writes.
+- Unaffected agency-wide decisions survive unrelated service-profile changes.
+- Stable hierarchy, collapsed new parents, preserved expansion and safe same-row moves.
+- Actual sheet readback, restoration, unchanged zero duplicates/writes, backup verification.
+- Existing DP/Training behavior and shared queue preserved; approved schedule restored.
+- Focused and affected regressions, coordinated continuity, read-only tracker and safe Git delivery.
+
+Current checkpoint: the 44-row original sheet was backed up with a verified isolated
+restore and cleared once. All 148 registered bounded official sources were checked;
+11 fetch/parser gaps remain. The existing sheet binding is unchanged. Implementation
+Status and Implementation Assessment columns were added and read back. Baseline analysis
+is in progress using the retained documents, with durable per-section gaps/cache. Only
+Compliance scheduling is paused during this authorized maintenance. The original
+completion history below is retained as historical evidence, not current rebuilt counts.
+The first column POST was rejected with API 1135 (different insertion indexes); using
+one common insertion index fixed it without duplicate columns. All 56 current Compliance
+synthetic/mock tests pass, including 13 new feedback/baseline/hierarchy cases. A staging
+test invocation lacked repository fixture configuration; the actual-repository rerun passed.
+
+## Verified rebuilt baseline and feedback acceptance
+
+The authorized rebuild finished without repeating the reset or creating resources.
+Existing source/history and the original completed pilot remain preserved. Full original
+sheet/state backup verified an isolated restore before the 44-row authorized deletion.
+All 148 bounded sources were checked (11 retrieval/parser failures). Real local Ollama
+processed eligible complete contexts; unsupported citations, unavailable dependencies,
+oversized complete context and ambiguous inherited duties remain explicit coverage gaps.
+No unsupported model candidate was published and no production TEST findings remain.
+
+Live readback: 50 requirement/change rows, 11 Topic parents, 70 total rows.
+Groups are organizational and excluded from Review Needed/requirement counts. New parents
+were verified collapsed; stable child relationships and same-sheet identity were verified.
+Record counts: {'Actionable Change': 2, 'Control': 1, 'Coverage': 4, 'Group': 11, 'Question': 1, 'Reference': 1, 'Requirement': 48, 'Source Health': 2}. Source states: {'assessed': 91, 'blocked': 11, 'gap': 46}.
+Section states: {'assessed': 23, 'context_only': 772, 'gap': 102}. Gap categories: {'actor_or_inherited_duty_requires_context_review': 61, 'actor_unsupported': 5, 'citation_invalid': 21, 'complete_context_exceeds_verified_budget': 7, 'outside_requested_paragraphs': 2, 'referenced_context_unavailable': 6, 'ungrounded_date_in_prose': 1}.
+Exact source/section details are retained privately; grouped health rows expose counts and
+source availability evidence. These results do not establish comprehensive legal coverage.
+
+Implementation Status options and unlocked human ownership were read back; Implementation
+Assessment is system-owned. 13 recreated rows retained their exact
+backed-up human fields; other original human history remains in the protected reset archive.
+Unchanged cached reconciliation used zero inference and real sync returned {'blocked': 0, 'created': 0, 'unchanged': 70, 'updated': 0}.
+A fresh process repeated zero-write readback and verified a new backup/isolated restore
+of human reports, requirement revisions, evidence and topic assignments. No production
+agency Met report was fabricated for acceptance; feedback actions were tested synthetically.
+
+62 Compliance synthetic/mock cases passed, including the 19 new reset/full-batch/feedback/
+hierarchy tests. They prove current Met reuse, separate review completion, revision changes,
+removed duties, changed surrounding conditions, selective service-profile invalidation,
+late old-revision reports, restart, exact authorized restoration, stable parents/expansion
+and same-row reassignment. Existing 4 continuity, 12 queue, 13 complete-input context and
+57 Training regressions passed. The first attempted schema extension was definitively
+rejected (1135); the corrected common insertion index succeeded. A staging-only test
+invocation lacked repository fixtures; the repository execution passed. Function-based
+context tests required their own script runner, which passed all 13.
+
+Approved hidden scheduling is restored only after maintenance verification. Shared actual
+inference coordination is unchanged; no DP/Training process, approval, protected record or
+business behavior was operated on. Existing real three-provider concurrent acceptance is
+retained; this extension changed no shared transport. Policy inventory/comparison/drafting
+and compliance certification remain excluded. Delivery gates are recorded in the service
+checkpoint and Git; do not repeat this baseline reset when resuming.
+
 ## Recovered original-goal acceptance audit — September 10, 2026
 
 The original implementation objective is restored through the goal-management capability,
@@ -226,16 +342,13 @@ Do not claim comprehensive regulatory coverage or agency compliance.
 
 ## Next Service Action
 
-Continue approved incremental CLASS coverage and the existing source-health/gap queue. Recurring
-monitoring is active; the first Task Scheduler cycle completed successfully on September 10, 2026
-at 13:18 Central: exit 0, eight source checks, zero retrieval failures, two model calls, queue empty. Use shared request
-admission at any time; there is no exclusive operating window. Contracted/active service lists remain
-a consolidated human question in the operational sheet. Preserve DP's separate blocked correction
-and pending work; enabling Compliance does not resume DP or consume Training approvals.
-The task requires the operator to remain logged in; no boot/logon startup is enabled.
-
-Full user scope and acceptance requirements below remain authoritative. Pilot completion
-does not authorize other programs, policy drafting, regulatory actions or indefinite development.
+Use the existing grouped Program Compliance sheet to confirm unknown contracted/active
+service facts and report implementation against the revision reviewed. Continue only
+approved incremental source-health/coverage work through retained checkpoints; unresolved
+references, complete-context limits and rejected citations remain visible gaps. Preserve
+historical decisions and compatible cache results; do not reset or recreate the sheet.
+Keep the restored approved hidden schedule and shared queue. DP follows its separate
+unchanged pending action in PROJECT_STATE.md.
 
 ## Shared platform continuity, separate service memory — full additional requirements
 

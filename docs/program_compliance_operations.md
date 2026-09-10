@@ -4,16 +4,34 @@
 
 Use Program Compliance in LT Automation Platform. Record Type separates Requirements,
 Actionable Changes, Questions, Source Health, Coverage, Reference and Control rows.
-TEST rows are synthetic acceptance examples, never official regulatory changes.
+The rebuilt operational presentation excludes synthetic TEST examples; prior acceptance
+history is retained in private service state. Collapsed Topic parents organize related
+requirements. Agency Questions, Source Health and Coverage, and Monitoring Controls have
+their own parents. Parent groups are not requirements or assessments. Expand a topic to
+review its children; later synchronization preserves your expansion choice.
 
 Open Source Section/Link and read Evidence / Before and After. Enter Applicability
-Decision, Owner, Review Status, Decision Notes, Internal Target Date and Completion
+Decision, Owner, Review Status, Implementation Status, Decision Notes, Internal Target Date and Completion
 Evidence as appropriate. Copy the displayed Current Revision value into Reviewed
 Revision when the review of that version is complete. Do not use a formula that copies
 Current Revision automatically: that would acknowledge future unseen changes.
 Review Needed remains checked for a different or blank acknowledgment. System updates
 preserve human fields. Complete describes the prior recorded human action, not automatic
 compliance certification; a new revision can require review alongside that status.
+
+Implementation Status is your agency's report: Not Assessed, Met, Partially Met, Not Met,
+or Not Applicable. Record supporting Completion Evidence and Decision Notes, then
+acknowledge the Current Revision you actually reviewed. Review Status Complete alone
+does not establish that a requirement is met. The system never fills in or changes your
+implementation report, evidence, notes or acknowledgment automatically.
+
+Implementation Assessment explains whether your report belongs to the current revision.
+When a duty or relevant supporting evidence changes, your old Met report remains visible
+with its old Reviewed Revision, while Implementation Assessment says reassessment is
+required. Review the change and update your report and acknowledgment deliberately.
+Historical reports/evidence remain in service state. A compatible Met report suppresses
+repeat implementation recommendations. Relevant prior reports inform subsequent local
+analysis, but are agency-reported determinations rather than independent certification.
 
 The service-scope Question consolidates uncertainty. Answer the requested contracted and
 active service lists in Decision Notes. After the system presents those proposed facts
@@ -102,8 +120,10 @@ Do not delete snapshots, events or decision history without an approved retentio
 
 ## Limits
 
-The first operational baseline is section 3500, not the full handbook. Source discovery
-and analysis are bounded and incremental. Licensing, contracts, current rule pages and
+The original pilot began with section 3500; the authorized rebuild now processes the
+bounded approved registry and its relevant discovered sources. Source discovery and
+analysis remain bounded. Grouped source-health rows distinguish retrieval failures,
+context/analysis gaps and pending work. Licensing, contracts, current rule pages and
 unretrieved references remain coverage gaps. An extracted quotation establishes evidence
 traceability, not legal correctness. Human review remains authoritative for consequential
 decisions. No patient data, private policies, regulatory submissions, automatic policy
