@@ -38,6 +38,23 @@ def test_human_approval_blocks_upgrade_and_stays_unchanged():
         h,_=blocked();h.values[column]=True;h.cycle()
         assert h.prepares==1 and h.applies==0 and h.values[column] is True
 
+def test_untouched_blank_approvals_allow_preparation_but_never_application():
+    h,old=blocked()
+    def verified_filename(*args):
+        h.prepares+=1
+        return {'updates':{},'attachment':{
+            'name':'SYNTHETIC_COMPLETE.PDF','before_name':'SYNTHETIC_[SERVICE].PDF'}}
+    h.prepare=verified_filename
+    h.values[APPROVE_AI_CORRECTION]=None
+    h.values[APPROVE_AI_RESOLUTION]=None
+    h.cycle();h.cycle()
+    state=h.store.load('case','synthetic-case')
+    assert state['generation']==old['generation']+1
+    assert state['phase']=='proposed' and state['preparation_contract_version']==6
+    assert h.prepares==2 and h.applies==0
+    assert h.values[APPROVE_AI_CORRECTION] is None
+    assert h.values[APPROVE_AI_RESOLUTION] is None
+
 def test_context_failure_is_reserved_and_does_not_hot_retry():
     h,_=blocked()
     def failure(*args):

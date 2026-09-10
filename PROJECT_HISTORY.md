@@ -14626,3 +14626,77 @@ source. Diff checks and reviewed file scope passed.
   "exact_next_start": "Obtain explicit approval for one scoped cached-document/local-Ollama recovery and verified proposal-only Smartsheet publication after the automatic safety-review denial. Then run the reserved contract-6 recovery on the same existing case, preserving human controls, comments, review snapshot and row/document until fresh correction approval. Verify filename evidence, concise proposal and unchanged-cycle idempotency. Do not blindly repeat a failed replay. DP and Training remain stopped during this acceptance boundary."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## 2026-09-10 - Approved full-context same-case recovery and unchanged-cycle proof
+
+Operator explicitly approved one cached-document/local-Ollama recovery and verified
+proposal-only publication while preserving document fields, attachment, comments
+and human controls. Read-only preflight confirmed current executable registrations,
+concurrency, no active flow conflicts and zero fresh workers. No DP/Training worker
+or deployment was started. Runtime capability settings matched protected config;
+no Codex/cloud inference was invoked.
+
+The temporary runner initially required explicit false approval values. The sheet
+uses null for untouched boxes; production normalize_checkbox intentionally preserves
+null and the workflow treats it as unchecked. Runner guard was aligned, without
+changing production code or controls. This first stop preceded the contract-6
+reservation and all inference. The diagnostic receipt was preserved, not deleted.
+Unchanged blocked contract-5 state plus absent candidates/results proved prepare
+never began; preflight resumption was separately audited before the one real cycle.
+
+One real same-case recovery reserved contract 6/generation 3. Original cached OCR
+was used, with no fresh OCR or Graph/mailbox access. Local model requests: category
+classification 2912 input/114 output tokens, 102.45 seconds; extraction attempt 1
+4074/1359 tokens, 392.80 seconds; extraction attempt 2 4426/1383 tokens, 358.45
+seconds. All returned done=true/reason=stop. Runtime readback confirmed context
+8192. Retry no longer evaluated the truncated 2050-token input. Model completion
+does not establish field correctness. Candidates and selected validated document
+remain DPAPI-sealed for diagnosis without repeated inference; values were not output.
+
+Outcome remains completed_with_failures, blocked, correction_unrelated_field_change,
+no verified plan and no correction applied. Two out-of-scope GOVERNING VALUE
+differences (Hours, Days Per Week), not confidence-only drift, correctly remain
+protected. Payer/start/end scalar evidence validates at .95; authoritative payer
+lookup succeeds and dates are ready. Service token lookup remains unresolved.
+Both retained candidates contain two service lines. The final line code/date/status
+evidence is unsupported and modifier shape invalid despite model line confidence
+1.0; that confidence was not used as deterministic support proof.
+Subtype remains unsupported despite .95 candidate confidence; one candidate's
+subtype state requires explicit/external context. Filename result partial_business,
+two unresolved service/subtype placeholders. No placeholder was guessed away.
+
+No document-field write or attachment upload occurred. Human controls, comments,
+production row context and review snapshot remained unchanged. Only the existing
+workflow-owned blocked-result publication/reconciliation path was permitted; no
+verified correction proposal is ready for approval. A fresh-process unchanged
+same-case cycle explicitly disabled analysis, processing and application: zero
+model calls, zero workflow writes, zero correction applications, same generation
+3. A separate verify-result receipt preserves the first recovery metrics. No
+automatic retry, duplicate case or new document submission is authorized.
+
+Added a synthetic untouched-null approval regression. Its first fixture lacked
+the requested attachment plan and correctly failed verification; the synthetic
+fixture was completed, not the production guard weakened. Modified test compiled;
+context recovery 6, label recovery 5, local correction 51, review snapshot 13,
+AI Correction 10: 85 synthetic/mock checks passed, zero failed. Existing executable
+source remains 8fee328; this checkpoint changes tests/continuity only. DP and
+Training remain stopped. Correction readiness is NOT established.
+
+Final gates: 11 continuity and 3 tracker-reconciliation checks also passed,
+bringing this turn's synthetic/mock count to 99. Tracker Updated 1, Unchanged 37,
+Not Found 0, Failed 0. Protected-path ignore and diff checks passed. Sealed audit
+identity uses complete-context-acceptance plus existing case identity, with
+candidate:1, candidate:2, validated, result and verify-result suffixes. Those
+records remain retained; completed temporary runners/inspectors are removed.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-10",
+  "work_summary": "Ran the explicitly approved full-context same-case recovery and verified unchanged-cycle idempotency.",
+  "key_result": "Full retry input processed, but Hours/Days Per Week drift and unresolved service/subtype evidence still block correction. No plan applied.",
+  "tests": "85 synthetic/mock checks passed; one cached/local replay completed. Fresh-process unchanged cycle: zero model calls/writes, same generation.",
+  "phi_handling": "Evidence retained encrypted locally. Human controls/comments, row fields and attachment unchanged; no mailbox or fresh OCR access.",
+  "limitation_acceptance": "Blocked generation 3/contract 6 remains consumed. No verified proposal ready. DP/Training stopped; no blind retry.",
+  "exact_next_start": "Use the retained encrypted full-context candidates and final diagnostics to fix service-section evidence/subtype support and investigate out-of-scope Hours/Days Per Week value changes. Prove the correction synthetically before any further replay or rearm. Preserve blocked generation 3, review snapshot, comments, approvals, existing row/document and idempotency; do not resend the document or request approval of an unverified proposal. DP and Training remain stopped during exclusive maintenance."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

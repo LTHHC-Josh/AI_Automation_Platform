@@ -451,11 +451,16 @@ Operator commands remain:
   The server rejected oversized input and reported 8192 runtime context for the
   successful probe. Source fix 8fee328 is pushed and all four Prefect deployments
   are refreshed to its executable source with no schedules, concurrency one /
-  CANCEL_NEW on document deployments, no active runs or fresh workers. No protected
-  replay or production correction has run under contract 6: automatic safety review
-  denied the scoped live recovery pending explicit approval after earlier live-write
-  prohibitions. Read-only verification proves the original blocked generation 2,
-  contract 5, no plan, no recovery receipt and no Training operation lock remain.
+  CANCEL_NEW on document deployments, no active runs or fresh workers at acceptance.
+  After explicit operator approval, one same-case contract-6 cached/local replay
+  completed with three requests. Retry prompt_eval_count=4426 proves full retry
+  input; both responses completed normally. The case remains blocked at generation
+  3 with no plan: Hours and Days Per Week governing values changed outside scope,
+  service-line evidence remains unsupported/invalid, and subtype remains unresolved.
+  Payer and scalar dates validate; filename still has service/subtype placeholders.
+  No correction or attachment upload occurred; human controls/comments and review
+  snapshot remained unchanged. A fresh-process unchanged cycle proved zero model
+  calls, zero workflow writes and no generation change. Do not rearm or replay.
 
 - One reserved diagnostic-only cached-source replay completed with three local
   model requests (classification and two independent extraction attempts).
@@ -472,9 +477,9 @@ Operator commands remain:
   Applying only the pure projection to the encrypted retained
   replay preserved five confidences and reduced unrelated differences to zero,
   with zero additional model/network calls. This does not resolve the requested
-  filename evidence or authorize publication. Contract 5 and its generation remain
-  consumed; Training and DP remain stopped for exclusive maintenance. Registration
-  still points to db4509d until refreshed after this source checkpoint.
+  filename evidence or authorize publication. This was the earlier contract-5
+  diagnostic checkpoint; the newer contract-6 result above supersedes its runtime
+  state. Training and DP remain stopped for exclusive maintenance.
 
 - Value-free extraction/correction diagnostics and invalid service-line shape
   rejection passed 367 synthetic/mock checks, including isolated Prefect
@@ -666,4 +671,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Obtain explicit approval for one scoped cached-document/local-Ollama recovery and verified proposal-only Smartsheet publication after the automatic safety-review denial. Then run the reserved contract-6 recovery on the same existing case, preserving human controls, comments, review snapshot and row/document until fresh correction approval. Verify filename evidence, concise proposal and unchanged-cycle idempotency. Do not blindly repeat a failed replay. DP and Training remain stopped during this acceptance boundary.
+Use the retained encrypted full-context candidates and final diagnostics to fix service-section evidence/subtype support and investigate out-of-scope Hours/Days Per Week value changes. Prove the correction synthetically before any further replay or rearm. Preserve blocked generation 3, review snapshot, comments, approvals, existing row/document and idempotency; do not resend the document or request approval of an unverified proposal. DP and Training remain stopped during exclusive maintenance.

@@ -5,12 +5,12 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-10
-Work: Committed the complete-input Ollama fix and refreshed all four Prefect registrations.
-Result: Registered source 8fee328; no worker/run conflicts. Existing blocked case and human state preserved; no recovery consumed.
-Tests: 273 synthetic/mock checks passed; local synthetic context probes passed. Registration and read-only durable-state checks passed.
-PHI: No protected replay, production correction/upload, mailbox access or human-state mutation. Tracker only received safe metadata.
-Status: Automatic safety review denied live recovery under earlier prohibitions. Explicit scoped approval required; DP/Training stopped.
-Next: Obtain explicit approval for one scoped cached-document/local-Ollama recovery and verified proposal-only Smartsheet publication after the automatic safety-review denial. Then run the reserved contract-6 recovery on the same existing case, preserving human controls, comments, review snapshot and row/document until fresh correction approval. Verify filename evidence, concise proposal and unchanged-cycle idempotency. Do not blindly repeat a failed replay. DP and Training remain stopped during this acceptance boundary.
+Work: Ran the explicitly approved full-context same-case recovery and verified unchanged-cycle idempotency.
+Result: Full retry input processed, but Hours/Days Per Week drift and unresolved service/subtype evidence still block correction. No plan applied.
+Tests: 85 synthetic/mock checks passed; one cached/local replay completed. Fresh-process unchanged cycle: zero model calls/writes, same generation.
+PHI: Evidence retained encrypted locally. Human controls/comments, row fields and attachment unchanged; no mailbox or fresh OCR access.
+Status: Blocked generation 3/contract 6 remains consumed. No verified proposal ready. DP/Training stopped; no blind retry.
+Next: Use the retained encrypted full-context candidates and final diagnostics to fix service-section evidence/subtype support and investigate out-of-scope Hours/Days Per Week value changes. Prove the correction synthetically before any further replay or rearm. Preserve blocked generation 3, review snapshot, comments, approvals, existing row/document and idempotency; do not resend the document or request approval of an unverified proposal. DP and Training remain stopped during exclusive maintenance.
 
 ## Safety Contract
 
