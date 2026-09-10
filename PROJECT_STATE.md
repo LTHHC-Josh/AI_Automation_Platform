@@ -293,7 +293,15 @@ External/user changes are preserved.
 Filename intent normalization now aligns the primary symptom, fixed behavior code
 and Filename execution scope. Service Line correction revalidates only its review
 projection; it never flattens line dates/quantity/status into top-level columns.
-Unrelated replay changes still block aggregate correction. Verified-action
+Unrelated replay value, acceptance and metadata changes still block correction.
+An out-of-scope scalar confidence may now be preserved only when the replay
+independently accepts the exact same displayed value and both existing/replay
+confidences pass the configured acceptance threshold and candidate cap. The
+validated replay is never changed or merged with another extraction attempt.
+The scoped row patch preserves that existing confidence, recomputes the displayed
+minimum from the actual projected value/confidence pairs, and includes preserved
+pairs in exact preconditions/readback so concurrent edits still block application.
+Classification confidence is not exempted. Verified-action
 coverage means a requested filename correction cannot be Analysis Ready
 when the saved plan contains no attachment-name change. Existing incomplete plans
 also remain blocked when explicitly requested payer/service components still
@@ -336,8 +344,9 @@ objects/arrays are preserved as candidates rather than stringified, then rejecte
 locally with field-specific Invalid review reasons. No nested value is unwrapped
 or inferred. Exact mapped-field difference diagnostics are sealed before the
 unrelated-change guard throws; only code-approved column names, type/presence and
-scope/change booleans are emitted. Confidence-only drift is distinguishable from
-governing-value change but is not exempted from the guard. Diagnostics neither
+scope/change booleans are emitted. Raw confidence-only drift is distinguishable
+from governing-value change; the same audit now separately records the scoped
+projection's preserved-confidence and remaining-blocker counts. Diagnostics neither
 refresh human review snapshots nor authorize correction or replay.
 Contract 5 additionally permits one reserved replay of a version-4 blocked
 authorization filename case with no verified change or unresolved requested
@@ -423,6 +432,25 @@ Operator commands remain:
 - `startdptraining`, `statusdptraining`, `stopdptraining`
 
 ## Current Verified Baseline
+
+- One reserved diagnostic-only cached-source replay completed with three local
+  model requests (classification and two independent extraction attempts).
+  The same case/generation, review snapshot, human controls and row/document were
+  unchanged; zero production writes and zero comment access. The exact blocker
+  was five unrelated scalar confidence differences with unchanged governing
+  values. Both candidates used ordinary service-line strings, not nested objects;
+  their code values were absent from their own line excerpts, modifiers failed
+  the existing single-modifier format, and subtype evidence was below threshold
+  and noncanonical. These are retained candidate/evidence problems, not proof
+  that the source document lacks those facts. No modifier or subtype was guessed.
+  The scoped-confidence correction passed 226 synthetic/mock checks plus 14
+  continuity/tracker checks (240 total); tracker Not Found 0 / Failed 0.
+  Applying only the pure projection to the encrypted retained
+  replay preserved five confidences and reduced unrelated differences to zero,
+  with zero additional model/network calls. This does not resolve the requested
+  filename evidence or authorize publication. Contract 5 and its generation remain
+  consumed; Training and DP remain stopped for exclusive maintenance. Registration
+  still points to db4509d until refreshed after this source checkpoint.
 
 - Value-free extraction/correction diagnostics and invalid service-line shape
   rejection passed 367 synthetic/mock checks, including isolated Prefect
@@ -614,4 +642,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Use one explicitly bounded diagnostic-only cached-source replay of the existing blocked case to capture raw/adapter shapes and exact mapped-field differences. Preserve the consumed generation, review snapshot, comments, approvals and row/document; do not blindly re-arm contract 5 or resend the document. Reproduce the proven cause synthetically before changing validation or correction scope. Training stays stopped; resume authorized DP polling after exclusive maintenance. Registered executable source is db4509d0a33897044530f30d2b507a9e4b940836.
+Use the retained encrypted candidates and cached source structure to resolve incomplete service-section evidence and the noncanonical low-confidence subtype candidate, without another model replay or relaxed validation. Prove a supported filename recovery path synthetically before re-arming the consumed case. Preserve the same generation, review snapshot, comments, approvals and row/document. Refresh affected source registration before runtime use; Training stays stopped and authorized DP polling resumes after exclusive maintenance.

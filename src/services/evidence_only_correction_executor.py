@@ -186,27 +186,37 @@ class EvidenceOnlyCorrectionExecutor:
         if not mapping.ready_for_write:
             raise ValueError("correction_mapping_unavailable")
         selected = {name for field in analysis.affected_fields for name in self.FIELD_COLUMNS.get(field, ())}
-        # Shared final review/minimum must agree with recomputed selected production
-        # values. Do not recompute aggregate metadata over a mixed old/new row.
+        # Keep the independently validated replay intact. Scope only the row
+        # patch: unrelated accepted scalar confidence drift is not a correction.
+        from src.services.correction_row_projection_service import CorrectionRowProjectionService
+        projected, preserved, protected = CorrectionRowProjectionService.project(
+            context, mapping.values, policies=config.policies, selected=selected)
         dependent = {"AI Minimum Field Confidence", "AI Review Reasons", "AI Review Status", "AI Review Required"}
         from src.services.correction_difference_diagnostic_service import CorrectionDifferenceDiagnosticService
         difference = CorrectionDifferenceDiagnosticService.build(
             context, mapping.values,
             production_columns=set(mapping.values.keys()) | set(mapping.omitted_columns),
             selected=selected, dependent=dependent)
+        all_production = set(mapping.values) | set(mapping.omitted_columns)
+        unchanged = all_production - selected - dependent - {"AI Correction", "Run Type"}
+        difference["projection"] = {
+            "version":1, "preserved_confidence_count":len(preserved),
+            "remaining_unrelated_field_count":sum(
+                bool(selected) and context.get(name) != projected.get(name) for name in unchanged),
+        }
         # Persist before the guard throws; preserve each distinct value-free
         # diagnostic, plus a latest pointer. Neither is an approval or replay gate.
         difference_key = "preparation-differences:" + binding["fingerprint"]
         self.source.store.save("audit", difference_key + ":" + stable_digest(difference), difference)
         self.source.store.save("audit", difference_key, difference)
         if selected:
-            all_production = set(mapping.values) | set(mapping.omitted_columns)
-            unchanged = all_production - selected - dependent - {"AI Correction", "Run Type"}
-            if any(context.get(name) != mapping.values.get(name) for name in unchanged):
+            if any(context.get(name) != projected.get(name) for name in unchanged):
                 raise ValueError("correction_unrelated_field_change")
             selected |= dependent
-        desired = {name:mapping.values.get(name) for name in selected}
-        before = self._values(row_id, {n:config.available_columns[n] for n in selected})
+        desired = {name:projected.get(name) for name in selected}
+        before = self._values(row_id, {n:config.available_columns[n] for n in selected | protected})
+        if any(before.get(name) != context.get(name) for name in protected):
+            raise ValueError("correction_row_changed")
         # Review status/reasons belong to the analysis generation, not application.
         # Keep a separate candidate snapshot; only the comment-driven workflow
         # may publish it. Applying a saved correction never writes these columns.
@@ -216,7 +226,7 @@ class EvidenceOnlyCorrectionExecutor:
                            if snapshot_before != snapshot_after else None)
         selected -= REVIEW_SNAPSHOT_COLUMNS
         desired = {n:v for n,v in desired.items() if n in selected}
-        before = {n:v for n,v in before.items() if n in selected}
+        before = {n:v for n,v in before.items() if n in selected | protected}
         updates = {name:value for name,value in desired.items() if before.get(name) != value}
         self._validate(updates, config)
         plan = {"updates":updates, "before":before, "attachment":None,

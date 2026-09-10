@@ -14427,3 +14427,91 @@ characters. Full continuity diff and git diff --check passed.
   "exact_next_start": "Use one explicitly bounded diagnostic-only cached-source replay of the existing blocked case to capture raw/adapter shapes and exact mapped-field differences. Preserve the consumed generation, review snapshot, comments, approvals and row/document; do not blindly re-arm contract 5 or resend the document. Reproduce the proven cause synthetically before changing validation or correction scope. Training stays stopped; resume authorized DP polling after exclusive maintenance. Registered executable source is db4509d0a33897044530f30d2b507a9e4b940836."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## 2026-09-09 — Proven confidence-only correction blocker and retained evidence
+
+Executed the one authorized diagnostic-only cached-source replay, reserving a
+separate sealed receipt before inference. It used three local Ollama requests:
+classification and two independently validated extraction attempts. All raw
+candidates and the validated snapshot remain in approved current-user encrypted
+local audit storage. The temporary transport boundary allowed only local model
+requests and approved read-only Smartsheet schema/selected-row/attachment access;
+production writes and comments were blocked. Cached OCR was reused, no fresh OCR
+or Graph/mailbox document operation occurred. The replay completed with the same
+correction_unrelated_field_change category, no plan, and proven unchanged case,
+generation and row. Zero production writes, uploads or comment access occurred.
+
+Exact retained differences prove five out-of-scope scalar confidence changes:
+Authorization # Conf., Days Per Week Conf., End Date Conf., Hours Conf. and
+Start Date Conf. Their governing mapped values did not change. Service Codes
+Conf. was requested; the minimum was dependent; AI Correction's initialization
+difference was ignored and never written. The two extraction attempts both used
+ordinary scalar service-line strings, disproving nested containers as this run's
+cause. Service-code candidates were absent from their own line excerpts;
+modifiers failed the current single-modifier format. The subtype candidate was
+noncanonical, with confidence 0.80 below the existing 0.85 threshold. Those facts
+do not prove the document lacks the evidence. They do not justify borrowing
+other sections' evidence, splitting/guessing modifiers or inflating confidence.
+
+Implemented CorrectionRowProjectionService as an existing-row patch boundary,
+not an extraction merger. Preserve only code-approved scalar confidence pairs
+outside requested scope when the replay independently maps the identical
+nonempty accepted value and both confidence values are finite numeric, within
+the configured acceptance threshold and candidate maximum (inclusive). Missing,
+changed, unsupported, invalid, low-confidence and classification confidence
+differences remain guarded. No source candidate, value/confidence evidence,
+validation, reference or naming policy is changed. The displayed minimum uses
+the actual projected explicit value/confidence pairs. Preserved pairs enter
+exact fresh-read and apply/restart preconditions; concurrent edits block writes.
+Requested fields retain the selected candidate's confidence. Raw differences and
+projection counts are sealed together to avoid stale/misleading diagnostics.
+Human checkboxes/comments and analysis-generation review-snapshot ownership are
+unchanged. No contract bump, rearm, inference retry or production correction.
+
+Applying the pure projection to the retained encrypted replay reduced unrelated
+differences from five to zero, retaining five original confidences. This check
+made zero model calls, zero network requests and no case changes. It does not
+prove the requested filename components resolved. The case is not ready for
+approval; extraction/evidence coverage still needs correction using retained
+data rather than another blind replay. DP and Training remain stopped during
+exclusive maintenance; continued DP polling remains authorized afterward.
+
+Files: new correction_row_projection_service.py; evidence_only_correction_executor.py;
+new test_correction_confidence_projection.py; PROJECT_STATE.md; this history;
+update_project_tracker.py; derived PROJECT_SMARTSHEET.md. No PowerShell changed.
+Initial synthetic fixture assertions incorrectly expected duplicate identical
+lines to survive deduplication and rejected subtype evidence to be erased; the
+fixtures were corrected to test distinct lines and final subtype resolution.
+Production evidence preservation was not weakened to satisfy those assertions.
+
+Validation before continuity: modified Python compilation passed; projection 15,
+local correction 51, extraction diagnostics 15, review snapshot 13, AI Correction
+10, label recovery 5, intake filename 20, production filename assembly 32,
+missing-confidence mapping 6, durable mailbox recovery 21, local code pipeline 13,
+code authorization 5, Training restart 8 and explicit labels 12: 226 passed,
+zero failed. All are synthetic deterministic/mock; durable tests used isolated
+temporary state with explicit fixture invocation, not an empty script run.
+Separate real diagnostic classification: cached-source/local Ollama and read-only
+Smartsheet, no protected content exposed. Git fetch succeeded and local/remote
+divergence was zero before changes. Registration remains at the prior executable
+commit until explicitly refreshed; no deployment/worker was started here.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-09",
+  "work_summary": "Diagnosed the blocked correction and fixed unrelated accepted-confidence drift in scoped row patches.",
+  "key_result": "Retained replay proves five confidence-only blockers now project to zero. Values, human state and candidates remain unchanged; no case rearm or publication.",
+  "tests": "226 synthetic/mock checks passed; modified Python compiled. Retained-candidate projection passed without further inference or network.",
+  "phi_handling": "One reserved local-model/cached-source diagnostic; candidates encrypted locally. No production write, upload, comments, mailbox access or approval change.",
+  "limitation_acceptance": "Service-line evidence and subtype remain unresolved. Current row is not corrected; consumed case stays blocked. DP and Training stopped for maintenance.",
+  "exact_next_start": "Use the retained encrypted candidates and cached source structure to resolve incomplete service-section evidence and the noncanonical low-confidence subtype candidate, without another model replay or relaxed validation. Prove a supported filename recovery path synthetically before re-arming the consumed case. Preserve the same generation, review snapshot, comments, approvals and row/document. Refresh affected source registration before runtime use; Training stays stopped and authorized DP polling resumes after exclusive maintenance."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+Checkpoint completion: 11 continuity migration and 3 tracker reconciliation tests
+passed, bringing the unique synthetic/mock total to 240. Management tracker:
+Updated 2, Unchanged 36, Not Found 0, Failed 0. Derived summary is 1,297 characters.
+Protected-path ignore checks passed for all six guarded locations. Full reviewed
+source/test/continuity diff and git diff --check passed. Temporary diagnostic
+scripts and their two generated bytecode files are removed; encrypted diagnostic
+receipts/candidates remain retained for safe continuation, not discarded.

@@ -380,8 +380,12 @@ PROJECT_SMARTSHEET_TASKS = [
             "Nested service-line objects are preserved internally and rejected "
             "before production mapping rather than coerced to strings. Correction "
             "scope failures now retain exact approved-field difference diagnostics "
-            "without values; confidence drift does not bypass the existing guard. "
-            "The current live correction remains blocked pending instrumented evidence."
+            "without values. A scoped row patch preserves unrelated scalar confidence "
+            "only for the same independently accepted value with both scores in the "
+            "existing accepted range. Displayed minimum and exact readback follow the "
+            "projected row, without merging candidates. Retained diagnostic replay "
+            "proves five confidence-only blockers are resolved; requested filename "
+            "evidence remains unresolved and the consumed case is not rearmed."
         ),
     ),
     (
