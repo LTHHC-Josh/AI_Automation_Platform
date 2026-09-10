@@ -229,13 +229,25 @@ class ComplianceTests(unittest.TestCase):
         self.assertEqual(stop_owned(self.store)['state'],'stop_requested')
         self.assertEqual(self.store.get('control','stop'),'a'*32)
 
-    def test_schedule_disabled_and_timezone_window(self):
+    def test_schedule_disabled_and_timezone_triggers(self):
         schedule=copy.deepcopy(self.config['schedule'])
         self.assertFalse(schedule_due(schedule,{})['daily'])
-        schedule.update(enabled=True,model_window=['01:00','03:00'],resource_sharing_confirmed=True)
+        schedule.update(enabled=True,coordination='shared_queue_v1')
         d=schedule_due(schedule,{},datetime(2026,9,10,7,0,tzinfo=timezone.utc))
         self.assertTrue(d['model']);self.assertTrue(d['daily'])
-        self.assertFalse(schedule_due(schedule,{},datetime(2026,9,10,12,0,tzinfo=timezone.utc))['model'])
+        self.assertTrue(schedule_due(schedule,{},datetime(2026,9,10,12,0,tzinfo=timezone.utc))['model'])
+
+    def test_sunday_discovery_at_one_central_and_all_day_queue_access(self):
+        schedule=copy.deepcopy(self.config['schedule']);schedule['enabled']=True
+        before=schedule_due(schedule,{},datetime(2026,9,13,5,59,tzinfo=timezone.utc))
+        at=schedule_due(schedule,{},datetime(2026,9,13,6,0,tzinfo=timezone.utc))
+        self.assertFalse(before['daily']);self.assertFalse(before['weekly'])
+        self.assertTrue(at['daily']);self.assertTrue(at['weekly']);self.assertTrue(before['model'])
+        winter=schedule_due(schedule,{},datetime(2026,12,13,7,0,tzinfo=timezone.utc))
+        self.assertTrue(winter['daily']);self.assertTrue(winter['weekly'])
+        previous={'daily':at['date'],'weekly':at['week'],'sync':'2026-09-13T06:00:00+00:00'}
+        later=schedule_due(schedule,previous,datetime(2026,9,13,6,15,tzinfo=timezone.utc))
+        self.assertTrue(later['sync']);self.assertFalse(later['daily']);self.assertFalse(later['weekly'])
 
     def test_confirmed_service_profile_does_not_reopen_agency_wide(self):
         key,before=self.baseline()
@@ -327,6 +339,7 @@ class ComplianceTests(unittest.TestCase):
         self.assertIn('<Interval>PT15M</Interval>',xml)
         self.assertNotIn('BootTrigger',xml);self.assertNotIn('LogonTrigger',xml)
         self.assertIn('src.program_compliance tick',xml)
+        self.assertIn('pythonw.exe',xml)
         self.assertNotIn('document_processor',xml)
 
 

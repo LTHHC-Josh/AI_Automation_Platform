@@ -1,5 +1,6 @@
 """Synthetic no-truncation request boundary; no real inference/network."""
 import json
+import tempfile
 from types import SimpleNamespace as N
 from unittest.mock import patch
 import requests
@@ -29,7 +30,7 @@ def call(p=None, *, version='0.33.3', metadata=None, result=None, error=None):
             return response(metadata if metadata is not None else {'model_info':{'llama.context_length':131072}})
         if error: raise error
         return result or response({'done':True,'done_reason':'stop','message':{'content':'{"ok":true}'},'prompt_eval_count':4426,'eval_count':1337})
-    with patch('src.ai.llm.providers.ollama_provider.requests.post',side_effect=post), patch(
+    with tempfile.TemporaryDirectory() as directory, patch.object(p, '_queue_directory', directory, create=True), patch('src.ai.llm.providers.ollama_provider.requests.post',side_effect=post), patch(
             'src.ai.llm.providers.ollama_provider.requests.get',return_value=response({'version':version})):
         try:
             output=p._chat('Synthetic instructions','Synthetic evidence',{},42)

@@ -9,6 +9,49 @@ service checkpoint to resume. Full DP history is not required for compliance wor
 Shared platform rules remain authoritative for safety; new explicit user direction
 governs scope. Development notes are not production memory or the operational sheet.
 
+## Approved shared-inference amendment — September 10, 2026
+
+This newer instruction supersedes the fixed/idle operating-window and worker-marker
+admission conditions below. All other approved scope, memory and acceptance requirements remain.
+
+> Run Compliance alongside DP and Training. Do not require them to be stopped or idle for a fixed window.
+> Coordinate actual Ollama requests through a shared queue, initially allowing one inference at a time.
+> Give DP priority without indefinitely starving Compliance. An idle DP worker must not block Compliance.
+> Use daily source checks at 1 a.m. Central, broader discovery on Sunday, and Smartsheet synchronization
+> every 15 minutes. These are trigger times, not exclusive operating windows.
+> I authorize the minimal shared coordination changes needed. Preserve existing behavior, run affected
+> DP/Training regressions, and verify concurrent service operation before activating recurring monitoring.
+> If safe sharing remains unverified, leave activation disabled and report the specific blocker.
+
+Implementation: the shared transport admits actual chat requests through a separate metadata-only
+SQLite queue at LOCALAPPDATA/LTHHC/InferenceQueue. No prompts, findings, human decisions or DP recovery
+records enter that queue. One active inference; DP has priority for at most three consecutive grants
+while background work waits. Training and Compliance share FIFO background order. Request-scoped
+ContextVars restore the original caller class, without mutating a shared provider object. Idle workers
+are not scanned or treated as capacity reservations. Metadata preflight remains outside inference admission.
+
+Completed/rejected requests release their reservation. Timeout, malformed/incomplete transport response,
+or process death retains an uncertain/active reservation and blocks further inference; process age alone
+never proves server completion. Waiting requests have a bounded 30-minute admission timeout. A queue
+block requires confirming the server's outstanding inference has ended before explicit operator recovery;
+there is no automatic deletion, stale-timeout eviction, model retry or Ollama restart. Direct non-platform
+Ollama clients do not participate in this queue.
+
+Activation: owned LTHHC-ProgramCompliance task enabled; daily 01:00 Central, Sunday discovery,
+quarter-hour synchronization triggers. First task-launched tick passed and no boot/logon trigger was added.
+A recovery backup was made before activation.
+
+Sharing acceptance: 279 synthetic/mock tests passed (12 queue, 40 Compliance, 13 context contract,
+214 affected DP/Training/continuity/tracker regressions). Three separate concurrent provider processes
+using synthetic input completed real local Ollama requests with peak inference concurrency one,
+DP first, and background arrival order preserved. Each used 39 input / 9 output tokens. No patient
+input, production DP/Training run, learning/recovery record or human approval was operated on.
+An initial live harness assertion incorrectly assumed background process launch order equaled queue
+arrival order; serialization and output succeeded. The corrected arrival-order assertion passed on rerun.
+Existing production worker count was zero, so no old loaded worker bypassed admission during verification.
+These provider-boundary checks do not represent a production document replay or resolution of DP's
+existing blocked correction generation.
+
 ## Approved implementation plan
 
 Build one bounded, reusable multi-program service, initially configured only for
@@ -90,7 +133,7 @@ definition of done below; never substitute scaffolding or mocks for real accepta
 
 ## Current implementation and verified baseline
 
-The bounded operational pilot is implemented and verified; recurring activation is pending.
+The bounded pilot and shared inference are implemented and verified. Recurring activation status is recorded below; original pilot metrics are retained as baseline evidence.
 Code is in src/program_compliance, with CLASS configuration in config/program_compliance/class.json.
 Public runtime evidence, SQLite state, snapshots and credentials remain outside Git under
 the owner's local application data; there is no DP learning/recovery dependency.
@@ -138,12 +181,13 @@ Do not claim comprehensive regulatory coverage or agency compliance.
 
 ## Next Service Action
 
-Obtain the approved local-model operating window and resource-sharing arrangement.
-Then explicitly activate the prepared owned Windows schedule and verify the first bounded
-scheduled tick. No task is registered or recurring execution enabled yet. Keep DP unchanged.
-The interactive-token task requires the operator to be logged in; no reboot/logon startup
-was enabled. Continue only the approved incremental CLASS coverage and existing gap queue.
-Contracted/active service lists remain a consolidated question in the operational sheet.
+Continue approved incremental CLASS coverage and the existing source-health/gap queue. Recurring
+monitoring is active; the first Task Scheduler cycle completed successfully on September 10, 2026
+at 13:18 Central: exit 0, eight source checks, zero retrieval failures, two model calls, queue empty. Use shared request
+admission at any time; there is no exclusive operating window. Contracted/active service lists remain
+a consolidated human question in the operational sheet. Preserve DP's separate blocked correction
+and pending work; enabling Compliance does not resume DP or consume Training approvals.
+The task requires the operator to remain logged in; no boot/logon startup is enabled.
 
 Full user scope and acceptance requirements below remain authoritative. Pilot completion
 does not authorize other programs, policy drafting, regulatory actions or indefinite development.
@@ -736,3 +780,14 @@ polling, and continuity-only commits for each status update.
 Retain diagnostic results so failures can be understood without blind retries.
 Do not spawn parallel agents unless explicitly requested.
 Provide concise milestone updates and pursue this bounded outcome.
+
+### Hidden background execution
+
+The owned task invokes the repository virtual environment's pythonw.exe, which avoids a
+console window. The Task Scheduler Hidden flag alone is not relied on to suppress windows.
+The original console task's first run exited 0; when the reported blank repository terminal
+was investigated, no matching terminal or Compliance process remained. The vanished window could
+not be conclusively attributed. A console-free task run then exited 0 with zero repository
+terminal windows observed. No terminal
+or DP/Training process was stopped. Future manual background starts already use CREATE_NO_WINDOW.
+Task exit status and durable Compliance records remain the operational diagnostics.

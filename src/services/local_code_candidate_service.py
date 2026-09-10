@@ -5,6 +5,7 @@ can edit imports, class attributes, public signatures, tests, write services,
 approval controls, credentials, or this updater.
 """
 import ast
+from src.ai.llm.inference_queue import service_class
 from dataclasses import dataclass, field
 import json
 import textwrap
@@ -86,6 +87,7 @@ class LocalCodeCandidateService:
     def __init__(self, *, provider=None):
         self.provider=provider
 
+    @service_class('training')
     def propose(self, *, root, family, code):
         family=ApprovedDocumentLessons.family(family)
         if family is None or code not in TARGETS:

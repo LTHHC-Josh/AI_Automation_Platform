@@ -691,9 +691,18 @@ Three real section-3500 DSA findings and one clearly labeled TEST change are ret
 Live same-row revision, human-field preservation, unchanged fresh-process readback,
 local overflow rejection and real backup/restore passed. Source coverage remains
 bounded: additional sections, current rules, inaccessible pages and references remain gaps.
-Recurring activation and reboot startup are disabled pending the model-window and
-resource-sharing decision. LT Project Tracking is unchanged; management reconciliation
-for this checkpoint uses the explicit read-only gate. No external management sync is claimed.
+Recurring Compliance monitoring is active under the user-approved shared inference queue:
+one actual Ollama request at a time, DP priority capped at three grants while background
+work waits, Training/Compliance in background arrival order. Idle workers do not reserve
+capacity. Daily checks trigger at 01:00 Central, Sunday discovery, sync every 15 minutes.
+279 synthetic/mock regressions and three concurrent real local-provider requests passed.
+The first task-launched tick exited 0: eight checks, zero retrieval failures, two model calls;
+queue empty afterward. No boot/logon startup. The task requires the user to remain logged in.
+Its console-free pythonw.exe action passed a task-launched run with exit 0; no repository
+terminal window remained. No DP/Training process or unrelated terminal was closed.
+DP's existing correction/approval state and pending action above are preserved. This shared
+transport update does not resume DP/Training or resolve their separate blockers.
+LT Project Tracking is unchanged; management reconciliation remains read-only.
 
 Authoritative service scope, full requirements, acceptance and next action:
 docs/program_compliance_plan.md. Operator/reviewer guide: docs/program_compliance_operations.md.

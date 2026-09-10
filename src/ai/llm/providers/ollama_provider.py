@@ -6,6 +6,7 @@ from typing import Any
 import requests
 
 from src.ai.llm.local_ollama_transport import LocalOllamaTransport
+from src.ai.llm.inference_queue import service_class
 from src.ai import config
 from src.ai.llm.llm_provider import LLMProvider
 from src.ai.llm.provider_registration import register_llm_provider
@@ -611,6 +612,7 @@ class OllamaProvider(LocalOllamaTransport, LLMProvider):
             self._last_request_metrics
         )
 
+    @service_class('training')
     def analyze_learning_structure(self, evidence) -> dict:
         """Return structured concepts without returning document values."""
 
@@ -637,6 +639,7 @@ class OllamaProvider(LocalOllamaTransport, LLMProvider):
         self._attach_context_metrics("structural_learning")
         return result
 
+    @service_class('training')
     def analyze_correction_context(self, context: dict, *, schema: dict) -> dict:
         """Analyze protected feedback locally without granting tools or actions."""
         if not isinstance(context, dict) or not isinstance(schema, dict):

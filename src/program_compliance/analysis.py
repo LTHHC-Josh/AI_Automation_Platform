@@ -6,6 +6,7 @@ from datetime import datetime
 import jsonschema
 from src.ai.llm.local_ollama_transport import LocalOllamaTransport
 from .store import digest
+from src.ai.llm.inference_queue import service_class
 
 PROMPT_VERSION='pcm-1'
 SYSTEM='''You analyze official public program requirements for the agency role and program supplied in the profile. The pilot profile is CLASS DSA.
@@ -26,24 +27,12 @@ class ComplianceModel(LocalOllamaTransport):
         self.context_tokens=context;self.max_output_tokens=output;self._last_request_metrics={}
         if not model: raise ValueError('local_model_not_configured')
 
+    @service_class('compliance')
     def analyze(self,package):
-        import psutil
-        from .runtime import OwnedLock
-        import os
-        from pathlib import Path
-        # Conservative admission: defer while any existing DP worker is present.
-        # Never read its state, acquire its locks, stop it, or alter its configuration.
-        for process in psutil.process_iter(['cmdline']):
-            try:
-                command=' '.join(process.info.get('cmdline') or []).lower()
-                if any(marker in command for marker in ('lthhc-dp-live-process','lthhc-dp-training-process','lthhc-local-process')):
-                    raise RuntimeError('shared_model_capacity_deferred')
-            except (psutil.NoSuchProcess,psutil.AccessDenied): continue
         # Budget is conservative; server remains authoritative and must never truncate.
         prompt=json.dumps(package,ensure_ascii=False)
         if len(prompt)>14000: raise ValueError('context_incomplete')
-        with OwnedLock(Path(os.environ['LOCALAPPDATA'])/'LTHHC'/'ProgramCompliance','model'):
-            result=self._chat(SYSTEM,prompt,SCHEMA,42)
+        result=self._chat(SYSTEM,prompt,SCHEMA,42)
         jsonschema.validate(result,SCHEMA)
         return result
 

@@ -50,21 +50,32 @@ environment locally without printing or changing it. Stored sheet identity has n
 fallback to any document or tracker sheet. Program state is under the owner's local
 application-data LTHHC/ProgramCompliance directory, outside Git and DP state.
 
-The checked-in schedule is disabled. Activation requires an explicit model window and
-resource-sharing decision. After that decision, the operator can run
-`python -m src.program_compliance schedule --enable --window HH:MM-HH:MM --confirm-idle-window`.
-This explicitly registers the owned LTHHC-ProgramCompliance Windows task, invoking a
-bounded tick every 15 minutes while the user is logged in. The internal scheduler applies
-daily/weekly timing and the model window in America/Chicago. No boot/logon trigger is added.
-`python -m src.program_compliance schedule` disables that owned schedule; an incompatible
-existing task is never overwritten. No task was registered or activated during acceptance.
-Each optional manually started service launch is finite (up to 24 hours). Stop writes
-a generation-specific cooperative signal and never kills a process or touches DP controls.
+The checked-in default remains disabled; the owner's runtime schedule is explicitly activated with
+`python -m src.program_compliance schedule --enable` after sharing verification. This registers the
+owned LTHHC-ProgramCompliance task on quarter-hour boundaries. Daily source checks trigger at
+01:00 America/Chicago; Sunday at 01:00 also requests broader discovery. Smartsheet synchronization
+triggers every 15 minutes. These are trigger times, not exclusive windows. Work is bounded and
+incremental; an already-running tick is not duplicated, and overdue daily/sync work catches up on the
+next available tick. The scheduler's 90-minute ceiling accommodates queued admission plus bounded work.
 
-Shared Ollama admission conservatively defers while known DP worker markers exist.
-This is not a cross-service atomic reservation: a coordinated idle window is mandatory
-until a separately approved shared capacity controller or independent model capacity is
-available. This pilot does not change DP to implement that future controller.
+The task runs while the user is logged in, with no boot/logon trigger. `python -m
+src.program_compliance schedule` disables only this owned schedule; incompatible tasks are not
+replaced. Optional manually started service launches remain finite (up to 24 hours). Stop remains
+cooperative and Compliance-owned. Neither command starts/stops DP or Training.
+
+Actual inference uses the shared LOCALAPPDATA/LTHHC/InferenceQueue SQLite metadata queue. DP has
+priority, limited to three consecutive grants while Training or Compliance waits. Background requests
+use arrival order. Only the active chat request owns capacity; an idle worker cannot block Compliance.
+The queue stores identities, ownership and timing, never prompts, model responses or service memory.
+New worker processes must load the updated transport. Direct external Ollama clients are outside this
+platform's queue and must not be used to bypass it.
+
+A timed-out, incomplete or orphaned active request blocks further inference until its server-side
+completion is established. Never delete its reservation because a process is dead or a lease is old:
+Ollama may still be generating. Do not restart Ollama automatically. Confirm outstanding server work
+has ended and coordinate explicit recovery before clearing an uncertain reservation. Waiting requests
+time out after 30 minutes; that is an admission failure, not a repeated inference. Compliance records
+bounded retry backoff for admission timeout. Queue uncertainty requires operator attention.
 
 ## Recovery
 
@@ -97,3 +108,14 @@ unretrieved references remain coverage gaps. An extracted quotation establishes 
 traceability, not legal correctness. Human review remains authoritative for consequential
 decisions. No patient data, private policies, regulatory submissions, automatic policy
 adoption, other-program implementation or DP learning workflow is part of this service.
+
+### Hidden background execution
+
+The owned task invokes the repository virtual environment's pythonw.exe, which avoids a
+console window. The Task Scheduler Hidden flag alone is not relied on to suppress windows.
+The original console task's first run exited 0; when the reported blank repository terminal
+was investigated, no matching terminal or Compliance process remained. The vanished window could
+not be conclusively attributed. A console-free task run then exited 0 with zero repository
+terminal windows observed. No terminal
+or DP/Training process was stopped. Future manual background starts already use CREATE_NO_WINDOW.
+Task exit status and durable Compliance records remain the operational diagnostics.

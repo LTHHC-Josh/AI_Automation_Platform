@@ -37,14 +37,10 @@ def schedule_due(schedule,previous,instant=None):
     instant=instant or datetime.now(timezone.utc)
     local=instant.astimezone(ZoneInfo(schedule['timezone']))
     if not schedule['enabled']: return {'sync':False,'daily':False,'weekly':False,'model':False}
-    window=schedule.get('model_window')
-    model=False
-    if window and schedule.get('resource_sharing_confirmed'):
-        value=local.strftime('%H:%M');start,end=window
-        model=start<=value<end if start<end else value>=start or value<end
+    model=schedule.get('coordination')=='shared_queue_v1'
     daily=local.strftime('%H:%M')>=schedule['daily_time'] and previous.get('daily')!=local.date().isoformat()
     week=local.strftime('%G-%V')
-    weekly=local.weekday()==schedule['weekly_day'] and previous.get('weekly')!=week
+    weekly=local.weekday()==schedule['weekly_day'] and local.strftime('%H:%M')>=schedule['daily_time'] and previous.get('weekly')!=week
     last=datetime.fromisoformat(previous['sync']) if previous.get('sync') else None
     sync=not last or (instant-last).total_seconds()>=schedule['sync_minutes']*60
     return {'sync':sync,'daily':daily,'weekly':weekly,'model':model,'date':local.date().isoformat(),'week':week}

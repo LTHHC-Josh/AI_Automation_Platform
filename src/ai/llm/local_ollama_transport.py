@@ -3,6 +3,7 @@ import json
 import os
 from typing import Any
 import requests
+from src.ai.llm.inference_queue import InferenceQueue
 
 
 class LocalOllamaTransport:
@@ -109,35 +110,41 @@ class LocalOllamaTransport:
             },
         }
 
-        try:
-            response = requests.post(
-                endpoint,
-                json=payload,
-                timeout=self.timeout,
-                allow_redirects=False,
-                proxies={"http": "", "https": ""},
-            )
+        with InferenceQueue(getattr(self, '_queue_directory', None)).request() as lease:
+            try:
+                response = requests.post(
+                    endpoint,
+                    json=payload,
+                    timeout=self.timeout,
+                    allow_redirects=False,
+                    proxies={"http": "", "https": ""},
+                )
 
-            response.raise_for_status()
+                if 400 <= response.status_code < 500:
+                    lease.complete()  # Rejected request; server returned without inference.
+                response.raise_for_status()
 
-        except requests.ConnectionError:
-            raise RuntimeError("local_model_unavailable") from None
+            except requests.ConnectionError:
+                raise RuntimeError("local_model_unavailable") from None
 
-        except requests.Timeout:
-            raise RuntimeError("local_model_request_timeout") from None
+            except requests.Timeout:
+                raise RuntimeError("local_model_request_timeout") from None
 
-        except requests.HTTPError:
-            raise RuntimeError("local_model_http_error") from None
+            except requests.HTTPError:
+                raise RuntimeError("local_model_http_error") from None
 
-        except requests.RequestException:
-            raise RuntimeError("local_model_request_failed") from None
+            except requests.RequestException:
+                raise RuntimeError("local_model_request_failed") from None
 
-        try:
-            response_payload = response.json()
-        except ValueError as ex:
-            raise RuntimeError(
-                "Ollama returned a response that was not valid JSON."
-            ) from ex
+            try:
+                response_payload = response.json()
+            except ValueError as ex:
+                raise RuntimeError(
+                    "Ollama returned a response that was not valid JSON."
+                ) from ex
+
+            if isinstance(response_payload, dict) and response_payload.get("done") is True:
+                lease.complete()
 
         if not isinstance(
             response_payload,

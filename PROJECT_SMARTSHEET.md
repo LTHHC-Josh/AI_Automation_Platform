@@ -5,11 +5,11 @@
 ## Current Smartsheet Summary
 
 Date: 2026-09-10
-Work: Program Compliance Monitor: implemented the separate CLASS pilot and retained DP continuity.
-Result: Three official DSA findings, dedicated sheet, one TEST review revision; human fields preserved. Fresh restart made no writes or model calls; backup/restore passed.
-Tests: 97 synthetic/mock regressions passed. Real official retrieval, local model/overflow, sheet revision/restart and backup/restore passed; disabled scheduler XML accepted.
-PHI: Public evidence and dedicated compliance state only. No patient documents, mailbox, DP recovery/learning or tracker writes.
-Status: Bounded coverage; inaccessible/current-rule/reference gaps remain. Recurring activation awaits model window/sharing. LT Project Tracking unchanged; read-only reconciliation only.
+Work: Program Compliance shared inference and recurring activation; DP pending work preserved.
+Result: Single-request queue verified across three local providers; DP priority with bounded background fairness. First scheduled tick exited 0.
+Tests: 279 synthetic/mock tests passed; real concurrent Ollama acceptance passed. First scheduled cycle: 8 checks, 0 failures, 2 model calls.
+PHI: Synthetic/public input only; no production DP learning/recovery, approvals or tracker writes.
+Status: Bounded source coverage; user must be logged in. Uncertain inference blocks admission until reconciled. LT Project Tracking unchanged.
 Next: Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly.
 
 ## Safety Contract

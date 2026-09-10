@@ -18,7 +18,7 @@
     {"id": "texas-register", "url": "https://www.sos.texas.gov/texreg/sos/", "publisher": "Texas Secretary of State", "type": "Register index", "scope": "CLASS / Chapter 259 proposed and adopted notices", "analyze": false}
   ],
   "limits": {"sources_per_check": 8, "analyses_per_check": 2, "seconds_per_check": 900, "discovered_sources": 250},
-  "schedule": {"enabled": false, "timezone": "America/Chicago", "daily_time": "01:00", "weekly_day": 6, "sync_minutes": 15, "model_window": null, "resource_sharing_confirmed": false},
+  "schedule": {"enabled": false, "timezone": "America/Chicago", "daily_time": "01:00", "weekly_day": 6, "sync_minutes": 15, "coordination": "shared_queue_v1"},
   "routing": {},
   "coverage_gaps": ["Exact contracts, active services and licensing scope need agency confirmation.", "Current Chapter 259 rule text and additional referenced authorities require successful retrieval and verification.", "Private contract amendments and policies are outside this public-source pilot.", "Coverage is bounded and incremental; no complete regulatory coverage or compliance certification."]
 }

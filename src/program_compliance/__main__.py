@@ -25,8 +25,6 @@ def main():
     parser.add_argument('--discover',action='store_true')
     parser.add_argument('--minutes',type=int,default=60)
     parser.add_argument('--owner')
-    parser.add_argument('--window',help='Explicit approved local-model window HH:MM-HH:MM')
-    parser.add_argument('--confirm-idle-window',action='store_true')
     parser.add_argument('--enable',action='store_true')
     args=parser.parse_args()
     config=json.loads((ROOT/'config/program_compliance/class.json').read_text(encoding='utf-8-sig'))
@@ -34,14 +32,16 @@ def main():
     store=Store(directory,readonly=args.command=='status')
     try:
         if args.command=='schedule':
-            import re
             from .deployment import install_schedule
             schedule=dict(config['schedule'])
             if args.enable:
-                if not args.window or not args.confirm_idle_window or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d-(?:[01]\d|2[0-3]):[0-5]\d',args.window): raise ValueError('explicit_window_and_sharing_confirmation_required')
-                start,end=args.window.split('-')
-                if start==end: raise ValueError('bounded_window_required')
-                schedule.update(enabled=True,model_window=[start,end],resource_sharing_confirmed=True)
+                from src.ai.llm.inference_queue import InferenceQueue
+                # Read/write initialization verifies the shared schema before activation.
+                queue=InferenceQueue()
+                with queue.connect() as db:
+                    if db.execute("SELECT COUNT(*) FROM requests WHERE state!='waiting'").fetchone()[0]:
+                        raise RuntimeError('shared_queue_not_ready_for_activation')
+                schedule.update(enabled=True,coordination='shared_queue_v1')
             # Task activation is explicit, never part of setup or bounded acceptance.
             install_schedule(ROOT,directory,schedule['enabled'])
             with store.transaction(): store.put('config','schedule',schedule)
@@ -74,7 +74,7 @@ def main():
             return
         if args.command=='tick': print(json.dumps(run_tick(store,monitor,sync)));return
         schedule=store.get('config','schedule',config['schedule'])
-        if not schedule['enabled'] or not schedule.get('model_window') or not schedule.get('resource_sharing_confirmed'): raise ValueError('activation_decision_required')
+        if not schedule['enabled'] or schedule.get('coordination')!='shared_queue_v1': raise ValueError('activation_decision_required')
         if args.command=='start':
             owner=uuid.uuid4().hex
             with OwnedLock(directory,'service'): pass

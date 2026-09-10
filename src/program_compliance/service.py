@@ -186,7 +186,7 @@ class Monitor:
                     with self.store.transaction(): self.store.put('analysis',request_key,result)
                 except Exception as error:
                     pending=True;reason='analysis validation or local model failure'
-                    transient=str(error) in ('local_model_unavailable','local_model_request_timeout','local_model_request_failed','shared_model_capacity_deferred','compliance_busy')
+                    transient=str(error) in ('local_model_unavailable','local_model_request_timeout','local_model_request_failed','local_model_queue_wait_timeout','compliance_busy')
                     attempts=(failure or {}).get('attempts',0)+1
                     retry_after=(datetime.now(timezone.utc)+timedelta(minutes=15*attempts)).isoformat() if transient and attempts<3 else None
                     with self.store.transaction(): self.store.put('analysis_failure',request_key,{'category':str(error) if transient else type(error).__name__,'metrics':self.model._last_request_metrics,'attempts':attempts,'retry_after':retry_after})

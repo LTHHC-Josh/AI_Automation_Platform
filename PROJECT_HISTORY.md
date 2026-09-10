@@ -14789,3 +14789,80 @@ the old acknowledgment cannot approve new facts. Deployment and requirements fil
 included in the reviewed scope. No DP operations or management-sheet writes occurred.
 Read-only tracker gate: Writes 0, Not Found 0, Failed 0. Protected ignore and diff checks
 passed; reviewed files only proceed to the user-authorized commit/push gate.
+
+
+## 2026-09-10 — Program Compliance Monitor / shared inference activation
+
+User amendment supersedes the idle/fixed-window condition: coexist with DP/Training through
+actual-request coordination, one inference initially, DP priority without background starvation,
+daily 01:00 Central sources, Sunday discovery and quarter-hour Smartsheet triggers.
+
+Changed shared transport admission and added src/ai/llm/inference_queue.py, a metadata-only
+SQLite queue outside service memory. Grants are cross-process and atomic; DP gets at most three
+consecutive priority grants while background work waits, then the oldest Training/Compliance
+request runs. Request ContextVars classify Training analysis/candidate calls and Compliance
+without changing prompts, schemas, validation, approvals or provider-instance state. Idle
+worker-marker admission was removed. Unknown completion and orphaned active reservations block
+further inference; dead/old process identity alone never releases active capacity. Waiting
+admission times out after 30 minutes; no model request is sent until granted. No DP learning,
+recovery or protected production records were read or mutated.
+
+Compliance runtime/config/CLI/deployment now use shared_queue_v1 instead of operating windows.
+Owned task ticks align to quarter-hours, daily 01:00 America/Chicago, Sunday discovery after
+01:00. Existing bounded-cycle and no-duplicate task behavior remain; a long tick may delay
+later triggers. Task ceiling 90 minutes accommodates admission wait plus bounded work.
+Boot/logon triggers remain absent; InteractiveToken requires the user to be logged in.
+
+Verification: 279 synthetic/mock tests passed: 12 queue (including cross-process exclusion,
+priority/fairness, idle worker independence, timeout/crash retention and caller routing),
+40 Compliance, 13 context contract and 214 affected DP/Training/continuity/tracker tests.
+Compilation passed. Real local Ollama acceptance ran three concurrently started provider
+processes using only synthetic prompts: one active inference, DP first, background arrival
+order respected; each completed with 39 input/9 output tokens. No production DP/Training
+worker was operated, and zero existing production worker processes bypassed the new code.
+An initial harness assertion mistakenly expected background launch order rather than enqueue
+order; all real responses and serialization succeeded. Corrected arrival-order assertion
+passed on the bounded rerun. No claim of a production document replay is made.
+
+Activation followed successful sharing verification and a real pre-activation backup.
+Owned Windows task LTHHC-ProgramCompliance enabled and first task-launched tick completed
+September 10 at 13:18 Central with LastTaskResult 0: eight checks, zero retrieval failures,
+two model calls, empty queue afterward. Runtime schedule confirms daily 01:00, Sunday,
+15-minute sync, shared_queue_v1. Sandbox-denied task read was retried in the approved owner
+context; no task configuration or unrelated service was altered by the failed read.
+
+DP pending correction, blocked generation 3, human fields and approvals remain intact.
+Existing source gaps and unknown contractual/active services remain human-review work.
+LT Project Tracking remains unchanged; only read-only management reconciliation is used.
+Full authoritative requirements/amendment and exact Next Service Action are in
+ docs/program_compliance_plan.md; runtime queue/recovery notes are in the operator guide.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-10",
+  "work_summary": "Program Compliance shared inference and recurring activation; DP pending work preserved.",
+  "key_result": "Single-request queue verified across three local providers; DP priority with bounded background fairness. First scheduled tick exited 0.",
+  "tests": "279 synthetic/mock tests passed; real concurrent Ollama acceptance passed. First scheduled cycle: 8 checks, 0 failures, 2 model calls.",
+  "phi_handling": "Synthetic/public input only; no production DP learning/recovery, approvals or tracker writes.",
+  "limitation_acceptance": "Bounded source coverage; user must be logged in. Uncertain inference blocks admission until reconciled. LT Project Tracking unchanged.",
+  "exact_next_start": "Route by requested service. For Document Processor, follow the preserved Document Processor Pending Action above. For Program Compliance Monitor, read docs/program_compliance_plan.md and follow its Next Service Action. Preserve the other service's state and pending work; do not start, stop, repair or resume it implicitly."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+
+Program Compliance hidden-launch follow-up: the user reported a blank repository Terminal.
+Safe process/window metadata showed no matching terminal or active Compliance process remained;
+its vanished owner could not be proven. The console-based task action was a plausible source.
+Changed only the owned task action to the existing .venv/Scripts/pythonw.exe; existing matching
+python.exe action remains accepted solely for ownership-safe migration. The Task Scheduler
+Hidden flag is retained but is not relied on for console suppression. A task-launched hidden
+run at 13:23 Central exited 0; repository terminal-window count was zero. No process was killed,
+no unrelated terminal closed, and no DP/Training operation or approval was interrupted.
+Forty affected Compliance tests and compilation passed with the hidden-action assertion.
+The guarded installer initially rejected our tracker-generated snapshot; the shell then ran
+old-code checks/launch, so this was not hidden-launch acceptance. The current derived snapshot
+was inspected and preserved, failure gates tightened, and installation/verification repeated
+successfully. Full shared continuity is preserved; latest read-only tracker gate remained
+Writes 0, Not Found 0, Failed 0. Fresh sheet reconciliation found 41 unchanged, zero creates,
+updates or blocked records. Exact service action remains the active incremental CLASS/gap
+queue in docs/program_compliance_plan.md; DP's separate pending action is unchanged.

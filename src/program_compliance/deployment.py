@@ -20,26 +20,30 @@ def schedule_xml(root,enabled=False):
     registration=child(task,'RegistrationInfo');child(registration,'Description',DESCRIPTION)
     triggers=child(task,'Triggers');trigger=child(triggers,'TimeTrigger')
     repetition=child(trigger,'Repetition');child(repetition,'Interval','PT15M');child(repetition,'StopAtDurationEnd','false')
-    child(trigger,'StartBoundary',(datetime.now(timezone.utc)+timedelta(minutes=2)).isoformat(timespec='seconds'))
+    current=datetime.now(timezone.utc)
+    boundary=current.replace(minute=(current.minute//15)*15,second=0,microsecond=0)+timedelta(minutes=15)
+    child(trigger,'StartBoundary',boundary.isoformat(timespec='seconds'))
     child(trigger,'Enabled','true')
     principal=child(child(task,'Principals'),'Principal',id='Author')
     child(principal,'UserId',getpass.getuser());child(principal,'LogonType','InteractiveToken');child(principal,'RunLevel','LeastPrivilege')
     settings=child(task,'Settings')
-    for key,value in {'MultipleInstancesPolicy':'IgnoreNew','DisallowStartIfOnBatteries':'false','StopIfGoingOnBatteries':'false','StartWhenAvailable':'true','Enabled':str(enabled).lower(),'Hidden':'true','ExecutionTimeLimit':'PT20M'}.items(): child(settings,key,value)
+    for key,value in {'MultipleInstancesPolicy':'IgnoreNew','DisallowStartIfOnBatteries':'false','StopIfGoingOnBatteries':'false','StartWhenAvailable':'true','Enabled':str(enabled).lower(),'Hidden':'true','ExecutionTimeLimit':'PT90M'}.items(): child(settings,key,value)
     execution=child(child(task,'Actions',Context='Author'),'Exec')
-    child(execution,'Command',str(Path(root)/'.venv/Scripts/python.exe'))
+    child(execution,'Command',str(Path(root)/'.venv/Scripts/pythonw.exe'))
     child(execution,'Arguments','-m src.program_compliance tick');child(execution,'WorkingDirectory',str(root))
     return ET.tostring(task,encoding='unicode')
 
 
 def install_schedule(root,directory,enabled):
+    if not (Path(root)/'.venv/Scripts/pythonw.exe').is_file():
+        raise RuntimeError('hidden_python_runtime_unavailable')
     query=subprocess.run(['schtasks.exe','/Query','/TN',TASK_NAME,'/XML'],capture_output=True)
     exists=query.returncode==0
     if exists:
         try:
             old=ET.fromstring(query.stdout.decode('utf-16') if query.stdout.startswith(b'\xff\xfe') else query.stdout.decode('utf-8-sig'))
             get=lambda name: old.find('.//{'+NS+'}'+name)
-            if get('Description') is None or get('Description').text!=DESCRIPTION or get('Arguments').text!='-m src.program_compliance tick' or Path(get('Command').text)!=Path(root)/'.venv/Scripts/python.exe': raise ValueError()
+            if get('Description') is None or get('Description').text!=DESCRIPTION or get('Arguments').text!='-m src.program_compliance tick' or Path(get('Command').text) not in (Path(root)/'.venv/Scripts/python.exe',Path(root)/'.venv/Scripts/pythonw.exe'): raise ValueError()
         except Exception: raise RuntimeError('scheduled_task_ownership_unproven') from None
     elif not enabled:
         return
