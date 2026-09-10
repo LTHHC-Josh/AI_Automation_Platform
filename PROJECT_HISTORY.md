@@ -14579,3 +14579,50 @@ the note was inserted at this verified checkpoint boundary instead.
   "exact_next_start": "Refresh affected source registration, then run one reserved contract-6 recovery of the existing blocked correction case using cached OCR and complete local-model context. Preserve human controls, comments, review snapshot and row/document until fresh correction approval. Verify requested filename evidence and concise proposal, then prove unchanged-cycle idempotency. Do not blindly repeat a failed replay. Resume authorized DP polling after exclusive maintenance; Training remains stopped until needed."
 }
 PROJECT_SMARTSHEET_CHECKPOINT_END -->
+
+## 2026-09-10 - Complete-input source registration and enforced acceptance boundary
+
+Source fix committed/pushed as 8fee328cb52025dfc5b19796583e4653b4dd7261;
+local/remote divergence 0/0 and clean tree. All four existing Prefect registrations
+refreshed using the repo CLI. Readback reports version 8fee328c (the CLI's shortened
+commit form), empty schedules/parameters, and concurrency 1/CANCEL_NEW on manual,
+live and Training deployments. Status confirms zero fresh workers and active runs,
+DP/Training stopped and PostgreSQL/control room reachable. No flow invoked.
+
+The scoped recovery helper first stopped before model/case access because its
+version check expected a full SHA. Correcting it to the verified CLI representation
+passed registration checks. The next preflight stopped at the existing frozen
+Training-capability gate; the helper was aligned with the wrapper's protected
+configuration fingerprint without changing that configuration. Both stops were
+pre-inference and pre-recovery reservation. Windows PowerShell status initially
+needed its repo-supported process-only ExecutionPolicy argument; no global policy
+changed. A wildcard text search was corrected by reading the known wrapper.
+
+Automatic safety review then denied the actual scoped recovery command because
+earlier trusted task instructions prohibited live production operations. The denial
+was not bypassed. Explicit approval is needed for local cached-document inference
+and proposal-only publication; actual correction/upload still requires fresh human
+approval. No protected model replay, proposal write or source/row/document change
+occurred. The read-only owner-context state check confirms one matching case:
+blocked, generation 2, preparation contract 5, no plan, no reserved new recovery,
+no Training-operation lock. Sandbox-context decryption could not read the sealed
+state; owner-context read-only execution succeeded without network calls or writes.
+
+Final checkpoint: tracker Updated 1, Unchanged 37, Not Found 0, Failed 0;
+continuity migration and tracker reconciliation reruns passed. Completed temporary
+inspection/probe/test helpers were removed; the value-free scoped recovery helper
+remains outside Git for the explicit approval boundary. Retained encrypted evidence
+was preserved. This continuity-only checkpoint does not change registered executable
+source. Diff checks and reviewed file scope passed.
+
+<!-- PROJECT_SMARTSHEET_CHECKPOINT_START
+{
+  "date": "2026-09-10",
+  "work_summary": "Committed the complete-input Ollama fix and refreshed all four Prefect registrations.",
+  "key_result": "Registered source 8fee328; no worker/run conflicts. Existing blocked case and human state preserved; no recovery consumed.",
+  "tests": "273 synthetic/mock checks passed; local synthetic context probes passed. Registration and read-only durable-state checks passed.",
+  "phi_handling": "No protected replay, production correction/upload, mailbox access or human-state mutation. Tracker only received safe metadata.",
+  "limitation_acceptance": "Automatic safety review denied live recovery under earlier prohibitions. Explicit scoped approval required; DP/Training stopped.",
+  "exact_next_start": "Obtain explicit approval for one scoped cached-document/local-Ollama recovery and verified proposal-only Smartsheet publication after the automatic safety-review denial. Then run the reserved contract-6 recovery on the same existing case, preserving human controls, comments, review snapshot and row/document until fresh correction approval. Verify filename evidence, concise proposal and unchanged-cycle idempotency. Do not blindly repeat a failed replay. DP and Training remain stopped during this acceptance boundary."
+}
+PROJECT_SMARTSHEET_CHECKPOINT_END -->

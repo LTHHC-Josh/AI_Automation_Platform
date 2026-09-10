@@ -449,8 +449,13 @@ Operator commands remain:
   evidence. Explicit 8K-context/no-truncate/no-shift protection passed 273 unique
   synthetic/mock regressions and real local synthetic overflow/success probes.
   The server rejected oversized input and reported 8192 runtime context for the
-  successful probe. No protected replay or production correction has yet run
-  under contract 6. The same blocked case remains the controlled acceptance target.
+  successful probe. Source fix 8fee328 is pushed and all four Prefect deployments
+  are refreshed to its executable source with no schedules, concurrency one /
+  CANCEL_NEW on document deployments, no active runs or fresh workers. No protected
+  replay or production correction has run under contract 6: automatic safety review
+  denied the scoped live recovery pending explicit approval after earlier live-write
+  prohibitions. Read-only verification proves the original blocked generation 2,
+  contract 5, no plan, no recovery receipt and no Training operation lock remain.
 
 - One reserved diagnostic-only cached-source replay completed with three local
   model requests (classification and two independent extraction attempts).
@@ -661,4 +666,4 @@ Operator commands remain:
 
 ## CURRENT NEXT START
 
-Refresh affected source registration, then run one reserved contract-6 recovery of the existing blocked correction case using cached OCR and complete local-model context. Preserve human controls, comments, review snapshot and row/document until fresh correction approval. Verify requested filename evidence and concise proposal, then prove unchanged-cycle idempotency. Do not blindly repeat a failed replay. Resume authorized DP polling after exclusive maintenance; Training remains stopped until needed.
+Obtain explicit approval for one scoped cached-document/local-Ollama recovery and verified proposal-only Smartsheet publication after the automatic safety-review denial. Then run the reserved contract-6 recovery on the same existing case, preserving human controls, comments, review snapshot and row/document until fresh correction approval. Verify filename evidence, concise proposal and unchanged-cycle idempotency. Do not blindly repeat a failed replay. DP and Training remain stopped during this acceptance boundary.
